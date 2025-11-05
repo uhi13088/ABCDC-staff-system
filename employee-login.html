@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>직원 로그인 - 맛남살롱</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary-color: #8b7355; 
+      --primary-dark: #6b5d4f; 
+      --bg-light: #f5f1e8; 
+      --bg-white: #fdfcfa;
+      --text-primary: #6b5d4f; 
+      --text-secondary: #9b8a76; 
+      --border-color: #e8dfd0; 
+      --border-radius: 8px;
+      --shadow-sm: 0 2px 8px rgba(107, 93, 79, 0.08); 
+      --shadow-md: 0 4px 12px rgba(107, 93, 79, 0.12);
+      --spacing-xs: 6px; 
+      --spacing-sm: 12px; 
+      --spacing-md: 16px; 
+      --spacing-lg: 24px; 
+      --spacing-xl: 32px;
+    }
+    
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; 
+      background: var(--bg-light); 
+      color: var(--text-primary); 
+    }
+
+    .login-container {
+      max-width: 450px;
+      margin: 80px auto;
+      padding: var(--spacing-xl);
+    }
+
+    .login-card {
+      background: var(--bg-white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      padding: 48px 40px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .login-emoji {
+      text-align: center;
+      font-size: 64px;
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .login-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .login-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border-color);
+      border-radius: var(--border-radius);
+      font-size: 15px;
+      transition: all 0.2s;
+      background: var(--bg-white);
+      color: var(--text-primary);
+    }
+
+    .form-group input:focus {
+      border-color: var(--primary-color);
+      outline: none;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary-color);
+      color: var(--bg-white);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-large {
+      padding: 16px 32px;
+      font-size: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .login-container {
+        margin: 40px auto;
+        padding: var(--spacing-md);
+      }
+      .login-card {
+        padding: 32px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-emoji">👔</div>
+      <h1 class="login-title">직원 로그인</h1>
+      <p class="login-subtitle">아이디와 비밀번호를 입력하세요</p>
+      
+      <div class="form-group">
+        <label for="employeeId">아이디 (이메일)</label>
+        <input type="email" id="employeeId" placeholder="example@matnam.com" autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <label for="employeePassword">비밀번호</label>
+        <input type="password" id="employeePassword" placeholder="비밀번호를 입력하세요" autocomplete="current-password" onkeypress="if(event.key==='Enter') handleLogin()">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 24px;">
+        <label style="display: flex; align-items: center; cursor: pointer; font-weight: normal;">
+          <input type="checkbox" id="rememberMe" style="width: auto; margin-right: 8px; cursor: pointer;">
+          <span style="font-size: 14px; color: var(--text-secondary);">아이디/비밀번호 기억하기</span>
+        </label>
+      </div>
+
+      <button class="btn btn-primary btn-large" style="width: 100%;" onclick="handleLogin()">
+        로그인
+      </button>
+      
+      <div class="register-link" style="margin-top: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-light); border-radius: var(--border-radius); text-align: center;">
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: var(--spacing-sm);">아직 계정이 없으신가요?</p>
+        <a href="employee-register.html" class="btn btn-primary" style="display: inline-block; text-decoration: none;">🆕 직원 가입하기</a>
+      </div>
+
+      <div style="text-align: center; margin-top: var(--spacing-lg);">
+        <a href="index.html" style="color: var(--text-secondary); font-size: 14px; text-decoration: none;">← 메인으로 돌아가기</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    console.log('✅ 직원 로그인 페이지 로드');
+
+    // Firebase 초기화
+    const firebaseConfig = {
+      apiKey: "AIzaSyCr3Tq2T7oy5rVlK1c33m_G0TlUWv0-g3k",
+      authDomain: "abcdc-staff-system.firebaseapp.com",
+      projectId: "abcdc-staff-system",
+      storageBucket: "abcdc-staff-system.firebasestorage.app",
+      messagingSenderId: "442207878284",
+      appId: "1:442207878284:web:49b157573851b124d28fa9"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // 페이지 로드 시 저장된 정보 불러오기
+    window.addEventListener('DOMContentLoaded', function() {
+      const savedEmail = localStorage.getItem('employee_saved_email');
+      const savedPassword = localStorage.getItem('employee_saved_password');
+      
+      if (savedEmail && savedPassword) {
+        document.getElementById('employeeId').value = savedEmail;
+        document.getElementById('employeePassword').value = savedPassword;
+        document.getElementById('rememberMe').checked = true;
+      }
+    });
+
+    async function handleLogin() {
+      const email = document.getElementById('employeeId').value.trim();
+      const password = document.getElementById('employeePassword').value;
+      const rememberMe = document.getElementById('rememberMe').checked;
+      
+      if (!email || !password) {
+        alert('⚠️ 아이디와 비밀번호를 모두 입력해주세요.');
+        return;
+      }
+      
+      try {
+        // Firebase 인증
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // Firestore에서 사용자 정보 확인
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          
+          // 직원 권한 확인 (admin, manager가 아닌 경우만 허용)
+          if (userData.role === 'admin' || userData.role === 'manager') {
+            alert('❌ 관리자 계정은 관리자 로그인 페이지를 이용해주세요.');
+            await auth.signOut();
+            return;
+          }
+          
+          // 가입 승인 상태 확인
+          const status = userData.status || 'pending';
+          
+          if (status === 'pending') {
+            alert('⏳ 관리자의 승인을 기다리고 있습니다.\n승인 후 로그인이 가능합니다.');
+            await auth.signOut();
+            return;
+          }
+          
+          if (status === 'rejected') {
+            alert('❌ 가입이 거부되었습니다.\n관리자에게 문의하세요.');
+            await auth.signOut();
+            return;
+          }
+          
+          // status === 'approved'인 경우만 로그인 허용
+          
+          // 기억하기 체크 시 저장, 아니면 삭제
+          if (rememberMe) {
+            localStorage.setItem('employee_saved_email', email);
+            localStorage.setItem('employee_saved_password', password);
+          } else {
+            localStorage.removeItem('employee_saved_email');
+            localStorage.removeItem('employee_saved_password');
+          }
+          
+          // 세션에 정보 저장
+          sessionStorage.setItem('employee_email', email);
+          sessionStorage.setItem('employee_name', userData.name || '직원');
+          sessionStorage.setItem('employee_uid', user.uid);
+          sessionStorage.setItem('employee_authenticated', 'true');
+          
+          console.log('✅ 직원 로그인 성공:', userData.name);
+          window.location.href = 'employee.html';
+        } else {
+          // Firestore에 사용자 정보가 없는 경우 (관리자가 삭제함)
+          console.log('⚠️ Firestore에 사용자 정보가 없습니다. Firebase Auth 계정 삭제 시도...');
+          
+          try {
+            // Firebase Authentication 계정 삭제
+            await user.delete();
+            console.log('✅ Firebase Auth 계정 자동 삭제 완료');
+            alert('❌ 관리자에 의해 계정이 삭제되었습니다.\nFirebase 인증 계정도 자동으로 삭제되었습니다.');
+          } catch (deleteError) {
+            console.error('❌ Firebase Auth 계정 삭제 실패:', deleteError);
+            alert('❌ 관리자에 의해 계정이 삭제되었습니다.');
+            await auth.signOut();
+          }
+        }
+      } catch (error) {
+        console.error('❌ 로그인 오류:', error);
+        
+        let errorMessage = '로그인에 실패했습니다.';
+        if (error.code === 'auth/user-not-found') {
+          errorMessage = '등록되지 않은 이메일입니다.';
+        } else if (error.code === 'auth/wrong-password') {
+          errorMessage = '비밀번호가 올바르지 않습니다.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = '올바른 이메일 형식이 아닙니다.';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorMessage = '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+        }
+        
+        alert('❌ ' + errorMessage);
+      }
+    }
+  </script>
+</body>
+</html>

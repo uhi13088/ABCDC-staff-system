@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>직원용 페이지 - 맛남살롱 근무관리</title>
+  <link rel="stylesheet" href="css/common.css">
+  <style>
+    body {
+      background: var(--bg-light);
+    }
+
+    /* 상단 바 */
+    .top-bar {
+      background: var(--bg-white);
+      padding: var(--spacing-lg);
+      box-shadow: var(--shadow-sm);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+    }
+
+    .user-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .user-store {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* 퀵 액션 카드 */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .quick-action-card {
+      background: var(--bg-white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      padding: var(--spacing-xl);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .quick-action-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--primary-color);
+    }
+
+    .quick-action-icon {
+      font-size: 48px;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .quick-action-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .quick-action-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* 현재 상태 */
+    .current-status {
+      background: var(--primary-color);
+      color: var(--bg-white);
+      padding: var(--spacing-xl);
+      border-radius: var(--border-radius);
+      margin-bottom: var(--spacing-xl);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .status-title {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .status-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .status-time {
+      font-size: 16px;
+      opacity: 0.95;
+    }
+
+    /* 탭 네비게이션 */
+    .tabs {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-lg);
+      border-bottom: 2px solid var(--border-color);
+      overflow-x: auto;
+    }
+
+    .tab {
+      padding: var(--spacing-md) var(--spacing-lg);
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+    }
+
+    .tab:hover:not(.active) {
+      color: var(--text-primary);
+    }
+
+    /* 탭 컨텐츠 */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    /* 테이블 스타일 개선 */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    /* 필터 영역 */
+    .filters {
+      display: flex;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-lg);
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      flex: 1;
+      min-width: 150px;
+    }
+
+    /* 로그인 화면 */
+    .login-container {
+      max-width: 450px;
+      margin: 80px auto;
+      padding: var(--spacing-xl);
+    }
+
+    .login-card {
+      background: var(--bg-white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      padding: 48px 40px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .login-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .login-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .login-emoji {
+      text-align: center;
+      font-size: 64px;
+      margin-bottom: var(--spacing-lg);
+    }
+
+    /* 반응형 */
+    @media (max-width: 768px) {
+      .quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .top-bar {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 메인 화면 -->
+  <div id="mainScreen">
+    <!-- 상단 바 -->
+    <div class="top-bar">
+      <div class="user-info">
+        <div>
+          <div class="user-name" id="displayName">로딩 중...</div>
+          <div class="user-store" id="displayStore">로딩 중...</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="handleLogout()">로그아웃</button>
+    </div>
+
+    <div class="container">
+      <!-- 현재 상태 -->
+      <div class="current-status" id="currentStatus">
+        <div class="status-title">현재 상태</div>
+        <div class="status-value" id="statusValue">퇴근 전</div>
+        <div class="status-time" id="statusTime">좋은 하루 되세요!</div>
+      </div>
+
+      <!-- 공지사항 -->
+      <div class="notice-section" id="noticeSection" style="display: none;">
+        <!-- 중요 공지사항 영역 (빨간색 강조) -->
+        <div id="importantNoticeArea" style="display: none;">
+          <div class="card" style="background: linear-gradient(135deg, #fee2e2 0%, #fff5f5 100%); border-left: 4px solid #ef4444; margin-bottom: var(--spacing-lg);">
+            <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+              <h3 style="display: flex; align-items: center; gap: 8px; color: #dc2626;">
+                ⭐ 중요 공지사항
+              </h3>
+            </div>
+            <div class="card-body" style="padding-top: var(--spacing-sm);">
+              <div id="importantNoticeList"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 일반 공지사항 영역 -->
+        <div id="normalNoticeArea" style="display: none;">
+          <div class="card" style="background: linear-gradient(135deg, #fff8e1 0%, #fff 100%); border-left: 4px solid var(--primary-color);">
+            <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+              <h3 style="display: flex; align-items: center; gap: 8px;">
+                📢 공지사항
+              </h3>
+            </div>
+            <div class="card-body" style="padding-top: var(--spacing-sm);">
+              <div id="normalNoticeList"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 공지사항 없을 때 -->
+        <div id="noNoticeMessage" style="display: none;">
+          <div class="card" style="background: linear-gradient(135deg, #f5f5f5 0%, #fff 100%);">
+            <div class="card-body" style="text-align: center; padding: var(--spacing-xl);">
+              <div style="font-size: 48px; margin-bottom: var(--spacing-md);">📭</div>
+              <p style="color: var(--text-secondary); margin: 0;">현재 등록된 공지사항이 없습니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 퀵 액션 -->
+      <div class="quick-actions">
+        <div class="quick-action-card" onclick="showClockIn()">
+          <div class="quick-action-icon">🟢</div>
+          <div class="quick-action-title">출근하기</div>
+          <div class="quick-action-desc">근무 시작을 기록합니다</div>
+        </div>
+
+        <div class="quick-action-card" onclick="showClockOut()">
+          <div class="quick-action-icon">🔴</div>
+          <div class="quick-action-title">퇴근하기</div>
+          <div class="quick-action-desc">근무 종료를 기록합니다</div>
+        </div>
+
+        <div class="quick-action-card" onclick="showTab('attendance')">
+          <div class="quick-action-icon">📋</div>
+          <div class="quick-action-title">근무내역</div>
+          <div class="quick-action-desc">나의 근무기록 조회</div>
+        </div>
+
+        <div class="quick-action-card" onclick="showTab('salary')">
+          <div class="quick-action-icon">💰</div>
+          <div class="quick-action-title">급여조회</div>
+          <div class="quick-action-desc">월별 급여 확인</div>
+        </div>
+      </div>
+
+      <!-- 탭 네비게이션 -->
+      <div class="tabs">
+        <button class="tab active" data-tab="attendance" onclick="showTab('attendance')">📋 근무내역</button>
+        <button class="tab" data-tab="salary" onclick="showTab('salary')">💰 급여조회</button>
+        <button class="tab" data-tab="approvals" onclick="showTab('approvals')">✔️ 문서승인</button>
+        <button class="tab" data-tab="contract" onclick="showTab('contract')">📝 계약서</button>
+      </div>
+
+      <!-- 탭 컨텐츠: 근무내역 -->
+      <div id="tabAttendance" class="tab-content active">
+        <div class="card">
+          <div class="card-header">
+            <h3>📋 근무내역</h3>
+          </div>
+
+          <!-- 필터 -->
+          <div class="filters">
+            <div class="filter-group">
+              <label>조회 월</label>
+              <input type="month" id="filterMonth" value="">
+            </div>
+            <div class="filter-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="loadAttendance()">조회</button>
+            </div>
+          </div>
+
+          <!-- 테이블 -->
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>날짜</th>
+                  <th>근무타입</th>
+                  <th>출근시간</th>
+                  <th>퇴근시간</th>
+                  <th>근무시간</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceTableBody">
+                <tr>
+                  <td colspan="6" class="empty-state">데이터를 불러오는 중...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 급여조회 -->
+      <div id="tabSalary" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>💰 급여조회</h3>
+          </div>
+
+          <!-- 필터 -->
+          <div class="filters">
+            <div class="filter-group">
+              <label>조회 월</label>
+              <input type="month" id="salaryFilterMonth" value="">
+            </div>
+            <div class="filter-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="loadSalary()">조회</button>
+            </div>
+          </div>
+
+          <!-- 급여 요약 -->
+          <div id="salaryContent">
+            <div class="alert alert-info">
+              조회할 월을 선택하고 조회 버튼을 클릭하세요.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 문서 승인 -->
+      <div id="tabApprovals" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>✔️ 문서 승인 신청</h3>
+            <div style="display: flex; gap: var(--spacing-sm);">
+              <button class="btn btn-primary btn-sm" onclick="showPurchaseRequestModal()">💳 구매 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showDisposalRequestModal()">🗑️ 폐기 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showResignationRequestModal()">📄 퇴직서 신청</button>
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <table>
+              <thead>
+                <tr>
+                  <th>유형</th>
+                  <th>제목/내용</th>
+                  <th>신청일</th>
+                  <th>상태</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="myApprovalsTableBody">
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    신청 내역을 불러오는 중...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 계약서 -->
+      <div id="tabContract" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>📝 근로계약서</h3>
+          </div>
+
+          <div id="contractContent">
+            <div class="alert alert-info">
+              계약서 정보를 불러오는 중...
+            </div>
+          </div>
+        </div>
+
+        <!-- 통장사본 정보 -->
+        <div class="card" style="margin-top: var(--spacing-lg);">
+          <div class="card-header">
+            <h3>🏦 통장사본</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bankName">은행명</label>
+                <input type="text" id="bankName" placeholder="예: 국민은행">
+              </div>
+              <div class="form-group">
+                <label for="accountNumber">계좌번호</label>
+                <input type="text" id="accountNumber" placeholder="예: 123456-01-123456">
+              </div>
+              <div class="form-group">
+                <label for="accountHolder">예금주</label>
+                <input type="text" id="accountHolder" placeholder="예: 홍길동">
+              </div>
+            </div>
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+              <button class="btn btn-primary" onclick="saveBankAccount()">💾 저장</button>
+              <span id="bankSaveStatus" style="display: inline-flex; align-items: center; color: var(--success-color); font-size: 14px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 보건증 정보 -->
+        <div class="card" style="margin-top: var(--spacing-lg);">
+          <div class="card-header">
+            <h3>🩺 보건증</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="healthCertImage">보건증 이미지</label>
+              <input type="file" id="healthCertImage" accept="image/*" onchange="previewHealthCert(event)">
+              <small style="color: var(--text-secondary); display: block; margin-top: 4px;">
+                📌 JPG, PNG 형식 (자동으로 저용량 압축됩니다)
+              </small>
+            </div>
+
+            <!-- 이미지 미리보기 -->
+            <div id="healthCertPreview" style="display: none; margin-top: var(--spacing-md);">
+              <label>미리보기</label>
+              <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); background: var(--bg-light);">
+                <img id="healthCertImg" style="max-width: 100%; max-height: 300px; display: block; margin: 0 auto;">
+                <p id="imageSizeInfo" style="text-align: center; margin-top: var(--spacing-xs); font-size: 12px; color: var(--text-secondary);"></p>
+              </div>
+            </div>
+
+            <div class="form-row" style="margin-top: var(--spacing-lg);">
+              <div class="form-group">
+                <label for="healthCertYear">유효기간 (년)</label>
+                <select id="healthCertYear">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="healthCertMonth">유효기간 (월)</label>
+                <select id="healthCertMonth">
+                  <option value="">선택</option>
+                  <option value="01">1월</option>
+                  <option value="02">2월</option>
+                  <option value="03">3월</option>
+                  <option value="04">4월</option>
+                  <option value="05">5월</option>
+                  <option value="06">6월</option>
+                  <option value="07">7월</option>
+                  <option value="08">8월</option>
+                  <option value="09">9월</option>
+                  <option value="10">10월</option>
+                  <option value="11">11월</option>
+                  <option value="12">12월</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="healthCertDay">유효기간 (일)</label>
+                <select id="healthCertDay">
+                  <option value="">선택</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+              <button class="btn btn-primary" onclick="saveHealthCert()">💾 저장</button>
+              <span id="healthSaveStatus" style="display: inline-flex; align-items: center; color: var(--success-color); font-size: 14px;"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 구매 신청 모달 -->
+  <div id="purchaseRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>💳 구매 신청</h3>
+        <button class="modal-close" onclick="closePurchaseRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="purchaseItems">
+          <div class="purchase-item" data-index="0">
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
+                <label>구매 물품 <span style="color: var(--danger-color);">*</span></label>
+                <input type="text" class="purchase-item-name" placeholder="예: 커피원두">
+              </div>
+              <div class="form-group">
+                <label>구매처 <span style="color: var(--danger-color);">*</span></label>
+                <input type="text" class="purchase-item-vendor" placeholder="예: ABC 무역">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>구매 금액 (원) <span style="color: var(--danger-color);">*</span></label>
+                <input type="number" class="purchase-item-price" placeholder="50000" min="0">
+              </div>
+              <div class="form-group">
+                <label>수량 <span style="color: var(--danger-color);">*</span></label>
+                <input type="number" class="purchase-item-quantity" placeholder="10" min="1" value="1">
+              </div>
+            </div>
+            <hr style="margin: var(--spacing-md) 0; border: none; border-top: 1px dashed var(--border-color);">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="addPurchaseItem()" style="margin-top: var(--spacing-sm);">+ 항목 추가</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePurchaseRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitPurchaseRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 폐기 신청 모달 -->
+  <div id="disposalRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🗑️ 폐기 신청</h3>
+        <button class="modal-close" onclick="closeDisposalRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>폐기 카테고리 <span style="color: var(--danger-color);">*</span></label>
+          <select id="disposalCategory">
+            <option value="">선택하세요</option>
+            <option value="케이크">케이크</option>
+            <option value="음료">음료</option>
+            <option value="식자재">식자재</option>
+            <option value="도구">도구</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>상세 내용 <span style="color: var(--danger-color);">*</span></label>
+          <textarea id="disposalDetails" rows="5" placeholder="폐기할 물품과 사유를 상세히 작성해주세요.&#10;&#10;예시:&#10;- 티라미수 케이크 3개: 유통기한 경과 (2024-01-15)&#10;- 아메리카노 원두 500g: 보관 상태 불량&#10;- 비고: 냉장고 온도 이상으로 인한 변질"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDisposalRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitDisposalRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 퇴직서 신청 모달 -->
+  <div id="resignationRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📄 퇴직서 신청</h3>
+        <button class="modal-close" onclick="closeResignationRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>성함 <span style="color: var(--danger-color);">*</span></label>
+          <input type="text" id="resignationName" readonly>
+        </div>
+        <div class="form-group">
+          <label>희망 퇴직일자 <span style="color: var(--danger-color);">*</span></label>
+          <div style="display: flex; gap: var(--spacing-sm);">
+            <select id="resignationYear" style="flex: 1;">
+              <option value="">년</option>
+            </select>
+            <select id="resignationMonth" style="flex: 1;">
+              <option value="">월</option>
+              <option value="01">1월</option>
+              <option value="02">2월</option>
+              <option value="03">3월</option>
+              <option value="04">4월</option>
+              <option value="05">5월</option>
+              <option value="06">6월</option>
+              <option value="07">7월</option>
+              <option value="08">8월</option>
+              <option value="09">9월</option>
+              <option value="10">10월</option>
+              <option value="11">11월</option>
+              <option value="12">12월</option>
+            </select>
+            <select id="resignationDay" style="flex: 1;">
+              <option value="">일</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>퇴직 사유</label>
+          <textarea id="resignationReason" rows="3" placeholder="개인사정">개인사정</textarea>
+        </div>
+        <div class="form-group">
+          <label>직원 서명 <span style="color: var(--danger-color);">*</span></label>
+          <div style="border: 2px dashed var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); text-align: center;">
+            <canvas id="resignationSignaturePad" style="border: 1px solid var(--border-color); border-radius: var(--border-radius); cursor: crosshair; max-width: 100%;"></canvas>
+            <div style="margin-top: var(--spacing-sm);">
+              <button class="btn btn-secondary btn-sm" onclick="clearResignationSignature()">지우기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeResignationRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitResignationRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <!-- HTML2PDF 라이브러리 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- JavaScript -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/employee.js"></script>
+  <script src="js/employee-contract-modal.js"></script>
+</body>
+</html>
