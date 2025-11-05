@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firebase.log
+
+# Wrangler & Cloudflare
+.wrangler/
+.dev.vars
+wrangler.toml.backup
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+server.log
+
+# PM2
+.pm2/
+pids/
+*.pid
+*.seed
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build outputs
+dist/
+build/
+.cache/
+
+# Package manager
+package-lock.json.backup
+yarn.lock.backup

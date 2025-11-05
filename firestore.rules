@@ -1,0 +1,192 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===================================================================
+    // 맛남살롱 근무관리 시스템 - Firestore Security Rules
+    // 더미 데이터 없음, 실제 Firestore 기반
+    // ===================================================================
+    
+    // users 컬렉션: 본인 데이터 읽기/쓰기, 관리자는 모든 직원 정보 읽기
+    match /users/{userId} {
+      // 본인 데이터 읽기: 인증된 사용자는 자신의 문서를 읽을 수 있음
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // 다른 사용자 데이터 읽기: 관리자만 가능
+      allow read: if request.auth != null && 
+                     request.auth.uid != userId && 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // 본인 데이터 쓰기: 본인만 가능
+      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // 신규 가입: 인증된 사용자는 자신의 문서 생성 가능
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // attendance 컬렉션: 출퇴근 기록
+    match /attendance/{attendanceId} {
+      // 읽기: 인증된 모든 사용자 (본인 데이터 필터링은 앱에서 처리)
+      allow read: if request.auth != null;
+      
+      // 생성: 본인의 출퇴근 기록만 생성 가능
+      allow create: if request.auth != null && 
+                       request.resource.data.uid == request.auth.uid;
+      
+      // 수정: 본인의 출퇴근 기록이거나 관리자
+      allow update: if request.auth != null && 
+                       (resource.data.uid == request.auth.uid || 
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 삭제: 관리자만 가능
+      allow delete: if request.auth != null && 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // contracts 컬렉션: 계약서
+    match /contracts/{contractId} {
+      // 읽기: 모든 인증된 사용자 (필터링은 클라이언트에서 처리)
+      // 직원은 자신의 이름과 생년월일로 필터링
+      // 관리자는 모든 계약서 조회 가능
+      allow read: if request.auth != null;
+      
+      // 쓰기: 관리자만 가능
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // savedContracts 컬렉션: 임시 저장된 계약서 (작성 중)
+    match /savedContracts/{contractId} {
+      // 읽기: 본인이 작성한 계약서만 읽기 가능
+      allow read: if request.auth != null && 
+                     resource.data.createdBy == request.auth.uid;
+      
+      // 생성: 인증된 사용자가 자신의 문서 생성
+      allow create: if request.auth != null && 
+                       request.resource.data.createdBy == request.auth.uid;
+      
+      // 수정/삭제: 본인이 작성한 계약서만 가능
+      allow update, delete: if request.auth != null && 
+                               resource.data.createdBy == request.auth.uid;
+    }
+    
+    // signedContracts 컬렉션: 서명된 계약서
+    match /signedContracts/{contractId} {
+      // 읽기: 모든 인증된 사용자
+      allow read: if request.auth != null;
+      
+      // 생성: 인증된 사용자 (직원이 서명 생성)
+      allow create: if request.auth != null;
+      
+      // 수정/삭제: 관리자만
+      allow update, delete: if request.auth != null && 
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // employee_docs 컬렉션: 직원 서류 (통장사본, 보건증)
+    match /employee_docs/{docId} {
+      // 읽기: 본인의 서류이거나 관리자
+      allow read: if request.auth != null && 
+                     (docId == request.auth.uid || 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 쓰기: 본인의 서류이거나 관리자
+      allow write: if request.auth != null && 
+                      (docId == request.auth.uid || 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // notices 컬렉션: 공지사항
+    match /notices/{noticeId} {
+      // 읽기: 모든 인증된 사용자
+      allow read: if request.auth != null;
+      
+      // 쓰기: 관리자만
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // stores 컬렉션: 매장 정보
+    match /stores/{storeId} {
+      // 읽기: 모든 인증된 사용자
+      allow read: if request.auth != null;
+      
+      // 쓰기: 관리자만
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // companies 컬렉션: 회사 정보 (사업자 정보)
+    match /companies/{companyId} {
+      // 읽기: 모든 인증된 사용자
+      allow read: if request.auth != null;
+      
+      // 쓰기: 관리자만
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // savedContracts 컬렉션: 임시 저장된 계약서 (작성 중)
+    match /savedContracts/{contractId} {
+      // 읽기: 본인이 작성한 계약서만 읽기 가능
+      allow read: if request.auth != null && 
+                     resource.data.createdBy == request.auth.uid;
+      
+      // 생성: 인증된 사용자가 자신의 문서 생성
+      allow create: if request.auth != null && 
+                       request.resource.data.createdBy == request.auth.uid;
+      
+      // 수정/삭제: 본인이 작성한 계약서만 가능
+      allow update, delete: if request.auth != null && 
+                               resource.data.createdBy == request.auth.uid;
+    }
+    
+    // employees 컬렉션: 직원 목록 (관리자용)
+    match /employees/{employeeId} {
+      // 읽기: 모든 인증된 사용자
+      allow read: if request.auth != null;
+      
+      // 생성: 회원가입 시 본인 정보 생성 가능
+      allow create: if request.auth != null && request.auth.uid == employeeId;
+      
+      // 수정/삭제: 관리자만 가능
+      allow update, delete: if request.auth != null && 
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // approvals 컬렉션: 문서 승인 (구매/폐기/퇴직서)
+    match /approvals/{approvalId} {
+      // 읽기: 본인이 신청한 문서이거나 관리자
+      allow read: if request.auth != null && 
+                     (resource.data.applicantUid == request.auth.uid || 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 생성: 인증된 사용자가 본인 UID로 신청
+      allow create: if request.auth != null && 
+                       request.resource.data.applicantUid == request.auth.uid;
+      
+      // 수정/삭제: 관리자만 가능
+      allow update, delete: if request.auth != null && 
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // salaries 컬렉션: 급여 정보
+    match /salaries/{salaryId} {
+      // 읽기: 본인의 급여이거나 관리자
+      allow read: if request.auth != null && 
+                     (resource.data.employeeUid == request.auth.uid || 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 생성/수정/삭제: 관리자만 가능
+      allow create, update, delete: if request.auth != null && 
+                                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // 기타 모든 컬렉션: 관리자만 접근
+    match /{document=**} {
+      allow read, write: if request.auth != null && 
+                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
