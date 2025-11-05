@@ -1,4 +1,10 @@
 {
+  "name": "abcdc-staff-system",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'No build step required for static site'",
+    "serve": "http-server . -p 8080"
+  },
   "devDependencies": {
     "firebase-tools": "^14.23.0",
     "http-server": "^14.1.1"
