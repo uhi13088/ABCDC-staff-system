@@ -5085,7 +5085,43 @@
       document.getElementById('previewWageType').textContent = document.getElementById('wageType').value || '_______';
       const wageAmount = document.getElementById('wageAmount').value;
       document.getElementById('previewWageAmount').textContent = wageAmount ? Number(wageAmount).toLocaleString() : '_______';
-      document.getElementById('previewPaymentDay').textContent = document.getElementById('paymentDay').value || '_______';
+      
+      // 급여 조건 텍스트 자동 생성 (3단계)
+      const paymentDayValue = document.getElementById('paymentDay').value;
+      let salaryConditionText = paymentDayValue || '_______';
+      
+      if (paymentDayValue) {
+        // paymentDayValue 예: "매월 5일", "매월 25일", "매월 말일"
+        // 숫자만 추출 (말일인 경우 28로 처리)
+        let dayNumber = 0;
+        if (paymentDayValue.includes('말일')) {
+          dayNumber = 28;
+        } else {
+          const match = paymentDayValue.match(/\d+/);
+          if (match) {
+            dayNumber = parseInt(match[0]);
+          }
+        }
+        
+        // 계산 기간 결정 (일단 모든 지급일을 전월 기준으로)
+        let calculationPeriod = '전월 1일부터 전월 말일까지';
+        
+        // 지급일별 계산 기간 (향후 수정 가능)
+        if (dayNumber <= 15) {
+          calculationPeriod = '전월 1일부터 전월 말일까지';
+        } else if (dayNumber === 20) {
+          calculationPeriod = '전월 16일부터 당월 15일까지';
+        } else if (dayNumber === 25) {
+          calculationPeriod = '전월 21일부터 당월 20일까지';
+        } else if (dayNumber === 28) {
+          calculationPeriod = '당월 1일부터 당월 말일까지';
+        }
+        
+        // 최종 텍스트 생성
+        salaryConditionText = `${calculationPeriod} 근무한 급여를 ${paymentDayValue} 지급`;
+      }
+      
+      document.getElementById('previewPaymentDay').textContent = salaryConditionText;
       document.getElementById('previewPaymentMethod').textContent = document.getElementById('paymentMethod').value || '_______';
       
       const contractContent = document.getElementById('contractContent').value;
