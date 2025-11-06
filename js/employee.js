@@ -886,38 +886,190 @@ function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth
   // 분 단위까지 정확하게 계산
   const totalHours = totalMinutes / 60;
   
-  // 급여 항목 계산
-  const baseSalary = Math.floor(totalHours * hourlyWage);
+  // 급여 유형 확인
+  const wageType = contract?.wageType || '시급';
+  const wageAmount = contract?.wageAmount || 0;
   
-  // 주휴수당 계산 (결근 체크 포함)
-  let weeklyHolidayPay = 0;
-  if (contract && contract.allowances && contract.allowances.weeklyHoliday) {
-    // 주 15시간 이상 근무한 주에 대해서만 (단, 결근이 없는 주만)
-    let weeklyHolidayHours = 0;
-    Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
-      // 결근이 있는 주는 제외
-      if (weeklyAbsences[weekKey]) {
-        console.log(`❌ ${weekKey}: 결근으로 인해 주휴수당 제외`);
-        return;
+  // 급여 항목 계산
+  let baseSalary = 0;
+  
+  if (wageType === '시급') {
+    // 시급제: 근무시간 × 시급
+    baseSalary = Math.floor(totalHours * hourlyWage);
+  } else if (wageType === '월급') {
+    // 월급제: 계약서의 월급액을 실제 근무시간에 비례해서 계산
+    const contractMonthlyWage = parseFloat(wageAmount);
+    
+    // 근무시간 비율로 계산 (지각/조퇴/결근 반영)
+    if (contract && contract.workDays && contract.workStartTime && contract.workEndTime && yearMonth) {
+      const [year, month] = yearMonth.split('-').map(Number);
+      const workDaysArray = contract.workDays.split(',').map(d => d.trim());
+      const dayMap = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
+      const workDayNumbers = workDaysArray.map(day => dayMap[day]).filter(n => n !== undefined);
+      
+      // 일일 계약 근무시간 계산 (분)
+      const [startHour, startMin] = contract.workStartTime.split(':').map(Number);
+      const [endHour, endMin] = contract.workEndTime.split(':').map(Number);
+      const dailyContractMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin) - (contract.breakTime || 0);
+      
+      // 해당 월의 계약 근무일 수와 총 계약 근무시간 계산
+      let contractWorkDays = 0;
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        if (workDayNumbers.includes(d.getDay())) {
+          contractWorkDays++;
+        }
       }
       
-      if (weekHours >= 15) {
-        const weekHolidayHours = (weekHours / 40) * 8;
-        weeklyHolidayHours += weekHolidayHours;
-        console.log(`✅ ${weekKey}: 주휴수당 적용 (${weekHours.toFixed(2)}시간)`);
+      const totalContractMinutes = contractWorkDays * dailyContractMinutes;
+      
+      // 실제 근무시간 (분)
+      const actualMinutes = totalMinutes;
+      
+      // 근무시간 비율로 월급 계산
+      if (totalContractMinutes > 0) {
+        baseSalary = Math.round(contractMonthlyWage * (actualMinutes / totalContractMinutes));
+        console.log(`💼 월급 계산: ${contractMonthlyWage.toLocaleString()}원 × (${(actualMinutes/60).toFixed(1)}시간/${(totalContractMinutes/60).toFixed(1)}시간) = ${baseSalary.toLocaleString()}원`);
+      } else {
+        baseSalary = contractMonthlyWage;
       }
-    });
-    weeklyHolidayPay = Math.round(hourlyWage * weeklyHolidayHours);
-  } else {
-    // 계약서 정보가 없으면 기존 방식 (20%)
-    weeklyHolidayPay = Math.floor(baseSalary * 0.2);
+    } else {
+      baseSalary = contractMonthlyWage;
+    }
+  } else if (wageType === '연봉') {
+    // 연봉제: 연봉 / 12개월을 실제 근무시간에 비례해서 계산
+    const contractMonthlyWage = Math.round(parseFloat(wageAmount) / 12);
+    
+    // 근무시간 비율로 계산 (지각/조퇴/결근 반영)
+    if (contract && contract.workDays && contract.workStartTime && contract.workEndTime && yearMonth) {
+      const [year, month] = yearMonth.split('-').map(Number);
+      const workDaysArray = contract.workDays.split(',').map(d => d.trim());
+      const dayMap = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
+      const workDayNumbers = workDaysArray.map(day => dayMap[day]).filter(n => n !== undefined);
+      
+      // 일일 계약 근무시간 계산 (분)
+      const [startHour, startMin] = contract.workStartTime.split(':').map(Number);
+      const [endHour, endMin] = contract.workEndTime.split(':').map(Number);
+      const dailyContractMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin) - (contract.breakTime || 0);
+      
+      // 해당 월의 계약 근무일 수와 총 계약 근무시간 계산
+      let contractWorkDays = 0;
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        if (workDayNumbers.includes(d.getDay())) {
+          contractWorkDays++;
+        }
+      }
+      
+      const totalContractMinutes = contractWorkDays * dailyContractMinutes;
+      
+      // 실제 근무시간 (분)
+      const actualMinutes = totalMinutes;
+      
+      // 근무시간 비율로 월급 계산
+      if (totalContractMinutes > 0) {
+        baseSalary = Math.round(contractMonthlyWage * (actualMinutes / totalContractMinutes));
+        console.log(`💼 연봉 월급 계산: ${contractMonthlyWage.toLocaleString()}원 × (${(actualMinutes/60).toFixed(1)}시간/${(totalContractMinutes/60).toFixed(1)}시간) = ${baseSalary.toLocaleString()}원`);
+      } else {
+        baseSalary = contractMonthlyWage;
+      }
+    } else {
+      baseSalary = contractMonthlyWage;
+    }
   }
   
-  const overtime = 0;
-  const insurance = Math.floor((baseSalary + weeklyHolidayPay) * 0.089);
-  const tax = Math.floor((baseSalary + weeklyHolidayPay) * 0.033);
+  // 주휴수당 계산 (시급제만)
+  let weeklyHolidayPay = 0;
+  if (wageType === '시급') {
+    if (contract && contract.allowances && contract.allowances.weeklyHoliday) {
+      // 주 15시간 이상 근무한 주에 대해서만 (단, 결근이 없는 주만)
+      let weeklyHolidayHours = 0;
+      Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
+        // 결근이 있는 주는 제외
+        if (weeklyAbsences[weekKey]) {
+          console.log(`❌ ${weekKey}: 결근으로 인해 주휴수당 제외`);
+          return;
+        }
+        
+        if (weekHours >= 15) {
+          const weekHolidayHours = (weekHours / 40) * 8;
+          weeklyHolidayHours += weekHolidayHours;
+          console.log(`✅ ${weekKey}: 주휴수당 적용 (${weekHours.toFixed(2)}시간)`);
+        }
+      });
+      weeklyHolidayPay = Math.round(hourlyWage * weeklyHolidayHours);
+    } else {
+      // 계약서 정보가 없으면 기존 방식 (20%)
+      weeklyHolidayPay = Math.floor(baseSalary * 0.2);
+    }
+  }
+  
+  // 공제 항목 계산 (4대보험 + 소득세) - 근로자 부담분만 계산
+  const totalIncome = baseSalary + weeklyHolidayPay;
+  const nationalPension = Math.floor(totalIncome * 0.045); // 국민연금 4.5% (근로자 부담)
+  const healthInsurance = Math.floor(totalIncome * 0.03545); // 건강보험 3.545% (근로자 부담)
+  const longTermCare = Math.floor(healthInsurance * 0.1295 * 0.5); // 장기요양 12.95%의 50% (근로자 부담)
+  const employmentInsurance = Math.floor(totalIncome * 0.009); // 고용보험 0.9% (근로자 부담)
+  const incomeTax = Math.floor(totalIncome * 0.033); // 소득세 3.3% (근로자 전액 부담)
+  
+  const insurance = nationalPension + healthInsurance + longTermCare + employmentInsurance;
+  const tax = incomeTax;
   const deduction = insurance + tax;
+  
+  const overtime = 0;
   const netSalary = baseSalary + weeklyHolidayPay + overtime - deduction;
+  
+  // 월급/연봉인 경우 결근/지각/조퇴 정보 계산
+  let absenceDays = 0;
+  let missedHours = 0;
+  let deductedAmount = 0;
+  let contractWorkDays = 0;
+  let contractTotalMinutes = 0;
+  
+  if ((wageType === '월급' || wageType === '연봉') && contract && contract.workDays && yearMonth) {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const workDaysArray = contract.workDays.split(',').map(d => d.trim());
+    const dayMap = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
+    const workDayNumbers = workDaysArray.map(day => dayMap[day]).filter(n => n !== undefined);
+    
+    // 계약 근무일 수 계산
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      if (workDayNumbers.includes(d.getDay())) {
+        contractWorkDays++;
+      }
+    }
+    
+    // 결근일 수 계산
+    const attendanceDates = new Set(records.map(r => r.date));
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      if (workDayNumbers.includes(d.getDay()) && !attendanceDates.has(dateStr)) {
+        absenceDays++;
+      }
+    }
+    
+    // 일일 계약 근무시간 (분)
+    if (contract.workStartTime && contract.workEndTime) {
+      const [startHour, startMin] = contract.workStartTime.split(':').map(Number);
+      const [endHour, endMin] = contract.workEndTime.split(':').map(Number);
+      const dailyContractMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin) - (contract.breakTime || 0);
+      contractTotalMinutes = contractWorkDays * dailyContractMinutes;
+      
+      // 부족한 근무시간 (결근 + 지각/조퇴)
+      missedHours = (contractTotalMinutes - totalMinutes) / 60;
+      
+      // 차감 금액 계산
+      const fullWage = wageType === '월급' ? parseFloat(wageAmount) : Math.round(parseFloat(wageAmount) / 12);
+      deductedAmount = Math.round(fullWage * ((contractTotalMinutes - totalMinutes) / contractTotalMinutes));
+    }
+  }
   
   return {
     baseSalary,
@@ -930,7 +1082,18 @@ function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth
     hourlyWage,
     insurance,
     tax,
-    workDays: records.length
+    nationalPension,
+    healthInsurance,
+    longTermCare,
+    employmentInsurance,
+    incomeTax,
+    workDays: records.length,
+    // 월급/연봉 상세 정보
+    absenceDays,
+    missedHours,
+    deductedAmount,
+    contractWorkDays,
+    contractTotalMinutes
   };
 }
 
@@ -1002,7 +1165,42 @@ function renderSalaryInfo(data) {
           <td>시급</td>
           <td style="text-align: right; font-weight: 600;">${formatCurrency(data.hourlyWage || 0)}</td>
         </tr>
+        ` : `
+        <tr>
+          <td>계약 근무일수</td>
+          <td style="text-align: right; font-weight: 600;">${data.contractWorkDays || 0}일</td>
+        </tr>
+        <tr>
+          <td>실제 근무일수</td>
+          <td style="text-align: right; font-weight: 600; color: ${data.absenceDays > 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${data.workDays || 0}일</td>
+        </tr>
+        ${data.absenceDays > 0 ? `
+        <tr>
+          <td style="padding-left: 20px; color: var(--danger-color);">결근일수</td>
+          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${data.absenceDays}일</td>
+        </tr>
         ` : ''}
+        <tr>
+          <td>계약 근무시간</td>
+          <td style="text-align: right; font-weight: 600;">${formatHoursAndMinutes(data.contractTotalMinutes || 0)}</td>
+        </tr>
+        <tr>
+          <td>실제 근무시간</td>
+          <td style="text-align: right; font-weight: 600; color: ${data.missedHours > 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${formatHoursAndMinutes(data.totalMinutes || 0)}</td>
+        </tr>
+        ${data.missedHours > 0 ? `
+        <tr>
+          <td style="padding-left: 20px; color: var(--danger-color);">부족 시간 (결근+지각/조퇴)</td>
+          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatHoursAndMinutes(Math.round(data.missedHours * 60))}</td>
+        </tr>
+        ` : ''}
+        ${data.deductedAmount > 0 ? `
+        <tr style="background: #fee; border-top: 1px solid var(--danger-color);">
+          <td style="color: var(--danger-color);"><strong>차감 금액</strong></td>
+          <td style="text-align: right; font-weight: 700; color: var(--danger-color);">-${formatCurrency(data.deductedAmount)}</td>
+        </tr>
+        ` : ''}
+        `}
         <tr style="background: #f0f9ff;">
           <td><strong>기본급${!isHourly ? ' (' + (data.wageType || '월급') + ')' : ''}</strong></td>
           <td style="text-align: right; font-weight: 700; color: var(--primary-color);">${formatCurrency(data.baseSalary)}</td>
@@ -1013,16 +1211,37 @@ function renderSalaryInfo(data) {
           <td style="text-align: right; font-weight: 600; color: var(--success-color);">+${formatCurrency(data.weeklyHolidayPay)}</td>
         </tr>
         ` : ''}
-        ${data.insurance && data.insurance > 0 ? `
         <tr style="border-top: 2px solid var(--border-color);">
-          <td>4대보험</td>
-          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.insurance)}</td>
+          <td colspan="2" style="background: #fef3c7; padding: 8px; font-weight: 600;">📊 공제 내역</td>
+        </tr>
+        ${data.nationalPension && data.nationalPension > 0 ? `
+        <tr>
+          <td style="padding-left: 20px;">국민연금 (4.5%)</td>
+          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.nationalPension)}</td>
         </tr>
         ` : ''}
-        ${data.tax && data.tax > 0 ? `
+        ${data.healthInsurance && data.healthInsurance > 0 ? `
         <tr>
-          <td>소득세 (3.3%)</td>
-          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.tax)}</td>
+          <td style="padding-left: 20px;">건강보험 (3.545%)</td>
+          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.healthInsurance)}</td>
+        </tr>
+        ` : ''}
+        ${data.longTermCare && data.longTermCare > 0 ? `
+        <tr>
+          <td style="padding-left: 20px;">장기요양 (12.95%)</td>
+          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.longTermCare)}</td>
+        </tr>
+        ` : ''}
+        ${data.employmentInsurance && data.employmentInsurance > 0 ? `
+        <tr>
+          <td style="padding-left: 20px;">고용보험 (0.9%)</td>
+          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.employmentInsurance)}</td>
+        </tr>
+        ` : ''}
+        ${data.incomeTax && data.incomeTax > 0 ? `
+        <tr>
+          <td style="padding-left: 20px;">소득세 (3.3%)</td>
+          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.incomeTax)}</td>
         </tr>
         ` : ''}
         ${data.severancePay && data.severancePay > 0 ? `
