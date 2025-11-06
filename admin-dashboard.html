@@ -4048,6 +4048,41 @@
                 document.getElementById('companyPhone').value = store.phone || '';
                 document.getElementById('companyAddress').value = store.address || '';
                 document.getElementById('workStore').value = store.name || '';
+                
+                // 급여 지급일 자동 입력
+                if (store.salaryPaymentDay) {
+                  const paymentDay = store.salaryPaymentDay;
+                  const paymentDaySelect = document.getElementById('paymentDay');
+                  
+                  // 지급일 텍스트 생성 (5일 → "매월 5일", 28일 → "매월 말일")
+                  let paymentDayText = '';
+                  if (paymentDay === 28) {
+                    paymentDayText = '매월 말일';
+                  } else {
+                    paymentDayText = `매월 ${paymentDay}일`;
+                  }
+                  
+                  // option이 있는지 확인하고 없으면 추가
+                  let optionExists = false;
+                  for (let i = 0; i < paymentDaySelect.options.length; i++) {
+                    if (paymentDaySelect.options[i].value === paymentDayText) {
+                      optionExists = true;
+                      break;
+                    }
+                  }
+                  
+                  if (!optionExists) {
+                    const newOption = document.createElement('option');
+                    newOption.value = paymentDayText;
+                    newOption.textContent = paymentDayText;
+                    paymentDaySelect.appendChild(newOption);
+                  }
+                  
+                  // 값 설정
+                  paymentDaySelect.value = paymentDayText;
+                  console.log('📅 급여 지급일 자동 입력:', paymentDayText);
+                }
+                
                 console.log('✅ 매장 정보 자동 입력 완료:', store.name);
               }
               
@@ -4623,6 +4658,42 @@
           document.getElementById('allowOvertime').checked = allowances.overtime || false;
           document.getElementById('allowNight').checked = allowances.night || false;
           document.getElementById('allowHoliday').checked = allowances.holiday || false;
+          
+          // 급여 지급일 자동 입력 (1단계에서 추가된 필드)
+          if (store.salaryPaymentDay) {
+            const paymentDay = store.salaryPaymentDay;
+            const paymentDaySelect = document.getElementById('paymentDay');
+            
+            // 지급일 텍스트 생성 (5일 → "매월 5일", 28일 → "매월 말일")
+            let paymentDayText = '';
+            if (paymentDay === 28) {
+              paymentDayText = '매월 말일';
+            } else {
+              paymentDayText = `매월 ${paymentDay}일`;
+            }
+            
+            // option이 있는지 확인하고 없으면 추가
+            let optionExists = false;
+            for (let i = 0; i < paymentDaySelect.options.length; i++) {
+              if (paymentDaySelect.options[i].value === paymentDayText) {
+                optionExists = true;
+                break;
+              }
+            }
+            
+            if (!optionExists) {
+              const newOption = document.createElement('option');
+              newOption.value = paymentDayText;
+              newOption.textContent = paymentDayText;
+              paymentDaySelect.appendChild(newOption);
+            }
+            
+            // 값 설정
+            paymentDaySelect.value = paymentDayText;
+            console.log('📅 급여 지급일 자동 입력:', paymentDayText);
+          } else {
+            console.log('⚠️ 매장에 급여 지급일이 설정되지 않았습니다');
+          }
           
           updatePreview();
         }
