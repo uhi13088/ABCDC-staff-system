@@ -224,15 +224,14 @@
               </div>
             </div>
             
-            <!-- 4단계: 급여 계산 기간 안내 -->
+            <!-- 급여 계산 기간 안내 -->
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: var(--spacing-md); border-radius: var(--border-radius); margin-bottom: var(--spacing-md);">
               <p style="margin: 0; font-size: 13px; line-height: 1.6;">
                 <strong>📅 급여 계산 기간 안내</strong><br>
-                • <strong>5일/10일/15일 지급</strong>: 전월 1일 ~ 전월 말일 근무분<br>
-                • <strong>20일 지급</strong>: 전월 16일 ~ 당월 15일 근무분<br>
-                • <strong>25일 지급</strong>: 전월 21일 ~ 당월 20일 근무분<br>
-                • <strong>말일 지급</strong>: 당월 1일 ~ 당월 말일 근무분<br>
-                <span style="opacity: 0.9; font-size: 12px;">💡 각 직원의 계약서에 설정된 급여지급일에 따라 자동으로 계산됩니다.</span>
+                • <strong>전월 전체</strong>: 전월 1일 ~ 전월 말일 근무분<br>
+                • <strong>당월 전체</strong>: 당월 1일 ~ 당월 말일 근무분<br>
+                • <strong>사용자 지정</strong>: 매장별 설정에 따른 기간<br>
+                <span style="opacity: 0.9; font-size: 12px;">💡 각 직원의 계약서에 설정된 계산 기간에 따라 자동으로 계산됩니다.</span>
               </p>
             </div>
             <table>
@@ -469,8 +468,7 @@
             <label for="salaryCalculationType">계산 기간 타입 *</label>
             <select id="salaryCalculationType" required style="width: 100%;" onchange="toggleCustomCalculationPeriod()">
               <option value="">선택</option>
-              <option value="auto" selected>자동 (지급일 기준)</option>
-              <option value="prev_month_full">전월 전체 (전월 1일~말일)</option>
+              <option value="prev_month_full" selected>전월 전체 (전월 1일~말일)</option>
               <option value="current_month_full">당월 전체 (당월 1일~말일)</option>
               <option value="custom">사용자 지정</option>
             </select>
@@ -579,7 +577,6 @@
           <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius);">
             <p style="font-size: 13px; margin: 0; color: var(--text-secondary);">
               <strong>💡 계산 기간 타입 설명:</strong><br>
-              • <strong>자동</strong>: 지급일에 따라 자동 결정 (5/10/15일→전월, 20일→전월16~당월15, 25일→전월21~당월20, 말일→당월)<br>
               • <strong>전월 전체</strong>: 전월 1일~말일 고정<br>
               • <strong>당월 전체</strong>: 당월 1일~말일 고정<br>
               • <strong>사용자 지정</strong>: 원하는 기간 직접 설정
@@ -2246,7 +2243,7 @@
           
           // 4단계 개선: 계약서의 계산 기간 설정을 기반으로 계산 기간 결정
           const salaryPaymentDay = contract.salaryPaymentDay || null;
-          const calculationType = contract.salaryCalculationType || 'auto';
+          const calculationType = contract.salaryCalculationType || 'prev_month_full';
           const calculationPeriod = contract.salaryCalculationPeriod || null;
           const [year, month] = yearMonth.split('-');
           
@@ -2309,49 +2306,15 @@
             
             console.log('💰 급여 계산 기간 (사용자 지정):', startDate, '~', endDate);
             
-          } else if (salaryPaymentDay) {
-            // 자동 (auto) - 지급일 기반
-            if (salaryPaymentDay <= 15) {
-              // 5일, 10일, 15일 지급 → 전월 1일 ~ 전월 말일
-              const prevMonth = new Date(year, month - 2, 1);
-              const prevYear = prevMonth.getFullYear();
-              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
-              const lastDayOfPrevMonth = new Date(prevYear, prevMonth.getMonth() + 1, 0).getDate();
-              startDate = `${prevYear}-${prevMonthNum}-01`;
-              endDate = `${prevYear}-${prevMonthNum}-${lastDayOfPrevMonth}`;
-            } else if (salaryPaymentDay === 20) {
-              // 20일 지급 → 전월 16일 ~ 당월 15일
-              const prevMonth = new Date(year, month - 2, 1);
-              const prevYear = prevMonth.getFullYear();
-              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
-              startDate = `${prevYear}-${prevMonthNum}-16`;
-              endDate = `${year}-${String(month).padStart(2, '0')}-15`;
-            } else if (salaryPaymentDay === 25) {
-              // 25일 지급 → 전월 21일 ~ 당월 20일
-              const prevMonth = new Date(year, month - 2, 1);
-              const prevYear = prevMonth.getFullYear();
-              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
-              startDate = `${prevYear}-${prevMonthNum}-21`;
-              endDate = `${year}-${String(month).padStart(2, '0')}-20`;
-            } else if (salaryPaymentDay === 28) {
-              // 말일 지급 → 당월 1일 ~ 당월 말일
-              const lastDay = new Date(year, month, 0).getDate();
-              startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-              endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
-            } else {
-              // 기타 지급일 → 기본 당월 계산
-              const lastDay = new Date(year, month, 0).getDate();
-              startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-              endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
-            }
-            console.log(`💰 급여 계산 기간 (자동 - ${salaryPaymentDay}일 지급):`, startDate, '~', endDate);
-            
           } else {
-            // 정보 없음 → 기본 당월 계산
-            const lastDay = new Date(year, month, 0).getDate();
-            startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-            endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
-            console.log('⚠️ 계약서에 급여지급일 정보 없음, 당월 기준 계산:', startDate, '~', endDate);
+            // 정보 없음 → 기본 전월 전체 계산
+            const prevMonth = new Date(year, month - 2, 1);
+            const prevYear = prevMonth.getFullYear();
+            const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
+            const lastDayOfPrevMonth = new Date(prevYear, prevMonth.getMonth() + 1, 0).getDate();
+            startDate = `${prevYear}-${prevMonthNum}-01`;
+            endDate = `${prevYear}-${prevMonthNum}-${lastDayOfPrevMonth}`;
+            console.log('⚠️ 계약서에 계산 기간 정보 없음, 전월 전체 기준 계산:', startDate, '~', endDate);
           }
           
           const attendancesSnapshot = await firebase.firestore().collection('attendance')
@@ -3720,7 +3683,7 @@
       document.getElementById('storeSalaryPaymentDay').value = '';
       
       // 계산 기간 타입 초기화 (기본값: 자동)
-      document.getElementById('salaryCalculationType').value = 'auto';
+      document.getElementById('salaryCalculationType').value = 'prev_month_full';
       document.getElementById('customCalculationPeriod').style.display = 'none';
       document.getElementById('calculationStartMonth').value = 'prev';
       document.getElementById('calculationStartDay').value = '1';
@@ -3763,7 +3726,7 @@
         document.getElementById('storeSalaryPaymentDay').value = store.salaryPaymentDay || '';
         
         // 계산 기간 타입 불러오기
-        const calculationType = store.salaryCalculationType || 'auto';
+        const calculationType = store.salaryCalculationType || 'prev_month_full';
         document.getElementById('salaryCalculationType').value = calculationType;
         
         // 사용자 지정 계산 기간 불러오기
@@ -5949,7 +5912,7 @@
         wageAmount: document.getElementById('wageAmount').value,
         paymentDay: document.getElementById('paymentDay').value,
         salaryPaymentDay: store?.salaryPaymentDay || null, // 4단계: 급여 지급일 (숫자)
-        salaryCalculationType: store?.salaryCalculationType || 'auto', // 계산 기간 타입
+        salaryCalculationType: store?.salaryCalculationType || 'prev_month_full', // 계산 기간 타입
         salaryCalculationPeriod: store?.salaryCalculationPeriod || null, // 사용자 지정 계산 기간
         paymentMethod: document.getElementById('paymentMethod').value,
         contractContent: document.getElementById('contractContent').value,
