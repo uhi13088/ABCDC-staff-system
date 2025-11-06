@@ -149,3 +149,141 @@ exports.cleanupOrphanedAuth = functions.https.onRequest(async (req, res) => {
     });
   }
 });
+
+/**
+ * users 컬렉션의 status가 resigned로 변경되면 Authentication 계정 삭제
+ * 
+ * 트리거: Firestore users/{userId} 문서 업데이트
+ * 작동: status가 resigned로 변경되면 Firebase Authentication 계정 삭제
+ */
+exports.deleteAuthOnResign = functions.firestore
+  .document('users/{userId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const userId = context.params.userId;
+    
+    // status가 resigned로 변경되었을 때만 실행
+    if (before.status !== 'resigned' && after.status === 'resigned') {
+      console.log(`🔄 퇴사 처리 감지`);
+      console.log(`   사용자: ${after.name || 'Unknown'} (${after.email || 'Unknown'})`);
+      console.log(`   UID: ${userId}`);
+      
+      try {
+        // Firebase Authentication에서 사용자 삭제
+        await admin.auth().deleteUser(userId);
+        
+        console.log(`✅ Authentication 계정 삭제 완료 (퇴사 처리)`);
+        console.log(`   이메일: ${after.email}`);
+        console.log(`   이름: ${after.name}`);
+        
+        // Firestore에 퇴사 일시 기록 (2년 후 자동 삭제용)
+        await change.after.ref.update({
+          resignedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log(`✅ 퇴사 일시 기록 완료`);
+        
+        return {
+          success: true,
+          uid: userId,
+          message: 'Authentication 계정이 삭제되고 퇴사 일시가 기록되었습니다.'
+        };
+        
+      } catch (error) {
+        console.error(`❌ Authentication 계정 삭제 실패`);
+        console.error(`   오류: ${error.message}`);
+        
+        // 계정이 이미 삭제된 경우 무시
+        if (error.code === 'auth/user-not-found') {
+          console.log(`⚠️ Authentication 계정이 이미 삭제되었습니다.`);
+          
+          // 퇴사 일시만 기록
+          await change.after.ref.update({
+            resignedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          
+          return {
+            success: true,
+            uid: userId,
+            message: 'Authentication 계정이 이미 삭제되었습니다. 퇴사 일시만 기록했습니다.'
+          };
+        }
+        
+        throw error;
+      }
+    }
+    
+    return null;
+  });
+
+/**
+ * 2년 지난 퇴사자 문서 자동 삭제 (매일 실행)
+ * 
+ * Cloud Scheduler 설정 필요:
+ * - 스케줄: 0 3 * * * (매일 새벽 3시)
+ * - URL: https://us-central1-abcdc-staff-system.cloudfunctions.net/cleanupOldResignedUsers
+ */
+exports.cleanupOldResignedUsers = functions.https.onRequest(async (req, res) => {
+  console.log('🧹 2년 지난 퇴사자 정리 시작');
+  
+  try {
+    // 2년 전 날짜 계산
+    const twoYearsAgo = new Date();
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    
+    console.log(`📅 기준 날짜: ${twoYearsAgo.toISOString()}`);
+    
+    // 2년 지난 퇴사자 찾기
+    const usersSnapshot = await admin.firestore()
+      .collection('users')
+      .where('status', '==', 'resigned')
+      .where('resignedAt', '<=', admin.firestore.Timestamp.fromDate(twoYearsAgo))
+      .get();
+    
+    console.log(`🗑️ 삭제 대상: ${usersSnapshot.size}명`);
+    
+    if (usersSnapshot.empty) {
+      return res.status(200).json({
+        success: true,
+        message: '삭제할 퇴사자가 없습니다.',
+        deletedCount: 0
+      });
+    }
+    
+    // 배치 삭제
+    const batch = admin.firestore().batch();
+    const deletedUsers = [];
+    
+    usersSnapshot.forEach(doc => {
+      const userData = doc.data();
+      batch.delete(doc.ref);
+      deletedUsers.push({
+        uid: doc.id,
+        name: userData.name,
+        email: userData.email,
+        resignedAt: userData.resignedAt?.toDate()
+      });
+      console.log(`📋 삭제 예정: ${userData.name} (${userData.email}) - 퇴사일: ${userData.resignedAt?.toDate()}`);
+    });
+    
+    // 일괄 삭제 실행
+    await batch.commit();
+    
+    console.log(`✅ ${deletedUsers.length}명의 퇴사자 문서 삭제 완료`);
+    
+    return res.status(200).json({
+      success: true,
+      message: `${deletedUsers.length}명의 2년 지난 퇴사자가 삭제되었습니다.`,
+      deletedCount: deletedUsers.length,
+      deletedUsers: deletedUsers
+    });
+    
+  } catch (error) {
+    console.error('❌ 퇴사자 정리 실패:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
