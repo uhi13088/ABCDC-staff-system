@@ -828,7 +828,12 @@
         
         // 상태 필터 적용
         if (statusFilter) {
+          // 특정 상태로 필터링 (resigned, active, approved, pending 등)
           query = query.where('status', '==', statusFilter);
+        } else {
+          // 필터가 없으면 resigned 제외 (재직자만 표시)
+          // Firestore는 != 연산자를 지원하지 않으므로 클라이언트에서 필터링
+          // query에서는 모두 가져온 후 클라이언트에서 resigned 제외
         }
         
         const usersSnapshot = await query.get();
@@ -861,7 +866,7 @@
         let employees = [];
         usersSnapshot.forEach(doc => {
           const data = doc.data();
-          console.log(`✅ 직원 로드: ${data.name} (${doc.id})`);
+          console.log(`✅ 직원 로드: ${data.name} (${doc.id}), status: ${data.status || 'active'}`);
           employees.push({
             uid: doc.id,
             name: data.name || '-',
@@ -874,6 +879,12 @@
             address: data.address || '-'
           });
         });
+        
+        // 필터가 없으면 resigned 제외 (재직자만 표시)
+        if (!statusFilter) {
+          employees = employees.filter(emp => emp.status !== 'resigned');
+          console.log(`🔍 resigned 제외: ${employees.length}명의 재직자`);
+        }
         
         // 매장 필터 적용 (클라이언트 사이드)
         if (storeFilter) {
@@ -1850,15 +1861,13 @@
         const employmentStatusFilter = document.getElementById('attendanceEmploymentStatusFilter').value;
         let employeeStatusMap = {};
         
-        if (employmentStatusFilter) {
-          // Firestore users 컬렉션에서 직원 상태 가져오기
-          const usersSnapshot = await firebase.firestore().collection('users').get();
-          usersSnapshot.forEach(doc => {
-            const user = doc.data();
-            // status 필드로 재직자/퇴사자 판단
-            employeeStatusMap[doc.id] = user.status || 'active';
-          });
-        }
+        // 필터 여부와 관계없이 직원 상태 정보 가져오기 (resigned 제외용)
+        const usersSnapshot = await firebase.firestore().collection('users').get();
+        usersSnapshot.forEach(doc => {
+          const user = doc.data();
+          // status 필드로 재직자/퇴사자 판단
+          employeeStatusMap[doc.id] = user.status || 'active';
+        });
         
         // 클라이언트 사이드 필터링
         const monthFilter = document.getElementById('attendanceMonth').value;
@@ -1876,18 +1885,22 @@
           console.log(`🏪 매장 필터 적용 (${storeFilter}):`, attendanceList.length);
         }
         
-        if (employmentStatusFilter) {
-          attendanceList = attendanceList.filter(att => {
-            const empStatus = employeeStatusMap[att.uid];
-            if (employmentStatusFilter === 'active') {
-              return empStatus === 'approved' || empStatus === 'active';
-            } else if (employmentStatusFilter === 'resigned') {
-              return empStatus === 'resigned';
-            }
-            return true;
-          });
-          console.log(`👤 근무상태 필터 적용 (${employmentStatusFilter}):`, attendanceList.length);
-        }
+        // 근무상태 필터 적용
+        attendanceList = attendanceList.filter(att => {
+          const empStatus = employeeStatusMap[att.uid];
+          
+          if (employmentStatusFilter === 'active') {
+            // 재직자만
+            return empStatus === 'approved' || empStatus === 'active';
+          } else if (employmentStatusFilter === 'resigned') {
+            // 퇴사자만
+            return empStatus === 'resigned';
+          } else {
+            // 필터 없음: 기본적으로 resigned 제외 (재직자만)
+            return empStatus !== 'resigned';
+          }
+        });
+        console.log(`👤 근무상태 필터 적용 (${employmentStatusFilter || '기본:재직자'}):`, attendanceList.length);
         
         if (attendanceList.length === 0) {
           tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">조건에 맞는 근태 정보가 없습니다.</td></tr>';
@@ -1971,11 +1984,21 @@
           const employee = { uid: empDoc.id, ...empDoc.data() };
           
           // 근무상태 필터 적용
-          if (employmentStatusFilter) {
-            const empStatus = employee.status || 'approved';
-            if (employmentStatusFilter === 'active' && empStatus !== 'approved' && empStatus !== 'active') {
+          const empStatus = employee.status || 'approved';
+          
+          if (employmentStatusFilter === 'active') {
+            // 재직자만
+            if (empStatus !== 'approved' && empStatus !== 'active') {
               continue;
-            } else if (employmentStatusFilter === 'resigned' && empStatus !== 'resigned') {
+            }
+          } else if (employmentStatusFilter === 'resigned') {
+            // 퇴사자만
+            if (empStatus !== 'resigned') {
+              continue;
+            }
+          } else {
+            // 필터 없음: 기본적으로 resigned 제외 (재직자만)
+            if (empStatus === 'resigned') {
               continue;
             }
           }
@@ -3002,17 +3025,15 @@
         // 근무상태 필터
         const employmentStatusFilter = document.getElementById('contractEmploymentStatusFilter').value;
         
-        // 직원 정보 가져오기 (필터링용)
+        // 직원 정보 가져오기 (필터링용 - 필터 여부와 관계없이 항상 가져오기)
         let employeeStatusMap = {};
-        if (employmentStatusFilter) {
-          const usersSnapshot = await firebase.firestore().collection('users').get();
-          usersSnapshot.forEach(doc => {
-            const user = doc.data();
-            // name + birth를 키로 사용
-            const key = `${user.name}_${user.birth}`;
-            employeeStatusMap[key] = user.status || 'approved';
-          });
-        }
+        const usersSnapshot = await firebase.firestore().collection('users').get();
+        usersSnapshot.forEach(doc => {
+          const user = doc.data();
+          // name + birth를 키로 사용
+          const key = `${user.name}_${user.birth}`;
+          employeeStatusMap[key] = user.status || 'approved';
+        });
         
         // Firestore에서 모든 계약서 로드 (localStorage 제거 완료)
         const snapshot = await firebase.firestore().collection('contracts').get();
@@ -3025,14 +3046,23 @@
           const isSigned = signedContracts.some(sc => sc.id === contractId);
           
           // 근무상태 필터 적용
-          if (employmentStatusFilter) {
-            const empKey = `${contractData.employeeName}_${contractData.employeeBirth}`;
-            const empStatus = employeeStatusMap[empKey] || 'approved';
-            
-            if (employmentStatusFilter === 'active' && empStatus !== 'approved' && empStatus !== 'active') {
-              return; // 재직자 필터인데 퇴사자면 제외
-            } else if (employmentStatusFilter === 'resigned' && empStatus !== 'resigned') {
-              return; // 퇴사자 필터인데 재직자면 제외
+          const empKey = `${contractData.employeeName}_${contractData.employeeBirth}`;
+          const empStatus = employeeStatusMap[empKey] || 'approved';
+          
+          if (employmentStatusFilter === 'active') {
+            // 재직자만
+            if (empStatus !== 'approved' && empStatus !== 'active') {
+              return;
+            }
+          } else if (employmentStatusFilter === 'resigned') {
+            // 퇴사자만
+            if (empStatus !== 'resigned') {
+              return;
+            }
+          } else {
+            // 필터 없음: 기본적으로 resigned 제외 (재직자만)
+            if (empStatus === 'resigned') {
+              return;
             }
           }
           
@@ -3817,23 +3847,33 @@
         console.log('✅ 휴게시간 드롭다운 초기화 완료 (분 디폴트: 00분)');
       }
       
-      // 직원 목록 - Firestore users 컬렉션에서 로드
+      // 직원 목록 - Firestore users 컬렉션에서 로드 (재직자만)
       const employeeSelect = document.getElementById('employeeSelect');
       if (employeeSelect) {
         employeeSelect.innerHTML = '<option value="">직원을 선택하세요</option>';
         
-        // Firestore에서 직원 목록 가져오기 (users 컬렉션, userType === 'employee')
+        // Firestore에서 직원 목록 가져오기 (users 컬렉션, userType === 'employee', resigned 제외)
         firebase.firestore().collection('users')
           .where('userType', '==', 'employee')
           .get()
           .then(snapshot => {
             if (!snapshot.empty) {
+              let activeCount = 0;
               snapshot.forEach(doc => {
                 const emp = doc.data();
-                const displayName = `${emp.name} (${emp.store || '매장미지정'}) - ${emp.phone}`;
-                employeeSelect.innerHTML += `<option value="${doc.id}">${displayName}</option>`;
+                // resigned 상태 제외 (재직자만 표시)
+                if (emp.status !== 'resigned') {
+                  const displayName = `${emp.name} (${emp.store || '매장미지정'}) - ${emp.phone}`;
+                  employeeSelect.innerHTML += `<option value="${doc.id}">${displayName}</option>`;
+                  activeCount++;
+                }
               });
-              console.log(`✅ ${snapshot.size}명의 직원 목록 로드 완료`);
+              console.log(`✅ ${activeCount}명의 재직 직원 목록 로드 완료 (전체 ${snapshot.size}명 중 resigned 제외)`);
+              
+              if (activeCount === 0) {
+                console.log('📋 재직 중인 직원이 없습니다');
+                employeeSelect.innerHTML += '<option value="" disabled>재직 중인 직원이 없습니다</option>';
+              }
             } else {
               console.log('📋 등록된 직원이 없습니다');
               employeeSelect.innerHTML += '<option value="" disabled>등록된 직원이 없습니다</option>';
