@@ -1047,25 +1047,24 @@
         
         console.log(`✅ ${employees.length}명의 직원 목록 표시`);
         
+        // Firestore에서 모든 계약서 가져오기
+        const contractsSnapshot = await firebase.firestore().collection('contracts').get();
+        const contractsMap = new Map(); // key: "name_birth", value: count
+        
+        contractsSnapshot.forEach(doc => {
+          const contract = doc.data();
+          const key = `${contract.employeeName}_${contract.employeeBirth}`;
+          contractsMap.set(key, (contractsMap.get(key) || 0) + 1);
+        });
+        
+        console.log(`📄 계약서 총 ${contractsSnapshot.size}건 조회 완료`);
+        
         // 각 직원의 계약서 존재 여부 확인
         tbody.innerHTML = employees.map(emp => {
-          // localStorage에서 해당 직원의 계약서 찾기
-          let hasContract = false;
-          let contractCount = 0;
-          
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('contract_C')) {
-              try {
-                const contractData = JSON.parse(localStorage.getItem(key));
-                // 주민번호로 매칭 (가장 정확)
-                if (contractData.employeeBirth === emp.birth && contractData.employeeName === emp.name) {
-                  hasContract = true;
-                  contractCount++;
-                }
-              } catch(e) {}
-            }
-          }
+          // Firestore에서 해당 직원의 계약서 확인
+          const contractKey = `${emp.name}_${emp.birth}`;
+          const hasContract = contractsMap.has(contractKey);
+          const contractCount = contractsMap.get(contractKey) || 0;
           
           // 매니저 권한 체크
           const userRole = sessionStorage.getItem('admin_role');
@@ -1700,6 +1699,18 @@
                     <div>${contract.wageType}: ${contract.wageAmount}원</div>
                     <div>지급일: ${contract.paymentDay || '매월 말일'}</div>
                     <div>지급방법: ${contract.paymentMethod || '계좌이체'}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">4대보험 및 수당</th>
+                  <td style="border: 1px solid #333; padding: 10px; line-height: 1.8;">
+                    ${contract.insurance ? `
+                      ${contract.insurance.pension ? '<div>• 국민연금 가입</div>' : ''}
+                      ${contract.insurance.health ? '<div>• 건강보험 가입</div>' : ''}
+                      ${contract.insurance.employment ? '<div>• 고용보험 가입</div>' : ''}
+                      ${contract.insurance.workComp ? '<div>• 산재보험 가입</div>' : ''}
+                      ${contract.insurance.severancePay ? '<div style="color: #856404;">• 1년 이상 근속 시 퇴직금 지급 대상에 해당</div>' : ''}
+                    ` : '<div>정보 없음</div>'}
                   </td>
                 </tr>
               </table>
