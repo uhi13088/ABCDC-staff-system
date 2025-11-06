@@ -1930,7 +1930,7 @@
               <td>${att.workType || '정규근무'}</td>
               <td><span class="badge badge-${statusClass}">${att.status || '정상'}</span></td>
               <td>
-                <button class="btn btn-sm btn-secondary" onclick="alert('근태 ${att.id} 상세 기능은 추후 구현 예정')">상세</button>
+                <button class="btn btn-sm btn-primary" onclick="showAdminEditAttendanceModal('${att.id}', '${att.employeeName || att.name}', '${att.uid}', '${att.date}', '${att.clockIn || ''}', '${att.clockOut || ''}')">✏️ 수정</button>
               </td>
             </tr>
           `;
@@ -6203,6 +6203,47 @@
     </div>
   </div>
 
+  <!-- 관리자 근무시간 수정 모달 -->
+  <div id="adminEditAttendanceModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">✏️ 근무시간 수정 (관리자)</h2>
+        <button class="modal-close" onclick="closeAdminEditAttendanceModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>직원명</label>
+          <input type="text" id="adminEditEmployeeName" readonly style="background: #f5f5f5;">
+        </div>
+        <div class="form-group">
+          <label>날짜</label>
+          <input type="text" id="adminEditDate" readonly style="background: #f5f5f5;">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>출근시간 *</label>
+            <input type="time" id="adminEditClockIn" required>
+          </div>
+          <div class="form-group">
+            <label>퇴근시간 *</label>
+            <input type="time" id="adminEditClockOut" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>수정 사유 * <span style="color: var(--danger-color); font-size: 12px;">(필수 - 직원에게 전달됨)</span></label>
+          <textarea id="adminEditReason" rows="3" placeholder="근무시간을 수정하는 이유를 입력해주세요 (직원이 확인할 수 있습니다)" required></textarea>
+        </div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 12px;">
+          💡 수정 내용은 해당 직원에게 알림됩니다.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAdminEditAttendanceModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitAdminAttendanceEdit()">수정 완료</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // 매장 서명 미리보기
     function previewStoreSignature(event) {
@@ -6460,6 +6501,117 @@
     
     function closeAdminDetailModal() {
       document.getElementById('adminDetailModal').style.display = 'none';
+    }
+
+    // ===================================================================
+    // 관리자 근무시간 수정
+    // ===================================================================
+
+    let currentAdminEditAttendanceId = null;
+    let currentAdminEditEmployeeUid = null;
+    let currentAdminEditEmployeeName = null;
+
+    /**
+     * 관리자 근무시간 수정 모달 열기
+     */
+    function showAdminEditAttendanceModal(attendanceId, employeeName, employeeUid, date, clockIn, clockOut) {
+      currentAdminEditAttendanceId = attendanceId;
+      currentAdminEditEmployeeUid = employeeUid;
+      currentAdminEditEmployeeName = employeeName;
+      
+      document.getElementById('adminEditEmployeeName').value = employeeName;
+      document.getElementById('adminEditDate').value = date;
+      document.getElementById('adminEditClockIn').value = clockIn;
+      document.getElementById('adminEditClockOut').value = clockOut;
+      document.getElementById('adminEditReason').value = '';
+      
+      document.getElementById('adminEditAttendanceModal').style.display = 'flex';
+    }
+
+    /**
+     * 관리자 근무시간 수정 모달 닫기
+     */
+    function closeAdminEditAttendanceModal() {
+      document.getElementById('adminEditAttendanceModal').style.display = 'none';
+      currentAdminEditAttendanceId = null;
+      currentAdminEditEmployeeUid = null;
+      currentAdminEditEmployeeName = null;
+    }
+
+    /**
+     * 관리자 근무시간 수정 제출
+     */
+    async function submitAdminAttendanceEdit() {
+      if (!currentAdminEditAttendanceId || !currentAdminEditEmployeeUid) return;
+      
+      const clockIn = document.getElementById('adminEditClockIn').value;
+      const clockOut = document.getElementById('adminEditClockOut').value;
+      const reason = document.getElementById('adminEditReason').value.trim();
+      
+      if (!clockIn || !clockOut) {
+        alert('⚠️ 출근시간과 퇴근시간을 모두 입력해주세요.');
+        return;
+      }
+      
+      if (!reason) {
+        alert('⚠️ 수정 사유를 입력해주세요.\n(직원에게 전달됩니다)');
+        return;
+      }
+      
+      try {
+        // 기존 데이터 조회
+        const attendanceDoc = await firebase.firestore().collection('attendance').doc(currentAdminEditAttendanceId).get();
+        if (!attendanceDoc.exists) {
+          alert('❌ 근무 기록을 찾을 수 없습니다.');
+          return;
+        }
+        
+        const oldData = attendanceDoc.data();
+        
+        // 현재 관리자 정보
+        const adminUid = sessionStorage.getItem('admin_uid');
+        const adminName = sessionStorage.getItem('admin_name');
+        
+        // 근무시간 업데이트
+        await firebase.firestore().collection('attendance').doc(currentAdminEditAttendanceId).update({
+          clockIn: clockIn,
+          clockOut: clockOut,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastEditedBy: 'admin',
+          lastEditedByUid: adminUid,
+          lastEditedByName: adminName
+        });
+        
+        // 변경 보고 저장 (직원에게 역보고)
+        await firebase.firestore().collection('time_change_reports').add({
+          type: 'admin_edit',
+          reportedBy: 'admin',
+          adminUid: adminUid,
+          adminName: adminName,
+          employeeUid: currentAdminEditEmployeeUid,
+          employeeName: currentAdminEditEmployeeName,
+          attendanceId: currentAdminEditAttendanceId,
+          oldTime: {
+            clockIn: oldData.clockIn,
+            clockOut: oldData.clockOut
+          },
+          newTime: {
+            clockIn: clockIn,
+            clockOut: clockOut
+          },
+          reason: reason,
+          status: 'reported',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert(`✅ 근무시간이 수정되었습니다.\n\n변경 내용이 ${currentAdminEditEmployeeName}님에게 알림됩니다.`);
+        closeAdminEditAttendanceModal();
+        loadAttendanceList();
+        
+      } catch (error) {
+        console.error('❌ 근무시간 수정 오류:', error);
+        alert('❌ 수정 중 오류가 발생했습니다.\n\n' + error.message);
+      }
     }
   </script>
 </body>

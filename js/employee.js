@@ -358,6 +358,9 @@ async function recordAttendance(type) {
       // 근무 시간 계산
       const workTime = calculateWorkTime(todayRecord.clockIn, timeStr);
       
+      // 계약서 근무시간과 비교 체크
+      await checkContractTimeViolation(todayRecord.clockIn, timeStr, snapshot.docs[0].id);
+      
       alert(`✅ 퇴근 처리되었습니다!\n\n시간: ${timeStr}\n근무 시간: ${workTime}\n\n수고하셨습니다! 😊`);
     }
     
@@ -372,6 +375,97 @@ async function recordAttendance(type) {
   } catch (error) {
     console.error('❌ 출퇴근 기록 오류:', error);
     alert('❌ 기록 중 오류가 발생했습니다.\n\n' + error.message);
+  }
+}
+
+/**
+ * 계약서 근무시간과 실제 근무시간 비교 체크
+ * 시간 외 근무 시 사유 보고 요청
+ */
+async function checkContractTimeViolation(clockIn, clockOut, attendanceId) {
+  if (!currentUser) return;
+  
+  try {
+    // 계약서 조회
+    const contractsSnapshot = await db.collection('contracts')
+      .where('employeeName', '==', currentUser.name)
+      .where('employeeBirth', '==', currentUser.birth)
+      .get();
+    
+    if (contractsSnapshot.empty) {
+      console.log('⚠️ 계약서 없음 - 근무시간 체크 스킵');
+      return;
+    }
+    
+    // 최신 계약서 찾기
+    const contracts = [];
+    contractsSnapshot.forEach(doc => {
+      contracts.push({ id: doc.id, ...doc.data() });
+    });
+    contracts.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+    
+    const contract = contracts[0];
+    
+    // 계약서에 근무시간이 없으면 스킵
+    if (!contract.workStartTime || !contract.workEndTime) {
+      console.log('⚠️ 계약서에 근무시간 없음 - 체크 스킵');
+      return;
+    }
+    
+    // 시간 비교
+    const isEarlyClockIn = clockIn < contract.workStartTime;
+    const isLateClockOut = clockOut > contract.workEndTime;
+    
+    if (isEarlyClockIn || isLateClockOut) {
+      let message = '⚠️ 계약서 근무시간 외 근무가 감지되었습니다!\n\n';
+      message += `📋 계약서 근무시간: ${contract.workStartTime} ~ ${contract.workEndTime}\n`;
+      message += `⏰ 실제 근무시간: ${clockIn} ~ ${clockOut}\n\n`;
+      
+      if (isEarlyClockIn) {
+        message += `• 출근: ${contract.workStartTime} 이전에 출근함\n`;
+      }
+      if (isLateClockOut) {
+        message += `• 퇴근: ${contract.workEndTime} 이후에 퇴근함\n`;
+      }
+      
+      message += '\n사유를 입력해주세요:';
+      
+      const reason = prompt(message);
+      
+      if (reason && reason.trim()) {
+        // 사유 보고 저장
+        await db.collection('time_change_reports').add({
+          type: 'violation',
+          reportedBy: 'employee',
+          employeeUid: currentUser.uid,
+          employeeName: currentUser.name,
+          attendanceId: attendanceId,
+          contractTime: {
+            start: contract.workStartTime,
+            end: contract.workEndTime
+          },
+          actualTime: {
+            clockIn: clockIn,
+            clockOut: clockOut
+          },
+          reason: reason.trim(),
+          status: 'reported',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert('✅ 사유가 보고되었습니다.\n관리자가 확인할 수 있습니다.');
+      } else {
+        alert('⚠️ 사유가 입력되지 않았습니다.\n나중에 근무기록 수정 시 사유를 추가해주세요.');
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ 근무시간 체크 오류:', error);
+    // 에러가 있어도 퇴근 처리는 완료
   }
 }
 
@@ -472,7 +566,10 @@ async function loadAttendance() {
       return;
     }
     
-    const records = snapshot.docs.map(doc => doc.data());
+    const records = [];
+    snapshot.docs.forEach(doc => {
+      records.push({ id: doc.id, ...doc.data() });
+    });
     
     tbody.innerHTML = records.map(record => {
       const statusClass = getStatusClass(record.status);
@@ -487,6 +584,11 @@ async function loadAttendance() {
           <td>${record.clockOut || '-'}</td>
           <td>${workTime}</td>
           <td><span class="badge badge-${statusClass}">${record.status || '정상'}</span></td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="showEditAttendanceModal('${record.id}', '${record.date}', '${record.clockIn || ''}', '${record.clockOut || ''}')">
+              ✏️ 수정
+            </button>
+          </td>
         </tr>
       `;
     }).join('');
@@ -1924,4 +2026,100 @@ async function submitResignationRequest() {
 async function viewMyApprovalDetail(approvalId) {
   alert('📄 상세보기 기능은 곧 추가됩니다.');
   // TODO: 상세보기 모달 구현
+}
+
+// ===================================================================
+// 근무시간 수정 (직원)
+// ===================================================================
+
+let currentEditAttendanceId = null;
+
+/**
+ * 근무시간 수정 모달 열기
+ */
+function showEditAttendanceModal(attendanceId, date, clockIn, clockOut) {
+  currentEditAttendanceId = attendanceId;
+  
+  document.getElementById('editDate').value = date;
+  document.getElementById('editClockIn').value = clockIn;
+  document.getElementById('editClockOut').value = clockOut;
+  document.getElementById('editReason').value = '';
+  
+  document.getElementById('editAttendanceModal').style.display = 'flex';
+}
+
+/**
+ * 근무시간 수정 모달 닫기
+ */
+function closeEditAttendanceModal() {
+  document.getElementById('editAttendanceModal').style.display = 'none';
+  currentEditAttendanceId = null;
+}
+
+/**
+ * 근무시간 수정 제출
+ */
+async function submitAttendanceEdit() {
+  if (!currentUser || !currentEditAttendanceId) return;
+  
+  const clockIn = document.getElementById('editClockIn').value;
+  const clockOut = document.getElementById('editClockOut').value;
+  const reason = document.getElementById('editReason').value.trim();
+  
+  if (!clockIn || !clockOut) {
+    alert('⚠️ 출근시간과 퇴근시간을 모두 입력해주세요.');
+    return;
+  }
+  
+  if (!reason) {
+    alert('⚠️ 수정 사유를 입력해주세요.');
+    return;
+  }
+  
+  try {
+    // 기존 데이터 조회
+    const attendanceDoc = await db.collection('attendance').doc(currentEditAttendanceId).get();
+    if (!attendanceDoc.exists) {
+      alert('❌ 근무 기록을 찾을 수 없습니다.');
+      return;
+    }
+    
+    const oldData = attendanceDoc.data();
+    
+    // 근무시간 업데이트
+    await db.collection('attendance').doc(currentEditAttendanceId).update({
+      clockIn: clockIn,
+      clockOut: clockOut,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastEditedBy: 'employee'
+    });
+    
+    // 변경 보고 저장
+    await db.collection('time_change_reports').add({
+      type: 'employee_edit',
+      reportedBy: 'employee',
+      employeeUid: currentUser.uid,
+      employeeName: currentUser.name,
+      attendanceId: currentEditAttendanceId,
+      oldTime: {
+        clockIn: oldData.clockIn,
+        clockOut: oldData.clockOut
+      },
+      newTime: {
+        clockIn: clockIn,
+        clockOut: clockOut
+      },
+      reason: reason,
+      status: 'reported',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    alert('✅ 근무시간이 수정되었습니다.\n사유가 관리자에게 보고되었습니다.');
+    closeEditAttendanceModal();
+    loadAttendance();
+    
+  } catch (error) {
+    console.error('❌ 근무시간 수정 오류:', error);
+    alert('❌ 수정 중 오류가 발생했습니다.\n\n' + error.message);
+  }
 }
