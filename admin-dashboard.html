@@ -1022,30 +1022,46 @@
     }
 
     async function deleteEmployee(uid, name) {
-      if (!confirm(`⚠️ ${name} 직원을 삭제하시겠습니까?\n\n삭제 시:\n- 직원 계정이 영구 삭제됩니다\n- 계약서 및 출퇴근 기록은 유지됩니다\n- Firebase 인증 계정은 해당 직원이 다음 로그인 시 자동 삭제됩니다\n\n이 작업은 되돌릴 수 없습니다.`)) {
-        return;
-      }
+      const confirmMsg = `⚠️ ${name}님을 퇴사 처리하시겠습니까?\n\n처리 내용:\n• Firestore users 문서: status를 'resigned'로 변경\n• Firebase Authentication: 자동 삭제 (Cloud Function)\n• 통장사본, 보건증: 삭제\n\n※ 계약서와 근태 기록은 보존됩니다.\n※ 2년 후 자동으로 문서가 삭제됩니다.`;
+      if (!confirm(confirmMsg)) return;
       
       try {
-        // 1. users 컬렉션에서 삭제
-        await db.collection('users').doc(uid).delete();
-        console.log('✅ users 컬렉션에서 삭제 완료');
+        console.log(`🔄 퇴사 처리 시작: ${name}`);
         
-        // 2. employees 컬렉션에서 삭제
-        await db.collection('employees').doc(uid).delete();
-        console.log('✅ employees 컬렉션에서 삭제 완료');
+        // 1. Firestore users 문서의 status를 resigned로 업데이트
+        await db.collection('users').doc(uid).update({
+          status: 'resigned'
+          // resignedAt은 Cloud Function에서 자동 설정됨
+        });
         
-        // 3. Firebase Authentication 계정은 해당 직원이 로그인 시도할 때 자동으로 삭제됨
-        //    (employee-login.html 및 employee.js에서 처리)
+        console.log(`✅ Firestore status 업데이트 완료`);
         
-        alert(`✅ ${name} 직원이 삭제되었습니다.\n\nFirebase 인증 계정은 해당 직원이 다음 로그인 시도 시 자동으로 삭제됩니다.`);
+        // 2. employee_docs 컬렉션에서 서류 삭제
+        try {
+          await db.collection('employee_docs').doc(uid).delete();
+          console.log(`✅ Firestore 서류 삭제 완료`);
+        } catch (error) {
+          console.warn(`⚠️ Firestore 서류 삭제 실패 (없을 수 있음):`, error.message);
+        }
+        
+        // 3. employees 컬렉션도 status 업데이트 (있다면)
+        try {
+          await db.collection('employees').doc(uid).update({
+            status: 'resigned'
+          });
+          console.log(`✅ employees 컬렉션 status 업데이트 완료`);
+        } catch (error) {
+          console.warn(`⚠️ employees 컬렉션 업데이트 실패 (없을 수 있음):`, error.message);
+        }
+        
+        alert(`✅ ${name}님이 퇴사 처리되었습니다.\n\n• Firestore status: resigned로 변경\n• Authentication: 자동 삭제됨\n• 서류: 삭제 완료\n\n※ 2년 후 자동으로 모든 기록이 삭제됩니다.`);
         
         // 직원 목록 새로고침
         loadEmployees();
         
       } catch (error) {
-        console.error('❌ 직원 삭제 실패:', error);
-        alert('❌ 직원 삭제에 실패했습니다.\n\n오류: ' + error.message);
+        console.error('❌ 퇴사 처리 실패:', error);
+        alert('❌ 퇴사 처리에 실패했습니다.\n\n오류: ' + error.message);
       }
     }
 
