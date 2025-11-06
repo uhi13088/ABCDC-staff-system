@@ -1723,7 +1723,7 @@
                   </td>
                 </tr>
                 <tr>
-                  <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">4대보험 및 수당</th>
+                  <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">기타 내용</th>
                   <td style="border: 1px solid #333; padding: 10px; line-height: 1.8;">
                     ${contract.insurance ? `
                       ${contract.insurance.pension ? '<div>• 국민연금 가입</div>' : ''}
@@ -4380,26 +4380,14 @@
     }
 
     // 계약서 상세 보기
-    function viewContractDetail(contractId) {
+    async function viewContractDetail(contractId) {
       console.log('📄 계약서 상세 보기:', contractId);
       
       // 계약서 확인 모달 닫기
       closeEmployeeContractsModal();
       
-      // 계약서 관리 탭으로 이동하고 해당 계약서 선택
-      switchTab('contracts');
-      
-      // 약간의 딜레이 후 해당 계약서 행 강조
-      setTimeout(() => {
-        const row = document.querySelector(`tr[data-contract-id="${contractId}"]`);
-        if (row) {
-          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          row.style.backgroundColor = '#fef3c7';
-          setTimeout(() => {
-            row.style.backgroundColor = '';
-          }, 2000);
-        }
-      }, 500);
+      // 계약서 보기 모달 열기 (계약서 관리 탭의 viewContract 함수 호출)
+      await viewContract(contractId);
     }
 
     // 새 계약서 작성 (계약서 확인 모달에서)
