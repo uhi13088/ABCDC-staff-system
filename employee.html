@@ -694,6 +694,31 @@
     </div>
   </div>
 
+  <!-- 관리자 수정 알림 모달 -->
+  <div id="adminEditNotificationModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">🔔 관리자 근무시간 수정 알림</h2>
+        <button class="modal-close" onclick="closeAdminEditNotificationModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: #fff3cd; padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <p style="margin: 0; color: #856404; font-size: 14px;">
+            ⚠️ 관리자가 귀하의 근무시간을 수정하였습니다. 아래 내용을 확인해주세요.
+          </p>
+        </div>
+
+        <!-- 수정 이력 목록 -->
+        <div id="adminEditList" style="display: grid; gap: var(--spacing-md);">
+          <!-- JavaScript로 동적 생성됩니다 -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeAdminEditNotificationModal()">확인했습니다</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>

@@ -531,6 +531,47 @@ async function updateCurrentStatus() {
 // ===================================================================
 
 /**
+ * 근태 상태 자동 계산
+ * @param {Object} att - 근태 데이터
+ * @returns {Object} { text: '상태명', class: 'badge-클래스' }
+ */
+function calculateAttendanceStatus(att) {
+  // 출근 기록 없음
+  if (!att.clockIn) {
+    return { text: '결근', class: 'danger' };
+  }
+  
+  // 퇴근 기록 없음 (아직 근무 중)
+  if (!att.clockOut) {
+    return { text: '근무중', class: 'info' };
+  }
+  
+  // 기본값: 정상
+  let status = { text: '정상', class: 'success' };
+  
+  // 지각/조퇴 판정을 위해 계약서 기준 시간이 필요하지만
+  // 여기서는 간단하게 일반적인 기준으로 판정
+  // TODO: 계약서 기준 시간과 비교하여 정확한 판정 가능
+  
+  // 09:00 이후 출근은 지각으로 임시 판정
+  if (att.clockIn > '09:00') {
+    status = { text: '지각', class: 'warning' };
+  }
+  
+  // 18:00 이전 퇴근은 조퇴로 임시 판정
+  if (att.clockOut < '18:00') {
+    status = { text: '조퇴', class: 'info' };
+  }
+  
+  // 지각이면서 조퇴면 '지각+조퇴'
+  if (att.clockIn > '09:00' && att.clockOut < '18:00') {
+    status = { text: '지각+조퇴', class: 'warning' };
+  }
+  
+  return status;
+}
+
+/**
  * 근무내역 로드 및 표시
  * 선택한 월의 출퇴근 기록을 Firestore에서 조회
  */
@@ -578,7 +619,10 @@ async function loadAttendance() {
     });
     
     tbody.innerHTML = records.map(record => {
-      const statusClass = getStatusClass(record.status);
+      // 자동 상태 계산 (관리자 페이지와 동일한 로직)
+      const calculatedStatus = calculateAttendanceStatus(record);
+      const statusClass = calculatedStatus.class;
+      const statusText = calculatedStatus.text;
       const workTime = record.clockIn && record.clockOut ? 
         calculateWorkTime(record.clockIn, record.clockOut) : '-';
       
@@ -589,7 +633,7 @@ async function loadAttendance() {
           <td>${record.clockIn || '-'}</td>
           <td>${record.clockOut || '-'}</td>
           <td>${workTime}</td>
-          <td><span class="badge badge-${statusClass}">${record.status || '정상'}</span></td>
+          <td><span class="badge badge-${statusClass}">${statusText}</span></td>
           <td>
             <button class="btn btn-sm btn-primary" onclick="showEditAttendanceModal('${record.id}', '${record.date}', '${record.clockIn || ''}', '${record.clockOut || ''}')">
               ✏️ 수정
@@ -1457,7 +1501,7 @@ async function checkHealthCertExpiry() {
 
 /**
  * 관리자 근무시간 수정 알림 체크
- * 로그인 시 관리자가 수정한 내역이 있으면 알림
+ * 로그인 시 관리자가 수정한 내역이 있으면 모달로 표시
  */
 async function checkAdminTimeEdits() {
   if (!currentUser) return;
@@ -1494,42 +1538,107 @@ async function checkAdminTimeEdits() {
       return;
     }
     
-    // 알림 메시지 생성
-    let message = '🔔 관리자 근무시간 수정 알림\n\n';
-    message += `${unreadReports.length}건의 근무시간이 관리자에 의해 수정되었습니다.\n\n`;
-    
-    unreadReports.forEach((report, index) => {
-      const date = report.createdAt ? report.createdAt.toDate().toLocaleDateString('ko-KR') : '-';
-      message += `━━━━━━━━━━━━━━━━\n`;
-      message += `${index + 1}. ${date}\n`;
-      message += `관리자: ${report.adminName || '관리자'}\n\n`;
-      
-      if (report.oldTime && report.newTime) {
-        message += `변경 전: ${report.oldTime.clockIn} ~ ${report.oldTime.clockOut}\n`;
-        message += `변경 후: ${report.newTime.clockIn} ~ ${report.newTime.clockOut}\n\n`;
-      }
-      
-      message += `📝 사유: ${report.reason}\n`;
-    });
-    
-    message += `━━━━━━━━━━━━━━━━\n\n`;
-    message += '💡 근무내역 탭에서 자세한 내역을 확인할 수 있습니다.';
-    
-    alert(message);
-    
-    // 알림 표시 후 notified 플래그 업데이트
-    const batch = db.batch();
-    unreadReports.forEach(report => {
-      const docRef = db.collection('time_change_reports').doc(report.id);
-      batch.update(docRef, { notified: true });
-    });
-    await batch.commit();
-    
-    console.log(`✅ ${unreadReports.length}건의 관리자 수정 알림 표시 완료`);
+    // 모달에 수정 이력 표시
+    showAdminEditNotificationModal(unreadReports);
     
   } catch (error) {
     console.error('❌ 관리자 수정 알림 체크 오류:', error);
     // 에러가 있어도 메인 화면은 표시
+  }
+}
+
+/**
+ * 관리자 수정 알림 모달 표시
+ * @param {Array} reports - 읽지 않은 관리자 수정 보고서 목록
+ */
+function showAdminEditNotificationModal(reports) {
+  const listDiv = document.getElementById('adminEditList');
+  
+  let html = '';
+  reports.forEach((report, index) => {
+    const date = report.createdAt ? report.createdAt.toDate().toLocaleDateString('ko-KR') : '-';
+    const time = report.createdAt ? report.createdAt.toDate().toLocaleTimeString('ko-KR') : '-';
+    
+    html += `
+      <div style="padding: var(--spacing-lg); background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+          <div style="font-weight: 600; font-size: 16px; color: var(--primary-color);">
+            📋 수정 내역 ${index + 1}
+          </div>
+          <div style="font-size: 13px; color: var(--text-secondary);">
+            ${date} ${time}
+          </div>
+        </div>
+        
+        <div style="display: grid; gap: var(--spacing-sm); margin-bottom: var(--spacing-md);">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 13px; color: var(--text-secondary); min-width: 70px;">관리자:</span>
+            <span style="font-weight: 500;">${report.adminName || '관리자'}</span>
+          </div>
+          ${report.attendanceDate ? `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 13px; color: var(--text-secondary); min-width: 70px;">근무일:</span>
+            <span style="font-weight: 500;">${report.attendanceDate}</span>
+          </div>
+          ` : ''}
+        </div>
+        
+        <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius); margin-bottom: var(--spacing-md);">
+          <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--spacing-sm); align-items: center;">
+            <div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">변경 전</div>
+              <div style="font-weight: 600; color: var(--danger-color);">
+                ${report.oldTime ? `${report.oldTime.clockIn} ~ ${report.oldTime.clockOut}` : '-'}
+              </div>
+            </div>
+            <div style="text-align: center; font-size: 20px;">→</div>
+            <div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">변경 후</div>
+              <div style="font-weight: 600; color: var(--success-color);">
+                ${report.newTime ? `${report.newTime.clockIn} ~ ${report.newTime.clockOut}` : '-'}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">📝 수정 사유</div>
+          <div style="padding: var(--spacing-md); background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); line-height: 1.6;">
+            ${report.reason || '-'}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  listDiv.innerHTML = html;
+  document.getElementById('adminEditNotificationModal').style.display = 'flex';
+  
+  // 모달 닫힐 때 notified 플래그 업데이트할 수 있도록 reports 저장
+  window.currentUnreadReports = reports;
+}
+
+/**
+ * 관리자 수정 알림 모달 닫기
+ */
+async function closeAdminEditNotificationModal() {
+  document.getElementById('adminEditNotificationModal').style.display = 'none';
+  
+  // 읽음 처리
+  if (window.currentUnreadReports && window.currentUnreadReports.length > 0) {
+    try {
+      const batch = db.batch();
+      window.currentUnreadReports.forEach(report => {
+        const docRef = db.collection('time_change_reports').doc(report.id);
+        batch.update(docRef, { notified: true });
+      });
+      await batch.commit();
+      
+      console.log(`✅ ${window.currentUnreadReports.length}건의 관리자 수정 알림 읽음 처리 완료`);
+      window.currentUnreadReports = null;
+    } catch (error) {
+      console.error('❌ 읽음 처리 오류:', error);
+    }
   }
 }
 
