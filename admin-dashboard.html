@@ -445,30 +445,145 @@
         
         <!-- 급여 지급일 설정 -->
         <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: var(--spacing-md); margin-top: var(--spacing-md);">
-          <label style="font-weight: 700; font-size: 15px; margin-bottom: var(--spacing-sm);">📅 급여 지급일</label>
+          <label style="font-weight: 700; font-size: 15px; margin-bottom: var(--spacing-sm);">📅 급여 지급일 및 계산 기간</label>
           <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--spacing-md);">
-            매장의 급여 지급일을 설정하세요. 계약서와 급여 계산에 자동으로 반영됩니다.
+            매장의 급여 지급일과 계산 기간을 설정하세요. 계약서와 급여 계산에 자동으로 반영됩니다.
           </p>
-          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--spacing-md); align-items: center;">
-            <div>
-              <label for="storeSalaryPaymentDay">매월 지급일 *</label>
-              <select id="storeSalaryPaymentDay" required style="width: 100%;">
-                <option value="">선택</option>
-                <option value="5">5일</option>
-                <option value="10">10일</option>
-                <option value="15">15일</option>
-                <option value="20">20일</option>
-                <option value="25">25일</option>
-                <option value="28">말일 (28일)</option>
-              </select>
+          
+          <!-- 지급일 -->
+          <div style="margin-bottom: var(--spacing-md);">
+            <label for="storeSalaryPaymentDay">매월 지급일 *</label>
+            <select id="storeSalaryPaymentDay" required style="width: 100%;">
+              <option value="">선택</option>
+              <option value="5">5일</option>
+              <option value="10">10일</option>
+              <option value="15">15일</option>
+              <option value="20">20일</option>
+              <option value="25">25일</option>
+              <option value="28">말일 (28일)</option>
+            </select>
+          </div>
+          
+          <!-- 계산 기간 타입 -->
+          <div style="margin-bottom: var(--spacing-md);">
+            <label for="salaryCalculationType">계산 기간 타입 *</label>
+            <select id="salaryCalculationType" required style="width: 100%;" onchange="toggleCustomCalculationPeriod()">
+              <option value="">선택</option>
+              <option value="auto" selected>자동 (지급일 기준)</option>
+              <option value="prev_month_full">전월 전체 (전월 1일~말일)</option>
+              <option value="current_month_full">당월 전체 (당월 1일~말일)</option>
+              <option value="custom">사용자 지정</option>
+            </select>
+          </div>
+          
+          <!-- 사용자 지정 계산 기간 -->
+          <div id="customCalculationPeriod" style="display: none; background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius); margin-bottom: var(--spacing-md);">
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--spacing-sm);">
+              <strong>💡 계산 기간 설정 방법:</strong><br>
+              • <strong>전월 기준</strong>: 시작일 "전월", 종료일 "전월"<br>
+              • <strong>당월 기준</strong>: 시작일 "당월", 종료일 "당월"<br>
+              • <strong>전월~당월</strong>: 시작일 "전월", 종료일 "당월"
+            </p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+              <div>
+                <label for="calculationStartMonth">계산 시작 기준</label>
+                <select id="calculationStartMonth" style="width: 100%; margin-bottom: 8px;">
+                  <option value="prev">전월</option>
+                  <option value="current">당월</option>
+                </select>
+                <label for="calculationStartDay">시작일</label>
+                <select id="calculationStartDay" style="width: 100%;">
+                  <option value="1">1일</option>
+                  <option value="2">2일</option>
+                  <option value="3">3일</option>
+                  <option value="4">4일</option>
+                  <option value="5">5일</option>
+                  <option value="6">6일</option>
+                  <option value="7">7일</option>
+                  <option value="8">8일</option>
+                  <option value="9">9일</option>
+                  <option value="10">10일</option>
+                  <option value="11">11일</option>
+                  <option value="12">12일</option>
+                  <option value="13">13일</option>
+                  <option value="14">14일</option>
+                  <option value="15">15일</option>
+                  <option value="16">16일</option>
+                  <option value="17">17일</option>
+                  <option value="18">18일</option>
+                  <option value="19">19일</option>
+                  <option value="20">20일</option>
+                  <option value="21">21일</option>
+                  <option value="22">22일</option>
+                  <option value="23">23일</option>
+                  <option value="24">24일</option>
+                  <option value="25">25일</option>
+                  <option value="26">26일</option>
+                  <option value="27">27일</option>
+                  <option value="28">28일</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="calculationEndMonth">계산 종료 기준</label>
+                <select id="calculationEndMonth" style="width: 100%; margin-bottom: 8px;">
+                  <option value="prev">전월</option>
+                  <option value="current">당월</option>
+                </select>
+                <label for="calculationEndDay">종료일</label>
+                <select id="calculationEndDay" style="width: 100%;">
+                  <option value="1">1일</option>
+                  <option value="2">2일</option>
+                  <option value="3">3일</option>
+                  <option value="4">4일</option>
+                  <option value="5">5일</option>
+                  <option value="6">6일</option>
+                  <option value="7">7일</option>
+                  <option value="8">8일</option>
+                  <option value="9">9일</option>
+                  <option value="10">10일</option>
+                  <option value="11">11일</option>
+                  <option value="12">12일</option>
+                  <option value="13">13일</option>
+                  <option value="14">14일</option>
+                  <option value="15">15일</option>
+                  <option value="16">16일</option>
+                  <option value="17">17일</option>
+                  <option value="18">18일</option>
+                  <option value="19">19일</option>
+                  <option value="20">20일</option>
+                  <option value="21">21일</option>
+                  <option value="22">22일</option>
+                  <option value="23">23일</option>
+                  <option value="24">24일</option>
+                  <option value="25">25일</option>
+                  <option value="26">26일</option>
+                  <option value="27">27일</option>
+                  <option value="28">28일</option>
+                  <option value="last">말일</option>
+                </select>
+              </div>
             </div>
-            <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius);">
-              <p style="font-size: 13px; margin: 0; color: var(--text-secondary);">
-                <strong>예시:</strong> 5일 선택 시<br>
-                → 전월 1일~말일까지 근무한 급여를<br>
-                → 당월 5일에 지급
+            
+            <!-- 미리보기 -->
+            <div style="margin-top: var(--spacing-md); padding: var(--spacing-sm); background: white; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+              <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">
+                <strong>📋 계산 기간 미리보기:</strong><br>
+                <span id="calculationPeriodPreview" style="color: var(--primary-color); font-weight: 600;">전월 1일 ~ 전월 말일</span>
               </p>
             </div>
+          </div>
+          
+          <!-- 안내 메시지 -->
+          <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius);">
+            <p style="font-size: 13px; margin: 0; color: var(--text-secondary);">
+              <strong>💡 계산 기간 타입 설명:</strong><br>
+              • <strong>자동</strong>: 지급일에 따라 자동 결정 (5/10/15일→전월, 20일→전월16~당월15, 25일→전월21~당월20, 말일→당월)<br>
+              • <strong>전월 전체</strong>: 전월 1일~말일 고정<br>
+              • <strong>당월 전체</strong>: 당월 1일~말일 고정<br>
+              • <strong>사용자 지정</strong>: 원하는 기간 직접 설정
+            </p>
           </div>
         </div>
         
@@ -2129,17 +2244,76 @@
           });
           const contract = contracts[0];
           
-          // 4단계: 계약서의 salaryPaymentDay를 기반으로 계산 기간 결정
+          // 4단계 개선: 계약서의 계산 기간 설정을 기반으로 계산 기간 결정
           const salaryPaymentDay = contract.salaryPaymentDay || null;
+          const calculationType = contract.salaryCalculationType || 'auto';
+          const calculationPeriod = contract.salaryCalculationPeriod || null;
           const [year, month] = yearMonth.split('-');
           
           let startDate, endDate;
           
-          if (salaryPaymentDay) {
-            // 계산 기간 로직
+          // 계산 기간 타입에 따라 분기
+          if (calculationType === 'prev_month_full') {
+            // 전월 전체 (전월 1일~말일)
+            const prevMonth = new Date(year, month - 2, 1);
+            const prevYear = prevMonth.getFullYear();
+            const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
+            const lastDayOfPrevMonth = new Date(prevYear, prevMonth.getMonth() + 1, 0).getDate();
+            startDate = `${prevYear}-${prevMonthNum}-01`;
+            endDate = `${prevYear}-${prevMonthNum}-${lastDayOfPrevMonth}`;
+            console.log('💰 급여 계산 기간 (전월 전체):', startDate, '~', endDate);
+            
+          } else if (calculationType === 'current_month_full') {
+            // 당월 전체 (당월 1일~말일)
+            const lastDay = new Date(year, month, 0).getDate();
+            startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+            console.log('💰 급여 계산 기간 (당월 전체):', startDate, '~', endDate);
+            
+          } else if (calculationType === 'custom' && calculationPeriod) {
+            // 사용자 지정
+            const startMonth = calculationPeriod.startMonth; // 'prev' or 'current'
+            const startDay = calculationPeriod.startDay;
+            const endMonth = calculationPeriod.endMonth;
+            const endDay = calculationPeriod.endDay; // 숫자 or 'last'
+            
+            // 시작일 계산
+            if (startMonth === 'prev') {
+              const prevMonth = new Date(year, month - 2, 1);
+              const prevYear = prevMonth.getFullYear();
+              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
+              startDate = `${prevYear}-${prevMonthNum}-${String(startDay).padStart(2, '0')}`;
+            } else {
+              startDate = `${year}-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`;
+            }
+            
+            // 종료일 계산
+            if (endMonth === 'prev') {
+              const prevMonth = new Date(year, month - 2, 1);
+              const prevYear = prevMonth.getFullYear();
+              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
+              if (endDay === 'last') {
+                const lastDay = new Date(prevYear, prevMonth.getMonth() + 1, 0).getDate();
+                endDate = `${prevYear}-${prevMonthNum}-${lastDay}`;
+              } else {
+                endDate = `${prevYear}-${prevMonthNum}-${String(endDay).padStart(2, '0')}`;
+              }
+            } else {
+              if (endDay === 'last') {
+                const lastDay = new Date(year, month, 0).getDate();
+                endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+              } else {
+                endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+              }
+            }
+            
+            console.log('💰 급여 계산 기간 (사용자 지정):', startDate, '~', endDate);
+            
+          } else if (salaryPaymentDay) {
+            // 자동 (auto) - 지급일 기반
             if (salaryPaymentDay <= 15) {
               // 5일, 10일, 15일 지급 → 전월 1일 ~ 전월 말일
-              const prevMonth = new Date(year, month - 2, 1); // 전월
+              const prevMonth = new Date(year, month - 2, 1);
               const prevYear = prevMonth.getFullYear();
               const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
               const lastDayOfPrevMonth = new Date(prevYear, prevMonth.getMonth() + 1, 0).getDate();
@@ -2170,10 +2344,10 @@
               startDate = `${year}-${String(month).padStart(2, '0')}-01`;
               endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
             }
+            console.log(`💰 급여 계산 기간 (자동 - ${salaryPaymentDay}일 지급):`, startDate, '~', endDate);
             
-            console.log(`💰 급여 계산 기간 (${salaryPaymentDay}일 지급):`, startDate, '~', endDate);
           } else {
-            // salaryPaymentDay가 없으면 기존 로직 (당월 1일~말일)
+            // 정보 없음 → 기본 당월 계산
             const lastDay = new Date(year, month, 0).getDate();
             startDate = `${year}-${String(month).padStart(2, '0')}-01`;
             endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
@@ -3544,6 +3718,15 @@
       document.getElementById('storeCEO').value = '';
       document.getElementById('storeBusinessNumber').value = '';
       document.getElementById('storeSalaryPaymentDay').value = '';
+      
+      // 계산 기간 타입 초기화 (기본값: 자동)
+      document.getElementById('salaryCalculationType').value = 'auto';
+      document.getElementById('customCalculationPeriod').style.display = 'none';
+      document.getElementById('calculationStartMonth').value = 'prev';
+      document.getElementById('calculationStartDay').value = '1';
+      document.getElementById('calculationEndMonth').value = 'prev';
+      document.getElementById('calculationEndDay').value = 'last';
+      
       document.getElementById('deleteStoreBtn').style.display = 'none';
       
       // 수당 옵션 초기화 (기본값: 모두 미적용)
@@ -3578,6 +3761,29 @@
         document.getElementById('storeCEO').value = store.ceo || '';
         document.getElementById('storeBusinessNumber').value = store.businessNumber || '';
         document.getElementById('storeSalaryPaymentDay').value = store.salaryPaymentDay || '';
+        
+        // 계산 기간 타입 불러오기
+        const calculationType = store.salaryCalculationType || 'auto';
+        document.getElementById('salaryCalculationType').value = calculationType;
+        
+        // 사용자 지정 계산 기간 불러오기
+        if (calculationType === 'custom' && store.salaryCalculationPeriod) {
+          const period = store.salaryCalculationPeriod;
+          document.getElementById('calculationStartMonth').value = period.startMonth || 'prev';
+          document.getElementById('calculationStartDay').value = period.startDay || '1';
+          document.getElementById('calculationEndMonth').value = period.endMonth || 'prev';
+          document.getElementById('calculationEndDay').value = period.endDay || 'last';
+          document.getElementById('customCalculationPeriod').style.display = 'block';
+          updateCalculationPeriodPreview();
+        } else {
+          document.getElementById('customCalculationPeriod').style.display = 'none';
+          // 기본값 설정
+          document.getElementById('calculationStartMonth').value = 'prev';
+          document.getElementById('calculationStartDay').value = '1';
+          document.getElementById('calculationEndMonth').value = 'prev';
+          document.getElementById('calculationEndDay').value = 'last';
+        }
+        
         document.getElementById('deleteStoreBtn').style.display = 'block';
         
         // 수당 옵션 불러오기
@@ -3612,6 +3818,47 @@
       document.getElementById('storeModal').style.display = 'none';
     }
 
+    // 사용자 지정 계산 기간 토글
+    function toggleCustomCalculationPeriod() {
+      const calculationType = document.getElementById('salaryCalculationType').value;
+      const customPeriod = document.getElementById('customCalculationPeriod');
+      
+      if (calculationType === 'custom') {
+        customPeriod.style.display = 'block';
+        updateCalculationPeriodPreview();
+      } else {
+        customPeriod.style.display = 'none';
+      }
+    }
+    
+    // 계산 기간 미리보기 업데이트
+    function updateCalculationPeriodPreview() {
+      const startMonth = document.getElementById('calculationStartMonth').value;
+      const startDay = document.getElementById('calculationStartDay').value;
+      const endMonth = document.getElementById('calculationEndMonth').value;
+      const endDay = document.getElementById('calculationEndDay').value;
+      
+      const startMonthText = startMonth === 'prev' ? '전월' : '당월';
+      const endMonthText = endMonth === 'prev' ? '전월' : '당월';
+      const endDayText = endDay === 'last' ? '말일' : `${endDay}일`;
+      
+      const previewText = `${startMonthText} ${startDay}일 ~ ${endMonthText} ${endDayText}`;
+      document.getElementById('calculationPeriodPreview').textContent = previewText;
+    }
+    
+    // 계산 기간 셀렉트에 이벤트 리스너 추가
+    window.addEventListener('DOMContentLoaded', () => {
+      const calcStartMonth = document.getElementById('calculationStartMonth');
+      const calcStartDay = document.getElementById('calculationStartDay');
+      const calcEndMonth = document.getElementById('calculationEndMonth');
+      const calcEndDay = document.getElementById('calculationEndDay');
+      
+      if (calcStartMonth) calcStartMonth.addEventListener('change', updateCalculationPeriodPreview);
+      if (calcStartDay) calcStartDay.addEventListener('change', updateCalculationPeriodPreview);
+      if (calcEndMonth) calcEndMonth.addEventListener('change', updateCalculationPeriodPreview);
+      if (calcEndDay) calcEndDay.addEventListener('change', updateCalculationPeriodPreview);
+    });
+
     async function saveStore() {
       const storeId = document.getElementById('editStoreId').value;
       const name = document.getElementById('storeName').value.trim();
@@ -3632,6 +3879,24 @@
         return;
       }
       
+      // 계산 기간 타입
+      const calculationType = document.getElementById('salaryCalculationType').value;
+      if (!calculationType) {
+        alert('⚠️ 계산 기간 타입을 선택해주세요.');
+        return;
+      }
+      
+      // 사용자 지정 계산 기간 (custom인 경우에만)
+      let calculationPeriod = null;
+      if (calculationType === 'custom') {
+        calculationPeriod = {
+          startMonth: document.getElementById('calculationStartMonth').value,
+          startDay: parseInt(document.getElementById('calculationStartDay').value),
+          endMonth: document.getElementById('calculationEndMonth').value,
+          endDay: document.getElementById('calculationEndDay').value === 'last' ? 'last' : parseInt(document.getElementById('calculationEndDay').value)
+        };
+      }
+      
       // 수당 적용 옵션 수집
       const overtimeAllowance = document.getElementById('storeOvertimeAllowance').checked;
       const nightAllowance = document.getElementById('storeNightAllowance').checked;
@@ -3645,6 +3910,8 @@
           ceo,
           businessNumber,
           salaryPaymentDay: parseInt(salaryPaymentDay),
+          salaryCalculationType: calculationType, // 계산 기간 타입
+          salaryCalculationPeriod: calculationPeriod, // 사용자 지정 계산 기간
           ceoSignature: storeCeoSignatureData || null,
           allowances: {
             overtime: overtimeAllowance,
@@ -5682,6 +5949,8 @@
         wageAmount: document.getElementById('wageAmount').value,
         paymentDay: document.getElementById('paymentDay').value,
         salaryPaymentDay: store?.salaryPaymentDay || null, // 4단계: 급여 지급일 (숫자)
+        salaryCalculationType: store?.salaryCalculationType || 'auto', // 계산 기간 타입
+        salaryCalculationPeriod: store?.salaryCalculationPeriod || null, // 사용자 지정 계산 기간
         paymentMethod: document.getElementById('paymentMethod').value,
         contractContent: document.getElementById('contractContent').value,
         contractDate: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
