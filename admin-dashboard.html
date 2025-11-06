@@ -6265,18 +6265,29 @@
         document.getElementById('empDetailBirth').textContent = emp.birth || '-';
         document.getElementById('empDetailAddress').textContent = emp.address || '-';
         
-        // 계좌 정보
-        document.getElementById('empDetailBank').textContent = emp.bankName || '-';
-        document.getElementById('empDetailAccount').textContent = emp.accountNumber || '-';
-        document.getElementById('empDetailAccountHolder').textContent = emp.accountHolder || '-';
-        
-        // 서류 정보 (employee_docs 컬렉션에서 가져오기)
+        // 계좌 정보 및 서류 정보 (employee_docs 컬렉션에서 가져오기)
         try {
           const docRef = await firebase.firestore().collection('employee_docs').doc(uid).get();
           const documentsDiv = document.getElementById('empDetailDocuments');
           
           if (docRef.exists) {
             const docs = docRef.data();
+            
+            // 계좌 정보 (bankAccount 객체에서)
+            if (docs.bankAccount) {
+              document.getElementById('empDetailBank').textContent = docs.bankAccount.bankName || '-';
+              document.getElementById('empDetailAccount').textContent = docs.bankAccount.accountNumber || '-';
+              document.getElementById('empDetailAccountHolder').textContent = docs.bankAccount.accountHolder || '-';
+              console.log('✅ 계좌 정보 로드:', docs.bankAccount);
+            } else {
+              // users 컬렉션에서도 확인 (하위 호환성)
+              document.getElementById('empDetailBank').textContent = emp.bankName || '-';
+              document.getElementById('empDetailAccount').textContent = emp.accountNumber || '-';
+              document.getElementById('empDetailAccountHolder').textContent = emp.accountHolder || '-';
+              console.log('⚠️ employee_docs에 계좌 정보 없음, users 컬렉션 사용');
+            }
+            
+            // 서류 이미지
             let docsHtml = '<div style="display: grid; gap: 12px;">';
             
             if (docs.healthCertificate) {
@@ -6314,10 +6325,19 @@
               documentsDiv.innerHTML = docsHtml;
             }
           } else {
+            // employee_docs 없으면 기본값
+            document.getElementById('empDetailBank').textContent = emp.bankName || '-';
+            document.getElementById('empDetailAccount').textContent = emp.accountNumber || '-';
+            document.getElementById('empDetailAccountHolder').textContent = emp.accountHolder || '-';
             documentsDiv.innerHTML = '<div style="color: var(--text-secondary);">등록된 서류가 없습니다.</div>';
+            console.log('⚠️ employee_docs 문서 없음');
           }
         } catch (docError) {
           console.warn('서류 정보 조회 실패:', docError);
+          // 오류 시 users 컬렉션에서라도 표시
+          document.getElementById('empDetailBank').textContent = emp.bankName || '-';
+          document.getElementById('empDetailAccount').textContent = emp.accountNumber || '-';
+          document.getElementById('empDetailAccountHolder').textContent = emp.accountHolder || '-';
           document.getElementById('empDetailDocuments').innerHTML = '<div style="color: var(--text-secondary);">서류 정보를 불러올 수 없습니다.</div>';
         }
         
