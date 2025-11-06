@@ -579,10 +579,11 @@ function calculateSalary(records, hourlyWage = 10000) {
     totalMinutes += minutes;
   });
   
-  const totalHours = Math.floor(totalMinutes / 60);
+  // 분 단위까지 정확하게 계산 (시급을 60으로 나눠서 분당 급여 계산)
+  const totalHours = totalMinutes / 60; // 소수점 포함
   
-  // 급여 항목 계산
-  const baseSalary = totalHours * hourlyWage;
+  // 급여 항목 계산 (분 단위까지 정확히 반영)
+  const baseSalary = Math.floor(totalHours * hourlyWage); // 원 단위로 반올림
   const weeklyHolidayPay = Math.floor(baseSalary * 0.2); // 주휴수당 20%
   const overtime = 0; // 추가 근무수당 (현재 미구현)
   const insurance = Math.floor((baseSalary + weeklyHolidayPay) * 0.089); // 4대보험 8.9%

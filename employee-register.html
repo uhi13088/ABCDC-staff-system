@@ -343,8 +343,13 @@
       }
     }
 
-    // 페이지 로드 시 매장 목록 로드
-    loadStores();
+    // 페이지 로드 시 매장 목록 로드 (DOM이 준비된 후)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadStores);
+    } else {
+      // DOM이 이미 로드된 경우 즉시 실행
+      loadStores();
+    }
 
     // 에러 표시
     function showError(msg) {

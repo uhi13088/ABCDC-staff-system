@@ -1988,8 +1988,9 @@
         
         tbody.innerHTML = salaryData.map(salary => {
           const confirmed = confirmedSalaries[salary.employeeUid];
-          const isConfirmed = !!confirmed;
-          const isPaid = confirmed?.paid || false;
+          // status 필드가 'confirmed' 또는 'paid'일 때만 확정된 것으로 판단
+          const isConfirmed = confirmed && (confirmed.status === 'confirmed' || confirmed.status === 'paid');
+          const isPaid = confirmed && confirmed.status === 'paid';
           
           let statusBadge = '<span class="badge badge-warning">미확정</span>';
           if (isConfirmed && isPaid) {
