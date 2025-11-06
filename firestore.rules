@@ -183,6 +183,28 @@ service cloud.firestore {
                                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    // time_change_reports 컬렉션: 근무시간 수정 이력
+    match /time_change_reports/{reportId} {
+      // 읽기: 본인과 관련된 보고서이거나 관리자
+      allow read: if request.auth != null && 
+                     (resource.data.employeeUid == request.auth.uid || 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 생성: 인증된 사용자가 본인 관련 보고서 생성 또는 관리자
+      allow create: if request.auth != null && 
+                       (request.resource.data.employeeUid == request.auth.uid || 
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 수정: 관리자만 가능 (notified 플래그 업데이트 등)
+      allow update: if request.auth != null && 
+                       (resource.data.employeeUid == request.auth.uid || 
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 삭제: 관리자만 가능
+      allow delete: if request.auth != null && 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
     // 기타 모든 컬렉션: 관리자만 접근
     match /{document=**} {
       allow read, write: if request.auth != null && 
