@@ -6636,11 +6636,13 @@
      * 관리자 근무시간 수정 모달 열기
      */
     function showAdminEditAttendanceModal(attendanceId, employeeName, employeeUid, date, clockIn, clockOut) {
+      console.log('🔧 수정 모달 데이터:', { attendanceId, employeeName, employeeUid, date, clockIn, clockOut });
+      
       currentAdminEditAttendanceId = attendanceId;
       currentAdminEditEmployeeUid = employeeUid;
-      currentAdminEditEmployeeName = employeeName;
+      currentAdminEditEmployeeName = employeeName || '-';
       
-      document.getElementById('adminEditEmployeeName').value = employeeName;
+      document.getElementById('adminEditEmployeeName').value = employeeName || '-';
       document.getElementById('adminEditDate').value = date;
       document.getElementById('adminEditClockIn').value = clockIn;
       document.getElementById('adminEditClockOut').value = clockOut;
