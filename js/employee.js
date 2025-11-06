@@ -550,8 +550,51 @@ async function loadSalary() {
       }
     });
     
-    // 사용자 시급 가져오기 (Firestore users 컬렉션에서)
-    const hourlyWage = currentUser.hourlyWage || 10000;
+    // 계약서에서 시급 가져오기 (Firestore contracts 컬렉션에서)
+    let hourlyWage = 10000; // 기본값
+    
+    try {
+      // 현재 사용자의 계약서 조회 (주민번호 기준)
+      const contractsSnapshot = await db.collection('contracts')
+        .where('employeeName', '==', currentUser.name)
+        .where('employeeBirth', '==', currentUser.birth)
+        .get();
+      
+      if (!contractsSnapshot.empty) {
+        // 최신 계약서 찾기 (createdAt 기준)
+        const contracts = [];
+        contractsSnapshot.forEach(doc => {
+          contracts.push({ id: doc.id, ...doc.data() });
+        });
+        contracts.sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+        
+        const latestContract = contracts[0];
+        const wageType = latestContract.wageType || '시급';
+        const wageAmount = parseFloat(latestContract.wageAmount) || 10000;
+        
+        // 급여 유형별 시급 환산
+        if (wageType === '시급') {
+          hourlyWage = wageAmount;
+        } else if (wageType === '월급') {
+          // 월급제는 209시간 기준
+          hourlyWage = Math.round(wageAmount / 209);
+        } else if (wageType === '연봉') {
+          // 연봉은 12개월, 209시간 기준
+          hourlyWage = Math.round(wageAmount / 12 / 209);
+        }
+        
+        console.log(`📝 계약서 시급: ${hourlyWage}원 (${wageType}: ${wageAmount}원)`);
+      } else {
+        console.warn('⚠️ 계약서를 찾을 수 없습니다. 기본 시급 사용:', hourlyWage);
+      }
+    } catch (error) {
+      console.error('❌ 계약서 조회 오류:', error);
+      console.warn('⚠️ 기본 시급 사용:', hourlyWage);
+    }
     
     // 급여 계산
     const salaryData = calculateSalary(records, hourlyWage);
