@@ -1165,46 +1165,24 @@ function renderSalaryInfo(data) {
           <td>시급</td>
           <td style="text-align: right; font-weight: 600;">${formatCurrency(data.hourlyWage || 0)}</td>
         </tr>
-        ` : `
-        <tr>
-          <td>계약 근무일수</td>
-          <td style="text-align: right; font-weight: 600;">${data.contractWorkDays || 0}일</td>
-        </tr>
-        <tr>
-          <td>실제 근무일수</td>
-          <td style="text-align: right; font-weight: 600; color: ${data.absenceDays > 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${data.workDays || 0}일</td>
-        </tr>
-        ${data.absenceDays > 0 ? `
-        <tr>
-          <td style="padding-left: 20px; color: var(--danger-color);">결근일수</td>
-          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${data.absenceDays}일</td>
-        </tr>
         ` : ''}
-        <tr>
-          <td>계약 근무시간</td>
-          <td style="text-align: right; font-weight: 600;">${formatHoursAndMinutes(data.contractTotalMinutes || 0)}</td>
-        </tr>
-        <tr>
-          <td>실제 근무시간</td>
-          <td style="text-align: right; font-weight: 600; color: ${data.missedHours > 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${formatHoursAndMinutes(data.totalMinutes || 0)}</td>
-        </tr>
-        ${data.missedHours > 0 ? `
-        <tr>
-          <td style="padding-left: 20px; color: var(--danger-color);">부족 시간 (결근+지각/조퇴)</td>
-          <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatHoursAndMinutes(Math.round(data.missedHours * 60))}</td>
-        </tr>
-        ` : ''}
-        ${data.deductedAmount > 0 ? `
-        <tr style="background: #fee; border-top: 1px solid var(--danger-color);">
-          <td style="color: var(--danger-color);"><strong>차감 금액</strong></td>
-          <td style="text-align: right; font-weight: 700; color: var(--danger-color);">-${formatCurrency(data.deductedAmount)}</td>
-        </tr>
-        ` : ''}
-        `}
         <tr style="background: #f0f9ff;">
           <td><strong>기본급${!isHourly ? ' (' + (data.wageType || '월급') + ')' : ''}</strong></td>
           <td style="text-align: right; font-weight: 700; color: var(--primary-color);">${formatCurrency(data.baseSalary)}</td>
         </tr>
+        ${!isHourly && data.deductedAmount > 0 ? `
+        <tr style="background: #fee2e2;">
+          <td style="padding-left: 20px; color: var(--danger-color);">
+            <strong>차감 (결근/지각/조퇴)</strong>
+            <div style="font-size: 12px; color: #666; font-weight: normal; margin-top: 4px;">
+              ${data.absenceDays > 0 ? `결근 ${data.absenceDays}일` : ''}
+              ${data.absenceDays > 0 && data.missedHours > data.absenceDays * 8 ? ' + ' : ''}
+              ${data.missedHours > data.absenceDays * 8 ? `지각/조퇴 ${formatHoursAndMinutes(Math.round((data.missedHours - data.absenceDays * 8) * 60))}` : ''}
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: 700; color: var(--danger-color);">-${formatCurrency(data.deductedAmount)}</td>
+        </tr>
+        ` : ''}
         ${isHourly && data.weeklyHolidayPay && data.weeklyHolidayPay > 0 ? `
         <tr>
           <td>주휴수당</td>
@@ -1212,7 +1190,7 @@ function renderSalaryInfo(data) {
         </tr>
         ` : ''}
         <tr style="border-top: 2px solid var(--border-color);">
-          <td colspan="2" style="background: #fef3c7; padding: 8px; font-weight: 600;">📊 공제 내역</td>
+          <td colspan="2" style="background: #fef3c7; padding: 8px; font-weight: 600;">📊 4대보험 공제 (근로자 부담분)</td>
         </tr>
         ${data.nationalPension && data.nationalPension > 0 ? `
         <tr>
