@@ -5471,6 +5471,13 @@
       document.getElementById('previewPaymentDay').textContent = salaryConditionText;
       document.getElementById('previewPaymentMethod').textContent = document.getElementById('paymentMethod').value || '_______';
       
+      // 퇴직금 지급 대상 표시
+      const severancePayChecked = document.getElementById('allowSeverancePay')?.checked || false;
+      const severancePayDiv = document.getElementById('previewSeverancePay');
+      if (severancePayDiv) {
+        severancePayDiv.style.display = severancePayChecked ? 'block' : 'none';
+      }
+      
       const contractContent = document.getElementById('contractContent').value;
       const bodyDiv = document.getElementById('previewContractBody');
       if (contractContent && contractContent.trim()) {
@@ -6289,7 +6296,7 @@
             
             <div style="margin-top: var(--spacing-md);">
               <label style="display: flex; align-items: center; padding: var(--spacing-sm); background: var(--bg-light); border-radius: var(--border-radius); cursor: pointer;">
-                <input type="checkbox" id="allowSeverancePay" style="width: auto; margin-right: 8px;">
+                <input type="checkbox" id="allowSeverancePay" style="width: auto; margin-right: 8px;" onchange="updatePreview()">
                 <span style="font-size: 14px;"><strong>퇴직금 적용 대상</strong> (주 15시간 이상 근무, 1년 이상 근속)</span>
               </label>
             </div>
@@ -6369,6 +6376,9 @@
                     <div><span id="previewWageType">_______</span>: <span id="previewWageAmount">_______</span>원</div>
                     <div>지급일: <span id="previewPaymentDay">_______</span></div>
                     <div>지급방법: <span id="previewPaymentMethod">_______</span></div>
+                    <div id="previewSeverancePay" style="display: none; margin-top: 8px; padding: 8px; background: #fff3cd; border-left: 3px solid #ffc107; font-weight: 600;">
+                      ⚠️ 퇴직금 지급 대상 (주 15시간 이상, 1년 이상 근속 시 지급)
+                    </div>
                   </td>
                 </tr>
               </table>
