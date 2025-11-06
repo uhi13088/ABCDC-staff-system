@@ -725,14 +725,23 @@
       let totalContracts = 0;
       let unsignedContracts = 0;
       
-      // Firestore users 컬렉션에서 직원 수 가져오기
+      // Firestore users 컬렉션에서 재직 직원 수 가져오기 (resigned 제외)
       try {
         const snapshot = await db.collection('users')
           .where('userType', '==', 'employee')
           .get();
         
-        totalEmployees = snapshot.size;
-        console.log(`📊 대시보드: 총 ${totalEmployees}명의 직원 확인`);
+        // resigned 상태 제외하고 카운트
+        let activeCount = 0;
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.status !== 'resigned') {
+            activeCount++;
+          }
+        });
+        
+        totalEmployees = activeCount;
+        console.log(`📊 대시보드: 총 ${totalEmployees}명의 재직 직원 확인 (전체 ${snapshot.size}명 중 resigned 제외)`);
       } catch (error) {
         console.warn('⚠️ Firestore 직원 수 조회 실패:', error);
         totalEmployees = 0;
