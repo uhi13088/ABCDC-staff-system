@@ -383,12 +383,13 @@
                   <th>연락처</th>
                   <th>대표자</th>
                   <th>사업자번호</th>
+                  <th>급여지급일</th>
                   <th>관리</th>
                 </tr>
               </thead>
               <tbody id="storesTableBody">
                 <tr>
-                  <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                  <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                     <p style="margin-bottom: 16px;">로딩 중...</p>
                   </td>
                 </tr>
@@ -428,6 +429,35 @@
         <div class="form-group">
           <label for="storeBusinessNumber">사업자등록번호</label>
           <input type="text" id="storeBusinessNumber" placeholder="123-45-67890">
+        </div>
+        
+        <!-- 급여 지급일 설정 -->
+        <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: var(--spacing-md); margin-top: var(--spacing-md);">
+          <label style="font-weight: 700; font-size: 15px; margin-bottom: var(--spacing-sm);">📅 급여 지급일</label>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--spacing-md);">
+            매장의 급여 지급일을 설정하세요. 계약서와 급여 계산에 자동으로 반영됩니다.
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--spacing-md); align-items: center;">
+            <div>
+              <label for="storeSalaryPaymentDay">매월 지급일 *</label>
+              <select id="storeSalaryPaymentDay" required style="width: 100%;">
+                <option value="">선택</option>
+                <option value="5">5일</option>
+                <option value="10">10일</option>
+                <option value="15">15일</option>
+                <option value="20">20일</option>
+                <option value="25">25일</option>
+                <option value="28">말일 (28일)</option>
+              </select>
+            </div>
+            <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius);">
+              <p style="font-size: 13px; margin: 0; color: var(--text-secondary);">
+                <strong>예시:</strong> 5일 선택 시<br>
+                → 전월 1일~말일까지 근무한 급여를<br>
+                → 당월 5일에 지급
+              </p>
+            </div>
+          </div>
         </div>
         
         <!-- 수당 적용 옵션 -->
@@ -3286,7 +3316,7 @@
       
       if (!tbody) return;
       
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">매장 정보를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">매장 정보를 불러오는 중...</td></tr>';
       
       try {
         // Firestore에서 매장 정보 로드
@@ -3301,9 +3331,9 @@
         if (stores.length === 0) {
           console.log('📋 기본 매장 생성 중...');
           const defaultStores = [
-            { name: '맛남살롱 부천시청점', address: '경기도 부천시 원미구', phone: '032-123-4567', ceo: '홍길동', businessNumber: '123-45-67890' },
-            { name: '맛남살롱 상동점', address: '경기도 부천시 상동', phone: '032-123-4568', ceo: '홍길동', businessNumber: '123-45-67890' },
-            { name: '맛남살롱 부천역사점', address: '경기도 부천시 부천역 인근', phone: '032-123-4569', ceo: '홍길동', businessNumber: '123-45-67890' }
+            { name: '맛남살롱 부천시청점', address: '경기도 부천시 원미구', phone: '032-123-4567', ceo: '홍길동', businessNumber: '123-45-67890', salaryPaymentDay: 5 },
+            { name: '맛남살롱 상동점', address: '경기도 부천시 상동', phone: '032-123-4568', ceo: '홍길동', businessNumber: '123-45-67890', salaryPaymentDay: 5 },
+            { name: '맛남살롱 부천역사점', address: '경기도 부천시 부천역 인근', phone: '032-123-4569', ceo: '홍길동', businessNumber: '123-45-67890', salaryPaymentDay: 5 }
           ];
           
           for (const store of defaultStores) {
@@ -3319,7 +3349,7 @@
         if (stores.length === 0) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                 <p style="margin-bottom: 16px;">등록된 매장이 없습니다.</p>
                 <button class="btn btn-primary" onclick="showAddStoreModal()">+ 첫 매장 추가하기</button>
               </td>
@@ -3335,6 +3365,7 @@
             <td>${store.phone || '-'}</td>
             <td>${store.ceo || '-'}</td>
             <td>${store.businessNumber || '-'}</td>
+            <td><span style="color: var(--primary-color); font-weight: 600;">매월 ${store.salaryPaymentDay || '-'}일</span></td>
             <td>
               <button class="btn btn-sm btn-secondary" onclick="showEditStoreModal('${store.id}')">✏️ 수정</button>
             </td>
@@ -3344,7 +3375,7 @@
         console.log(`✅ ${stores.length}개 매장 로드 완료`);
       } catch (error) {
         console.error('❌ 매장 로드 실패:', error);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger-color);">매장 정보를 불러오는데 실패했습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger-color);">매장 정보를 불러오는데 실패했습니다.</td></tr>';
       }
     }
 
@@ -3395,6 +3426,7 @@
       document.getElementById('storePhone').value = '';
       document.getElementById('storeCEO').value = '';
       document.getElementById('storeBusinessNumber').value = '';
+      document.getElementById('storeSalaryPaymentDay').value = '';
       document.getElementById('deleteStoreBtn').style.display = 'none';
       
       // 수당 옵션 초기화 (기본값: 모두 미적용)
@@ -3428,6 +3460,7 @@
         document.getElementById('storePhone').value = store.phone || '';
         document.getElementById('storeCEO').value = store.ceo || '';
         document.getElementById('storeBusinessNumber').value = store.businessNumber || '';
+        document.getElementById('storeSalaryPaymentDay').value = store.salaryPaymentDay || '';
         document.getElementById('deleteStoreBtn').style.display = 'block';
         
         // 수당 옵션 불러오기
@@ -3475,6 +3508,13 @@
         return;
       }
       
+      // 급여 지급일
+      const salaryPaymentDay = document.getElementById('storeSalaryPaymentDay').value;
+      if (!salaryPaymentDay) {
+        alert('⚠️ 급여 지급일을 선택해주세요.');
+        return;
+      }
+      
       // 수당 적용 옵션 수집
       const overtimeAllowance = document.getElementById('storeOvertimeAllowance').checked;
       const nightAllowance = document.getElementById('storeNightAllowance').checked;
@@ -3487,6 +3527,7 @@
           phone,
           ceo,
           businessNumber,
+          salaryPaymentDay: parseInt(salaryPaymentDay),
           ceoSignature: storeCeoSignatureData || null,
           allowances: {
             overtime: overtimeAllowance,
