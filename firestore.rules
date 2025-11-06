@@ -109,8 +109,8 @@ service cloud.firestore {
     
     // stores 컬렉션: 매장 정보
     match /stores/{storeId} {
-      // 읽기: 모든 인증된 사용자
-      allow read: if request.auth != null;
+      // 읽기: 누구나 가능 (직원 가입 시 필요)
+      allow read: if true;
       
       // 쓰기: 관리자만
       allow write: if request.auth != null && 
