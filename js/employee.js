@@ -365,7 +365,7 @@ async function recordAttendance(type) {
       const workTime = calculateWorkTime(todayRecord.clockIn, timeStr);
       
       // 계약서 근무시간과 비교 체크
-      await checkContractTimeViolation(todayRecord.clockIn, timeStr, snapshot.docs[0].id);
+      await checkContractTimeViolation(todayRecord.clockIn, timeStr, snapshot.docs[0].id, dateStr);
       
       alert(`✅ 퇴근 처리되었습니다!\n\n시간: ${timeStr}\n근무 시간: ${workTime}\n\n수고하셨습니다! 😊`);
     }
@@ -388,7 +388,7 @@ async function recordAttendance(type) {
  * 계약서 근무시간과 실제 근무시간 비교 체크
  * 시간 외 근무 시 사유 보고 요청
  */
-async function checkContractTimeViolation(clockIn, clockOut, attendanceId) {
+async function checkContractTimeViolation(clockIn, clockOut, attendanceId, attendanceDate) {
   if (!currentUser) return;
   
   try {
@@ -450,6 +450,7 @@ async function checkContractTimeViolation(clockIn, clockOut, attendanceId) {
           employeeUid: currentUser.uid,
           employeeName: currentUser.name,
           attendanceId: attendanceId,
+          attendanceDate: attendanceDate || '-',
           contractTime: {
             start: contract.workStartTime,
             end: contract.workEndTime
@@ -635,6 +636,9 @@ async function loadAttendance() {
           <td>${workTime}</td>
           <td><span class="badge badge-${statusClass}">${statusText}</span></td>
           <td>
+            <button class="btn btn-sm btn-secondary" onclick="showAttendanceDetailModal('${record.id}', '${record.date}', '${record.clockIn || ''}', '${record.clockOut || ''}', '${record.workType || '정규근무'}')">
+              📋 상세
+            </button>
             <button class="btn btn-sm btn-primary" onclick="showEditAttendanceModal('${record.id}', '${record.date}', '${record.clockIn || ''}', '${record.clockOut || ''}')">
               ✏️ 수정
             </button>
@@ -2294,6 +2298,7 @@ async function submitAttendanceEdit() {
       employeeUid: currentUser.uid,
       employeeName: currentUser.name,
       attendanceId: currentEditAttendanceId,
+      attendanceDate: oldData.date || '-',
       oldTime: {
         clockIn: oldData.clockIn,
         clockOut: oldData.clockOut
@@ -2314,5 +2319,157 @@ async function submitAttendanceEdit() {
   } catch (error) {
     console.error('❌ 근무시간 수정 오류:', error);
     alert('❌ 수정 중 오류가 발생했습니다.\n\n' + error.message);
+  }
+}
+
+// ===================================================================
+// 근무기록 상세 모달
+// ===================================================================
+
+/**
+ * 근무기록 상세 모달 표시
+ * @param {string} attendanceId - 근태 문서 ID
+ * @param {string} date - 날짜
+ * @param {string} clockIn - 출근시간
+ * @param {string} clockOut - 퇴근시간
+ * @param {string} workType - 근무타입
+ */
+async function showAttendanceDetailModal(attendanceId, date, clockIn, clockOut, workType) {
+  if (!currentUser) return;
+  
+  try {
+    // 기본 정보 표시
+    document.getElementById('empDetailEmployeeName').textContent = currentUser.name || '-';
+    document.getElementById('empDetailDate').textContent = date || '-';
+    document.getElementById('empDetailWorkType').textContent = workType || '정규근무';
+    document.getElementById('empDetailClockIn').textContent = clockIn || '-';
+    document.getElementById('empDetailClockOut').textContent = clockOut || '-';
+    
+    // 근무시간 계산
+    if (clockIn && clockOut) {
+      const workHours = calculateWorkTime(clockIn, clockOut);
+      document.getElementById('empDetailWorkHours').textContent = workHours;
+    } else {
+      document.getElementById('empDetailWorkHours').textContent = '-';
+    }
+    
+    // 상태 계산
+    const statusObj = calculateAttendanceStatus({ clockIn, clockOut });
+    document.getElementById('empDetailStatus').innerHTML = 
+      `<span class="badge badge-${statusObj.class}">${statusObj.text}</span>`;
+    
+    // 수정 이력 로드
+    await loadEmployeeEditHistory(attendanceId);
+    
+    // 모달 표시
+    document.getElementById('attendanceDetailModal').style.display = 'flex';
+    
+  } catch (error) {
+    console.error('❌ 상세 모달 표시 오류:', error);
+    alert('❌ 상세 정보를 불러오는 중 오류가 발생했습니다.');
+  }
+}
+
+/**
+ * 근무기록 상세 모달 닫기
+ */
+function closeAttendanceDetailModal() {
+  document.getElementById('attendanceDetailModal').style.display = 'none';
+}
+
+/**
+ * 직원용 수정 이력 로드
+ * @param {string} attendanceId - 근태 문서 ID
+ */
+async function loadEmployeeEditHistory(attendanceId) {
+  const historyDiv = document.getElementById('empDetailEditHistory');
+  const contentDiv = document.getElementById('empDetailEditHistoryContent');
+  
+  try {
+    const reportsSnapshot = await db.collection('time_change_reports')
+      .where('attendanceId', '==', attendanceId)
+      .orderBy('createdAt', 'desc')
+      .get();
+    
+    if (reportsSnapshot.empty) {
+      historyDiv.style.display = 'none';
+      return;
+    }
+    
+    let html = '<div style="display: grid; gap: 12px;">';
+    
+    reportsSnapshot.forEach(doc => {
+      const report = doc.data();
+      const date = report.createdAt ? report.createdAt.toDate().toLocaleString('ko-KR') : '-';
+      
+      // 수정 타입 결정
+      let reportType = '';
+      let reporterName = '';
+      let badgeClass = '';
+      
+      if (report.type === 'violation') {
+        reportType = '⚠️ 계약서 외 근무';
+        reporterName = report.employeeName || '직원';
+        badgeClass = 'warning';
+      } else if (report.type === 'employee_edit') {
+        reportType = '✏️ 직원 수정';
+        reporterName = report.employeeName || '직원';
+        badgeClass = 'info';
+      } else if (report.type === 'admin_edit') {
+        reportType = '👨‍💼 관리자 수정';
+        reporterName = report.adminName || '관리자';
+        badgeClass = 'primary';
+      } else {
+        reportType = '📝 기타 변경';
+        reporterName = '-';
+        badgeClass = 'secondary';
+      }
+      
+      html += `
+        <div style="padding: 12px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span class="badge badge-${badgeClass}">${reportType}</span>
+            <span style="font-size: 12px; color: var(--text-secondary);">${date}</span>
+          </div>
+          
+          <div style="margin-bottom: 8px;">
+            <strong>수정자:</strong> ${reporterName}
+          </div>
+          
+          <div style="background: var(--bg-light); padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+            <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center;">
+              <div>
+                <div style="font-size: 11px; color: var(--text-secondary);">변경 전</div>
+                <div style="font-weight: 600; color: var(--danger-color);">
+                  ${report.oldTime ? `${report.oldTime.clockIn} ~ ${report.oldTime.clockOut}` : '-'}
+                </div>
+              </div>
+              <div style="text-align: center;">→</div>
+              <div>
+                <div style="font-size: 11px; color: var(--text-secondary);">변경 후</div>
+                <div style="font-weight: 600; color: var(--success-color);">
+                  ${report.newTime ? `${report.newTime.clockIn} ~ ${report.newTime.clockOut}` : '-'}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">📝 사유</div>
+            <div style="font-size: 13px; line-height: 1.5; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+              ${report.reason || '-'}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    html += '</div>';
+    contentDiv.innerHTML = html;
+    historyDiv.style.display = 'block';
+    
+  } catch (error) {
+    console.error('❌ 수정 이력 조회 오류:', error);
+    historyDiv.style.display = 'none';
   }
 }

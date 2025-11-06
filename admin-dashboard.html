@@ -6712,6 +6712,7 @@
           employeeUid: currentAdminEditEmployeeUid,
           employeeName: currentAdminEditEmployeeName,
           attendanceId: currentAdminEditAttendanceId,
+          attendanceDate: oldData.date || '-',
           oldTime: {
             clockIn: oldData.clockIn,
             clockOut: oldData.clockOut
@@ -6889,32 +6890,64 @@
         reportsSnapshot.forEach(doc => {
           const report = doc.data();
           const date = report.createdAt ? report.createdAt.toDate().toLocaleString('ko-KR') : '-';
-          const reportType = report.type === 'violation' ? '시간 외 근무' : 
-                            report.type === 'employee_edit' ? '직원 수정' : 
-                            report.type === 'admin_edit' ? '관리자 수정' : '기타';
-          const reportedBy = report.reportedBy === 'employee' ? '직원' : '관리자';
+          
+          // 수정 타입 결정
+          let reportType = '';
+          let reporterName = '';
+          let badgeClass = '';
+          
+          if (report.type === 'violation') {
+            reportType = '⚠️ 계약서 외 근무';
+            reporterName = report.employeeName || '직원';
+            badgeClass = 'warning';
+          } else if (report.type === 'employee_edit') {
+            reportType = '✏️ 직원 수정';
+            reporterName = report.employeeName || '직원';
+            badgeClass = 'info';
+          } else if (report.type === 'admin_edit') {
+            reportType = '👨‍💼 관리자 수정';
+            reporterName = report.adminName || '관리자';
+            badgeClass = 'primary';
+          } else {
+            reportType = '📝 기타 변경';
+            reporterName = '-';
+            badgeClass = 'secondary';
+          }
           
           html += `
-            <div style="padding: 12px; background: white; border: 1px solid var(--border-color); border-radius: 4px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <strong>${reportType}</strong>
+            <div style="padding: 12px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="badge badge-${badgeClass}">${reportType}</span>
                 <span style="font-size: 12px; color: var(--text-secondary);">${date}</span>
               </div>
-              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
-                보고자: ${report.employeeName || report.adminName} (${reportedBy})
+              
+              <div style="margin-bottom: 8px;">
+                <strong>수정자:</strong> ${reporterName}
               </div>
-              ${report.oldTime ? `
-                <div style="font-size: 13px; margin-bottom: 4px;">
-                  <strong>변경 전:</strong> ${report.oldTime.clockIn} ~ ${report.oldTime.clockOut}
+              
+              <div style="background: var(--bg-light); padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center;">
+                  <div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">변경 전</div>
+                    <div style="font-weight: 600; color: var(--danger-color);">
+                      ${report.oldTime ? `${report.oldTime.clockIn} ~ ${report.oldTime.clockOut}` : '-'}
+                    </div>
+                  </div>
+                  <div style="text-align: center;">→</div>
+                  <div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">변경 후</div>
+                    <div style="font-weight: 600; color: var(--success-color);">
+                      ${report.newTime ? `${report.newTime.clockIn} ~ ${report.newTime.clockOut}` : '-'}
+                    </div>
+                  </div>
                 </div>
-              ` : ''}
-              ${report.newTime ? `
-                <div style="font-size: 13px; margin-bottom: 8px;">
-                  <strong>변경 후:</strong> ${report.newTime.clockIn} ~ ${report.newTime.clockOut}
+              </div>
+              
+              <div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">📝 사유</div>
+                <div style="font-size: 13px; line-height: 1.5; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                  ${report.reason || '-'}
                 </div>
-              ` : ''}
-              <div style="font-size: 13px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
-                <strong>사유:</strong> ${report.reason}
               </div>
             </div>
           `;
