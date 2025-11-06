@@ -6287,39 +6287,70 @@
               console.log('⚠️ employee_docs에 계좌 정보 없음, users 컬렉션 사용');
             }
             
-            // 서류 이미지
+            // 서류 정보
             let docsHtml = '<div style="display: grid; gap: 12px;">';
+            let hasDocuments = false;
             
-            if (docs.healthCertificate) {
+            // 보건증 정보 (healthCert 객체)
+            if (docs.healthCert) {
+              hasDocuments = true;
+              const expiryDate = docs.healthCert.expiryDate || '-';
+              const hasImage = docs.healthCert.imageData ? true : false;
+              
               docsHtml += `
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-weight: 600;">📄 보건증:</span>
-                  <a href="${docs.healthCertificate}" target="_blank" class="btn btn-sm btn-primary">보기</a>
+                <div style="padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                  <div style="font-weight: 600; margin-bottom: 8px;">📄 보건증</div>
+                  <div style="font-size: 14px; color: var(--text-secondary);">
+                    유효기간: <strong>${expiryDate}</strong>
+                  </div>
+                  ${hasImage ? `
+                    <div style="margin-top: 8px;">
+                      <button class="btn btn-sm btn-primary" onclick="showHealthCertImage('${uid}')">이미지 보기</button>
+                    </div>
+                  ` : '<div style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;">이미지 없음</div>'}
                 </div>
               `;
             }
             
-            if (docs.bankbook) {
+            // 통장사본 정보 (bankAccount 객체와 bankbook 이미지)
+            if (docs.bankAccount || docs.bankbook) {
+              hasDocuments = true;
+              const hasBankInfo = docs.bankAccount ? true : false;
+              const hasImage = docs.bankbook ? true : false;
+              
               docsHtml += `
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-weight: 600;">🏦 통장사본:</span>
-                  <a href="${docs.bankbook}" target="_blank" class="btn btn-sm btn-primary">보기</a>
+                <div style="padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                  <div style="font-weight: 600; margin-bottom: 8px;">🏦 통장사본</div>
+                  ${hasBankInfo ? `
+                    <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 4px;">
+                      은행: <strong>${docs.bankAccount.bankName}</strong><br>
+                      계좌번호: <strong>${docs.bankAccount.accountNumber}</strong><br>
+                      예금주: <strong>${docs.bankAccount.accountHolder}</strong>
+                    </div>
+                  ` : ''}
+                  ${hasImage ? `
+                    <div style="margin-top: 8px;">
+                      <a href="${docs.bankbook}" target="_blank" class="btn btn-sm btn-primary">이미지 보기</a>
+                    </div>
+                  ` : '<div style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;">이미지 없음</div>'}
                 </div>
               `;
             }
             
+            // 신분증 (idCard)
             if (docs.idCard) {
+              hasDocuments = true;
               docsHtml += `
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-weight: 600;">🪪 신분증:</span>
-                  <a href="${docs.idCard}" target="_blank" class="btn btn-sm btn-primary">보기</a>
+                <div style="padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                  <div style="font-weight: 600; margin-bottom: 8px;">🪪 신분증</div>
+                  <a href="${docs.idCard}" target="_blank" class="btn btn-sm btn-primary">이미지 보기</a>
                 </div>
               `;
             }
             
             docsHtml += '</div>';
             
-            if (!docs.healthCertificate && !docs.bankbook && !docs.idCard) {
+            if (!hasDocuments) {
               documentsDiv.innerHTML = '<div style="color: var(--text-secondary);">등록된 서류가 없습니다.</div>';
             } else {
               documentsDiv.innerHTML = docsHtml;
@@ -6352,6 +6383,54 @@
     
     function closeEmployeeDetailModal() {
       document.getElementById('employeeDetailModal').style.display = 'none';
+    }
+    
+    // 보건증 이미지 새 창으로 보기
+    async function showHealthCertImage(uid) {
+      try {
+        const docRef = await firebase.firestore().collection('employee_docs').doc(uid).get();
+        if (docRef.exists) {
+          const docs = docRef.data();
+          if (docs.healthCert && docs.healthCert.imageData) {
+            // 새 창에서 이미지 표시
+            const newWindow = window.open('', '_blank');
+            newWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>보건증 이미지</title>
+                <style>
+                  body { 
+                    margin: 0; 
+                    padding: 20px; 
+                    background: #f5f5f5; 
+                    display: flex; 
+                    justify-content: center; 
+                    align-items: center;
+                    min-height: 100vh;
+                  }
+                  img { 
+                    max-width: 100%; 
+                    max-height: 90vh; 
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                  }
+                </style>
+              </head>
+              <body>
+                <img src="${docs.healthCert.imageData}" alt="보건증">
+              </body>
+              </html>
+            `);
+          } else {
+            alert('❌ 보건증 이미지가 없습니다.');
+          }
+        } else {
+          alert('❌ 서류 정보를 찾을 수 없습니다.');
+        }
+      } catch (error) {
+        console.error('❌ 보건증 이미지 로드 실패:', error);
+        alert('❌ 이미지를 불러올 수 없습니다.');
+      }
     }
 
     // 관리자 상세 정보 모달
