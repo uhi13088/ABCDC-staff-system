@@ -762,6 +762,27 @@ async function loadSalary() {
     // 급여 계산
     const salaryData = calculateSalary(records, hourlyWage);
     
+    // salaries 컬렉션에서 확정된 퇴직금 정보 조회
+    try {
+      const yearMonth = filterMonth; // YYYY-MM 형식
+      const salaryDocId = `${currentUser.uid}_${yearMonth}`;
+      const salaryDoc = await db.collection('salaries').doc(salaryDocId).get();
+      
+      if (salaryDoc.exists) {
+        const salaryDocData = salaryDoc.data();
+        
+        // 확정된 퇴직금이 있는 경우에만 추가
+        if (salaryDocData.severanceConfirmed === true && salaryDocData.severancePay > 0) {
+          salaryData.severancePay = salaryDocData.severancePay;
+          salaryData.severanceConfirmedAt = salaryDocData.severanceConfirmedAt;
+          console.log('💰 확정된 퇴직금 정보:', salaryData.severancePay);
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ 퇴직금 정보 조회 오류:', error);
+      // 오류가 있어도 급여 정보는 표시
+    }
+    
     renderSalaryInfo(salaryData);
     
   } catch (error) {
@@ -886,6 +907,12 @@ function renderSalaryInfo(data) {
         <tr>
           <td>소득세 (3.3%)</td>
           <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.tax)}</td>
+        </tr>
+        ` : ''}
+        ${data.severancePay && data.severancePay > 0 ? `
+        <tr style="background: #fffbeb; border-top: 2px solid var(--border-color);">
+          <td style="color: #92400e;">퇴직금 (확정)</td>
+          <td style="text-align: right; font-weight: 700; color: #b45309;">+${formatCurrency(data.severancePay)}</td>
         </tr>
         ` : ''}
         <tr style="background: var(--bg-light); border-top: 2px solid var(--primary-color);">
