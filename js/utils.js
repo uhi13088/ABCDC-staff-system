@@ -408,9 +408,79 @@ function removeFromSession(key) {
 }
 
 /**
- * 로컬 스토리지에 저장
+ * Firestore에 저장 (범용 헬퍼 함수)
+ * @param {string} collection - Firestore 컬렉션 이름
+ * @param {string} docId - 문서 ID
+ * @param {object} value - 저장할 데이터 객체
+ * @returns {Promise<boolean>} 성공 여부
+ */
+async function saveToFirestore(collection, docId, value) {
+  try {
+    if (!firebase || !firebase.firestore) {
+      console.error('[미검증] Firebase Firestore가 초기화되지 않았습니다.');
+      return false;
+    }
+    
+    await firebase.firestore().collection(collection).doc(docId).set(value, { merge: true });
+    return true;
+  } catch (e) {
+    console.error('[미검증] Firestore 저장 실패:', e);
+    return false;
+  }
+}
+
+/**
+ * Firestore에서 가져오기 (범용 헬퍼 함수)
+ * @param {string} collection - Firestore 컬렉션 이름
+ * @param {string} docId - 문서 ID
+ * @returns {Promise<object|null>} 문서 데이터 또는 null
+ */
+async function getFromFirestore(collection, docId) {
+  try {
+    if (!firebase || !firebase.firestore) {
+      console.error('[미검증] Firebase Firestore가 초기화되지 않았습니다.');
+      return null;
+    }
+    
+    const docRef = await firebase.firestore().collection(collection).doc(docId).get();
+    return docRef.exists ? docRef.data() : null;
+  } catch (e) {
+    console.error('[미검증] Firestore 읽기 실패:', e);
+    return null;
+  }
+}
+
+/**
+ * Firestore에서 삭제 (범용 헬퍼 함수)
+ * @param {string} collection - Firestore 컬렉션 이름
+ * @param {string} docId - 문서 ID
+ * @returns {Promise<boolean>} 성공 여부
+ */
+async function deleteFromFirestore(collection, docId) {
+  try {
+    if (!firebase || !firebase.firestore) {
+      console.error('[미검증] Firebase Firestore가 초기화되지 않았습니다.');
+      return false;
+    }
+    
+    await firebase.firestore().collection(collection).doc(docId).delete();
+    return true;
+  } catch (e) {
+    console.error('[미검증] Firestore 삭제 실패:', e);
+    return false;
+  }
+}
+
+// ===================================================================
+// 레거시 호환성 함수 (기존 코드 호환용)
+// ===================================================================
+
+/**
+ * @deprecated localStorage 대신 saveToFirestore 사용 권장
+ * 레거시 코드 호환을 위한 wrapper 함수
  */
 function saveToLocal(key, value) {
+  console.warn('[미검증] saveToLocal은 deprecated되었습니다. saveToFirestore 사용을 권장합니다.');
   try {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
@@ -421,9 +491,11 @@ function saveToLocal(key, value) {
 }
 
 /**
- * 로컬 스토리지에서 가져오기
+ * @deprecated localStorage 대신 getFromFirestore 사용 권장
+ * 레거시 코드 호환을 위한 wrapper 함수
  */
 function getFromLocal(key) {
+  console.warn('[미검증] getFromLocal은 deprecated되었습니다. getFromFirestore 사용을 권장합니다.');
   try {
     const value = localStorage.getItem(key);
     return value ? JSON.parse(value) : null;
