@@ -141,6 +141,9 @@ async function loadUserInfo(uid, name) {
     // 보건증 만료 체크 (비동기로 실행, 에러가 있어도 메인 화면은 표시)
     checkHealthCertExpiry().catch(err => console.error('보건증 체크 오류:', err));
     
+    // 관리자 근무시간 수정 알림 체크 (비동기로 실행)
+    checkAdminTimeEdits().catch(err => console.error('근무시간 수정 알림 체크 오류:', err));
+    
   } catch (error) {
     console.error('❌ 사용자 정보 로드 오류:', error);
     // 오류 발생 시에도 기본 정보로 진행
@@ -156,6 +159,9 @@ async function loadUserInfo(uid, name) {
     
     // 보건증 만료 체크 (비동기로 실행, 에러가 있어도 메인 화면은 표시)
     checkHealthCertExpiry().catch(err => console.error('보건증 체크 오류:', err));
+    
+    // 관리자 근무시간 수정 알림 체크 (비동기로 실행)
+    checkAdminTimeEdits().catch(err => console.error('근무시간 수정 알림 체크 오류:', err));
   }
 }
 
@@ -1446,6 +1452,84 @@ async function checkHealthCertExpiry() {
     }
   } catch (error) {
     console.error('❌ 보건증 만료 체크 오류:', error);
+  }
+}
+
+/**
+ * 관리자 근무시간 수정 알림 체크
+ * 로그인 시 관리자가 수정한 내역이 있으면 알림
+ */
+async function checkAdminTimeEdits() {
+  if (!currentUser) return;
+  
+  try {
+    // 최근 7일 이내의 관리자 수정 조회 (읽지 않은 것만)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const reportsSnapshot = await db.collection('time_change_reports')
+      .where('employeeUid', '==', currentUser.uid)
+      .where('type', '==', 'admin_edit')
+      .where('createdAt', '>=', firebase.firestore.Timestamp.fromDate(sevenDaysAgo))
+      .orderBy('createdAt', 'desc')
+      .limit(5)
+      .get();
+    
+    if (reportsSnapshot.empty) {
+      console.log('📋 관리자 수정 내역 없음');
+      return;
+    }
+    
+    // 읽지 않은 알림 필터링 (notified 필드가 없거나 false인 것)
+    const unreadReports = [];
+    reportsSnapshot.forEach(doc => {
+      const report = doc.data();
+      if (!report.notified) {
+        unreadReports.push({ id: doc.id, ...report });
+      }
+    });
+    
+    if (unreadReports.length === 0) {
+      console.log('📋 읽지 않은 관리자 수정 내역 없음');
+      return;
+    }
+    
+    // 알림 메시지 생성
+    let message = '🔔 관리자 근무시간 수정 알림\n\n';
+    message += `${unreadReports.length}건의 근무시간이 관리자에 의해 수정되었습니다.\n\n`;
+    
+    unreadReports.forEach((report, index) => {
+      const date = report.createdAt ? report.createdAt.toDate().toLocaleDateString('ko-KR') : '-';
+      message += `━━━━━━━━━━━━━━━━\n`;
+      message += `${index + 1}. ${date}\n`;
+      message += `관리자: ${report.adminName || '관리자'}\n\n`;
+      
+      if (report.oldTime && report.newTime) {
+        message += `변경 전: ${report.oldTime.clockIn} ~ ${report.oldTime.clockOut}\n`;
+        message += `변경 후: ${report.newTime.clockIn} ~ ${report.newTime.clockOut}\n\n`;
+      }
+      
+      message += `📝 사유: ${report.reason}\n`;
+    });
+    
+    message += `━━━━━━━━━━━━━━━━\n\n`;
+    message += '💡 근무내역 탭에서 자세한 내역을 확인할 수 있습니다.';
+    
+    alert(message);
+    
+    // 알림 표시 후 notified 플래그 업데이트
+    const batch = db.batch();
+    unreadReports.forEach(report => {
+      const docRef = db.collection('time_change_reports').doc(report.id);
+      batch.update(docRef, { notified: true });
+    });
+    await batch.commit();
+    
+    console.log(`✅ ${unreadReports.length}건의 관리자 수정 알림 표시 완료`);
+    
+  } catch (error) {
+    console.error('❌ 관리자 수정 알림 체크 오류:', error);
+    // 에러가 있어도 메인 화면은 표시
   }
 }
 
