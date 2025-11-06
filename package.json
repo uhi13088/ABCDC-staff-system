@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "scripts": {
     "build": "echo 'No build step required for static site'",
-    "serve": "http-server . -p 8080"
+    "serve": "http-server . -p 8080",
+    "git:setup": "bash .git-setup.sh",
+    "git:push": "bash .git-setup.sh && git push origin main",
+    "git:commit": "git add . && git commit -m",
+    "git:sync": "bash .git-setup.sh && git add . && git commit -m 'Update' && git push origin main"
   },
   "devDependencies": {
     "firebase-tools": "^14.23.0",

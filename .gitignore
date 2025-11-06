@@ -18,6 +18,9 @@ wrangler.toml.backup
 .env
 .env.local
 
+# Git setup script (contains token references)
+.git-setup.sh
+
 # Logs
 *.log
 npm-debug.log*
