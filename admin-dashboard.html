@@ -1825,6 +1825,47 @@
       setTimeout(() => closeSendLinkModal(), 500);
     }
 
+    /**
+     * 근태 상태 자동 계산
+     * @param {Object} att - 근태 데이터
+     * @returns {Object} { text: '상태명', class: 'badge-클래스' }
+     */
+    function calculateAttendanceStatus(att) {
+      // 출근 기록 없음
+      if (!att.clockIn) {
+        return { text: '결근', class: 'danger' };
+      }
+      
+      // 퇴근 기록 없음 (아직 근무 중)
+      if (!att.clockOut) {
+        return { text: '근무중', class: 'info' };
+      }
+      
+      // 기본값: 정상
+      let status = { text: '정상', class: 'success' };
+      
+      // 지각/조퇴 판정을 위해 계약서 기준 시간이 필요하지만
+      // 여기서는 간단하게 일반적인 기준으로 판정
+      // TODO: 계약서 기준 시간과 비교하여 정확한 판정 가능
+      
+      // 09:00 이후 출근은 지각으로 임시 판정
+      if (att.clockIn > '09:00') {
+        status = { text: '지각', class: 'warning' };
+      }
+      
+      // 18:00 이전 퇴근은 조퇴로 임시 판정
+      if (att.clockOut < '18:00') {
+        status = { text: '조퇴', class: 'info' };
+      }
+      
+      // 지각이면서 조퇴면 '지각+조퇴'
+      if (att.clockIn > '09:00' && att.clockOut < '18:00') {
+        status = { text: '지각+조퇴', class: 'warning' };
+      }
+      
+      return status;
+    }
+
     async function loadAttendanceList() {
       console.log('🔍 loadAttendanceList 호출됨');
       
@@ -1917,9 +1958,11 @@
         }
         
         tbody.innerHTML = attendanceList.map(att => {
-          const statusClass = att.status === '정상' ? 'success' : 
-                              att.status === '지각' ? 'warning' : 
-                              att.status === '조퇴' ? 'info' : 'danger';
+          // 상태 자동 계산
+          const calculatedStatus = calculateAttendanceStatus(att);
+          const statusClass = calculatedStatus.class;
+          const statusText = calculatedStatus.text;
+          
           return `
             <tr>
               <td>${att.date || '-'}</td>
@@ -1928,8 +1971,9 @@
               <td>${att.clockIn || '-'}</td>
               <td>${att.clockOut || '-'}</td>
               <td>${att.workType || '정규근무'}</td>
-              <td><span class="badge badge-${statusClass}">${att.status || '정상'}</span></td>
+              <td><span class="badge badge-${statusClass}">${statusText}</span></td>
               <td>
+                <button class="btn btn-sm btn-secondary" onclick="showAttendanceDetailModal('${att.id}', '${att.employeeName || att.name}', '${att.uid}', '${att.date}', '${att.clockIn || ''}', '${att.clockOut || ''}', '${att.store || ''}', '${att.workType || '정규근무'}', '${statusText}')" style="margin-right: 4px;">📋 상세</button>
                 <button class="btn btn-sm btn-primary" onclick="showAdminEditAttendanceModal('${att.id}', '${att.employeeName || att.name}', '${att.uid}', '${att.date}', '${att.clockIn || ''}', '${att.clockOut || ''}')">✏️ 수정</button>
               </td>
             </tr>
@@ -6244,6 +6288,83 @@
     </div>
   </div>
 
+  <!-- 근무기록 상세 모달 -->
+  <div id="attendanceDetailModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">📋 근무기록 상세</h2>
+        <button class="modal-close" onclick="closeAttendanceDetailModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- 기본 정보 -->
+        <div style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);">👤 직원 정보</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-md);">
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">이름</div>
+              <div style="font-size: 16px; font-weight: 600;" id="detailEmployeeName">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">매장</div>
+              <div style="font-size: 16px; font-weight: 600;" id="detailStore">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 근무 정보 -->
+        <div style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);">⏰ 근무 정보</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-md);">
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">날짜</div>
+              <div style="font-size: 16px; font-weight: 600;" id="detailDate">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">근무타입</div>
+              <div style="font-size: 16px; font-weight: 600;" id="detailWorkType">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">출근시간</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--success-color);" id="detailClockIn">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">퇴근시간</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--danger-color);" id="detailClockOut">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">근무시간</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--primary-color);" id="detailWorkHours">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">상태</div>
+              <div style="font-size: 16px; font-weight: 600;" id="detailStatus">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 계약서 근무시간 비교 -->
+        <div id="detailContractComparison" style="background: #fff3cd; padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg); display: none;">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: #856404;">⚠️ 계약서 근무시간 비교</h3>
+          <div id="detailContractInfo" style="font-size: 14px; color: #856404;">
+            <!-- 계약서 정보가 여기 표시됩니다 -->
+          </div>
+        </div>
+
+        <!-- 수정 이력 -->
+        <div id="detailEditHistory" style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius); display: none;">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);">📝 수정 이력</h3>
+          <div id="detailEditHistoryContent" style="font-size: 14px;">
+            <!-- 수정 이력이 여기 표시됩니다 -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAttendanceDetailModal()">닫기</button>
+        <button class="btn btn-primary" id="detailEditButton" onclick="openEditFromDetail()">✏️ 수정하기</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // 매장 서명 미리보기
     function previewStoreSignature(event) {
@@ -6612,6 +6733,223 @@
         console.error('❌ 근무시간 수정 오류:', error);
         alert('❌ 수정 중 오류가 발생했습니다.\n\n' + error.message);
       }
+    }
+
+    // ===================================================================
+    // 근무기록 상세 모달
+    // ===================================================================
+
+    let currentDetailAttendanceId = null;
+    let currentDetailEmployeeUid = null;
+    let currentDetailEmployeeName = null;
+
+    /**
+     * 근무기록 상세 모달 열기
+     */
+    async function showAttendanceDetailModal(attendanceId, employeeName, employeeUid, date, clockIn, clockOut, store, workType, status) {
+      currentDetailAttendanceId = attendanceId;
+      currentDetailEmployeeUid = employeeUid;
+      currentDetailEmployeeName = employeeName;
+      
+      // 기본 정보 표시
+      document.getElementById('detailEmployeeName').textContent = employeeName;
+      document.getElementById('detailStore').textContent = store;
+      document.getElementById('detailDate').textContent = date;
+      document.getElementById('detailWorkType').textContent = workType;
+      document.getElementById('detailClockIn').textContent = clockIn || '-';
+      document.getElementById('detailClockOut').textContent = clockOut || '-';
+      
+      // 근무시간 계산
+      if (clockIn && clockOut) {
+        const workMinutes = calculateWorkMinutes(clockIn, clockOut);
+        const hours = Math.floor(workMinutes / 60);
+        const minutes = workMinutes % 60;
+        document.getElementById('detailWorkHours').textContent = `${hours}시간 ${minutes}분`;
+      } else {
+        document.getElementById('detailWorkHours').textContent = '-';
+      }
+      
+      document.getElementById('detailStatus').innerHTML = `<span class="badge badge-${calculateAttendanceStatus({clockIn, clockOut}).class}">${status}</span>`;
+      
+      // 수정 버튼에 데이터 전달용 저장
+      document.getElementById('detailEditButton').setAttribute('data-date', date);
+      document.getElementById('detailEditButton').setAttribute('data-clockin', clockIn);
+      document.getElementById('detailEditButton').setAttribute('data-clockout', clockOut);
+      
+      // 계약서 근무시간과 비교
+      await loadContractComparison(employeeUid, employeeName, clockIn, clockOut);
+      
+      // 수정 이력 조회
+      await loadEditHistory(attendanceId);
+      
+      document.getElementById('attendanceDetailModal').style.display = 'flex';
+    }
+
+    /**
+     * 근무시간 계산 (분 단위)
+     */
+    function calculateWorkMinutes(clockIn, clockOut) {
+      if (!clockIn || !clockOut) return 0;
+      
+      const [inHour, inMin] = clockIn.split(':').map(Number);
+      const [outHour, outMin] = clockOut.split(':').map(Number);
+      
+      const inMinutes = inHour * 60 + inMin;
+      const outMinutes = outHour * 60 + outMin;
+      
+      return outMinutes - inMinutes;
+    }
+
+    /**
+     * 계약서 근무시간과 비교
+     */
+    async function loadContractComparison(employeeUid, employeeName, clockIn, clockOut) {
+      const comparisonDiv = document.getElementById('detailContractComparison');
+      const infoDiv = document.getElementById('detailContractInfo');
+      
+      try {
+        // 계약서 조회
+        const contractsSnapshot = await firebase.firestore().collection('contracts')
+          .where('employeeName', '==', employeeName)
+          .get();
+        
+        if (contractsSnapshot.empty) {
+          comparisonDiv.style.display = 'none';
+          return;
+        }
+        
+        // 최신 계약서
+        const contracts = [];
+        contractsSnapshot.forEach(doc => {
+          contracts.push({ id: doc.id, ...doc.data() });
+        });
+        contracts.sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+        
+        const contract = contracts[0];
+        
+        if (!contract.workStartTime || !contract.workEndTime) {
+          comparisonDiv.style.display = 'none';
+          return;
+        }
+        
+        // 비교
+        let html = `<div style="margin-bottom: 8px;"><strong>계약서 근무시간:</strong> ${contract.workStartTime} ~ ${contract.workEndTime}</div>`;
+        html += `<div style="margin-bottom: 8px;"><strong>실제 근무시간:</strong> ${clockIn} ~ ${clockOut}</div>`;
+        
+        const isEarly = clockIn < contract.workStartTime;
+        const isLate = clockOut > contract.workEndTime;
+        
+        if (isEarly || isLate) {
+          html += '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #856404;">';
+          if (isEarly) {
+            html += `<div>• 출근: 계약시간(${contract.workStartTime})보다 일찍 출근함</div>`;
+          }
+          if (isLate) {
+            html += `<div>• 퇴근: 계약시간(${contract.workEndTime})보다 늦게 퇴근함</div>`;
+          }
+          html += '</div>';
+          
+          comparisonDiv.style.display = 'block';
+        } else {
+          comparisonDiv.style.display = 'none';
+        }
+        
+        infoDiv.innerHTML = html;
+        
+      } catch (error) {
+        console.error('❌ 계약서 비교 오류:', error);
+        comparisonDiv.style.display = 'none';
+      }
+    }
+
+    /**
+     * 수정 이력 조회
+     */
+    async function loadEditHistory(attendanceId) {
+      const historyDiv = document.getElementById('detailEditHistory');
+      const contentDiv = document.getElementById('detailEditHistoryContent');
+      
+      try {
+        const reportsSnapshot = await firebase.firestore().collection('time_change_reports')
+          .where('attendanceId', '==', attendanceId)
+          .orderBy('createdAt', 'desc')
+          .get();
+        
+        if (reportsSnapshot.empty) {
+          historyDiv.style.display = 'none';
+          return;
+        }
+        
+        let html = '<div style="display: grid; gap: 12px;">';
+        
+        reportsSnapshot.forEach(doc => {
+          const report = doc.data();
+          const date = report.createdAt ? report.createdAt.toDate().toLocaleString('ko-KR') : '-';
+          const reportType = report.type === 'violation' ? '시간 외 근무' : 
+                            report.type === 'employee_edit' ? '직원 수정' : 
+                            report.type === 'admin_edit' ? '관리자 수정' : '기타';
+          const reportedBy = report.reportedBy === 'employee' ? '직원' : '관리자';
+          
+          html += `
+            <div style="padding: 12px; background: white; border: 1px solid var(--border-color); border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <strong>${reportType}</strong>
+                <span style="font-size: 12px; color: var(--text-secondary);">${date}</span>
+              </div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+                보고자: ${report.employeeName || report.adminName} (${reportedBy})
+              </div>
+              ${report.oldTime ? `
+                <div style="font-size: 13px; margin-bottom: 4px;">
+                  <strong>변경 전:</strong> ${report.oldTime.clockIn} ~ ${report.oldTime.clockOut}
+                </div>
+              ` : ''}
+              ${report.newTime ? `
+                <div style="font-size: 13px; margin-bottom: 8px;">
+                  <strong>변경 후:</strong> ${report.newTime.clockIn} ~ ${report.newTime.clockOut}
+                </div>
+              ` : ''}
+              <div style="font-size: 13px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                <strong>사유:</strong> ${report.reason}
+              </div>
+            </div>
+          `;
+        });
+        
+        html += '</div>';
+        contentDiv.innerHTML = html;
+        historyDiv.style.display = 'block';
+        
+      } catch (error) {
+        console.error('❌ 수정 이력 조회 오류:', error);
+        historyDiv.style.display = 'none';
+      }
+    }
+
+    /**
+     * 근무기록 상세 모달 닫기
+     */
+    function closeAttendanceDetailModal() {
+      document.getElementById('attendanceDetailModal').style.display = 'none';
+      currentDetailAttendanceId = null;
+      currentDetailEmployeeUid = null;
+      currentDetailEmployeeName = null;
+    }
+
+    /**
+     * 상세 모달에서 수정 모달 열기
+     */
+    function openEditFromDetail() {
+      const date = document.getElementById('detailEditButton').getAttribute('data-date');
+      const clockIn = document.getElementById('detailEditButton').getAttribute('data-clockin');
+      const clockOut = document.getElementById('detailEditButton').getAttribute('data-clockout');
+      
+      closeAttendanceDetailModal();
+      showAdminEditAttendanceModal(currentDetailAttendanceId, currentDetailEmployeeName, currentDetailEmployeeUid, date, clockIn, clockOut);
     }
   </script>
 </body>
