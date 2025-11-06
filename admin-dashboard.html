@@ -223,6 +223,18 @@
                 <button class="btn btn-primary" onclick="loadSalaryList()">조회</button>
               </div>
             </div>
+            
+            <!-- 4단계: 급여 계산 기간 안내 -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: var(--spacing-md); border-radius: var(--border-radius); margin-bottom: var(--spacing-md);">
+              <p style="margin: 0; font-size: 13px; line-height: 1.6;">
+                <strong>📅 급여 계산 기간 안내</strong><br>
+                • <strong>5일/10일/15일 지급</strong>: 전월 1일 ~ 전월 말일 근무분<br>
+                • <strong>20일 지급</strong>: 전월 16일 ~ 당월 15일 근무분<br>
+                • <strong>25일 지급</strong>: 전월 21일 ~ 당월 20일 근무분<br>
+                • <strong>말일 지급</strong>: 당월 1일 ~ 당월 말일 근무분<br>
+                <span style="opacity: 0.9; font-size: 12px;">💡 각 직원의 계약서에 설정된 급여지급일에 따라 자동으로 계산됩니다.</span>
+              </p>
+            </div>
             <table>
               <thead>
                 <tr>
@@ -2117,10 +2129,56 @@
           });
           const contract = contracts[0];
           
-          // 해당 월의 출퇴근 기록 가져오기
+          // 4단계: 계약서의 salaryPaymentDay를 기반으로 계산 기간 결정
+          const salaryPaymentDay = contract.salaryPaymentDay || null;
           const [year, month] = yearMonth.split('-');
-          const startDate = `${year}-${month}-01`;
-          const endDate = `${year}-${month}-${new Date(year, month, 0).getDate()}`;
+          
+          let startDate, endDate;
+          
+          if (salaryPaymentDay) {
+            // 계산 기간 로직
+            if (salaryPaymentDay <= 15) {
+              // 5일, 10일, 15일 지급 → 전월 1일 ~ 전월 말일
+              const prevMonth = new Date(year, month - 2, 1); // 전월
+              const prevYear = prevMonth.getFullYear();
+              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
+              const lastDayOfPrevMonth = new Date(prevYear, prevMonth.getMonth() + 1, 0).getDate();
+              startDate = `${prevYear}-${prevMonthNum}-01`;
+              endDate = `${prevYear}-${prevMonthNum}-${lastDayOfPrevMonth}`;
+            } else if (salaryPaymentDay === 20) {
+              // 20일 지급 → 전월 16일 ~ 당월 15일
+              const prevMonth = new Date(year, month - 2, 1);
+              const prevYear = prevMonth.getFullYear();
+              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
+              startDate = `${prevYear}-${prevMonthNum}-16`;
+              endDate = `${year}-${String(month).padStart(2, '0')}-15`;
+            } else if (salaryPaymentDay === 25) {
+              // 25일 지급 → 전월 21일 ~ 당월 20일
+              const prevMonth = new Date(year, month - 2, 1);
+              const prevYear = prevMonth.getFullYear();
+              const prevMonthNum = String(prevMonth.getMonth() + 1).padStart(2, '0');
+              startDate = `${prevYear}-${prevMonthNum}-21`;
+              endDate = `${year}-${String(month).padStart(2, '0')}-20`;
+            } else if (salaryPaymentDay === 28) {
+              // 말일 지급 → 당월 1일 ~ 당월 말일
+              const lastDay = new Date(year, month, 0).getDate();
+              startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+              endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+            } else {
+              // 기타 지급일 → 기본 당월 계산
+              const lastDay = new Date(year, month, 0).getDate();
+              startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+              endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+            }
+            
+            console.log(`💰 급여 계산 기간 (${salaryPaymentDay}일 지급):`, startDate, '~', endDate);
+          } else {
+            // salaryPaymentDay가 없으면 기존 로직 (당월 1일~말일)
+            const lastDay = new Date(year, month, 0).getDate();
+            startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+            console.log('⚠️ 계약서에 급여지급일 정보 없음, 당월 기준 계산:', startDate, '~', endDate);
+          }
           
           const attendancesSnapshot = await firebase.firestore().collection('attendance')
             .where('uid', '==', employee.uid)
@@ -5564,6 +5622,7 @@
         wageType: document.getElementById('wageType').value,
         wageAmount: document.getElementById('wageAmount').value,
         paymentDay: document.getElementById('paymentDay').value,
+        salaryPaymentDay: store?.salaryPaymentDay || null, // 4단계: 급여 지급일 (숫자)
         paymentMethod: document.getElementById('paymentMethod').value,
         contractContent: document.getElementById('contractContent').value,
         contractDate: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
