@@ -663,19 +663,13 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   
-  <!-- External Modules -->
-  <script src="js/firebase-init.js"></script>
+  <!-- Salary Calculator (before main script) -->
   <script src="js/salary-calculator.js"></script>
 
   <script>
     // ===========================================
-    // Firebase 초기화 및 인증은 js/firebase-init.js 외부 모듈로 분리되었습니다
-    // - firebaseConfig
-    // - auth, db (Firebase 서비스 인스턴스)
-    // - isAuthenticated, currentTab (전역 상태 변수)
-    // - checkAuthStatus()
-    // - logout()
-    // - DOMContentLoaded 이벤트 핸들러
+    // MAIN ADMIN DASHBOARD SCRIPT
+    // Firebase 인증 및 전체 관리자 기능
     // ===========================================
 
     async function showMainScreen() {
@@ -7765,5 +7759,8 @@
       showAdminEditAttendanceModal(currentDetailAttendanceId, currentDetailEmployeeName, currentDetailEmployeeUid, date, clockIn, clockOut);
     }
   </script>
+
+  <!-- Firebase Init (로드 순서: 맨 마지막, 모든 함수 정의 후) -->
+  <script src="js/firebase-init.js"></script>
 </body>
 </html>
