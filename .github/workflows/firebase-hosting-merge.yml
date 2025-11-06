@@ -1,35 +1,31 @@
-name: Deploy to Firebase Hosting and Functions on merge
+name: Deploy to Firebase Hosting and Functions
 on:
   push:
     branches:
       - main
 jobs:
-  build_and_deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      # Hosting 배포를 위한 빌드
-      - name: Install dependencies and build
+      # Node.js 설정
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      # Hosting 빌드
+      - name: Install and Build
         run: npm ci && npm run build
       
-      # Firebase Hosting 배포
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ABCDC_STAFF_SYSTEM }}
-          channelId: live
-          projectId: abcdc-staff-system
-      
-      # Cloud Functions 배포
+      # Functions 의존성 설치
       - name: Install Functions dependencies
         run: cd functions && npm ci
       
-      - name: Deploy to Firebase Functions
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      # Firebase 배포 (Hosting + Functions 동시)
+      - name: Deploy to Firebase
+        uses: w9jds/firebase-action@master
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ABCDC_STAFF_SYSTEM }}
-          target: functions
-          projectId: abcdc-staff-system
+          args: deploy --only hosting,functions
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
