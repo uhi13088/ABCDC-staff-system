@@ -141,6 +141,9 @@ function getWeekOfMonth(date) {
 async function calculateMonthlySalary(employee, contract, attendances, yearMonth) {
   console.log('💰 급여 계산 시작:', employee.name, yearMonth);
   
+  // yearMonth 파싱 (YYYY-MM 형식)
+  const [year, month] = yearMonth.split('-').map(Number);
+  
   const result = {
     employeeName: employee.name,
     employeeUid: employee.uid,
