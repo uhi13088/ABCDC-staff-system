@@ -137,6 +137,10 @@ async function loadUserInfo(uid, name) {
     }
     
     showMainScreen();
+    
+    // 보건증 만료 체크 (비동기로 실행, 에러가 있어도 메인 화면은 표시)
+    checkHealthCertExpiry().catch(err => console.error('보건증 체크 오류:', err));
+    
   } catch (error) {
     console.error('❌ 사용자 정보 로드 오류:', error);
     // 오류 발생 시에도 기본 정보로 진행
@@ -149,6 +153,9 @@ async function loadUserInfo(uid, name) {
     };
     console.log('⚠️ currentUser 설정 완료 (오류 후 기본값):', currentUser);
     showMainScreen();
+    
+    // 보건증 만료 체크 (비동기로 실행, 에러가 있어도 메인 화면은 표시)
+    checkHealthCertExpiry().catch(err => console.error('보건증 체크 오류:', err));
   }
 }
 
@@ -1294,6 +1301,50 @@ function showHealthSaveSuccess() {
   setTimeout(() => {
     statusEl.style.display = 'none';
   }, 3000);
+}
+
+/**
+ * 보건증 만료 체크 및 알림
+ * 만료 1달 이내면 갱신 요청 팝업 표시
+ */
+async function checkHealthCertExpiry() {
+  if (!currentUser) return;
+  
+  try {
+    const docRef = await db.collection('employee_docs').doc(currentUser.uid).get();
+    
+    if (docRef.exists) {
+      const docs = docRef.data();
+      
+      if (docs.healthCert && docs.healthCert.expiryDate) {
+        const expiryDate = new Date(docs.healthCert.expiryDate);
+        const today = new Date();
+        
+        // 오늘 날짜를 00:00:00으로 설정
+        today.setHours(0, 0, 0, 0);
+        expiryDate.setHours(0, 0, 0, 0);
+        
+        // 남은 일수 계산
+        const diffTime = expiryDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        console.log('📄 보건증 만료 체크:', {
+          expiryDate: docs.healthCert.expiryDate,
+          diffDays: diffDays
+        });
+        
+        if (diffDays < 0) {
+          // 만료됨
+          alert('⚠️ 보건증이 만료되었습니다!\n\n만료일: ' + docs.healthCert.expiryDate + '\n\n긴급히 보건증을 갱신해주세요.');
+        } else if (diffDays <= 30) {
+          // 30일 이내 만료 예정
+          alert('🔔 보건증 갱신 안내\n\n만료일: ' + docs.healthCert.expiryDate + '\n남은 기간: ' + diffDays + '일\n\n보건증 갱신을 준비해주세요.');
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ 보건증 만료 체크 오류:', error);
+  }
 }
 
 // ===================================================================

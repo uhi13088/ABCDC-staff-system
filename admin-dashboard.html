@@ -6136,25 +6136,6 @@
           </div>
         </div>
 
-        <!-- 계좌 정보 -->
-        <div style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
-          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);">🏦 계좌 정보</h3>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md);">
-            <div>
-              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">은행명</div>
-              <div style="font-size: 16px; font-weight: 600;" id="empDetailBank">-</div>
-            </div>
-            <div>
-              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">계좌번호</div>
-              <div style="font-size: 16px; font-weight: 600;" id="empDetailAccount">-</div>
-            </div>
-            <div>
-              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">예금주</div>
-              <div style="font-size: 16px; font-weight: 600;" id="empDetailAccountHolder">-</div>
-            </div>
-          </div>
-        </div>
-
         <!-- 서류 정보 -->
         <div style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius);">
           <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);">📄 서류 정보</h3>
@@ -6273,20 +6254,6 @@
           if (docRef.exists) {
             const docs = docRef.data();
             
-            // 계좌 정보 (bankAccount 객체에서)
-            if (docs.bankAccount) {
-              document.getElementById('empDetailBank').textContent = docs.bankAccount.bankName || '-';
-              document.getElementById('empDetailAccount').textContent = docs.bankAccount.accountNumber || '-';
-              document.getElementById('empDetailAccountHolder').textContent = docs.bankAccount.accountHolder || '-';
-              console.log('✅ 계좌 정보 로드:', docs.bankAccount);
-            } else {
-              // users 컬렉션에서도 확인 (하위 호환성)
-              document.getElementById('empDetailBank').textContent = emp.bankName || '-';
-              document.getElementById('empDetailAccount').textContent = emp.accountNumber || '-';
-              document.getElementById('empDetailAccountHolder').textContent = emp.accountHolder || '-';
-              console.log('⚠️ employee_docs에 계좌 정보 없음, users 컬렉션 사용');
-            }
-            
             // 서류 정보
             let docsHtml = '<div style="display: grid; gap: 12px;">';
             let hasDocuments = false;
@@ -6357,18 +6324,11 @@
             }
           } else {
             // employee_docs 없으면 기본값
-            document.getElementById('empDetailBank').textContent = emp.bankName || '-';
-            document.getElementById('empDetailAccount').textContent = emp.accountNumber || '-';
-            document.getElementById('empDetailAccountHolder').textContent = emp.accountHolder || '-';
             documentsDiv.innerHTML = '<div style="color: var(--text-secondary);">등록된 서류가 없습니다.</div>';
             console.log('⚠️ employee_docs 문서 없음');
           }
         } catch (docError) {
           console.warn('서류 정보 조회 실패:', docError);
-          // 오류 시 users 컬렉션에서라도 표시
-          document.getElementById('empDetailBank').textContent = emp.bankName || '-';
-          document.getElementById('empDetailAccount').textContent = emp.accountNumber || '-';
-          document.getElementById('empDetailAccountHolder').textContent = emp.accountHolder || '-';
           document.getElementById('empDetailDocuments').innerHTML = '<div style="color: var(--text-secondary);">서류 정보를 불러올 수 없습니다.</div>';
         }
         
