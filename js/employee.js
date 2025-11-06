@@ -759,10 +759,8 @@ async function loadSalary() {
       console.warn('⚠️ 기본 시급 사용:', hourlyWage);
     }
     
-    // 급여 계산
-    const salaryData = calculateSalary(records, hourlyWage);
-    
-    // 급여 형태 정보 추가 (월급/연봉일 경우 시급 항목 숨김용)
+    // 계약서 정보 가져오기 (급여 계산에 필요)
+    let latestContract = null;
     try {
       const contractsSnapshot = await db.collection('contracts')
         .where('employeeName', '==', currentUser.name)
@@ -780,11 +778,19 @@ async function loadSalary() {
           return bTime - aTime;
         });
         
-        salaryData.wageType = contracts[0].wageType || '시급';
-        salaryData.wageAmount = parseFloat(contracts[0].wageAmount) || 0;
+        latestContract = contracts[0];
       }
     } catch (error) {
-      console.error('급여 형태 조회 오류:', error);
+      console.error('계약서 조회 오류:', error);
+    }
+    
+    // 급여 계산 (계약서 정보와 조회 월 전달)
+    const salaryData = calculateSalary(records, hourlyWage, latestContract, filterMonth);
+    
+    // 급여 형태 정보 추가
+    if (latestContract) {
+      salaryData.wageType = latestContract.wageType || '시급';
+      salaryData.wageAmount = parseFloat(latestContract.wageAmount) || 0;
     }
     
     // wageType 추가 (월급/연봉일 경우 시급 관련 항목 숨김 처리를 위해)
@@ -846,23 +852,91 @@ async function loadSalary() {
  * @param {number} hourlyWage - 시급
  * @returns {Object} 급여 상세 정보
  */
-function calculateSalary(records, hourlyWage = 10000) {
+function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth = null) {
   // 총 근무 시간 계산 (분 단위)
   let totalMinutes = 0;
+  const weeklyWorkHours = {}; // 주차별 근무시간
+  const weeklyAbsences = {}; // 주차별 결근 여부
+  
+  // yearMonth 파싱
+  let year, month;
+  if (yearMonth) {
+    [year, month] = yearMonth.split('-').map(Number);
+  }
+  
+  // 계약서가 있고 yearMonth가 있으면 결근 체크
+  if (contract && contract.workDays && yearMonth) {
+    // 계약서의 근무일정 파싱
+    const workDaysArray = contract.workDays.split(',').map(d => d.trim());
+    const dayMap = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
+    const workDayNumbers = workDaysArray.map(day => dayMap[day]).filter(n => n !== undefined);
+    
+    // 출근 기록 날짜
+    const attendanceDates = new Set(records.map(r => r.date));
+    
+    // 한 달 동안의 모든 날짜 확인
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay();
+      const dateStr = d.toISOString().split('T')[0];
+      
+      // 근무일인데 출근 기록이 없으면 결근
+      if (workDayNumbers.includes(dayOfWeek) && !attendanceDates.has(dateStr)) {
+        const weekKey = getWeekOfMonth(d);
+        weeklyAbsences[weekKey] = true;
+        console.log(`⚠️ 결근 감지: ${dateStr} (${weekKey})`);
+      }
+    }
+  }
+  
+  // 주차별 근무시간 계산
   records.forEach(record => {
     const minutes = getWorkMinutes(record.clockIn, record.clockOut);
     totalMinutes += minutes;
+    
+    // 주차별 근무시간 누적
+    if (record.date) {
+      const date = new Date(record.date);
+      const weekKey = getWeekOfMonth(date);
+      weeklyWorkHours[weekKey] = (weeklyWorkHours[weekKey] || 0) + (minutes / 60);
+    }
   });
   
-  // 분 단위까지 정확하게 계산 (시급을 60으로 나눠서 분당 급여 계산)
-  const totalHours = totalMinutes / 60; // 소수점 포함
+  // 분 단위까지 정확하게 계산
+  const totalHours = totalMinutes / 60;
   
-  // 급여 항목 계산 (분 단위까지 정확히 반영)
-  const baseSalary = Math.floor(totalHours * hourlyWage); // 원 단위로 반올림
-  const weeklyHolidayPay = Math.floor(baseSalary * 0.2); // 주휴수당 20%
-  const overtime = 0; // 추가 근무수당 (현재 미구현)
-  const insurance = Math.floor((baseSalary + weeklyHolidayPay) * 0.089); // 4대보험 8.9%
-  const tax = Math.floor((baseSalary + weeklyHolidayPay) * 0.033); // 소득세 3.3%
+  // 급여 항목 계산
+  const baseSalary = Math.floor(totalHours * hourlyWage);
+  
+  // 주휴수당 계산 (결근 체크 포함)
+  let weeklyHolidayPay = 0;
+  if (contract && contract.allowances && contract.allowances.weeklyHoliday) {
+    // 주 15시간 이상 근무한 주에 대해서만 (단, 결근이 없는 주만)
+    let weeklyHolidayHours = 0;
+    Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
+      // 결근이 있는 주는 제외
+      if (weeklyAbsences[weekKey]) {
+        console.log(`❌ ${weekKey}: 결근으로 인해 주휴수당 제외`);
+        return;
+      }
+      
+      if (weekHours >= 15) {
+        const weekHolidayHours = (weekHours / 40) * 8;
+        weeklyHolidayHours += weekHolidayHours;
+        console.log(`✅ ${weekKey}: 주휴수당 적용 (${weekHours.toFixed(2)}시간)`);
+      }
+    });
+    weeklyHolidayPay = Math.round(hourlyWage * weeklyHolidayHours);
+  } else {
+    // 계약서 정보가 없으면 기존 방식 (20%)
+    weeklyHolidayPay = Math.floor(baseSalary * 0.2);
+  }
+  
+  const overtime = 0;
+  const insurance = Math.floor((baseSalary + weeklyHolidayPay) * 0.089);
+  const tax = Math.floor((baseSalary + weeklyHolidayPay) * 0.033);
   const deduction = insurance + tax;
   const netSalary = baseSalary + weeklyHolidayPay + overtime - deduction;
   
@@ -873,12 +947,20 @@ function calculateSalary(records, hourlyWage = 10000) {
     deduction,
     netSalary,
     totalHours,
-    totalMinutes, // 추가: 분단위 표시용
+    totalMinutes,
     hourlyWage,
     insurance,
     tax,
     workDays: records.length
   };
+}
+
+// 주차 계산 함수 (employee.js용)
+function getWeekOfMonth(date) {
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+  const dayOfMonth = date.getDate();
+  const weekNumber = Math.ceil((dayOfMonth + firstDay.getDay()) / 7);
+  return `${weekNumber}주차`;
 }
 
 /**
