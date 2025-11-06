@@ -4593,42 +4593,9 @@
           });
       }
       
-      // 회사 목록
+      // 회사 목록 - Firestore에서만 가져오기
       const storeSelect = document.getElementById('storeSelect');
       if (storeSelect) {
-        let stores = JSON.parse(localStorage.getItem('stores') || '[]');
-        
-        // stores가 비어있으면 기본 매장 추가
-        if (stores.length === 0) {
-          stores = [
-            {
-              id: '1',
-              name: '맛남살롱 부천시청점',
-              ceo: '홍길동',
-              businessNumber: '123-45-67890',
-              phone: '032-123-4567',
-              address: '경기도 부천시'
-            },
-            {
-              id: '2',
-              name: '맛남살롱 상동점',
-              ceo: '홍길동',
-              businessNumber: '123-45-67890',
-              phone: '032-123-4568',
-              address: '경기도 부천시 상동'
-            },
-            {
-              id: '3',
-              name: '맛남살롱 부천역사점',
-              ceo: '홍길동',
-              businessNumber: '123-45-67890',
-              phone: '032-123-4569',
-              address: '경기도 부천시 부천역'
-            }
-          ];
-          // companies는 제거됨 - stores Firestore 사용
-        }
-        
         storeSelect.innerHTML = '<option value="">매장을 선택하세요</option>';
         
         // Firestore에서 매장 목록 가져오기
