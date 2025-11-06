@@ -207,6 +207,29 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   let totalNightHours = 0;
   let totalHolidayHours = 0;
   let weeklyWorkHours = {}; // 주차별 근무시간
+  let weeklyAbsences = {}; // 주차별 결근 여부
+  
+  // 계약서의 근무일정 파싱
+  const workDaysArray = contract.workDays ? contract.workDays.split(',').map(d => d.trim()) : [];
+  const dayMap = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
+  const workDayNumbers = workDaysArray.map(day => dayMap[day]).filter(n => n !== undefined);
+  
+  // 출근해야 하는 날짜들을 먼저 파악 (결근 체크용)
+  const attendanceDates = new Set(attendances.map(att => att.date));
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+  
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const dayOfWeek = d.getDay();
+    const dateStr = d.toISOString().split('T')[0];
+    
+    // 근무일인데 출근 기록이 없으면 결근
+    if (workDayNumbers.includes(dayOfWeek) && !attendanceDates.has(dateStr)) {
+      const weekKey = getWeekOfMonth(d);
+      weeklyAbsences[weekKey] = true; // 이 주는 결근이 있음
+      console.log(`⚠️ 결근 감지: ${dateStr} (${weekKey})`);
+    }
+  }
   
   attendances.forEach(att => {
     // 출근 기록이 있으면 처리 (퇴근 안 해도 현재 시간까지 계산)
@@ -291,16 +314,27 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     console.log(`💰 휴일근로수당: ${totalHolidayHours.toFixed(2)}시간 × ${result.hourlyWage}원 × 1.5 = ${result.holidayPay.toLocaleString()}원`);
   }
   
-  // 주휴수당 - 주 15시간 이상 근무한 주에 대해서만
+  // 주휴수당 - 주 15시간 이상 근무한 주에 대해서만 (단, 결근이 없는 주만)
   if (contract.allowances?.weeklyHoliday) {
     let weeklyHolidayHours = 0;
-    Object.values(weeklyWorkHours).forEach(weekHours => {
+    Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
+      // 결근이 있는 주는 주휴수당 제외
+      if (weeklyAbsences[weekKey]) {
+        console.log(`❌ ${weekKey}: 결근으로 인해 주휴수당 제외 (근무시간: ${weekHours.toFixed(2)}시간)`);
+        return;
+      }
+      
       if (weekHours >= 15) {
         // 주휴수당 = (주 근무시간 / 40) × 8시간
-        weeklyHolidayHours += (weekHours / 40) * 8;
+        const weekHolidayHours = (weekHours / 40) * 8;
+        weeklyHolidayHours += weekHolidayHours;
+        console.log(`✅ ${weekKey}: 주휴수당 적용 (근무시간: ${weekHours.toFixed(2)}시간, 주휴수당: ${weekHolidayHours.toFixed(2)}시간)`);
+      } else {
+        console.log(`⚠️ ${weekKey}: 15시간 미만으로 주휴수당 제외 (근무시간: ${weekHours.toFixed(2)}시간)`);
       }
     });
     result.weeklyHolidayPay = Math.round(result.hourlyWage * weeklyHolidayHours);
+    console.log(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}시간 × ${result.hourlyWage}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
   }
   
   // 퇴직금 계산 (1년 이상 근속, 주 15시간 이상 근무)
