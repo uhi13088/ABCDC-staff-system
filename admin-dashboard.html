@@ -1911,13 +1911,22 @@
         const employmentStatusFilter = document.getElementById('attendanceEmploymentStatusFilter').value;
         let employeeStatusMap = {};
         
-        // 필터 여부와 관계없이 직원 상태 정보 가져오기 (resigned 제외용)
+        // 필터 여부와 관계없이 직원 정보 가져오기 (이름 + 상태)
         const usersSnapshot = await firebase.firestore().collection('users').get();
+        let employeeNamesMap = {};
         usersSnapshot.forEach(doc => {
           const user = doc.data();
           // status 필드로 재직자/퇴사자 판단
           employeeStatusMap[doc.id] = user.status || 'active';
+          // 이름 매핑
+          employeeNamesMap[doc.id] = user.name || '-';
         });
+        
+        // attendance 데이터에 직원 이름 추가
+        attendanceList = attendanceList.map(att => ({
+          ...att,
+          employeeName: att.employeeName || att.name || employeeNamesMap[att.uid] || '-'
+        }));
         
         // 클라이언트 사이드 필터링
         const monthFilter = document.getElementById('attendanceMonth').value;
