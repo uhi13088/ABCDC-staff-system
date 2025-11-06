@@ -787,34 +787,13 @@ async function loadSalary() {
     // 급여 계산 (계약서 정보와 조회 월 전달)
     const salaryData = calculateSalary(records, hourlyWage, latestContract, filterMonth);
     
-    // 급여 형태 정보 추가
+    // 급여 형태 정보 추가 (월급/연봉일 경우 시급 관련 항목 숨김 처리를 위해)
     if (latestContract) {
       salaryData.wageType = latestContract.wageType || '시급';
       salaryData.wageAmount = parseFloat(latestContract.wageAmount) || 0;
+    } else {
+      salaryData.wageType = '시급'; // 계약서 없으면 기본값
     }
-    
-    // wageType 추가 (월급/연봉일 경우 시급 관련 항목 숨김 처리를 위해)
-    let contractWageType = '시급'; // 기본값
-    try {
-      const snapshot = await db.collection('contracts')
-        .where('employeeUid', '==', currentUser.uid)
-        .get();
-      if (!snapshot.empty) {
-        const contracts = [];
-        snapshot.forEach(doc => {
-          contracts.push({ id: doc.id, ...doc.data() });
-        });
-        contracts.sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        });
-        contractWageType = contracts[0].wageType || '시급';
-      }
-    } catch (error) {
-      console.error('⚠️ 급여 유형 조회 오류:', error);
-    }
-    salaryData.wageType = contractWageType;
     
     // salaries 컬렉션에서 확정된 퇴직금 정보 조회
     try {
