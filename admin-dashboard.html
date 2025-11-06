@@ -4400,9 +4400,14 @@
       // 계약서 확인 모달 닫기
       closeEmployeeContractsModal();
       
+      // 계약서 관리 탭으로 이동
+      switchTab('contracts');
+      
       // 계약서 작성 모달 열기
-      const { uid, name, birth, phone, address } = currentEmployeeContractsData;
-      openContractPageForEmployee(uid, name, birth, phone, address);
+      setTimeout(() => {
+        const { uid, name, birth, phone, address } = currentEmployeeContractsData;
+        openContractPageForEmployee(uid, name, birth, phone, address);
+      }, 300);
     }
 
     // 계약서 작성 모달 열기/닫기
@@ -4636,6 +4641,16 @@
                   paymentDaySelect.value = paymentDayText;
                   console.log('📅 급여 지급일 자동 입력:', paymentDayText);
                 }
+                
+                // 매장 수당 설정 자동 적용
+                const allowances = store.allowances || {};
+                console.log('💰 매장 수당 설정 자동 적용:', allowances);
+                const overtimeCheckbox = document.getElementById('allowOvertime');
+                const nightCheckbox = document.getElementById('allowNight');
+                const holidayCheckbox = document.getElementById('allowHoliday');
+                if (overtimeCheckbox) overtimeCheckbox.checked = allowances.overtime || false;
+                if (nightCheckbox) nightCheckbox.checked = allowances.night || false;
+                if (holidayCheckbox) holidayCheckbox.checked = allowances.holiday || false;
                 
                 console.log('✅ 매장 정보 자동 입력 완료:', store.name);
               }
@@ -5468,6 +5483,7 @@
     function updateWorkTimeDisplay() {
       const allDays = [];
       const schedules = [];
+      let totalWeeklyHours = 0; // 주간 총 근무시간 계산
       
       const scheduleItems = document.querySelectorAll('.work-schedule-item');
       
@@ -5492,11 +5508,32 @@
           const startTime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
           const endTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
           schedules.push(`${selectedDays.join(', ')}: ${startTime}~${endTime}`);
+          
+          // 일일 근무시간 계산
+          const startMinutes = parseInt(startHour) * 60 + parseInt(startMinute);
+          const endMinutes = parseInt(endHour) * 60 + parseInt(endMinute);
+          const dailyMinutes = endMinutes - startMinutes;
+          const dailyHours = dailyMinutes / 60;
+          
+          // 선택된 요일 수만큼 곱하기
+          totalWeeklyHours += dailyHours * selectedDays.length;
         }
       });
       
       document.getElementById('workDays').value = allDays.join(', ');
       document.getElementById('workTime').value = schedules.join(' / ');
+      
+      // 주간 근무시간이 15시간 이상이면 주휴수당 자동 체크
+      const weeklyHolidayCheckbox = document.getElementById('allowWeeklyHoliday');
+      if (weeklyHolidayCheckbox) {
+        if (totalWeeklyHours >= 15) {
+          weeklyHolidayCheckbox.checked = true;
+          console.log(`✅ 주간 근무시간 ${totalWeeklyHours.toFixed(1)}시간 -> 주휴수당 자동 적용`);
+        } else {
+          weeklyHolidayCheckbox.checked = false;
+          console.log(`ℹ️ 주간 근무시간 ${totalWeeklyHours.toFixed(1)}시간 -> 주휴수당 미적용`);
+        }
+      }
     }
 
     // 휴게시간 관리
@@ -6253,7 +6290,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="storeSelect">매장 선택 *</label>
-                <select id="storeSelect" required onchange="loadStoreInfoToContract(); updatePreview();">
+                <select id="storeSelect" required onchange="loadStoreInfoToContract(); applyStoreAllowances(this.options[this.selectedIndex].text); updatePreview();">
                   <option value="">선택하세요</option>
                 </select>
               </div>
@@ -6469,9 +6506,12 @@
             </p>
             
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-md); margin-bottom: var(--spacing-md);">
-              <label style="display: flex; align-items: center; padding: var(--spacing-sm); background: var(--bg-light); border-radius: var(--border-radius); cursor: pointer;">
-                <input type="checkbox" id="allowWeeklyHoliday" style="width: auto; margin-right: 8px;">
-                <span style="font-size: 14px;">주휴수당 (주 15시간 이상 근무 시)</span>
+              <!-- 주휴수당은 주간 근무시간에 따라 자동 적용 (숨김) -->
+              <input type="checkbox" id="allowWeeklyHoliday" style="display: none;">
+              
+              <label style="display: none; align-items: center; padding: var(--spacing-sm); background: var(--e8f5e9); border-radius: var(--border-radius); border: 1px solid var(--success-color); pointer-events: none;">
+                <input type="checkbox" id="allowWeeklyHolidayDisplay" disabled checked style="width: auto; margin-right: 8px;">
+                <span style="font-size: 14px; color: var(--success-color);">✅ 주휴수당 (주 15시간 이상 근무 시 자동 적용)</span>
               </label>
               
               <label style="display: flex; align-items: center; padding: var(--spacing-sm); background: var(--bg-light); border-radius: var(--border-radius); cursor: pointer;">

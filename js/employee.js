@@ -762,6 +762,54 @@ async function loadSalary() {
     // 급여 계산
     const salaryData = calculateSalary(records, hourlyWage);
     
+    // 급여 형태 정보 추가 (월급/연봉일 경우 시급 항목 숨김용)
+    try {
+      const contractsSnapshot = await db.collection('contracts')
+        .where('employeeName', '==', currentUser.name)
+        .where('employeeBirth', '==', currentUser.birth)
+        .get();
+      
+      if (!contractsSnapshot.empty) {
+        const contracts = [];
+        contractsSnapshot.forEach(doc => {
+          contracts.push({ id: doc.id, ...doc.data() });
+        });
+        contracts.sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+        
+        salaryData.wageType = contracts[0].wageType || '시급';
+        salaryData.wageAmount = parseFloat(contracts[0].wageAmount) || 0;
+      }
+    } catch (error) {
+      console.error('급여 형태 조회 오류:', error);
+    }
+    
+    // wageType 추가 (월급/연봉일 경우 시급 관련 항목 숨김 처리를 위해)
+    let contractWageType = '시급'; // 기본값
+    try {
+      const snapshot = await db.collection('contracts')
+        .where('employeeUid', '==', currentUser.uid)
+        .get();
+      if (!snapshot.empty) {
+        const contracts = [];
+        snapshot.forEach(doc => {
+          contracts.push({ id: doc.id, ...doc.data() });
+        });
+        contracts.sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+        contractWageType = contracts[0].wageType || '시급';
+      }
+    } catch (error) {
+      console.error('⚠️ 급여 유형 조회 오류:', error);
+    }
+    salaryData.wageType = contractWageType;
+    
     // salaries 컬렉션에서 확정된 퇴직금 정보 조회
     try {
       const yearMonth = filterMonth; // YYYY-MM 형식
@@ -849,6 +897,9 @@ function formatHoursAndMinutes(totalMinutes) {
  * @param {Object} data - 급여 데이터
  */
 function renderSalaryInfo(data) {
+  // 월급/연봉인 경우 시급 관련 항목 숨김
+  const isHourly = !data.wageType || data.wageType === '시급';
+  
   const html = `
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg); margin-bottom: var(--spacing-lg);">
       <div class="card" style="text-align: center;">
@@ -856,10 +907,12 @@ function renderSalaryInfo(data) {
         <div style="font-size: 28px; font-weight: 700; color: var(--text-primary);">${formatCurrency(data.baseSalary)}</div>
       </div>
       
+      ${isHourly ? `
       <div class="card" style="text-align: center;">
         <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: var(--spacing-xs);">주휴수당</div>
         <div style="font-size: 28px; font-weight: 700; color: var(--success-color);">${formatCurrency(data.weeklyHolidayPay || 0)}</div>
       </div>
+      ` : ''}
       
       <div class="card" style="text-align: center;">
         <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: var(--spacing-xs);">공제액</div>
@@ -875,6 +928,7 @@ function renderSalaryInfo(data) {
     <div class="card">
       <h4 style="margin-bottom: var(--spacing-md);">📋 상세 내역</h4>
       <table style="margin-bottom: 0;">
+        ${isHourly ? `
         <tr>
           <td>근무 일수</td>
           <td style="text-align: right; font-weight: 600;">${data.workDays || 0}일</td>
@@ -887,11 +941,12 @@ function renderSalaryInfo(data) {
           <td>시급</td>
           <td style="text-align: right; font-weight: 600;">${formatCurrency(data.hourlyWage || 0)}</td>
         </tr>
+        ` : ''}
         <tr style="background: #f0f9ff;">
-          <td><strong>기본급</strong></td>
+          <td><strong>기본급${!isHourly ? ' (' + (data.wageType || '월급') + ')' : ''}</strong></td>
           <td style="text-align: right; font-weight: 700; color: var(--primary-color);">${formatCurrency(data.baseSalary)}</td>
         </tr>
-        ${data.weeklyHolidayPay && data.weeklyHolidayPay > 0 ? `
+        ${isHourly && data.weeklyHolidayPay && data.weeklyHolidayPay > 0 ? `
         <tr>
           <td>주휴수당</td>
           <td style="text-align: right; font-weight: 600; color: var(--success-color);">+${formatCurrency(data.weeklyHolidayPay)}</td>
