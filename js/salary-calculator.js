@@ -144,6 +144,33 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   // yearMonth 파싱 (YYYY-MM 형식)
   const [year, month] = yearMonth.split('-').map(Number);
   
+  // 매장의 출퇴근 허용시간 설정 가져오기
+  let thresholds = {
+    earlyClockIn: 15,    // 기본값: 15분 이상 일찍 출근해야 수당 적용
+    earlyClockOut: 5,    // 기본값: 5분 이내 조기퇴근은 수당 미적용
+    overtime: 5          // 기본값: 5분 이상 늦게 퇴근해야 수당 적용
+  };
+  
+  try {
+    const storeName = employee.store || contract.workStore;
+    if (storeName) {
+      const storesSnapshot = await firebase.firestore().collection('stores')
+        .where('name', '==', storeName)
+        .limit(1)
+        .get();
+      
+      if (!storesSnapshot.empty) {
+        const storeData = storesSnapshot.docs[0].data();
+        if (storeData.attendanceThresholds) {
+          thresholds = storeData.attendanceThresholds;
+          console.log('⚙️ 매장 출퇴근 허용시간:', thresholds);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('⚠️ 매장 설정 조회 실패:', error);
+  }
+  
   const result = {
     employeeName: employee.name,
     employeeUid: employee.uid,
@@ -249,8 +276,46 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
       console.log(`⏰ 퇴근 기록 없음 - 현재 시간(${checkOutTime})까지 계산`);
     }
     
-    const workHours = calculateWorkHours(checkInTime, checkOutTime);
-    const nightHours = calculateNightHours(checkInTime, checkOutTime);
+    // 계약서 근무시간과 비교해서 실제 근무시간 조정
+    let adjustedCheckIn = checkInTime;
+    let adjustedCheckOut = checkOutTime;
+    
+    if (contract.workStartTime && contract.workEndTime) {
+      const contractStartMinutes = timeToMinutes(contract.workStartTime);
+      const contractEndMinutes = timeToMinutes(contract.workEndTime);
+      const actualStartMinutes = timeToMinutes(checkInTime);
+      const actualEndMinutes = timeToMinutes(checkOutTime);
+      
+      // 조기출근 처리: 설정된 시간 이상 일찍 출근해야 수당 적용
+      const earlyMinutes = contractStartMinutes - actualStartMinutes;
+      if (earlyMinutes > 0 && earlyMinutes < thresholds.earlyClockIn) {
+        // 허용시간 미만 조기출근 → 계약시간부터 계산
+        adjustedCheckIn = contract.workStartTime;
+        console.log(`⏰ 조기출근 ${earlyMinutes}분 (허용시간 ${thresholds.earlyClockIn}분 미만) → 수당 미적용`);
+      }
+      
+      // 조기퇴근 처리: 설정된 시간 이내 조기퇴근은 수당 미적용
+      const earlyLeaveMinutes = contractEndMinutes - actualEndMinutes;
+      if (earlyLeaveMinutes > 0 && earlyLeaveMinutes <= thresholds.earlyClockOut) {
+        // 허용시간 이내 조기퇴근 → 계약시간까지 인정
+        adjustedCheckOut = contract.workEndTime;
+        console.log(`⏰ 조기퇴근 ${earlyLeaveMinutes}분 (허용시간 ${thresholds.earlyClockOut}분 이내) → 차감 없음`);
+      } else if (earlyLeaveMinutes > thresholds.earlyClockOut) {
+        // 허용시간 초과 조기퇴근 → 실제 퇴근시간으로 계산 (차감)
+        console.log(`⚠️ 조기퇴근 ${earlyLeaveMinutes}분 (허용시간 ${thresholds.earlyClockOut}분 초과) → 차감`);
+      }
+      
+      // 초과근무 처리: 설정된 시간 이상 늦게 퇴근해야 수당 적용
+      const overtimeMinutes = actualEndMinutes - contractEndMinutes;
+      if (overtimeMinutes > 0 && overtimeMinutes < thresholds.overtime) {
+        // 허용시간 미만 초과근무 → 계약시간까지만 계산
+        adjustedCheckOut = contract.workEndTime;
+        console.log(`⏰ 초과근무 ${overtimeMinutes}분 (허용시간 ${thresholds.overtime}분 미만) → 수당 미적용`);
+      }
+    }
+    
+    const workHours = calculateWorkHours(adjustedCheckIn, adjustedCheckOut);
+    const nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
     const isHoliday = isPublicHoliday(att.date);
     
     totalWorkHours += workHours;
@@ -276,6 +341,8 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
       date: att.date,
       checkIn: checkInTime,
       checkOut: checkOutTime,
+      adjustedCheckIn: adjustedCheckIn,      // 조정된 출근시간
+      adjustedCheckOut: adjustedCheckOut,    // 조정된 퇴근시간
       workHours: workHours.toFixed(2),
       nightHours: nightHours.toFixed(2),
       isHoliday: isHoliday,

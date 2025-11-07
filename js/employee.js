@@ -784,8 +784,35 @@ async function loadSalary() {
       console.error('계약서 조회 오류:', error);
     }
     
-    // 급여 계산 (계약서 정보와 조회 월 전달)
-    const salaryData = calculateSalary(records, hourlyWage, latestContract, filterMonth);
+    // 매장의 출퇴근 허용시간 설정 가져오기
+    let thresholds = {
+      earlyClockIn: 15,    // 기본값
+      earlyClockOut: 5,    // 기본값
+      overtime: 5          // 기본값
+    };
+    
+    try {
+      const storeName = currentUser.store;
+      if (storeName) {
+        const storesSnapshot = await db.collection('stores')
+          .where('name', '==', storeName)
+          .limit(1)
+          .get();
+        
+        if (!storesSnapshot.empty) {
+          const storeData = storesSnapshot.docs[0].data();
+          if (storeData.attendanceThresholds) {
+            thresholds = storeData.attendanceThresholds;
+            console.log('⚙️ 매장 출퇴근 허용시간:', thresholds);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ 매장 설정 조회 실패:', error);
+    }
+    
+    // 급여 계산 (계약서 정보, 조회 월, 매장 설정 전달)
+    const salaryData = calculateSalary(records, hourlyWage, latestContract, filterMonth, thresholds);
     
     // 급여 형태 정보 추가 (월급/연봉일 경우 시급 관련 항목 숨김 처리를 위해)
     if (latestContract) {
@@ -829,9 +856,21 @@ async function loadSalary() {
  * 급여 계산 로직
  * @param {Array} records - 근무 기록 배열
  * @param {number} hourlyWage - 시급
+ * @param {Object} contract - 계약서 정보
+ * @param {string} yearMonth - 조회 월 (YYYY-MM)
+ * @param {Object} thresholds - 매장 출퇴근 허용시간 설정
  * @returns {Object} 급여 상세 정보
  */
-function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth = null) {
+function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth = null, thresholds = null) {
+  // 기본 허용시간 설정
+  if (!thresholds) {
+    thresholds = {
+      earlyClockIn: 15,
+      earlyClockOut: 5,
+      overtime: 5
+    };
+  }
+  
   // 총 근무 시간 계산 (분 단위)
   let totalMinutes = 0;
   const weeklyWorkHours = {}; // 주차별 근무시간
@@ -872,7 +911,41 @@ function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth
   
   // 주차별 근무시간 계산
   records.forEach(record => {
-    const minutes = getWorkMinutes(record.clockIn, record.clockOut);
+    let adjustedClockIn = record.clockIn;
+    let adjustedClockOut = record.clockOut;
+    
+    // 계약서 근무시간과 비교해서 실제 근무시간 조정
+    if (contract && contract.workStartTime && contract.workEndTime) {
+      const contractStartMinutes = timeToMinutes(contract.workStartTime);
+      const contractEndMinutes = timeToMinutes(contract.workEndTime);
+      const actualStartMinutes = timeToMinutes(record.clockIn);
+      const actualEndMinutes = timeToMinutes(record.clockOut);
+      
+      // 조기출근 처리
+      const earlyMinutes = contractStartMinutes - actualStartMinutes;
+      if (earlyMinutes > 0 && earlyMinutes < thresholds.earlyClockIn) {
+        adjustedClockIn = contract.workStartTime;
+        console.log(`⏰ 조기출근 ${earlyMinutes}분 (허용 ${thresholds.earlyClockIn}분 미만) → 미적용`);
+      }
+      
+      // 조기퇴근 처리
+      const earlyLeaveMinutes = contractEndMinutes - actualEndMinutes;
+      if (earlyLeaveMinutes > 0 && earlyLeaveMinutes <= thresholds.earlyClockOut) {
+        adjustedClockOut = contract.workEndTime;
+        console.log(`⏰ 조기퇴근 ${earlyLeaveMinutes}분 (허용 ${thresholds.earlyClockOut}분 이내) → 차감 없음`);
+      } else if (earlyLeaveMinutes > thresholds.earlyClockOut) {
+        console.log(`⚠️ 조기퇴근 ${earlyLeaveMinutes}분 (허용 ${thresholds.earlyClockOut}분 초과) → 차감`);
+      }
+      
+      // 초과근무 처리
+      const overtimeMinutes = actualEndMinutes - contractEndMinutes;
+      if (overtimeMinutes > 0 && overtimeMinutes < thresholds.overtime) {
+        adjustedClockOut = contract.workEndTime;
+        console.log(`⏰ 초과근무 ${overtimeMinutes}분 (허용 ${thresholds.overtime}분 미만) → 미적용`);
+      }
+    }
+    
+    const minutes = getWorkMinutes(adjustedClockIn, adjustedClockOut);
     totalMinutes += minutes;
     
     // 주차별 근무시간 누적
@@ -2019,6 +2092,17 @@ function calculateWorkTime(clockIn, clockOut) {
   const workHours = Math.floor(workMinutes / 60);
   const workMins = workMinutes % 60;
   return `${workHours}시간 ${workMins}분`;
+}
+
+/**
+ * 시간 문자열을 분 단위로 변환
+ * @param {string} timeStr - "HH:MM" 형식
+ * @returns {number} 총 분
+ */
+function timeToMinutes(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return 0;
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
 }
 
 /**
