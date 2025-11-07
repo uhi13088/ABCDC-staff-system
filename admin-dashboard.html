@@ -8297,17 +8297,17 @@
       const startHour = 6;
       const endHour = 25; // 다음날 01:00
       const totalHours = endHour - startHour;
-      const rowHeight = 40; // 1시간당 높이 (px)
+      const rowHeight = 35; // 1시간당 높이 (px) - 스크롤 없이 보이도록 축소
       const totalHeight = totalHours * rowHeight;
       
-      // HTML 구조 생성
+      // HTML 구조 생성 (스크롤 없이 한 화면에 표시)
       let html = `
-        <div style="display: flex; gap: var(--spacing-md); overflow-x: auto;">
+        <div style="display: flex; gap: 0; width: 100%; max-width: 1400px; margin: 0 auto;">
           <!-- 메인 간트차트 -->
-          <div style="flex: 1; min-width: 900px; display: flex;">
+          <div style="flex: 1; display: flex; border: 2px solid #333; background: white;">
             <!-- 시간 레이블 열 -->
-            <div style="width: 60px; border: 1px solid var(--border-color); border-right: none; background: var(--bg-light);">
-              <div style="height: 50px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); font-weight: 700; font-size: 13px;">
+            <div style="width: 60px; border-right: 2px solid #333; background: #fafafa;">
+              <div style="height: 45px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid #333; font-weight: 700; font-size: 12px;">
                 시간
               </div>
               <div style="position: relative; height: ${totalHeight}px;">
@@ -8320,7 +8320,7 @@
         const topPos = (h - startHour) * rowHeight;
         
         html += `
-          <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">
+          <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; color: #666;">
             ${timeLabel}
           </div>
         `;
@@ -8337,14 +8337,13 @@
       dateInfo.forEach((info, dayIndex) => {
         const day = days[dayIndex];
         const workers = dayWorkers[day];
-        const colWidth = 120; // 각 요일 열의 기본 너비
         
         html += `
-          <div style="flex: 1; min-width: ${colWidth}px; border: 1px solid var(--border-color); ${dayIndex < days.length - 1 ? 'border-right: none;' : ''}">
+          <div style="flex: 1; ${dayIndex < days.length - 1 ? 'border-right: 2px solid #333;' : ''}">
             <!-- 요일 헤더 -->
-            <div style="height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); background: var(--bg-light); font-weight: 700; font-size: 13px;">
+            <div style="height: 45px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 2px solid #333; background: #fafafa; font-weight: 700; font-size: 12px;">
               <div>${info.day}</div>
-              <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">${info.date}</div>
+              <div style="font-size: 10px; color: #666; font-weight: 400;">${info.date}</div>
             </div>
             
             <!-- 간트차트 영역 -->
@@ -8352,11 +8351,11 @@
               <!-- 시간 그리드 배경 -->
         `;
         
-        // 시간 그리드 라인
+        // 시간 그리드 라인 (얇은 선)
         for (let h = startHour; h <= endHour; h++) {
           const topPos = (h - startHour) * rowHeight;
           html += `
-            <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid #f0f0f0;"></div>
+            <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid #e8e8e8;"></div>
           `;
         }
         
@@ -8384,13 +8383,13 @@
                 width: ${barWidth}%;
                 height: ${height}px;
                 background: ${worker.color};
-                opacity: 0.85;
-                border-right: ${workerIndex < workers.length - 1 ? '2px solid white' : 'none'};
+                opacity: 0.9;
+                border-right: ${workerIndex < workers.length - 1 ? '1px solid white' : 'none'};
                 box-sizing: border-box;
-                transition: opacity 0.2s;
+                transition: all 0.2s;
               " 
-              onmouseover="this.style.opacity='1'; this.style.zIndex='5';" 
-              onmouseout="this.style.opacity='0.85'; this.style.zIndex='1';"
+              onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
+              onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
               title="${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
               </div>
             `;
@@ -8407,8 +8406,8 @@
           </div>
           
           <!-- 오른쪽 주간 요약 -->
-          <div style="min-width: 200px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); height: fit-content; position: sticky; top: 0;">
-            <h4 style="margin: 0 0 var(--spacing-md) 0; font-size: 14px; font-weight: 700; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">📊 주간 요약</h4>
+          <div style="min-width: 220px; max-width: 220px; margin-left: 16px; background: white; border: 2px solid #333; padding: 16px; height: fit-content;">
+            <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; border-bottom: 2px solid #333; padding-bottom: 8px;">📊 주간 요약</h4>
       `;
       
       // 직원별 주간 요약
@@ -8426,14 +8425,14 @@
           const estimatedPay = (totalHours * 15000).toLocaleString();
           
           html += `
-            <div style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm); border-radius: 8px; background: var(--bg-light);">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                <div style="width: 16px; height: 16px; background: ${color}; border-radius: 4px;"></div>
-                <span style="font-weight: 600; font-size: 13px;">${emp.name}</span>
+            <div style="margin-bottom: 12px; padding: 8px; border-radius: 6px; background: #f8f8f8; border: 1px solid #ddd;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <div style="width: 14px; height: 14px; background: ${color}; border-radius: 3px;"></div>
+                <span style="font-weight: 600; font-size: 12px;">${emp.name}</span>
               </div>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-left: 24px;">
+              <div style="font-size: 11px; color: #666; margin-left: 22px;">
                 <div>⏱️ ${totalHours.toFixed(1)}시간</div>
-                <div style="color: var(--primary-color); font-weight: 600;">💰 약 ₩${estimatedPay}</div>
+                <div style="color: #8b7355; font-weight: 600;">💰 약 ₩${estimatedPay}</div>
               </div>
             </div>
           `;
