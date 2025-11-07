@@ -8359,12 +8359,25 @@
           `;
         }
         
-        // 각 직원의 막대 (얇고 균등하게 배치, 좌우 여백 있음)
+        // 각 직원의 막대 (동적 굵기, 직원 수에 따라 자동 조절)
         if (workers.length > 0) {
-          const fixedBarWidth = 18; // 고정된 막대 굵기 (px)
-          const totalBarsWidth = workers.length * fixedBarWidth;
-          const availableSpace = 100; // 전체 칸 폭의 퍼센트
-          const spacing = workers.length > 1 ? (availableSpace - totalBarsWidth) / (workers.length + 1) : (availableSpace - fixedBarWidth) / 2;
+          const maxBarWidth = 18; // 최대 막대 굵기 (%)
+          const minBarWidth = 8;  // 최소 막대 굵기 (%)
+          const minSpacing = 3;   // 최소 간격 (%)
+          
+          // 직원 수에 따라 막대 굵기 동적 계산
+          let barWidth = maxBarWidth;
+          if (workers.length > 3) {
+            const totalWithSpacing = workers.length * maxBarWidth + (workers.length + 1) * minSpacing;
+            if (totalWithSpacing > 100) {
+              barWidth = (100 - (workers.length + 1) * minSpacing) / workers.length;
+              barWidth = Math.max(barWidth, minBarWidth);
+            }
+          }
+          
+          const totalBarsWidth = workers.length * barWidth;
+          const availableSpace = 100;
+          const spacing = workers.length > 1 ? (availableSpace - totalBarsWidth) / (workers.length + 1) : (availableSpace - barWidth) / 2;
           
           workers.forEach((worker, workerIndex) => {
             // 시작/종료 시간을 픽셀 위치로 변환
@@ -8376,14 +8389,14 @@
             
             const topPos = (startMinutes / 60) * rowHeight;
             const height = ((endMinutes - startMinutes) / 60) * rowHeight;
-            const leftPos = spacing * (workerIndex + 1) + fixedBarWidth * workerIndex;
+            const leftPos = spacing * (workerIndex + 1) + barWidth * workerIndex;
             
             html += `
               <div style="
                 position: absolute;
                 left: ${leftPos}%;
                 top: ${topPos}px;
-                width: ${fixedBarWidth}%;
+                width: ${barWidth}%;
                 height: ${height}px;
                 background: ${worker.color};
                 opacity: 0.9;
