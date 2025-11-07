@@ -8365,23 +8365,20 @@
           `;
           
           if (workers && workers.length > 0) {
-            // 여러 직원이 겹치면 가로로 나눠서 표시
-            const barWidth = 100 / workers.length;
-            
+            // 여러 직원이 겹치면 세로로 쌓아서 표시 (겹치지 않게)
             workers.forEach((worker, index) => {
               const color = colorMap[worker.name];
-              const leftPos = barWidth * index;
               
               html += `
                 <div style="
-                  position: absolute;
-                  left: ${leftPos}%;
-                  top: 0;
-                  width: ${barWidth}%;
+                  display: inline-block;
+                  width: ${100 / workers.length}%;
                   height: 100%;
                   background: ${color};
-                  opacity: 0.85;
-                  border-right: 1px solid white;
+                  opacity: 0.9;
+                  vertical-align: top;
+                  box-sizing: border-box;
+                  border-right: ${index < workers.length - 1 ? '1px solid white' : 'none'};
                 " title="${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
                 </div>
               `;
