@@ -8230,98 +8230,215 @@
     }
 
     /**
-     * 간트차트형 뷰 렌더링
+     * 간트차트형 뷰 렌더링 (가로: 요일, 세로: 시간)
      */
     function renderGanttView() {
       const container = document.getElementById('scheduleViewContainer');
       const days = ['월', '화', '수', '목', '금', '토', '일'];
       const monday = getMonday(currentScheduleWeek);
       
-      // 시간축 생성 (06:00 ~ 01:00, 3시간 간격)
-      const timeLabels = [];
-      for (let h = 6; h <= 24; h += 3) {
-        timeLabels.push(h.toString().padStart(2, '0'));
+      // 직원별 색상 정의
+      const employeeColors = [
+        '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFE66D', '#C7CEEA',
+        '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'
+      ];
+      
+      const colorMap = {};
+      if (currentScheduleData.employees) {
+        currentScheduleData.employees.forEach((emp, index) => {
+          colorMap[emp.name] = employeeColors[index % employeeColors.length];
+        });
       }
-      timeLabels.push('01');
       
-      let html = `
-        <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius); margin-bottom: var(--spacing-sm);">
-          <div style="display: flex; align-items: center; gap: 20px; font-size: 12px; overflow-x: auto;">
-            <span style="font-weight: 600; min-width: 60px;">시간축:</span>
-            <div style="display: flex; flex: 1; position: relative; height: 30px;">
-      `;
+      // 시간 범위 (06:00 ~ 01:00, 1시간 단위)
+      const startHour = 6;
+      const endHour = 25; // 다음날 01:00
+      const hours = [];
+      for (let h = startHour; h <= endHour; h++) {
+        hours.push(h);
+      }
       
-      // 시간 눈금 표시
-      timeLabels.forEach((time, index) => {
-        const left = (index / (timeLabels.length - 1)) * 100;
-        html += `
-          <div style="position: absolute; left: ${left}%; transform: translateX(-50%); font-size: 11px; color: #666;">
-            ${time}
-          </div>
-        `;
+      // 날짜 정보 생성
+      const dateInfo = [];
+      days.forEach((day, index) => {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + index);
+        dateInfo.push({
+          day: day,
+          date: `${date.getMonth() + 1}/${date.getDate()}`
+        });
       });
       
-      html += `
-            </div>
-          </div>
-          <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary); text-align: center;">
-            └─3h─┘  └───────────── 영업시간 09-22시 ──────────────┘  └─3h─┘
-          </div>
-        </div>
-      `;
+      // 각 요일별로 시간대별 근무자 매핑
+      const scheduleGrid = {};
+      days.forEach(day => {
+        scheduleGrid[day] = {};
+        hours.forEach(hour => {
+          scheduleGrid[day][hour] = [];
+        });
+      });
       
-      // 각 요일별 간트차트
-      days.forEach((day, dayIndex) => {
-        const date = new Date(monday);
-        date.setDate(date.getDate() + dayIndex);
-        const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-        
-        html += `
-          <div style="margin-bottom: var(--spacing-md); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); background: white;">
-            <div style="font-weight: 600; margin-bottom: var(--spacing-sm); padding-bottom: 8px; border-bottom: 2px solid var(--primary-color);">
-              ${day}(${dateStr})
-            </div>
-        `;
-        
-        // 각 직원의 간트 바
-        if (currentScheduleData.employees) {
-          currentScheduleData.employees.forEach(emp => {
+      if (currentScheduleData.employees) {
+        currentScheduleData.employees.forEach(emp => {
+          days.forEach(day => {
             const schedule = emp.schedules[day];
-            
-            html += '<div style="display: flex; align-items: center; margin-bottom: 8px; position: relative; height: 32px;">';
-            html += `<div style="min-width: 80px; font-size: 13px; font-weight: 500;">${emp.name}</div>`;
-            html += '<div style="flex: 1; position: relative; height: 24px; background: #f5f5f5; border-radius: 4px;">';
-            
             if (schedule && schedule.isWorkDay) {
-              // 시간을 픽셀 위치로 변환
               const startHour = parseInt(schedule.startTime.split(':')[0]);
               const startMin = parseInt(schedule.startTime.split(':')[1]);
               const endHour = parseInt(schedule.endTime.split(':')[0]);
               const endMin = parseInt(schedule.endTime.split(':')[1]);
               
-              const startMinutes = (startHour - 6) * 60 + startMin;
-              const endMinutes = (endHour - 6) * 60 + endMin;
-              const totalRange = 19 * 60; // 06:00 ~ 01:00 = 19시간
-              
-              const leftPercent = (startMinutes / totalRange) * 100;
-              const widthPercent = ((endMinutes - startMinutes) / totalRange) * 100;
+              // 근무 시간대에 직원 추가
+              for (let h = startHour; h < endHour; h++) {
+                scheduleGrid[day][h].push({
+                  name: emp.name,
+                  isStart: (h === startHour),
+                  isEnd: false,
+                  startTime: schedule.startTime,
+                  endTime: schedule.endTime,
+                  hours: schedule.hours
+                });
+              }
+              // 마지막 시간대 (endMin이 0이 아니면 포함)
+              if (endMin > 0) {
+                scheduleGrid[day][endHour].push({
+                  name: emp.name,
+                  isStart: false,
+                  isEnd: true,
+                  startTime: schedule.startTime,
+                  endTime: schedule.endTime,
+                  hours: schedule.hours
+                });
+              }
+            }
+          });
+        });
+      }
+      
+      // HTML 구조 생성
+      let html = `
+        <div style="display: flex; gap: var(--spacing-md); overflow-x: auto;">
+          <!-- 메인 간트차트 테이블 -->
+          <div style="flex: 1; min-width: 800px;">
+            <table style="width: 100%; border-collapse: collapse; background: white; border: 1px solid var(--border-color);">
+              <thead style="position: sticky; top: 0; background: white; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <tr>
+                  <th style="border: 1px solid var(--border-color); padding: 12px; min-width: 60px; font-size: 13px; background: var(--bg-light); font-weight: 700;">시간</th>
+      `;
+      
+      // 요일 헤더
+      dateInfo.forEach(info => {
+        html += `
+          <th style="border: 1px solid var(--border-color); padding: 12px; min-width: 100px; font-size: 13px; background: var(--bg-light); font-weight: 700;">
+            ${info.day}<br><span style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">${info.date}</span>
+          </th>
+        `;
+      });
+      
+      html += `
+                </tr>
+              </thead>
+              <tbody>
+      `;
+      
+      // 시간별 행 생성
+      hours.forEach(hour => {
+        const displayHour = hour > 24 ? hour - 24 : hour;
+        const timeLabel = `${displayHour.toString().padStart(2, '0')}:00`;
+        
+        html += `
+          <tr>
+            <td style="border: 1px solid var(--border-color); padding: 8px; text-align: center; font-size: 12px; background: var(--bg-light); font-weight: 600;">
+              ${timeLabel}
+            </td>
+        `;
+        
+        // 각 요일의 해당 시간대
+        days.forEach(day => {
+          const workers = scheduleGrid[day][hour];
+          
+          html += `
+            <td style="border: 1px solid var(--border-color); padding: 4px; position: relative; height: 50px; vertical-align: top;">
+          `;
+          
+          if (workers && workers.length > 0) {
+            // 여러 직원이 겹치면 가로로 나눠서 표시
+            const barWidth = 100 / workers.length;
+            
+            workers.forEach((worker, index) => {
+              const color = colorMap[worker.name];
+              const leftPos = barWidth * index;
               
               html += `
-                <div style="position: absolute; left: ${leftPercent}%; width: ${widthPercent}%; height: 100%; background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; overflow: hidden; white-space: nowrap; padding: 0 4px;" title="${emp.name} | ${schedule.startTime}-${schedule.endTime} | ${schedule.hours}시간">
-                  ${schedule.startTime}-${schedule.endTime} (${schedule.hours}h)
+                <div style="
+                  position: absolute;
+                  left: ${leftPos}%;
+                  top: 0;
+                  width: ${barWidth}%;
+                  height: 100%;
+                  background: ${color};
+                  opacity: 0.85;
+                  border-right: 1px solid white;
+                " title="${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
                 </div>
               `;
-            } else {
-              html += '<div style="position: absolute; left: 50%; transform: translateX(-50%); color: #999; font-size: 11px;">휴무</div>';
-            }
-            
-            html += '</div>';
-            html += '</div>';
-          });
-        }
+            });
+          }
+          
+          html += `
+            </td>
+          `;
+        });
         
-        html += '</div>';
+        html += `
+          </tr>
+        `;
       });
+      
+      html += `
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- 오른쪽 주간 요약 -->
+          <div style="min-width: 200px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); height: fit-content; position: sticky; top: 0;">
+            <h4 style="margin: 0 0 var(--spacing-md) 0; font-size: 14px; font-weight: 700; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">📊 주간 요약</h4>
+      `;
+      
+      // 직원별 주간 요약
+      if (currentScheduleData.employees) {
+        currentScheduleData.employees.forEach(emp => {
+          let totalHours = 0;
+          days.forEach(day => {
+            const schedule = emp.schedules[day];
+            if (schedule && schedule.isWorkDay) {
+              totalHours += parseFloat(schedule.hours);
+            }
+          });
+          
+          const color = colorMap[emp.name];
+          // 간단한 급여 계산 (시급 15,000원 가정)
+          const estimatedPay = (totalHours * 15000).toLocaleString();
+          
+          html += `
+            <div style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm); border-radius: 8px; background: var(--bg-light);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <div style="width: 16px; height: 16px; background: ${color}; border-radius: 4px;"></div>
+                <span style="font-weight: 600; font-size: 13px;">${emp.name}</span>
+              </div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-left: 24px;">
+                <div>⏱️ ${totalHours.toFixed(1)}시간</div>
+                <div style="color: var(--primary-color); font-weight: 600;">💰 약 ₩${estimatedPay}</div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      
+      html += `
+          </div>
+        </div>
+      `;
       
       container.innerHTML = html;
     }
