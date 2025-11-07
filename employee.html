@@ -309,6 +309,7 @@
       <!-- 탭 네비게이션 -->
       <div class="tabs">
         <button class="tab active" data-tab="attendance" onclick="showTab('attendance')">📋 근무내역</button>
+        <button class="tab" data-tab="schedule" onclick="showTab('schedule')">📅 내 스케줄</button>
         <button class="tab" data-tab="salary" onclick="showTab('salary')">💰 급여조회</button>
         <button class="tab" data-tab="approvals" onclick="showTab('approvals')">✔️ 문서승인</button>
         <button class="tab" data-tab="contract" onclick="showTab('contract')">📝 계약서</button>
@@ -381,6 +382,27 @@
             <div class="alert alert-info">
               조회할 월을 선택하고 조회 버튼을 클릭하세요.
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 내 스케줄 -->
+      <div id="tabSchedule" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>📅 내 스케줄</h3>
+          </div>
+          
+          <div class="card-body">
+            <!-- 주차 네비게이션 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-light); border-radius: var(--border-radius);">
+              <button class="btn btn-secondary btn-sm" onclick="changeEmployeeWeek(-1)">◀ 이전 주</button>
+              <div style="font-size: 15px; font-weight: 600;" id="employeeWeekDisplay"></div>
+              <button class="btn btn-secondary btn-sm" onclick="changeEmployeeWeek(1)">다음 주 ▶</button>
+            </div>
+            
+            <!-- 주간 스케줄 표시 -->
+            <div id="employeeScheduleContainer" style="overflow-x: auto;"></div>
           </div>
         </div>
       </div>

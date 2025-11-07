@@ -243,6 +243,8 @@ function showTab(tabName) {
   // 탭별 데이터 로드
   if (tabName === 'attendance') {
     loadAttendance();
+  } else if (tabName === 'schedule') {
+    loadEmployeeSchedule();
   } else if (tabName === 'salary') {
     loadSalary();
   } else if (tabName === 'approvals') {
@@ -2896,4 +2898,164 @@ async function loadEmployeeEditHistory(attendanceId) {
     console.error('❌ 수정 이력 조회 오류:', error);
     historyDiv.style.display = 'none';
   }
+}
+
+// ===================================================================
+// 내 스케줄 기능
+// ===================================================================
+
+let currentEmployeeWeek = new Date();
+
+/**
+ * 주차 변경
+ */
+function changeEmployeeWeek(offset) {
+  currentEmployeeWeek.setDate(currentEmployeeWeek.getDate() + (offset * 7));
+  loadEmployeeSchedule();
+}
+
+/**
+ * 월요일 날짜 구하기
+ */
+function getEmployeeMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+}
+
+/**
+ * 주차 번호 구하기
+ */
+function getEmployeeWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+/**
+ * 내 스케줄 로드
+ */
+async function loadEmployeeSchedule() {
+  if (!currentUser) return;
+  
+  const monday = getEmployeeMonday(currentEmployeeWeek);
+  const year = monday.getFullYear();
+  const weekNum = getEmployeeWeekNumber(monday);
+  
+  // 주차 표시 업데이트
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  document.getElementById('employeeWeekDisplay').textContent = 
+    `${year}년 ${weekNum}주차 (${monday.getMonth()+1}/${monday.getDate()} ~ ${sunday.getMonth()+1}/${sunday.getDate()})`;
+  
+  try {
+    // 내 스케줄 조회
+    const scheduleDocId = `${currentUser.uid}_${year}-${weekNum}`;
+    const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+    
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    const schedules = {};
+    
+    if (scheduleDoc.exists) {
+      const scheduleData = scheduleDoc.data();
+      
+      days.forEach(day => {
+        if (scheduleData[day] && scheduleData[day].isWorkDay) {
+          schedules[day] = {
+            startTime: scheduleData[day].startTime || '',
+            endTime: scheduleData[day].endTime || '',
+            hours: scheduleData[day].hours || 0,
+            isWorkDay: true
+          };
+        } else {
+          schedules[day] = { isWorkDay: false };
+        }
+      });
+    } else {
+      days.forEach(day => {
+        schedules[day] = { isWorkDay: false };
+      });
+    }
+    
+    renderEmployeeSchedule(schedules, monday);
+    
+  } catch (error) {
+    console.error('❌ 스케줄 로드 실패:', error);
+    document.getElementById('employeeScheduleContainer').innerHTML = 
+      '<p style="text-align: center; padding: 40px; color: var(--text-secondary);">스케줄을 불러오는데 실패했습니다.</p>';
+  }
+}
+
+/**
+ * 내 스케줄 렌더링 (간단한 주간 뷰)
+ */
+function renderEmployeeSchedule(schedules, monday) {
+  const container = document.getElementById('employeeScheduleContainer');
+  const days = ['월', '화', '수', '목', '금', '토', '일'];
+  
+  let html = '<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px;">';
+  
+  days.forEach((day, index) => {
+    const date = new Date(monday);
+    date.setDate(date.getDate() + index);
+    const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+    const schedule = schedules[day];
+    
+    const isToday = date.toDateString() === new Date().toDateString();
+    
+    html += `
+      <div style="
+        border: 2px solid ${isToday ? 'var(--primary-color)' : 'var(--border-color)'}; 
+        border-radius: var(--border-radius); 
+        padding: var(--spacing-md); 
+        background: ${isToday ? '#fff9e6' : 'white'};
+        min-height: 150px;
+      ">
+        <div style="
+          font-weight: 700; 
+          font-size: 14px; 
+          text-align: center; 
+          margin-bottom: var(--spacing-sm); 
+          padding-bottom: var(--spacing-xs); 
+          border-bottom: 2px solid var(--border-color);
+          color: ${isToday ? 'var(--primary-color)' : 'var(--text-primary)'};
+        ">
+          ${day} ${isToday ? '(오늘)' : ''}
+          <br>
+          <span style="font-size: 11px; font-weight: 400; color: var(--text-secondary);">${dateStr}</span>
+        </div>
+    `;
+    
+    if (schedule && schedule.isWorkDay) {
+      html += `
+        <div style="text-align: center; padding: var(--spacing-sm);">
+          <div style="background: var(--primary-color); color: white; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
+            <div style="font-size: 12px; font-weight: 600;">근무</div>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">
+            ${schedule.startTime} - ${schedule.endTime}
+          </div>
+          <div style="font-size: 11px; color: var(--text-secondary);">
+            ${schedule.hours}시간
+          </div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div style="text-align: center; padding: var(--spacing-lg); color: var(--text-secondary);">
+          <div style="font-size: 32px; margin-bottom: 8px;">😴</div>
+          <div style="font-size: 13px;">휴무</div>
+        </div>
+      `;
+    }
+    
+    html += '</div>';
+  });
+  
+  html += '</div>';
+  
+  container.innerHTML = html;
 }
