@@ -8104,41 +8104,75 @@
      * 스케줄 데이터 로드 (schedules 컬렉션에서)
      */
     async function loadScheduleData(storeId, year, weekNum) {
-      // TODO: Firestore에서 스케줄 데이터 로드
-      // 현재는 임시 데이터
-      currentScheduleData = {
-        type: 'schedule',
-        employees: [
-          {
-            uid: 'uid1',
-            name: '홍길동',
-            schedules: {
-              '월': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
-              '화': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
-              '수': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
-              '목': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
-              '금': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
-              '토': { isWorkDay: false },
-              '일': { isWorkDay: false }
-            }
-          },
-          {
-            uid: 'uid2',
-            name: '김철수',
-            schedules: {
-              '월': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
-              '화': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
-              '수': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
-              '목': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
-              '금': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
-              '토': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
-              '일': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true }
-            }
+      try {
+        // 해당 매장의 모든 직원 조회
+        const employeesSnapshot = await db.collection('users')
+          .where('role', '==', 'employee')
+          .where('storeId', '==', storeId)
+          .get();
+        
+        if (employeesSnapshot.empty) {
+          console.log('⚠️ 해당 매장에 직원이 없습니다.');
+          currentScheduleData = { type: 'schedule', employees: [] };
+          return;
+        }
+        
+        const employees = [];
+        
+        // 각 직원의 스케줄 데이터 로드
+        for (const empDoc of employeesSnapshot.docs) {
+          const empData = empDoc.data();
+          const empUid = empDoc.id;
+          
+          // schedules 컬렉션에서 해당 직원의 주간 스케줄 조회
+          const scheduleDocId = `${empUid}_${year}-${weekNum}`;
+          const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+          
+          const schedules = {};
+          const days = ['월', '화', '수', '목', '금', '토', '일'];
+          
+          if (scheduleDoc.exists) {
+            const scheduleData = scheduleDoc.data();
+            
+            // 각 요일별 스케줄 파싱
+            days.forEach(day => {
+              if (scheduleData[day]) {
+                const daySchedule = scheduleData[day];
+                schedules[day] = {
+                  startTime: daySchedule.startTime || '',
+                  endTime: daySchedule.endTime || '',
+                  hours: daySchedule.hours || 0,
+                  isWorkDay: daySchedule.isWorkDay !== false
+                };
+              } else {
+                schedules[day] = { isWorkDay: false };
+              }
+            });
+          } else {
+            // 스케줄이 없으면 모두 휴무로 표시
+            days.forEach(day => {
+              schedules[day] = { isWorkDay: false };
+            });
           }
-        ]
-      };
-      
-      console.log('📅 스케줄 데이터 로드 완료 (임시)');
+          
+          employees.push({
+            uid: empUid,
+            name: empData.name || '이름없음',
+            schedules: schedules
+          });
+        }
+        
+        currentScheduleData = {
+          type: 'schedule',
+          employees: employees
+        };
+        
+        console.log('✅ 스케줄 데이터 로드 완료:', employees.length, '명');
+      } catch (error) {
+        console.error('❌ 스케줄 데이터 로드 실패:', error);
+        // 오류 시 빈 데이터
+        currentScheduleData = { type: 'schedule', employees: [] };
+      }
     }
 
     /**
@@ -8466,9 +8500,273 @@
     /**
      * 스케줄 시뮬레이터 모달 열기
      */
-    function showScheduleSimulator() {
-      alert('스케줄 시뮬레이터 기능은 준비 중입니다.');
-      // TODO: 시뮬레이터 모달 구현
+    async function showScheduleSimulator() {
+      const storeId = document.getElementById('scheduleStoreSelect').value;
+      
+      if (!storeId) {
+        alert('매장을 먼저 선택하세요.');
+        return;
+      }
+      
+      // 매장 정보 및 직원 목록 로드
+      const storeDoc = await db.collection('stores').doc(storeId).get();
+      const employeesSnapshot = await db.collection('users')
+        .where('role', '==', 'employee')
+        .where('storeId', '==', storeId)
+        .get();
+      
+      if (employeesSnapshot.empty) {
+        alert('해당 매장에 직원이 없습니다.');
+        return;
+      }
+      
+      const storeData = storeDoc.data();
+      const employees = [];
+      
+      employeesSnapshot.forEach(doc => {
+        const empData = doc.data();
+        employees.push({
+          uid: doc.id,
+          name: empData.name,
+          salaryType: empData.salaryType || 'hourly',
+          salaryAmount: empData.salaryAmount || 0,
+          schedule: {
+            '월': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
+            '화': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
+            '수': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
+            '목': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
+            '금': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
+            '토': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
+            '일': { startTime: '09:00', endTime: '18:00', isWorkDay: false }
+          }
+        });
+      });
+      
+      renderSimulator(employees, storeData);
+      document.getElementById('scheduleSimulatorModal').style.display = 'block';
+    }
+    
+    /**
+     * 시뮬레이터 렌더링
+     */
+    function renderSimulator(employees, storeData) {
+      const container = document.getElementById('simulatorContent');
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      
+      let html = '<div style="display: flex; flex-direction: column; gap: var(--spacing-lg);">';
+      
+      employees.forEach((emp, empIndex) => {
+        html += `
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); background: var(--bg-light);">
+            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: var(--spacing-md);">
+              <h4 style="margin: 0; font-size: 15px; font-weight: 700;">👤 ${emp.name}</h4>
+              <div style="font-size: 13px; color: var(--text-secondary);">
+                ${emp.salaryType === 'hourly' ? `시급 ${emp.salaryAmount.toLocaleString()}원` : 
+                  emp.salaryType === 'monthly' ? `월급 ${emp.salaryAmount.toLocaleString()}원` : 
+                  `연봉 ${emp.salaryAmount.toLocaleString()}원`}
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">
+        `;
+        
+        days.forEach((day, dayIndex) => {
+          html += `
+            <div style="background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px;">
+              <div style="font-weight: 600; font-size: 12px; text-align: center; margin-bottom: 8px; color: var(--primary-color);">${day}</div>
+              
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; margin-bottom: 8px; cursor: pointer;">
+                <input type="checkbox" id="work_${empIndex}_${dayIndex}" onchange="toggleWorkDay(${empIndex}, ${dayIndex})" style="cursor: pointer;">
+                <span>근무</span>
+              </label>
+              
+              <div id="time_${empIndex}_${dayIndex}" style="display: none;">
+                <input type="time" id="start_${empIndex}_${dayIndex}" value="09:00" 
+                  onchange="updateSchedule(${empIndex}, ${dayIndex})"
+                  style="width: 100%; padding: 4px; font-size: 11px; margin-bottom: 4px; border: 1px solid var(--border-color); border-radius: 4px;">
+                <input type="time" id="end_${empIndex}_${dayIndex}" value="18:00"
+                  onchange="updateSchedule(${empIndex}, ${dayIndex})"
+                  style="width: 100%; padding: 4px; font-size: 11px; border: 1px solid var(--border-color); border-radius: 4px;">
+                <div id="hours_${empIndex}_${dayIndex}" style="font-size: 10px; color: var(--text-secondary); text-align: center; margin-top: 4px;"></div>
+              </div>
+            </div>
+          `;
+        });
+        
+        html += `
+            </div>
+            <div id="summary_${empIndex}" style="margin-top: var(--spacing-md); padding: var(--spacing-sm); background: white; border-radius: 6px; font-size: 13px;"></div>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      container.innerHTML = html;
+      
+      // 전역 변수에 저장
+      window.simulatorEmployees = employees;
+      window.simulatorStoreData = storeData;
+      updateAllSummaries();
+    }
+    
+    /**
+     * 근무일 토글
+     */
+    function toggleWorkDay(empIndex, dayIndex) {
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const day = days[dayIndex];
+      const checkbox = document.getElementById(`work_${empIndex}_${dayIndex}`);
+      const timeDiv = document.getElementById(`time_${empIndex}_${dayIndex}`);
+      
+      if (checkbox.checked) {
+        timeDiv.style.display = 'block';
+        window.simulatorEmployees[empIndex].schedule[day].isWorkDay = true;
+        updateSchedule(empIndex, dayIndex);
+      } else {
+        timeDiv.style.display = 'none';
+        window.simulatorEmployees[empIndex].schedule[day].isWorkDay = false;
+        document.getElementById(`hours_${empIndex}_${dayIndex}`).textContent = '';
+      }
+      
+      updateAllSummaries();
+    }
+    
+    /**
+     * 스케줄 업데이트
+     */
+    function updateSchedule(empIndex, dayIndex) {
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const day = days[dayIndex];
+      const startTime = document.getElementById(`start_${empIndex}_${dayIndex}`).value;
+      const endTime = document.getElementById(`end_${empIndex}_${dayIndex}`).value;
+      
+      const hours = calculateWorkHours(startTime, endTime);
+      
+      window.simulatorEmployees[empIndex].schedule[day].startTime = startTime;
+      window.simulatorEmployees[empIndex].schedule[day].endTime = endTime;
+      
+      document.getElementById(`hours_${empIndex}_${dayIndex}`).textContent = `${hours.toFixed(1)}시간`;
+      
+      updateAllSummaries();
+    }
+    
+    /**
+     * 모든 요약 업데이트 (주휴수당 포함 월 예상급여)
+     */
+    function updateAllSummaries() {
+      if (!window.simulatorEmployees) return;
+      
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      let totalMonthlySalary = 0;
+      
+      window.simulatorEmployees.forEach((emp, empIndex) => {
+        let weeklyHours = 0;
+        let weeklyWorkDays = 0;
+        
+        days.forEach(day => {
+          if (emp.schedule[day].isWorkDay) {
+            const hours = calculateWorkHours(emp.schedule[day].startTime, emp.schedule[day].endTime);
+            weeklyHours += hours;
+            weeklyWorkDays++;
+          }
+        });
+        
+        // 주휴수당 계산 (주 15시간 이상 근무 시)
+        let weeklyHolidayPay = 0;
+        if (weeklyHours >= 15 && emp.salaryType === 'hourly') {
+          const avgDailyHours = weeklyHours / weeklyWorkDays;
+          weeklyHolidayPay = avgDailyHours * emp.salaryAmount;
+        }
+        
+        // 주간 급여
+        let weeklySalary = 0;
+        if (emp.salaryType === 'hourly') {
+          weeklySalary = (weeklyHours * emp.salaryAmount) + weeklyHolidayPay;
+        } else if (emp.salaryType === 'monthly') {
+          weeklySalary = emp.salaryAmount / 4.345; // 월급 ÷ 평균 주수
+        } else {
+          weeklySalary = emp.salaryAmount / 12 / 4.345; // 연봉 ÷ 12 ÷ 평균 주수
+        }
+        
+        // 월 예상급여 (주급 × 4.345)
+        const monthlySalary = weeklySalary * 4.345;
+        totalMonthlySalary += monthlySalary;
+        
+        // 개인 요약 표시
+        const summaryDiv = document.getElementById(`summary_${empIndex}`);
+        summaryDiv.innerHTML = `
+          <div style="display: flex; justify-content: space-between;">
+            <span>주간 근무: ${weeklyHours.toFixed(1)}시간 (${weeklyWorkDays}일)</span>
+            <span style="font-weight: 600; color: var(--primary-color);">월 예상급여: ₩${Math.round(monthlySalary).toLocaleString()}</span>
+          </div>
+          ${weeklyHolidayPay > 0 ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">주휴수당 포함: ₩${Math.round(weeklyHolidayPay).toLocaleString()}/주</div>` : ''}
+        `;
+      });
+      
+      // 전체 요약
+      const summaryDiv = document.getElementById('simulatorSummary');
+      summaryDiv.innerHTML = `
+        <span>총 ${window.simulatorEmployees.length}명 | 월 예상 인건비: <strong style="color: var(--primary-color);">₩${Math.round(totalMonthlySalary).toLocaleString()}</strong></span>
+      `;
+    }
+    
+    /**
+     * 시뮬레이터 닫기
+     */
+    function closeScheduleSimulator() {
+      document.getElementById('scheduleSimulatorModal').style.display = 'none';
+    }
+    
+    /**
+     * 스케줄 저장 (Firestore에 저장)
+     */
+    async function saveScheduleSimulation() {
+      if (!window.simulatorEmployees) return;
+      
+      if (!confirm('이 스케줄을 적용하시겠습니까?')) return;
+      
+      try {
+        const monday = getMonday(currentScheduleWeek);
+        const year = monday.getFullYear();
+        const weekNum = getWeekNumber(monday);
+        const days = ['월', '화', '수', '목', '금', '토', '일'];
+        
+        // 각 직원별로 스케줄 저장
+        for (const emp of window.simulatorEmployees) {
+          const scheduleDocId = `${emp.uid}_${year}-${weekNum}`;
+          const scheduleData = {
+            employeeUid: emp.uid,
+            year: year,
+            weekNumber: weekNum,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          
+          days.forEach(day => {
+            if (emp.schedule[day].isWorkDay) {
+              const hours = calculateWorkHours(emp.schedule[day].startTime, emp.schedule[day].endTime);
+              scheduleData[day] = {
+                startTime: emp.schedule[day].startTime,
+                endTime: emp.schedule[day].endTime,
+                hours: hours,
+                isWorkDay: true
+              };
+            } else {
+              scheduleData[day] = {
+                isWorkDay: false
+              };
+            }
+          });
+          
+          await db.collection('schedules').doc(scheduleDocId).set(scheduleData, { merge: true });
+        }
+        
+        alert('스케줄이 성공적으로 저장되었습니다!');
+        closeScheduleSimulator();
+        loadSchedules(); // 스케줄 새로고침
+      } catch (error) {
+        console.error('❌ 스케줄 저장 실패:', error);
+        alert('스케줄 저장에 실패했습니다.');
+      }
     }
 
     /**
@@ -8479,6 +8777,33 @@
       // TODO: PDF 저장 기능 구현
     }
   </script>
+
+  <!-- 스케줄 시뮬레이터 모달 -->
+  <div id="scheduleSimulatorModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: var(--border-radius); max-width: 1200px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;">
+        <!-- 모달 헤더 -->
+        <div style="padding: var(--spacing-lg); border-bottom: 2px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; font-size: 18px; font-weight: 700;">📅 스케줄 시뮬레이터</h3>
+          <button onclick="closeScheduleSimulator()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        
+        <!-- 모달 바디 -->
+        <div style="flex: 1; overflow-y: auto; padding: var(--spacing-lg);">
+          <div id="simulatorContent"></div>
+        </div>
+        
+        <!-- 모달 푸터 -->
+        <div style="padding: var(--spacing-lg); border-top: 2px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <div id="simulatorSummary" style="font-size: 14px; color: var(--text-secondary);"></div>
+          <div style="display: flex; gap: var(--spacing-sm);">
+            <button class="btn btn-secondary" onclick="closeScheduleSimulator()">취소</button>
+            <button class="btn btn-primary" onclick="saveScheduleSimulation()">스케줄 적용</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Firebase Init (로드 순서: 맨 마지막, 모든 함수 정의 후) -->
   <script src="js/firebase-init.js"></script>
