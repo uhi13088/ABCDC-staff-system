@@ -8179,13 +8179,87 @@
      * 출퇴근 기록 데이터 로드
      */
     async function loadAttendanceData(storeId, monday) {
-      // TODO: 실제 출퇴근 기록 로드
-      currentScheduleData = {
-        type: 'attendance',
-        employees: []
-      };
-      
-      console.log('⏰ 출퇴근 기록 로드 완료 (임시)');
+      try {
+        // 해당 매장의 모든 직원 조회
+        const employeesSnapshot = await db.collection('users')
+          .where('role', '==', 'employee')
+          .where('storeId', '==', storeId)
+          .get();
+        
+        if (employeesSnapshot.empty) {
+          console.log('⚠️ 해당 매장에 직원이 없습니다.');
+          currentScheduleData = { type: 'attendance', employees: [] };
+          return;
+        }
+        
+        const employees = [];
+        const days = ['월', '화', '수', '목', '금', '토', '일'];
+        
+        // 각 직원의 출퇴근 기록 로드
+        for (const empDoc of employeesSnapshot.docs) {
+          const empData = empDoc.data();
+          const empUid = empDoc.id;
+          
+          const schedules = {};
+          
+          // 주간 각 요일별 출퇴근 기록 조회
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(monday);
+            date.setDate(date.getDate() + i);
+            const dateStr = date.toISOString().split('T')[0];
+            const day = days[i];
+            
+            // attendance 컬렉션에서 해당 날짜 기록 조회
+            const attendanceSnapshot = await db.collection('attendance')
+              .where('userId', '==', empUid)
+              .where('date', '==', dateStr)
+              .get();
+            
+            if (!attendanceSnapshot.empty) {
+              const attendanceData = attendanceSnapshot.docs[0].data();
+              
+              // 상태 판별 (정상/지각/조퇴/결근)
+              let status = 'normal'; // normal, late, early, absent
+              
+              if (attendanceData.status === 'absent' || !attendanceData.checkInTime) {
+                status = 'absent';
+              } else if (attendanceData.isLate) {
+                status = 'late';
+              } else if (attendanceData.isEarlyLeave) {
+                status = 'early';
+              }
+              
+              schedules[day] = {
+                startTime: attendanceData.checkInTime || '',
+                endTime: attendanceData.checkOutTime || '',
+                hours: attendanceData.actualHours || 0,
+                isWorkDay: true,
+                status: status,
+                scheduledStart: attendanceData.scheduledStartTime || '',
+                scheduledEnd: attendanceData.scheduledEndTime || ''
+              };
+            } else {
+              schedules[day] = { isWorkDay: false };
+            }
+          }
+          
+          employees.push({
+            uid: empUid,
+            name: empData.name || '이름없음',
+            schedules: schedules
+          });
+        }
+        
+        currentScheduleData = {
+          type: 'attendance',
+          employees: employees
+        };
+        
+        console.log('✅ 출퇴근 기록 로드 완료:', employees.length, '명');
+      } catch (error) {
+        console.error('❌ 출퇴근 기록 로드 실패:', error);
+        currentScheduleData = { type: 'attendance', employees: [] };
+      }
     }
 
     /**
@@ -8307,12 +8381,26 @@
           days.forEach(day => {
             const schedule = emp.schedules[day];
             if (schedule && schedule.isWorkDay) {
+              // 출퇴근 기록인 경우 상태에 따라 색상 변경
+              let barColor = colorMap[emp.name];
+              if (currentScheduleData.type === 'attendance' && schedule.status) {
+                switch (schedule.status) {
+                  case 'late': barColor = '#FFA726'; break; // 주황색 (지각)
+                  case 'early': barColor = '#FFB74D'; break; // 연한 주황색 (조퇴)
+                  case 'absent': barColor = '#EF5350'; break; // 빨간색 (결근)
+                  default: barColor = '#66BB6A'; // 초록색 (정상)
+                }
+              }
+              
               dayWorkers[day].push({
                 name: emp.name,
                 startTime: schedule.startTime,
                 endTime: schedule.endTime,
                 hours: schedule.hours,
-                color: colorMap[emp.name]
+                color: barColor,
+                status: schedule.status || 'normal',
+                scheduledStart: schedule.scheduledStart || '',
+                scheduledEnd: schedule.scheduledEnd || ''
               });
             }
           });
@@ -8772,9 +8860,87 @@
     /**
      * PDF 저장
      */
-    function exportSchedulePDF() {
-      alert('PDF 저장 기능은 준비 중입니다.');
-      // TODO: PDF 저장 기능 구현
+    async function exportSchedulePDF() {
+      if (!currentScheduleData || !currentScheduleData.employees || currentScheduleData.employees.length === 0) {
+        alert('저장할 스케줄 데이터가 없습니다.');
+        return;
+      }
+      
+      try {
+        // jsPDF 라이브러리가 로드되지 않았다면 동적으로 로드
+        if (typeof jspdf === 'undefined') {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          document.head.appendChild(script);
+          
+          await new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = reject;
+          });
+        }
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const monday = getMonday(currentScheduleWeek);
+        const year = monday.getFullYear();
+        const weekNum = getWeekNumber(monday);
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const daysKor = ['월', '화', '수', '목', '금', '토', '일'];
+        
+        // 제목
+        doc.setFontSize(18);
+        doc.text(`Week ${weekNum}, ${year} Schedule`, 20, 20);
+        
+        // 날짜 범위
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
+        doc.setFontSize(12);
+        doc.text(`${monday.getMonth()+1}/${monday.getDate()} - ${sunday.getMonth()+1}/${sunday.getDate()}`, 20, 30);
+        
+        let yPos = 45;
+        
+        // 각 직원별 스케줄 표시
+        currentScheduleData.employees.forEach((emp, empIndex) => {
+          if (yPos > 250) {
+            doc.addPage();
+            yPos = 20;
+          }
+          
+          doc.setFontSize(14);
+          doc.text(emp.name, 20, yPos);
+          yPos += 10;
+          
+          doc.setFontSize(10);
+          
+          daysKor.forEach((day, dayIndex) => {
+            const schedule = emp.schedules[day];
+            const date = new Date(monday);
+            date.setDate(date.getDate() + dayIndex);
+            
+            let scheduleText = `${day}(${date.getMonth()+1}/${date.getDate()}): `;
+            
+            if (schedule && schedule.isWorkDay) {
+              scheduleText += `${schedule.startTime} - ${schedule.endTime} (${schedule.hours}h)`;
+            } else {
+              scheduleText += 'Off';
+            }
+            
+            doc.text(scheduleText, 25, yPos);
+            yPos += 7;
+          });
+          
+          yPos += 5;
+        });
+        
+        // PDF 저장
+        doc.save(`schedule_${year}_week${weekNum}.pdf`);
+        
+        console.log('✅ PDF 저장 완료');
+      } catch (error) {
+        console.error('❌ PDF 저장 실패:', error);
+        alert('PDF 저장에 실패했습니다.');
+      }
     }
   </script>
 
