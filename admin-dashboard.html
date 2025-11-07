@@ -8250,12 +8250,15 @@
         });
       }
       
-      // 시간 범위 (06:00 ~ 01:00, 1시간 단위)
+      // 시간 범위 (06:00 ~ 01:00, 30분 단위)
       const startHour = 6;
       const endHour = 25; // 다음날 01:00
-      const hours = [];
+      const timeSlots = [];
       for (let h = startHour; h <= endHour; h++) {
-        hours.push(h);
+        timeSlots.push({ hour: h, minute: 0 });
+        if (h < endHour) {
+          timeSlots.push({ hour: h, minute: 30 });
+        }
       }
       
       // 날짜 정보 생성
@@ -8273,8 +8276,9 @@
       const scheduleGrid = {};
       days.forEach(day => {
         scheduleGrid[day] = {};
-        hours.forEach(hour => {
-          scheduleGrid[day][hour] = [];
+        timeSlots.forEach(slot => {
+          const key = `${slot.hour}_${slot.minute}`;
+          scheduleGrid[day][key] = [];
         });
       });
       
@@ -8288,28 +8292,23 @@
               const endHour = parseInt(schedule.endTime.split(':')[0]);
               const endMin = parseInt(schedule.endTime.split(':')[1]);
               
-              // 근무 시간대에 직원 추가
-              for (let h = startHour; h < endHour; h++) {
-                scheduleGrid[day][h].push({
-                  name: emp.name,
-                  isStart: (h === startHour),
-                  isEnd: false,
-                  startTime: schedule.startTime,
-                  endTime: schedule.endTime,
-                  hours: schedule.hours
-                });
-              }
-              // 마지막 시간대 (endMin이 0이 아니면 포함)
-              if (endMin > 0) {
-                scheduleGrid[day][endHour].push({
-                  name: emp.name,
-                  isStart: false,
-                  isEnd: true,
-                  startTime: schedule.startTime,
-                  endTime: schedule.endTime,
-                  hours: schedule.hours
-                });
-              }
+              const startMinutes = startHour * 60 + startMin;
+              const endMinutes = endHour * 60 + endMin;
+              
+              // 30분 단위로 근무 시간대에 직원 추가
+              timeSlots.forEach(slot => {
+                const slotMinutes = slot.hour * 60 + slot.minute;
+                
+                if (slotMinutes >= startMinutes && slotMinutes < endMinutes) {
+                  const key = `${slot.hour}_${slot.minute}`;
+                  scheduleGrid[day][key].push({
+                    name: emp.name,
+                    startTime: schedule.startTime,
+                    endTime: schedule.endTime,
+                    hours: schedule.hours
+                  });
+                }
+              });
             }
           });
         });
@@ -8341,24 +8340,28 @@
               <tbody>
       `;
       
-      // 시간별 행 생성
-      hours.forEach(hour => {
-        const displayHour = hour > 24 ? hour - 24 : hour;
-        const timeLabel = `${displayHour.toString().padStart(2, '0')}:00`;
+      // 시간별 행 생성 (30분 단위)
+      timeSlots.forEach(slot => {
+        const displayHour = slot.hour > 24 ? slot.hour - 24 : slot.hour;
+        const timeLabel = `${displayHour.toString().padStart(2, '0')}:${slot.minute.toString().padStart(2, '0')}`;
+        
+        // 정시(00분)만 시간 레이블 표시, 30분은 빈칸
+        const showLabel = slot.minute === 0;
         
         html += `
           <tr>
-            <td style="border: 1px solid var(--border-color); padding: 8px; text-align: center; font-size: 12px; background: var(--bg-light); font-weight: 600;">
-              ${timeLabel}
+            <td style="border: 1px solid var(--border-color); padding: 4px 8px; text-align: center; font-size: ${showLabel ? '11px' : '10px'}; background: var(--bg-light); font-weight: ${showLabel ? '600' : '400'}; color: ${showLabel ? 'inherit' : '#999'};">
+              ${showLabel ? timeLabel : ''}
             </td>
         `;
         
         // 각 요일의 해당 시간대
         days.forEach(day => {
-          const workers = scheduleGrid[day][hour];
+          const key = `${slot.hour}_${slot.minute}`;
+          const workers = scheduleGrid[day][key];
           
           html += `
-            <td style="border: 1px solid var(--border-color); padding: 4px; position: relative; height: 50px; vertical-align: top;">
+            <td style="border: 1px solid var(--border-color); padding: 2px; position: relative; height: 28px; vertical-align: top;">
           `;
           
           if (workers && workers.length > 0) {
