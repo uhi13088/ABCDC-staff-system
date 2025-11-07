@@ -8006,7 +8006,10 @@
           select.appendChild(option);
         });
         
-        console.log('✅ 스케줄 매장 필터 로드 완료');
+        // 초기 주차 표시 업데이트
+        updateWeekDisplay();
+        
+        console.log('✅ 스케줄 매장 필터 로드 완료:', snapshot.size, '개 매장');
       } catch (error) {
         console.error('❌ 매장 목록 로드 실패:', error);
       }
