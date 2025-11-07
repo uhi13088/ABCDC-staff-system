@@ -54,6 +54,7 @@
         <button class="tab" data-tab="salary" onclick="switchTab('salary')">💰 급여 관리</button>
         <button class="tab" data-tab="approvals" onclick="switchTab('approvals')">✔️ 승인 관리</button>
         <button class="tab" data-tab="contracts" onclick="switchTab('contracts')">📝 계약서 관리</button>
+        <button class="tab" data-tab="schedules" onclick="switchTab('schedules')">📅 근무스케줄</button>
         <button class="tab" data-tab="notice" onclick="switchTab('notice')">📢 공지사항</button>
         <button class="tab" data-tab="stores" onclick="switchTab('stores')">🏪 매장 관리</button>
       </div>
@@ -370,6 +371,80 @@
         </div>
       </div>
 
+      <!-- 근무스케줄 탭 -->
+      <div id="tabSchedules" class="tab-content">
+        <div class="card">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h3 style="margin: 0;">📅 근무스케줄</h3>
+          </div>
+          
+          <div class="card-body">
+            <!-- 상단 컨트롤 -->
+            <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md); margin-bottom: var(--spacing-md);">
+                <!-- 매장 선택 -->
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: 600;">매장 선택</label>
+                  <select id="scheduleStoreSelect" onchange="loadSchedules()" style="width: 100%;">
+                    <option value="">선택하세요</option>
+                  </select>
+                </div>
+                
+                <!-- 표시 모드 -->
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: 600;">표시 모드</label>
+                  <div style="display: flex; gap: 10px; align-items: center; height: 38px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                      <input type="radio" name="scheduleDisplayMode" value="schedule" checked onchange="loadSchedules()">
+                      <span>스케줄표</span>
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                      <input type="radio" name="scheduleDisplayMode" value="attendance" onchange="loadSchedules()">
+                      <span>출퇴근 기록</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <!-- 뷰 타입 -->
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: 600;">뷰 타입</label>
+                  <div style="display: flex; gap: 10px; align-items: center; height: 38px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                      <input type="radio" name="scheduleViewType" value="card" checked onchange="renderScheduleView()">
+                      <span>카드형</span>
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                      <input type="radio" name="scheduleViewType" value="gantt" onchange="renderScheduleView()">
+                      <span>간트차트형</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 주차 네비게이션 -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+                <button class="btn" onclick="changeWeek(-1)" style="background: #6c757d; color: white;">◀ 이전 주</button>
+                <div style="font-weight: 600; font-size: 16px;" id="scheduleWeekDisplay">2025년 1월 1주차 (1/6 ~ 1/12)</div>
+                <button class="btn" onclick="changeWeek(1)" style="background: #6c757d; color: white;">다음 주 ▶</button>
+              </div>
+              
+              <!-- 액션 버튼 -->
+              <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" onclick="showScheduleSimulator()">📋 스케줄 시뮬레이터</button>
+                <button class="btn" onclick="exportSchedulePDF()" style="background: #28a745; color: white;">📄 PDF 저장</button>
+              </div>
+            </div>
+            
+            <!-- 스케줄 뷰 컨테이너 -->
+            <div id="scheduleViewContainer">
+              <p style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">
+                매장을 선택하면 근무 스케줄이 표시됩니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="tabStores" class="tab-content">
         <div class="card">
           <div class="card-header">
@@ -597,6 +672,34 @@
               <input type="checkbox" id="storeHolidayAllowance" style="width: auto; margin-right: 8px; cursor: pointer;">
               <span style="font-size: 14px;">휴일근로수당 (시급 × 1.5배)</span>
             </label>
+          </div>
+        </div>
+        
+        <!-- 매장 운영시간 설정 -->
+        <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: var(--spacing-md); margin-top: var(--spacing-md);">
+          <label style="font-weight: 700; font-size: 15px; margin-bottom: var(--spacing-sm);">🕐 매장 운영시간</label>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--spacing-md);">
+            매장의 영업 시작/종료 시간을 설정하세요. 근무 스케줄표는 이 시간 기준으로 앞뒤 3시간씩 표시됩니다.
+          </p>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+            <div>
+              <label for="storeOpenTime">오픈 시간</label>
+              <input type="time" id="storeOpenTime" value="09:00" required style="width: 100%;">
+            </div>
+            
+            <div>
+              <label for="storeCloseTime">마감 시간</label>
+              <input type="time" id="storeCloseTime" value="22:00" required style="width: 100%;">
+            </div>
+          </div>
+          
+          <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius); margin-top: var(--spacing-md);">
+            <p style="font-size: 13px; margin: 0; color: var(--text-secondary);">
+              <strong>💡 예시:</strong><br>
+              • 오픈 09:00, 마감 22:00 → 스케줄표는 06:00~01:00 표시<br>
+              • 이 시간은 근무 스케줄 타임테이블의 기준이 됩니다.
+            </p>
           </div>
         </div>
         
@@ -897,6 +1000,9 @@
         case 'salary': loadSalaryList(); break;
         case 'approvals': loadApprovals(); break;
         case 'contracts': loadContracts(); break;
+        case 'schedules': 
+          loadStoresForScheduleFilter(); 
+          break;
         case 'notice': loadNotice(); break;
         case 'stores': loadStores(); break;
       }
@@ -3904,6 +4010,16 @@
           document.getElementById('storeHolidayAllowance').checked = false;
         }
         
+        // 매장 운영시간 불러오기
+        if (store.businessHours) {
+          document.getElementById('storeOpenTime').value = store.businessHours.open || '09:00';
+          document.getElementById('storeCloseTime').value = store.businessHours.close || '22:00';
+        } else {
+          // 기본값
+          document.getElementById('storeOpenTime').value = '09:00';
+          document.getElementById('storeCloseTime').value = '22:00';
+        }
+        
         // 출퇴근 허용시간 설정 불러오기
         if (store.attendanceThresholds) {
           document.getElementById('earlyClockInThreshold').value = store.attendanceThresholds.earlyClockIn || 15;
@@ -4015,6 +4131,15 @@
         };
       }
       
+      // 매장 운영시간
+      const openTime = document.getElementById('storeOpenTime').value;
+      const closeTime = document.getElementById('storeCloseTime').value;
+      
+      if (!openTime || !closeTime) {
+        alert('⚠️ 매장 운영시간을 입력해주세요.');
+        return;
+      }
+      
       // 수당 적용 옵션 수집
       const overtimeAllowance = document.getElementById('storeOvertimeAllowance').checked;
       const nightAllowance = document.getElementById('storeNightAllowance').checked;
@@ -4032,6 +4157,10 @@
           phone,
           ceo,
           businessNumber,
+          businessHours: {
+            open: openTime,
+            close: closeTime
+          },
           salaryPaymentDay: parseInt(salaryPaymentDay),
           salaryCalculationType: calculationType, // 계산 기간 타입
           salaryCalculationPeriod: calculationPeriod, // 사용자 지정 계산 기간
@@ -7850,6 +7979,367 @@
       
       closeAttendanceDetailModal();
       showAdminEditAttendanceModal(currentDetailAttendanceId, currentDetailEmployeeName, currentDetailEmployeeUid, date, clockIn, clockOut);
+    }
+
+    // ===================================================================
+    // 근무스케줄 관리
+    // ===================================================================
+
+    let currentScheduleWeek = new Date(); // 현재 선택된 주
+    let currentScheduleData = null; // 현재 스케줄 데이터
+
+    /**
+     * 매장 선택 드롭다운 로드 (스케줄용)
+     */
+    async function loadStoresForScheduleFilter() {
+      try {
+        const snapshot = await firebase.firestore().collection('stores').get();
+        const select = document.getElementById('scheduleStoreSelect');
+        
+        select.innerHTML = '<option value="">매장 선택</option>';
+        
+        snapshot.forEach(doc => {
+          const store = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.textContent = store.name;
+          select.appendChild(option);
+        });
+        
+        console.log('✅ 스케줄 매장 필터 로드 완료');
+      } catch (error) {
+        console.error('❌ 매장 목록 로드 실패:', error);
+      }
+    }
+
+    /**
+     * 주차 변경
+     */
+    function changeWeek(offset) {
+      currentScheduleWeek.setDate(currentScheduleWeek.getDate() + (offset * 7));
+      updateWeekDisplay();
+      loadSchedules();
+    }
+
+    /**
+     * 주차 표시 업데이트
+     */
+    function updateWeekDisplay() {
+      const monday = getMonday(currentScheduleWeek);
+      const sunday = new Date(monday);
+      sunday.setDate(sunday.getDate() + 6);
+      
+      const year = monday.getFullYear();
+      const month = monday.getMonth() + 1;
+      const weekNum = getWeekNumber(monday);
+      
+      const mondayStr = `${monday.getMonth() + 1}/${monday.getDate()}`;
+      const sundayStr = `${sunday.getMonth() + 1}/${sunday.getDate()}`;
+      
+      document.getElementById('scheduleWeekDisplay').textContent = 
+        `${year}년 ${month}월 ${weekNum}주차 (${mondayStr} ~ ${sundayStr})`;
+    }
+
+    /**
+     * 월요일 날짜 구하기
+     */
+    function getMonday(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.setDate(diff));
+    }
+
+    /**
+     * 주차 번호 구하기 (해당 연도의 몇 번째 주)
+     */
+    function getWeekNumber(date) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    /**
+     * 스케줄 로드
+     */
+    async function loadSchedules() {
+      const storeId = document.getElementById('scheduleStoreSelect').value;
+      const displayMode = document.querySelector('input[name="scheduleDisplayMode"]:checked').value;
+      
+      if (!storeId) {
+        document.getElementById('scheduleViewContainer').innerHTML = 
+          '<p style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">매장을 선택하세요.</p>';
+        return;
+      }
+      
+      updateWeekDisplay();
+      
+      document.getElementById('scheduleViewContainer').innerHTML = 
+        '<p style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">로딩 중...</p>';
+      
+      try {
+        const monday = getMonday(currentScheduleWeek);
+        const year = monday.getFullYear();
+        const weekNum = getWeekNumber(monday);
+        
+        if (displayMode === 'schedule') {
+          // 스케줄 데이터 로드
+          await loadScheduleData(storeId, year, weekNum);
+        } else {
+          // 출퇴근 기록 데이터 로드
+          await loadAttendanceData(storeId, monday);
+        }
+        
+        renderScheduleView();
+      } catch (error) {
+        console.error('❌ 스케줄 로드 실패:', error);
+        document.getElementById('scheduleViewContainer').innerHTML = 
+          '<p style="text-align: center; padding: var(--spacing-xl); color: var(--danger-color);">데이터를 불러오는데 실패했습니다.</p>';
+      }
+    }
+
+    /**
+     * 스케줄 데이터 로드 (schedules 컬렉션에서)
+     */
+    async function loadScheduleData(storeId, year, weekNum) {
+      // TODO: Firestore에서 스케줄 데이터 로드
+      // 현재는 임시 데이터
+      currentScheduleData = {
+        type: 'schedule',
+        employees: [
+          {
+            uid: 'uid1',
+            name: '홍길동',
+            schedules: {
+              '월': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
+              '화': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
+              '수': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
+              '목': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
+              '금': { startTime: '07:00', endTime: '16:00', hours: 8, isWorkDay: true },
+              '토': { isWorkDay: false },
+              '일': { isWorkDay: false }
+            }
+          },
+          {
+            uid: 'uid2',
+            name: '김철수',
+            schedules: {
+              '월': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
+              '화': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
+              '수': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
+              '목': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
+              '금': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
+              '토': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true },
+              '일': { startTime: '12:00', endTime: '21:00', hours: 8, isWorkDay: true }
+            }
+          }
+        ]
+      };
+      
+      console.log('📅 스케줄 데이터 로드 완료 (임시)');
+    }
+
+    /**
+     * 출퇴근 기록 데이터 로드
+     */
+    async function loadAttendanceData(storeId, monday) {
+      // TODO: 실제 출퇴근 기록 로드
+      currentScheduleData = {
+        type: 'attendance',
+        employees: []
+      };
+      
+      console.log('⏰ 출퇴근 기록 로드 완료 (임시)');
+    }
+
+    /**
+     * 스케줄 뷰 렌더링
+     */
+    function renderScheduleView() {
+      if (!currentScheduleData) {
+        return;
+      }
+      
+      const viewType = document.querySelector('input[name="scheduleViewType"]:checked').value;
+      
+      if (viewType === 'card') {
+        renderCardView();
+      } else {
+        renderGanttView();
+      }
+    }
+
+    /**
+     * 카드형 뷰 렌더링
+     */
+    function renderCardView() {
+      const container = document.getElementById('scheduleViewContainer');
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const monday = getMonday(currentScheduleWeek);
+      
+      let html = '<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow-x: auto;">';
+      
+      days.forEach((day, index) => {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + index);
+        const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+        
+        html += `
+          <div style="min-width: 140px; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 8px; background: white;">
+            <div style="font-weight: 600; text-align: center; padding: 8px; background: var(--bg-light); border-radius: 4px; margin-bottom: 8px;">
+              ${day}(${dateStr})
+            </div>
+        `;
+        
+        // 각 직원의 스케줄 카드
+        if (currentScheduleData.employees) {
+          currentScheduleData.employees.forEach(emp => {
+            const schedule = emp.schedules[day];
+            
+            if (schedule && schedule.isWorkDay) {
+              html += `
+                <div style="background: #e3f2fd; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">👤 ${emp.name}</div>
+                  <div style="font-size: 12px; color: #1976d2; border-top: 2px solid #1976d2; padding-top: 4px; margin-top: 4px;">
+                    🕐 ${schedule.startTime} - ${schedule.endTime}
+                  </div>
+                  <div style="font-size: 11px; color: #555; margin-top: 2px;">
+                    ⏱️ ${schedule.hours}시간
+                  </div>
+                </div>
+              `;
+            } else {
+              html += `
+                <div style="background: #f5f5f5; border-radius: 8px; padding: 10px; margin-bottom: 8px; text-align: center; color: #999;">
+                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">👤 ${emp.name}</div>
+                  <div style="font-size: 12px;">휴무</div>
+                </div>
+              `;
+            }
+          });
+        }
+        
+        html += '</div>';
+      });
+      
+      html += '</div>';
+      
+      container.innerHTML = html;
+    }
+
+    /**
+     * 간트차트형 뷰 렌더링
+     */
+    function renderGanttView() {
+      const container = document.getElementById('scheduleViewContainer');
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const monday = getMonday(currentScheduleWeek);
+      
+      // 시간축 생성 (06:00 ~ 01:00, 3시간 간격)
+      const timeLabels = [];
+      for (let h = 6; h <= 24; h += 3) {
+        timeLabels.push(h.toString().padStart(2, '0'));
+      }
+      timeLabels.push('01');
+      
+      let html = `
+        <div style="background: var(--bg-light); padding: var(--spacing-md); border-radius: var(--border-radius); margin-bottom: var(--spacing-sm);">
+          <div style="display: flex; align-items: center; gap: 20px; font-size: 12px; overflow-x: auto;">
+            <span style="font-weight: 600; min-width: 60px;">시간축:</span>
+            <div style="display: flex; flex: 1; position: relative; height: 30px;">
+      `;
+      
+      // 시간 눈금 표시
+      timeLabels.forEach((time, index) => {
+        const left = (index / (timeLabels.length - 1)) * 100;
+        html += `
+          <div style="position: absolute; left: ${left}%; transform: translateX(-50%); font-size: 11px; color: #666;">
+            ${time}
+          </div>
+        `;
+      });
+      
+      html += `
+            </div>
+          </div>
+          <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary); text-align: center;">
+            └─3h─┘  └───────────── 영업시간 09-22시 ──────────────┘  └─3h─┘
+          </div>
+        </div>
+      `;
+      
+      // 각 요일별 간트차트
+      days.forEach((day, dayIndex) => {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + dayIndex);
+        const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+        
+        html += `
+          <div style="margin-bottom: var(--spacing-md); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); background: white;">
+            <div style="font-weight: 600; margin-bottom: var(--spacing-sm); padding-bottom: 8px; border-bottom: 2px solid var(--primary-color);">
+              ${day}(${dateStr})
+            </div>
+        `;
+        
+        // 각 직원의 간트 바
+        if (currentScheduleData.employees) {
+          currentScheduleData.employees.forEach(emp => {
+            const schedule = emp.schedules[day];
+            
+            html += '<div style="display: flex; align-items: center; margin-bottom: 8px; position: relative; height: 32px;">';
+            html += `<div style="min-width: 80px; font-size: 13px; font-weight: 500;">${emp.name}</div>`;
+            html += '<div style="flex: 1; position: relative; height: 24px; background: #f5f5f5; border-radius: 4px;">';
+            
+            if (schedule && schedule.isWorkDay) {
+              // 시간을 픽셀 위치로 변환
+              const startHour = parseInt(schedule.startTime.split(':')[0]);
+              const startMin = parseInt(schedule.startTime.split(':')[1]);
+              const endHour = parseInt(schedule.endTime.split(':')[0]);
+              const endMin = parseInt(schedule.endTime.split(':')[1]);
+              
+              const startMinutes = (startHour - 6) * 60 + startMin;
+              const endMinutes = (endHour - 6) * 60 + endMin;
+              const totalRange = 19 * 60; // 06:00 ~ 01:00 = 19시간
+              
+              const leftPercent = (startMinutes / totalRange) * 100;
+              const widthPercent = ((endMinutes - startMinutes) / totalRange) * 100;
+              
+              html += `
+                <div style="position: absolute; left: ${leftPercent}%; width: ${widthPercent}%; height: 100%; background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; overflow: hidden; white-space: nowrap; padding: 0 4px;" title="${emp.name} | ${schedule.startTime}-${schedule.endTime} | ${schedule.hours}시간">
+                  ${schedule.startTime}-${schedule.endTime} (${schedule.hours}h)
+                </div>
+              `;
+            } else {
+              html += '<div style="position: absolute; left: 50%; transform: translateX(-50%); color: #999; font-size: 11px;">휴무</div>';
+            }
+            
+            html += '</div>';
+            html += '</div>';
+          });
+        }
+        
+        html += '</div>';
+      });
+      
+      container.innerHTML = html;
+    }
+
+    /**
+     * 스케줄 시뮬레이터 모달 열기
+     */
+    function showScheduleSimulator() {
+      alert('스케줄 시뮬레이터 기능은 준비 중입니다.');
+      // TODO: 시뮬레이터 모달 구현
+    }
+
+    /**
+     * PDF 저장
+     */
+    function exportSchedulePDF() {
+      alert('PDF 저장 기능은 준비 중입니다.');
+      // TODO: PDF 저장 기능 구현
     }
   </script>
 
