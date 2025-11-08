@@ -8995,223 +8995,697 @@
     /**
      * 스케줄 시뮬레이터 모달 열기
      */
+    // ============================================
+    // 새로운 스케줄 시뮬레이터 (가상 인원 기반)
+    // ============================================
+    
+    // 전역 변수
+    let currentSimulator = null; // 현재 로드된 시뮬레이터
+    let simulatorPersons = []; // 가상 인원 배열
+    let simulatorSchedules = {}; // { personId: { 'YYYY-WW': { 월: {...}, 화: {...}, ... } } }
+    let currentSimulatorWeek = null; // 현재 선택된 주차 Date 객체
+    let currentEditingPerson = null; // 현재 편집 중인 인원
+    
+    /**
+     * 시뮬레이터 모달 열기
+     */
     async function showScheduleSimulator() {
-      const storeId = document.getElementById('scheduleStoreSelect').value;
+      console.log('🎯 스케줄 시뮬레이터 열기');
       
-      if (!storeId) {
-        alert('매장을 먼저 선택하세요.');
-        return;
-      }
+      // 초기화
+      currentSimulator = null;
+      simulatorPersons = [];
+      simulatorSchedules = {};
+      currentSimulatorWeek = getMonday(new Date()); // 이번 주 월요일
+      currentEditingPerson = null;
       
-      // 매장 정보 및 직원 목록 로드
-      const storeDoc = await db.collection('stores').doc(storeId).get();
-      const storeName = storeDoc.exists ? storeDoc.data().name : '';
+      // 시뮬레이터 목록 로드
+      await loadSimulatorList();
       
-      const employeesSnapshot = await db.collection('users')
-        .where('role', '==', 'employee')
-        .where('store', '==', storeName)
-        .get();
+      // 주차 선택 드롭다운 초기화 (8주치: 이전 4주 + 이후 4주)
+      initSimulatorWeekSelect();
       
-      if (employeesSnapshot.empty) {
-        alert('해당 매장에 직원이 없습니다.');
-        return;
-      }
+      // UI 업데이트
+      updateSimulatorUI();
       
-      const storeData = storeDoc.data();
-      const employees = [];
-      
-      employeesSnapshot.forEach(doc => {
-        const empData = doc.data();
-        
-        // 퇴사자 제외
-        if (empData.status === 'resigned') {
-          console.log(`  ⏭️ ${empData.name}: 퇴사자 제외 (시뮬레이터)`);
-          return;
-        }
-        
-        employees.push({
-          uid: doc.id,
-          name: empData.name,
-          salaryType: empData.salaryType || 'hourly',
-          salaryAmount: empData.salaryAmount || 0,
-          schedule: {
-            '월': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
-            '화': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
-            '수': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
-            '목': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
-            '금': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
-            '토': { startTime: '09:00', endTime: '18:00', isWorkDay: false },
-            '일': { startTime: '09:00', endTime: '18:00', isWorkDay: false }
-          }
-        });
-      });
-      
-      renderSimulator(employees, storeData);
+      // 모달 표시
       document.getElementById('scheduleSimulatorModal').style.display = 'block';
     }
     
     /**
-     * 시뮬레이터 렌더링
+     * 시뮬레이터 목록 로드
      */
-    function renderSimulator(employees, storeData) {
-      const container = document.getElementById('simulatorContent');
-      const days = ['월', '화', '수', '목', '금', '토', '일'];
-      
-      let html = '<div style="display: flex; flex-direction: column; gap: var(--spacing-lg);">';
-      
-      employees.forEach((emp, empIndex) => {
-        html += `
-          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); background: var(--bg-light);">
-            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: var(--spacing-md);">
-              <h4 style="margin: 0; font-size: 15px; font-weight: 700;">👤 ${emp.name}</h4>
-              <div style="font-size: 13px; color: var(--text-secondary);">
-                ${emp.salaryType === 'hourly' ? `시급 ${emp.salaryAmount.toLocaleString()}원` : 
-                  emp.salaryType === 'monthly' ? `월급 ${emp.salaryAmount.toLocaleString()}원` : 
-                  `연봉 ${emp.salaryAmount.toLocaleString()}원`}
-              </div>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">
-        `;
+    async function loadSimulatorList() {
+      try {
+        const snapshot = await db.collection('simulators').orderBy('createdAt', 'desc').get();
+        const select = document.getElementById('simulatorSelect');
         
-        days.forEach((day, dayIndex) => {
-          html += `
-            <div style="background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px;">
-              <div style="font-weight: 600; font-size: 12px; text-align: center; margin-bottom: 8px; color: var(--primary-color);">${day}</div>
-              
-              <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; margin-bottom: 8px; cursor: pointer;">
-                <input type="checkbox" id="work_${empIndex}_${dayIndex}" onchange="toggleWorkDay(${empIndex}, ${dayIndex})" style="cursor: pointer;">
-                <span>근무</span>
-              </label>
-              
-              <div id="time_${empIndex}_${dayIndex}" style="display: none;">
-                <input type="time" id="start_${empIndex}_${dayIndex}" value="09:00" 
-                  onchange="updateSchedule(${empIndex}, ${dayIndex})"
-                  style="width: 100%; padding: 4px; font-size: 11px; margin-bottom: 4px; border: 1px solid var(--border-color); border-radius: 4px;">
-                <input type="time" id="end_${empIndex}_${dayIndex}" value="18:00"
-                  onchange="updateSchedule(${empIndex}, ${dayIndex})"
-                  style="width: 100%; padding: 4px; font-size: 11px; border: 1px solid var(--border-color); border-radius: 4px;">
-                <div id="hours_${empIndex}_${dayIndex}" style="font-size: 10px; color: var(--text-secondary); text-align: center; margin-top: 4px;"></div>
-              </div>
-            </div>
-          `;
+        // 기본 옵션 유지
+        select.innerHTML = '<option value="">새 시뮬레이터</option>';
+        
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.textContent = data.name || `시뮬레이터 ${doc.id.substring(0, 8)}`;
+          select.appendChild(option);
         });
         
+        console.log(`✅ ${snapshot.size}개 시뮬레이터 로드 완료`);
+      } catch (error) {
+        console.error('❌ 시뮬레이터 목록 로드 실패:', error);
+      }
+    }
+    
+    /**
+     * 주차 선택 드롭다운 초기화
+     */
+    function initSimulatorWeekSelect() {
+      const select = document.getElementById('simulatorWeekSelect');
+      select.innerHTML = '';
+      
+      const today = new Date();
+      const baseMonday = getMonday(today);
+      
+      // 이전 4주 + 현재 + 이후 3주 = 총 8주
+      for (let i = -4; i <= 3; i++) {
+        const monday = new Date(baseMonday);
+        monday.setDate(monday.getDate() + (i * 7));
+        
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
+        
+        const option = document.createElement('option');
+        option.value = monday.toISOString();
+        option.textContent = `${monday.getMonth() + 1}/${monday.getDate()} - ${sunday.getMonth() + 1}/${sunday.getDate()}`;
+        
+        if (i === 0) {
+          option.selected = true;
+          currentSimulatorWeek = monday;
+        }
+        
+        select.appendChild(option);
+      }
+    }
+    
+    /**
+     * 주차 변경
+     */
+    function changeSimulatorWeek() {
+      const select = document.getElementById('simulatorWeekSelect');
+      currentSimulatorWeek = new Date(select.value);
+      updateSimulatorGanttChart();
+    }
+    
+    /**
+     * 전체 UI 업데이트
+     */
+    function updateSimulatorUI() {
+      updateSimulatorPersonList();
+      updateSimulatorGanttChart();
+      updateSimulatorSummary();
+      
+      // 저장/삭제 버튼 표시 여부
+      const btnDelete = document.getElementById('btnDeleteSimulator');
+      if (currentSimulator) {
+        btnDelete.style.display = 'inline-block';
+      } else {
+        btnDelete.style.display = 'none';
+      }
+    }
+    
+    /**
+     * 가상 인원 목록 업데이트
+     */
+    function updateSimulatorPersonList() {
+      const container = document.getElementById('simulatorPersonList');
+      
+      if (simulatorPersons.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: var(--spacing-md); color: var(--text-secondary); font-size: 13px;">가상 인원을 추가하세요</div>';
+        return;
+      }
+      
+      let html = '';
+      simulatorPersons.forEach((person, index) => {
+        const salaryText = person.salaryType === 'hourly' ? `시급 ₩${person.salaryAmount?.toLocaleString() || 0}` :
+                          person.salaryType === 'monthly' ? `월급 ₩${person.salaryAmount?.toLocaleString() || 0}` :
+                          '급여 미설정';
+        
         html += `
+          <div style="background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: var(--spacing-sm); cursor: pointer; transition: all 0.2s;" 
+               onclick="editSimulatorPerson('${person.id}')"
+               onmouseover="this.style.background='#f8f9fa'"
+               onmouseout="this.style.background='white'">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-weight: 600; font-size: 14px;">${person.name}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">${salaryText}</div>
+              </div>
+              <button onclick="deleteSimulatorPerson('${person.id}', event)" 
+                      style="background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 18px; padding: 4px;"
+                      title="삭제">
+                ×
+              </button>
             </div>
-            <div id="summary_${empIndex}" style="margin-top: var(--spacing-md); padding: var(--spacing-sm); background: white; border-radius: 6px; font-size: 13px;"></div>
           </div>
         `;
       });
       
-      html += '</div>';
       container.innerHTML = html;
-      
-      // 전역 변수에 저장
-      window.simulatorEmployees = employees;
-      window.simulatorStoreData = storeData;
-      updateAllSummaries();
     }
     
     /**
-     * 근무일 토글
+     * 간트 차트 업데이트
      */
-    function toggleWorkDay(empIndex, dayIndex) {
-      const days = ['월', '화', '수', '목', '금', '토', '일'];
-      const day = days[dayIndex];
-      const checkbox = document.getElementById(`work_${empIndex}_${dayIndex}`);
-      const timeDiv = document.getElementById(`time_${empIndex}_${dayIndex}`);
+    function updateSimulatorGanttChart() {
+      const container = document.getElementById('simulatorGanttChart');
       
-      if (checkbox.checked) {
-        timeDiv.style.display = 'block';
-        window.simulatorEmployees[empIndex].schedule[day].isWorkDay = true;
-        updateSchedule(empIndex, dayIndex);
-      } else {
-        timeDiv.style.display = 'none';
-        window.simulatorEmployees[empIndex].schedule[day].isWorkDay = false;
-        document.getElementById(`hours_${empIndex}_${dayIndex}`).textContent = '';
+      if (simulatorPersons.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">가상 인원을 추가하고 스케줄을 설정하세요</div>';
+        return;
       }
       
-      updateAllSummaries();
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const monday = new Date(currentSimulatorWeek);
+      const year = monday.getFullYear();
+      const weekNum = getWeekNumber(monday);
+      const weekKey = `${year}-${weekNum}`;
+      
+      // 간트 차트 HTML 생성
+      let html = `
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+            <thead>
+              <tr style="background: var(--primary-color); color: white;">
+                <th style="padding: 12px; text-align: left; width: 80px;">시간</th>
+      `;
+      
+      days.forEach((day, dayIndex) => {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + dayIndex);
+        html += `
+          <th style="padding: 12px; text-align: center; border-left: 1px solid rgba(255,255,255,0.3);">
+            ${day}<br>
+            <span style="font-size: 11px; font-weight: 400;">${date.getMonth() + 1}/${date.getDate()}</span>
+          </th>
+        `;
+      });
+      
+      html += `
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
+      // 시간 슬롯 (06:00 ~ 24:00)
+      for (let hour = 6; hour < 24; hour++) {
+        html += `
+          <tr style="border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 8px; font-size: 11px; color: var(--text-secondary); text-align: center;">${String(hour).padStart(2, '0')}:00</td>
+        `;
+        
+        days.forEach(day => {
+          html += `<td style="position: relative; border-left: 1px solid var(--border-color); height: 40px;"></td>`;
+        });
+        
+        html += `</tr>`;
+      }
+      
+      html += `
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 스케줄 바 오버레이 -->
+        <div id="ganttBarsContainer" style="position: relative; margin-top: -720px; pointer-events: none;">
+          <!-- 동적으로 바 생성 -->
+        </div>
+      `;
+      
+      container.innerHTML = html;
+      
+      // 스케줄 바 렌더링
+      renderGanttBars(weekKey);
     }
     
     /**
-     * 스케줄 업데이트
+     * 간트 차트 바 렌더링
      */
-    function updateSchedule(empIndex, dayIndex) {
+    function renderGanttBars(weekKey) {
+      const container = document.getElementById('ganttBarsContainer');
+      if (!container) return;
+      
       const days = ['월', '화', '수', '목', '금', '토', '일'];
-      const day = days[dayIndex];
-      const startTime = document.getElementById(`start_${empIndex}_${dayIndex}`).value;
-      const endTime = document.getElementById(`end_${empIndex}_${dayIndex}`).value;
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
       
-      const hours = calculateWorkHours(startTime, endTime);
+      let html = '';
       
-      window.simulatorEmployees[empIndex].schedule[day].startTime = startTime;
-      window.simulatorEmployees[empIndex].schedule[day].endTime = endTime;
+      simulatorPersons.forEach((person, personIndex) => {
+        const personSchedule = simulatorSchedules[person.id]?.[weekKey];
+        if (!personSchedule) return;
+        
+        const color = colors[personIndex % colors.length];
+        
+        days.forEach((day, dayIndex) => {
+          const daySchedule = personSchedule[day];
+          if (!daySchedule || !daySchedule.isWorkDay) return;
+          
+          const startTime = daySchedule.startTime; // "09:00"
+          const endTime = daySchedule.endTime; // "18:00"
+          
+          const [startHour, startMin] = startTime.split(':').map(Number);
+          const [endHour, endMin] = endTime.split(':').map(Number);
+          
+          const startOffset = ((startHour - 6) * 40) + (startMin / 60 * 40); // 40px per hour
+          const duration = ((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 60;
+          const barHeight = duration * 40;
+          
+          const leftOffset = 80 + (dayIndex * (100 / 7)) + '%'; // 80px for time column
+          
+          html += `
+            <div style="
+              position: absolute;
+              left: calc(${leftOffset} + 4px);
+              top: ${startOffset}px;
+              width: calc(${100/7}% - 8px);
+              height: ${barHeight}px;
+              background: ${color};
+              opacity: 0.8;
+              border-radius: 4px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-size: 11px;
+              font-weight: 600;
+              pointer-events: auto;
+              cursor: pointer;
+            " title="${person.name}: ${startTime} - ${endTime} (${daySchedule.hours}h)">
+              ${person.name}
+            </div>
+          `;
+        });
+      });
       
-      document.getElementById(`hours_${empIndex}_${dayIndex}`).textContent = `${hours.toFixed(1)}시간`;
-      
-      updateAllSummaries();
+      container.innerHTML = html;
     }
     
     /**
-     * 모든 요약 업데이트 (주휴수당 포함 월 예상급여)
+     * 요약 정보 업데이트
      */
-    function updateAllSummaries() {
-      if (!window.simulatorEmployees) return;
-      
+    function updateSimulatorSummary() {
       const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const monday = new Date(currentSimulatorWeek);
+      const year = monday.getFullYear();
+      const weekNum = getWeekNumber(monday);
+      const weekKey = `${year}-${weekNum}`;
+      
+      let totalWeeklyHours = 0;
+      let workingPersonsCount = 0;
       let totalMonthlySalary = 0;
       
-      window.simulatorEmployees.forEach((emp, empIndex) => {
+      simulatorPersons.forEach(person => {
+        const personSchedule = simulatorSchedules[person.id]?.[weekKey];
+        if (!personSchedule) return;
+        
         let weeklyHours = 0;
         let weeklyWorkDays = 0;
         
         days.forEach(day => {
-          if (emp.schedule[day].isWorkDay) {
-            const hours = calculateWorkHours(emp.schedule[day].startTime, emp.schedule[day].endTime);
-            weeklyHours += hours;
+          const daySchedule = personSchedule[day];
+          if (daySchedule && daySchedule.isWorkDay) {
+            weeklyHours += daySchedule.hours || 0;
             weeklyWorkDays++;
           }
         });
         
-        // 주휴수당 계산 (주 15시간 이상 근무 시)
-        let weeklyHolidayPay = 0;
-        if (weeklyHours >= 15 && emp.salaryType === 'hourly') {
-          const avgDailyHours = weeklyHours / weeklyWorkDays;
-          weeklyHolidayPay = avgDailyHours * emp.salaryAmount;
+        if (weeklyHours > 0) {
+          workingPersonsCount++;
+          totalWeeklyHours += weeklyHours;
+          
+          // 급여 계산
+          if (person.salaryType === 'hourly' && person.salaryAmount) {
+            let weeklySalary = weeklyHours * person.salaryAmount;
+            
+            // 주휴수당 (주 15시간 이상)
+            if (weeklyHours >= 15) {
+              const avgDailyHours = weeklyHours / weeklyWorkDays;
+              const weeklyHolidayPay = avgDailyHours * person.salaryAmount;
+              weeklySalary += weeklyHolidayPay;
+            }
+            
+            totalMonthlySalary += weeklySalary * 4.345; // 월 환산
+          } else if (person.salaryType === 'monthly' && person.salaryAmount) {
+            totalMonthlySalary += person.salaryAmount;
+          }
         }
+      });
+      
+      // 주간 요약 업데이트
+      document.getElementById('simulatorWeeklySummary').innerHTML = `
+        <div>총 근무시간: <strong>${totalWeeklyHours.toFixed(1)}h</strong></div>
+        <div>근무 인원: <strong>${workingPersonsCount}명</strong></div>
+      `;
+      
+      // 월간 급여 합계 업데이트
+      document.getElementById('simulatorMonthlySalary').innerHTML = `
+        <div style="font-size: 24px; font-weight: 700; color: var(--primary-color);">₩${Math.round(totalMonthlySalary).toLocaleString()}</div>
+        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">주휴수당 포함</div>
+      `;
+    }
+    
+    /**
+     * 가상 인원 추가
+     */
+    function addSimulatorPerson() {
+      // 다음 알파벳 이름 생성 (A, B, C, ..., Z, AA, AB, ...)
+      const getNextName = () => {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const count = simulatorPersons.length;
         
-        // 주간 급여
-        let weeklySalary = 0;
-        if (emp.salaryType === 'hourly') {
-          weeklySalary = (weeklyHours * emp.salaryAmount) + weeklyHolidayPay;
-        } else if (emp.salaryType === 'monthly') {
-          weeklySalary = emp.salaryAmount / 4.345; // 월급 ÷ 평균 주수
+        if (count < 26) {
+          return alphabet[count];
         } else {
-          weeklySalary = emp.salaryAmount / 12 / 4.345; // 연봉 ÷ 12 ÷ 평균 주수
+          const first = Math.floor(count / 26) - 1;
+          const second = count % 26;
+          return alphabet[first] + alphabet[second];
         }
-        
-        // 월 예상급여 (주급 × 4.345)
-        const monthlySalary = weeklySalary * 4.345;
-        totalMonthlySalary += monthlySalary;
-        
-        // 개인 요약 표시
-        const summaryDiv = document.getElementById(`summary_${empIndex}`);
-        summaryDiv.innerHTML = `
-          <div style="display: flex; justify-content: space-between;">
-            <span>주간 근무: ${weeklyHours.toFixed(1)}시간 (${weeklyWorkDays}일)</span>
-            <span style="font-weight: 600; color: var(--primary-color);">월 예상급여: ₩${Math.round(monthlySalary).toLocaleString()}</span>
-          </div>
-          ${weeklyHolidayPay > 0 ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">주휴수당 포함: ₩${Math.round(weeklyHolidayPay).toLocaleString()}/주</div>` : ''}
+      };
+      
+      const newPerson = {
+        id: `person_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        name: getNextName(),
+        salaryType: null,
+        salaryAmount: null,
+        schedules: [] // [{ days: ['월', '화'], startHour, startMinute, endHour, endMinute }]
+      };
+      
+      simulatorPersons.push(newPerson);
+      updateSimulatorUI();
+      
+      // 바로 설정 모달 열기
+      editSimulatorPerson(newPerson.id);
+    }
+    
+    /**
+     * 가상 인원 편집
+     */
+    function editSimulatorPerson(personId) {
+      const person = simulatorPersons.find(p => p.id === personId);
+      if (!person) return;
+      
+      currentEditingPerson = person;
+      
+      // 모달 제목 설정
+      document.getElementById('personSettingsName').textContent = person.name;
+      
+      // 급여 설정 복원
+      if (person.salaryType === 'hourly') {
+        document.querySelector('input[name="personSalaryType"][value="hourly"]').checked = true;
+        document.getElementById('salaryAmountContainer').style.display = 'block';
+        document.getElementById('personSalaryAmount').value = person.salaryAmount || '';
+      } else if (person.salaryType === 'monthly') {
+        document.querySelector('input[name="personSalaryType"][value="monthly"]').checked = true;
+        document.getElementById('salaryAmountContainer').style.display = 'block';
+        document.getElementById('personSalaryAmount').value = person.salaryAmount || '';
+      } else {
+        document.querySelector('input[name="personSalaryType"][value="none"]').checked = true;
+        document.getElementById('salaryAmountContainer').style.display = 'none';
+      }
+      
+      // 근무일 그룹 복원
+      const container = document.getElementById('scheduleGroupsContainer');
+      if (person.schedules && person.schedules.length > 0) {
+        container.innerHTML = '';
+        person.schedules.forEach((schedule, index) => {
+          addScheduleGroupUI(schedule, index);
+        });
+      } else {
+        // 기본 그룹 하나 추가
+        container.innerHTML = '';
+        addScheduleGroupUI();
+      }
+      
+      // 모달 표시
+      document.getElementById('personSettingsModal').style.display = 'block';
+    }
+    
+    /**
+     * 가상 인원 삭제
+     */
+    function deleteSimulatorPerson(personId, event) {
+      if (event) {
+        event.stopPropagation(); // 편집 모달 열리지 않도록
+      }
+      
+      if (!confirm('이 가상 인원을 삭제하시겠습니까?')) return;
+      
+      // 배열에서 제거
+      simulatorPersons = simulatorPersons.filter(p => p.id !== personId);
+      
+      // 스케줄 데이터 제거
+      delete simulatorSchedules[personId];
+      
+      updateSimulatorUI();
+    }
+    
+    /**
+     * 급여 입력 토글
+     */
+    function toggleSalaryInput() {
+      const selected = document.querySelector('input[name="personSalaryType"]:checked').value;
+      const container = document.getElementById('salaryAmountContainer');
+      
+      if (selected === 'none') {
+        container.style.display = 'none';
+      } else {
+        container.style.display = 'block';
+      }
+    }
+    
+    /**
+     * 근무일 그룹 추가 (UI)
+     */
+    function addScheduleGroup() {
+      addScheduleGroupUI();
+    }
+    
+    function addScheduleGroupUI(scheduleData = null, index = null) {
+      const container = document.getElementById('scheduleGroupsContainer');
+      const groupIndex = index !== null ? index : container.children.length;
+      
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'schedule-group';
+      groupDiv.dataset.groupIndex = groupIndex;
+      groupDiv.style.cssText = 'background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: var(--spacing-sm);';
+      
+      let daysHtml = '';
+      days.forEach(day => {
+        const checked = scheduleData && scheduleData.days.includes(day) ? 'checked' : '';
+        daysHtml += `
+          <label style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #f8f9fa; border-radius: 4px; cursor: pointer; font-size: 13px;">
+            <input type="checkbox" value="${day}" ${checked} style="cursor: pointer;">
+            <span>${day}</span>
+          </label>
         `;
       });
       
-      // 전체 요약
-      const summaryDiv = document.getElementById('simulatorSummary');
-      summaryDiv.innerHTML = `
-        <span>총 ${window.simulatorEmployees.length}명 | 월 예상 인건비: <strong style="color: var(--primary-color);">₩${Math.round(totalMonthlySalary).toLocaleString()}</strong></span>
+      const startHour = scheduleData ? scheduleData.startHour : '09';
+      const startMinute = scheduleData ? scheduleData.startMinute : '00';
+      const endHour = scheduleData ? scheduleData.endHour : '18';
+      const endMinute = scheduleData ? scheduleData.endMinute : '00';
+      
+      groupDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h5 style="margin: 0; font-size: 13px; font-weight: 600;">근무일 그룹 ${groupIndex + 1}</h5>
+          <button onclick="deleteScheduleGroup(${groupIndex})" class="btn btn-sm btn-danger" style="padding: 2px 8px; font-size: 11px;">삭제</button>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; display: block;">근무 요일</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+            ${daysHtml}
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; display: block;">시작 시간</label>
+            <div style="display: flex; gap: 4px;">
+              <input type="number" min="0" max="23" value="${startHour}" placeholder="시" 
+                     style="flex: 1; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px;">
+              <input type="number" min="0" max="59" value="${startMinute}" placeholder="분" 
+                     style="flex: 1; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; display: block;">종료 시간</label>
+            <div style="display: flex; gap: 4px;">
+              <input type="number" min="0" max="23" value="${endHour}" placeholder="시" 
+                     style="flex: 1; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px;">
+              <input type="number" min="0" max="59" value="${endMinute}" placeholder="분" 
+                     style="flex: 1; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px;">
+            </div>
+          </div>
+        </div>
       `;
+      
+      container.appendChild(groupDiv);
+    }
+    
+    /**
+     * 근무일 그룹 삭제
+     */
+    function deleteScheduleGroup(groupIndex) {
+      const container = document.getElementById('scheduleGroupsContainer');
+      const groups = container.querySelectorAll('.schedule-group');
+      
+      if (groups.length <= 1) {
+        alert('최소 1개의 근무일 그룹이 필요합니다.');
+        return;
+      }
+      
+      if (groups[groupIndex]) {
+        groups[groupIndex].remove();
+        
+        // 인덱스 재조정
+        const remainingGroups = container.querySelectorAll('.schedule-group');
+        remainingGroups.forEach((group, newIndex) => {
+          group.dataset.groupIndex = newIndex;
+          const title = group.querySelector('h5');
+          if (title) {
+            title.textContent = `근무일 그룹 ${newIndex + 1}`;
+          }
+          const deleteBtn = group.querySelector('button');
+          if (deleteBtn) {
+            deleteBtn.setAttribute('onclick', `deleteScheduleGroup(${newIndex})`);
+          }
+        });
+      }
+    }
+    
+    /**
+     * 인원 설정 저장
+     */
+    function savePersonSettings() {
+      if (!currentEditingPerson) return;
+      
+      // 급여 설정 수집
+      const salaryType = document.querySelector('input[name="personSalaryType"]:checked').value;
+      const salaryAmount = document.getElementById('personSalaryAmount').value;
+      
+      if (salaryType !== 'none') {
+        if (!salaryAmount || parseFloat(salaryAmount) <= 0) {
+          alert('급여 금액을 입력하세요.');
+          return;
+        }
+        currentEditingPerson.salaryType = salaryType;
+        currentEditingPerson.salaryAmount = parseFloat(salaryAmount);
+      } else {
+        currentEditingPerson.salaryType = null;
+        currentEditingPerson.salaryAmount = null;
+      }
+      
+      // 근무일 그룹 수집
+      const schedules = [];
+      const groups = document.querySelectorAll('.schedule-group');
+      
+      groups.forEach(group => {
+        const checkedDays = Array.from(group.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+        if (checkedDays.length === 0) return;
+        
+        const inputs = group.querySelectorAll('input[type="number"]');
+        const startHour = String(parseInt(inputs[0].value) || 0).padStart(2, '0');
+        const startMinute = String(parseInt(inputs[1].value) || 0).padStart(2, '0');
+        const endHour = String(parseInt(inputs[2].value) || 0).padStart(2, '0');
+        const endMinute = String(parseInt(inputs[3].value) || 0).padStart(2, '0');
+        
+        schedules.push({
+          days: checkedDays,
+          startHour,
+          startMinute,
+          endHour,
+          endMinute
+        });
+      });
+      
+      if (schedules.length === 0) {
+        alert('최소 1개의 근무일 그룹을 설정하세요.');
+        return;
+      }
+      
+      currentEditingPerson.schedules = schedules;
+      
+      // 스케줄 데이터 생성 (8주치)
+      generatePersonSchedules(currentEditingPerson);
+      
+      // UI 업데이트
+      updateSimulatorUI();
+      
+      // 모달 닫기
+      closePersonSettings();
+    }
+    
+    /**
+     * 인원 설정 모달 닫기
+     */
+    function closePersonSettings() {
+      document.getElementById('personSettingsModal').style.display = 'none';
+      currentEditingPerson = null;
+    }
+    
+    /**
+     * 가상 인원의 스케줄 생성 (8주치)
+     */
+    function generatePersonSchedules(person) {
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const today = new Date();
+      const baseMonday = getMonday(today);
+      
+      // 요일별 스케줄 맵 생성
+      const dayScheduleMap = {};
+      person.schedules.forEach(schedule => {
+        schedule.days.forEach(day => {
+          const startTime = `${schedule.startHour}:${schedule.startMinute}`;
+          const endTime = `${schedule.endHour}:${schedule.endMinute}`;
+          const hours = calculateWorkHours(startTime, endTime);
+          
+          dayScheduleMap[day] = {
+            isWorkDay: true,
+            startTime,
+            endTime,
+            hours
+          };
+        });
+      });
+      
+      // personId로 스케줄 저장소 초기화
+      if (!simulatorSchedules[person.id]) {
+        simulatorSchedules[person.id] = {};
+      }
+      
+      // 8주치 생성 (이전 4주 + 이후 4주)
+      for (let i = -4; i <= 3; i++) {
+        const monday = new Date(baseMonday);
+        monday.setDate(monday.getDate() + (i * 7));
+        
+        const year = monday.getFullYear();
+        const weekNum = getWeekNumber(monday);
+        const weekKey = `${year}-${weekNum}`;
+        
+        const weekSchedule = {};
+        days.forEach(day => {
+          if (dayScheduleMap[day]) {
+            weekSchedule[day] = { ...dayScheduleMap[day] };
+          } else {
+            weekSchedule[day] = { isWorkDay: false };
+          }
+        });
+        
+        simulatorSchedules[person.id][weekKey] = weekSchedule;
+      }
+      
+      console.log(`✅ ${person.name} 스케줄 생성 완료 (8주치)`);
     }
     
     /**
@@ -9222,54 +9696,220 @@
     }
     
     /**
-     * 스케줄 저장 (Firestore에 저장)
+     * 새 시뮬레이터 만들기
      */
-    async function saveScheduleSimulation() {
-      if (!window.simulatorEmployees) return;
+    function createNewSimulator() {
+      if (currentSimulator || simulatorPersons.length > 0) {
+        if (!confirm('현재 작업 중인 시뮬레이터가 있습니다. 새로 만들시겠습니까? (저장되지 않은 내용은 사라집니다)')) {
+          return;
+        }
+      }
       
-      if (!confirm('이 스케줄을 적용하시겠습니까?')) return;
+      // 초기화
+      currentSimulator = null;
+      simulatorPersons = [];
+      simulatorSchedules = {};
+      
+      // UI 업데이트
+      document.getElementById('simulatorSelect').value = '';
+      updateSimulatorUI();
+    }
+    
+    /**
+     * 시뮬레이터 저장
+     */
+    async function saveCurrentSimulator() {
+      if (simulatorPersons.length === 0) {
+        alert('저장할 가상 인원이 없습니다.');
+        return;
+      }
+      
+      // 시뮬레이터 이름 입력
+      const name = prompt('시뮬레이터 이름을 입력하세요:', currentSimulator?.name || `시뮬레이션 ${new Date().toLocaleDateString()}`);
+      if (!name) return;
       
       try {
-        const monday = getMonday(currentScheduleWeek);
-        const year = monday.getFullYear();
-        const weekNum = getWeekNumber(monday);
-        const days = ['월', '화', '수', '목', '금', '토', '일'];
+        const simulatorId = currentSimulator?.id || `sim_${Date.now()}`;
         
-        // 각 직원별로 스케줄 저장
-        for (const emp of window.simulatorEmployees) {
-          const scheduleDocId = `${emp.uid}_${year}-${weekNum}`;
-          const scheduleData = {
-            employeeUid: emp.uid,
-            year: year,
-            weekNumber: weekNum,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          };
-          
-          days.forEach(day => {
-            if (emp.schedule[day].isWorkDay) {
-              const hours = calculateWorkHours(emp.schedule[day].startTime, emp.schedule[day].endTime);
-              scheduleData[day] = {
-                startTime: emp.schedule[day].startTime,
-                endTime: emp.schedule[day].endTime,
-                hours: hours,
-                isWorkDay: true
-              };
-            } else {
-              scheduleData[day] = {
-                isWorkDay: false
-              };
-            }
+        // 1. simulators 컬렉션 저장
+        await db.collection('simulators').doc(simulatorId).set({
+          name,
+          createdAt: currentSimulator?.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // 2. simulatorPersons 컬렉션 저장
+        const batch = db.batch();
+        
+        for (const person of simulatorPersons) {
+          const personRef = db.collection('simulatorPersons').doc(`${simulatorId}_${person.id}`);
+          batch.set(personRef, {
+            simulatorId,
+            personId: person.id,
+            name: person.name,
+            salaryType: person.salaryType,
+            salaryAmount: person.salaryAmount,
+            schedules: person.schedules
           });
-          
-          await db.collection('schedules').doc(scheduleDocId).set(scheduleData, { merge: true });
         }
         
-        alert('스케줄이 성공적으로 저장되었습니다!');
-        closeScheduleSimulator();
-        loadSchedules(); // 스케줄 새로고침
+        await batch.commit();
+        
+        // 3. simulatorSchedules 컬렉션 저장
+        const scheduleBatch = db.batch();
+        let scheduleCount = 0;
+        
+        for (const personId in simulatorSchedules) {
+          for (const weekKey in simulatorSchedules[personId]) {
+            const scheduleRef = db.collection('simulatorSchedules').doc(`${simulatorId}_${personId}_${weekKey}`);
+            scheduleBatch.set(scheduleRef, {
+              simulatorId,
+              personId,
+              weekKey,
+              ...simulatorSchedules[personId][weekKey],
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            scheduleCount++;
+          }
+        }
+        
+        await scheduleBatch.commit();
+        
+        console.log(`✅ 시뮬레이터 저장 완료: ${simulatorPersons.length}명, ${scheduleCount}개 스케줄`);
+        
+        currentSimulator = { id: simulatorId, name };
+        
+        // 목록 새로고침
+        await loadSimulatorList();
+        document.getElementById('simulatorSelect').value = simulatorId;
+        
+        alert('시뮬레이터가 저장되었습니다!');
+        
+        updateSimulatorUI();
       } catch (error) {
-        console.error('❌ 스케줄 저장 실패:', error);
-        alert('스케줄 저장에 실패했습니다.');
+        console.error('❌ 시뮬레이터 저장 실패:', error);
+        alert('저장에 실패했습니다: ' + error.message);
+      }
+    }
+    
+    /**
+     * 시뮬레이터 불러오기
+     */
+    async function loadSimulator(simulatorId) {
+      if (!simulatorId) {
+        createNewSimulator();
+        return;
+      }
+      
+      try {
+        console.log(`🔄 시뮬레이터 로드: ${simulatorId}`);
+        
+        // 1. 시뮬레이터 정보 로드
+        const simDoc = await db.collection('simulators').doc(simulatorId).get();
+        if (!simDoc.exists) {
+          alert('시뮬레이터를 찾을 수 없습니다.');
+          return;
+        }
+        
+        currentSimulator = { id: simulatorId, ...simDoc.data() };
+        
+        // 2. 가상 인원 로드
+        const personsSnapshot = await db.collection('simulatorPersons')
+          .where('simulatorId', '==', simulatorId)
+          .get();
+        
+        simulatorPersons = [];
+        personsSnapshot.forEach(doc => {
+          const data = doc.data();
+          simulatorPersons.push({
+            id: data.personId,
+            name: data.name,
+            salaryType: data.salaryType,
+            salaryAmount: data.salaryAmount,
+            schedules: data.schedules || []
+          });
+        });
+        
+        // 3. 스케줄 데이터 로드
+        const schedulesSnapshot = await db.collection('simulatorSchedules')
+          .where('simulatorId', '==', simulatorId)
+          .get();
+        
+        simulatorSchedules = {};
+        schedulesSnapshot.forEach(doc => {
+          const data = doc.data();
+          const { personId, weekKey } = data;
+          
+          if (!simulatorSchedules[personId]) {
+            simulatorSchedules[personId] = {};
+          }
+          
+          // weekKey를 제외한 나머지가 실제 스케줄 데이터
+          const { simulatorId: _, personId: __, weekKey: ___, updatedAt, ...scheduleData } = data;
+          simulatorSchedules[personId][weekKey] = scheduleData;
+        });
+        
+        console.log(`✅ 로드 완료: ${simulatorPersons.length}명, ${schedulesSnapshot.size}개 스케줄`);
+        
+        // UI 업데이트
+        updateSimulatorUI();
+      } catch (error) {
+        console.error('❌ 시뮬레이터 로드 실패:', error);
+        alert('불러오기에 실패했습니다: ' + error.message);
+      }
+    }
+    
+    /**
+     * 시뮬레이터 삭제
+     */
+    async function deleteCurrentSimulator() {
+      if (!currentSimulator) {
+        alert('삭제할 시뮬레이터가 없습니다.');
+        return;
+      }
+      
+      if (!confirm(`"${currentSimulator.name}" 시뮬레이터를 삭제하시겠습니까?`)) {
+        return;
+      }
+      
+      try {
+        const simulatorId = currentSimulator.id;
+        
+        // 1. simulatorSchedules 삭제
+        const schedulesSnapshot = await db.collection('simulatorSchedules')
+          .where('simulatorId', '==', simulatorId)
+          .get();
+        
+        const scheduleBatch = db.batch();
+        schedulesSnapshot.forEach(doc => {
+          scheduleBatch.delete(doc.ref);
+        });
+        await scheduleBatch.commit();
+        
+        // 2. simulatorPersons 삭제
+        const personsSnapshot = await db.collection('simulatorPersons')
+          .where('simulatorId', '==', simulatorId)
+          .get();
+        
+        const personBatch = db.batch();
+        personsSnapshot.forEach(doc => {
+          personBatch.delete(doc.ref);
+        });
+        await personBatch.commit();
+        
+        // 3. simulators 삭제
+        await db.collection('simulators').doc(simulatorId).delete();
+        
+        console.log(`✅ 시뮬레이터 삭제 완료: ${simulatorId}`);
+        
+        alert('시뮬레이터가 삭제되었습니다.');
+        
+        // 초기화
+        createNewSimulator();
+        await loadSimulatorList();
+      } catch (error) {
+        console.error('❌ 시뮬레이터 삭제 실패:', error);
+        alert('삭제에 실패했습니다: ' + error.message);
       }
     }
 
@@ -9361,28 +10001,137 @@
   </script>
 
   <!-- 스케줄 시뮬레이터 모달 -->
+  <!-- 스케줄 시뮬레이터 모달 (새 버전) -->
   <div id="scheduleSimulatorModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
-      <div style="background: white; border-radius: var(--border-radius); max-width: 1200px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;">
+      <div style="background: white; border-radius: var(--border-radius); max-width: 1400px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;">
+        
+        <!-- 모달 헤더 -->
+        <div style="padding: var(--spacing-lg); border-bottom: 2px solid var(--border-color);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700;">📅 스케줄 시뮬레이터</h3>
+            <button onclick="closeScheduleSimulator()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+          </div>
+          
+          <!-- 상단 컨트롤 -->
+          <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+            <select id="simulatorSelect" onchange="loadSimulator(this.value)" style="flex: 1; max-width: 300px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+              <option value="">새 시뮬레이터</option>
+            </select>
+            <button class="btn btn-secondary" onclick="createNewSimulator()">✨ 새로만들기</button>
+            <button class="btn btn-primary" onclick="saveCurrentSimulator()" id="btnSaveSimulator">💾 저장</button>
+            <button class="btn btn-danger" onclick="deleteCurrentSimulator()" id="btnDeleteSimulator" style="display: none;">🗑️ 삭제</button>
+          </div>
+        </div>
+        
+        <!-- 모달 바디 (2단 레이아웃) -->
+        <div style="flex: 1; overflow-y: auto; display: flex;">
+          <!-- 좌측: 간트 차트 영역 -->
+          <div style="flex: 1; padding: var(--spacing-lg); border-right: 1px solid var(--border-color);">
+            <div style="margin-bottom: var(--spacing-md);">
+              <label style="font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">📅 주차 선택</label>
+              <select id="simulatorWeekSelect" onchange="changeSimulatorWeek()" style="width: 100%; max-width: 300px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+                <!-- 주차 옵션 동적 생성 -->
+              </select>
+            </div>
+            <div id="simulatorGanttChart" style="background: #f8f9fa; border-radius: 8px; padding: var(--spacing-md); min-height: 400px;">
+              <!-- 간트 차트 렌더링 영역 -->
+            </div>
+          </div>
+          
+          <!-- 우측: 사이드바 (인원 목록 + 급여 합계) -->
+          <div style="width: 320px; padding: var(--spacing-lg); display: flex; flex-direction: column; gap: var(--spacing-lg);">
+            <!-- 주간 요약 -->
+            <div>
+              <h4 style="font-size: 14px; font-weight: 700; margin: 0 0 var(--spacing-sm) 0;">📊 주간 요약</h4>
+              <div id="simulatorWeeklySummary" style="background: #f0f7ff; padding: var(--spacing-sm); border-radius: 6px; font-size: 13px;">
+                <div>총 근무시간: <strong>0h</strong></div>
+                <div>근무 인원: <strong>0명</strong></div>
+              </div>
+            </div>
+            
+            <!-- 가상 인원 목록 -->
+            <div style="flex: 1; overflow-y: auto;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                <h4 style="font-size: 14px; font-weight: 700; margin: 0;">👥 가상 인원</h4>
+                <button class="btn btn-sm btn-primary" onclick="addSimulatorPerson()">+ 추가</button>
+              </div>
+              <div id="simulatorPersonList" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- 가상 인원 카드 동적 생성 -->
+              </div>
+            </div>
+            
+            <!-- 월간 급여 합계 -->
+            <div>
+              <h4 style="font-size: 14px; font-weight: 700; margin: 0 0 var(--spacing-sm) 0;">💰 월간 급여 합계</h4>
+              <div id="simulatorMonthlySalary" style="background: #fff3e0; padding: var(--spacing-md); border-radius: 6px; text-align: center;">
+                <div style="font-size: 24px; font-weight: 700; color: var(--primary-color);">₩0</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">주휴수당 포함</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <!-- 가상 인원 설정 모달 -->
+  <div id="personSettingsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1100; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: var(--border-radius); width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+        
         <!-- 모달 헤더 -->
         <div style="padding: var(--spacing-lg); border-bottom: 2px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; font-size: 18px; font-weight: 700;">📅 스케줄 시뮬레이터</h3>
-          <button onclick="closeScheduleSimulator()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+          <h3 style="margin: 0; font-size: 18px; font-weight: 700;">⚙️ 가상 인원 설정: <span id="personSettingsName">A</span></h3>
+          <button onclick="closePersonSettings()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
         </div>
         
         <!-- 모달 바디 -->
         <div style="flex: 1; overflow-y: auto; padding: var(--spacing-lg);">
-          <div id="simulatorContent"></div>
+          
+          <!-- 급여 설정 (선택사항) -->
+          <div style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: #f8f9fa; border-radius: 8px;">
+            <h4 style="font-size: 15px; font-weight: 600; margin: 0 0 var(--spacing-sm) 0;">💼 급여 설정 (선택)</h4>
+            <div style="display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-sm);">
+              <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;">
+                <input type="radio" name="personSalaryType" value="hourly" onchange="toggleSalaryInput()" style="cursor: pointer;">
+                <span style="font-size: 14px;">시급제</span>
+              </label>
+              <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;">
+                <input type="radio" name="personSalaryType" value="monthly" onchange="toggleSalaryInput()" style="cursor: pointer;">
+                <span style="font-size: 14px;">월급제</span>
+              </label>
+              <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer;">
+                <input type="radio" name="personSalaryType" value="none" checked onchange="toggleSalaryInput()" style="cursor: pointer;">
+                <span style="font-size: 14px;">미설정</span>
+              </label>
+            </div>
+            <div id="salaryAmountContainer" style="display: none;">
+              <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;">금액</label>
+              <input type="number" id="personSalaryAmount" placeholder="예: 10000" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+            </div>
+          </div>
+          
+          <!-- 근무 스케줄 (필수) -->
+          <div style="margin-bottom: var(--spacing-lg);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+              <h4 style="font-size: 15px; font-weight: 600; margin: 0;">📅 근무 스케줄 (필수)</h4>
+              <button class="btn btn-sm btn-secondary" onclick="addScheduleGroup()">+ 근무일 그룹 추가</button>
+            </div>
+            <div id="scheduleGroupsContainer" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+              <!-- 근무일 그룹 동적 생성 -->
+            </div>
+          </div>
+          
         </div>
         
         <!-- 모달 푸터 -->
-        <div style="padding: var(--spacing-lg); border-top: 2px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-          <div id="simulatorSummary" style="font-size: 14px; color: var(--text-secondary);"></div>
-          <div style="display: flex; gap: var(--spacing-sm);">
-            <button class="btn btn-secondary" onclick="closeScheduleSimulator()">취소</button>
-            <button class="btn btn-primary" onclick="saveScheduleSimulation()">스케줄 적용</button>
-          </div>
+        <div style="padding: var(--spacing-lg); border-top: 2px solid var(--border-color); display: flex; justify-content: space-between;">
+          <button class="btn btn-secondary" onclick="closePersonSettings()">취소</button>
+          <button class="btn btn-primary" onclick="savePersonSettings()">저장</button>
         </div>
+        
       </div>
     </div>
   </div>
