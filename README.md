@@ -9,7 +9,7 @@ Firebase 기반 직원 및 문서 승인 관리 시스템
 - 👥 직원 관리 (등록, 조회, 삭제)
 - 📋 근무기록 관리
 - 💰 급여 관리
-- ✔️ 문서 승인 관리 (구매/폐기/퇴직서)
+- ✔️ 문서 승인 관리 (구매/폐기/퇴직서/교대근무)
 - 📝 계약서 관리
 - 📢 공지사항 관리
 - 🏪 매장 관리
@@ -19,6 +19,7 @@ Firebase 기반 직원 및 문서 승인 관리 시스템
 - 📋 내 근무내역 조회
 - 💰 급여 조회
 - ✔️ 문서 승인 신청 (구매/폐기/퇴직서)
+- 🔄 교대근무 신청 (대타 구함 기능)
 - 📝 계약서 확인
 - 📢 공지사항 확인
 
@@ -63,14 +64,16 @@ curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/cleanupOr
 
 ## 📦 배포
 
-### Cloudflare Pages (자동 배포)
-- GitHub에 push하면 자동으로 배포됩니다
-- URL: https://mannamsalon-admin-system.pages.dev
-
-### 수동 배포 (Firebase Hosting)
+### Firebase Hosting (메인 배포 방식)
 ```bash
+# 프로젝트 빌드 및 배포
 firebase deploy --only hosting
+
+# Cloud Functions도 함께 배포
+firebase deploy
 ```
+
+**배포 URL**: https://abcdc-staff-system.web.app
 
 ## 🔐 권한 시스템
 
@@ -87,6 +90,11 @@ firebase deploy --only hosting
 - `employees`: 직원 정보 (users의 복사본)
 - `attendance`: 출퇴근 기록
 - `approvals`: 문서 승인 (구매/폐기/퇴직서)
+- `shift_requests`: 교대근무 요청
+  - 상태: pending(대기중) → matched(매칭됨) → approved(승인됨)
+  - 승인 시 스케줄 자동 변경 (원래 직원 삭제, 대타 직원 추가)
+- `schedules`: 근무 스케줄
+  - 교대근무 승인 시 자동 갱신
 - `contracts`: 계약서 (100% Firestore)
   - `allowances`: 수당 설정 (주휴수당, 연장근로, 야간근로, 휴일근로)
   - `insurance`: 4대보험 적용 방식 (all/employment_only/freelancer/none)
@@ -96,7 +104,7 @@ firebase deploy --only hosting
 - `notices`: 공지사항
 - `stores`: 매장 정보
   - `allowances`: 매장별 수당 활성화 설정 (overtime/night/holiday)
-- `salaries`: 급여 계산 결과 (예정)
+- `salaries`: 급여 계산 결과
 
 ## 🏗️ 프로젝트 구조 (리팩토링 완료)
 
@@ -218,14 +226,36 @@ firebase deploy --only hosting
 
 ## 🛠️ 기술 스택
 
-- **Frontend**: HTML, CSS, JavaScript
+- **Frontend**: HTML, CSS, JavaScript (Vanilla)
 - **Backend**: Firebase (Firestore, Authentication, Cloud Functions)
-- **Deployment**: Cloudflare Pages, Firebase Hosting
+- **Deployment**: Firebase Hosting
 - **Version Control**: Git, GitHub
+- **Real-time**: Firestore onSnapshot (실시간 알림)
 
 ## 📝 주요 업데이트
 
-### 최신 업데이트 (2025-11-05)
+### 최신 업데이트 (2025-11-08)
+
+**🔄 교대근무 신청 시스템 완성 🎉**
+- ✅ **직원 교대근무 신청 기능**: 날짜/시간/사유 입력하여 신청
+- ✅ **실시간 대타 구함 팝업**: 같은 매장 직원들에게 실시간 알림 (Firestore onSnapshot)
+- ✅ **관리자 승인 관리 탭 통합**: 교대근무 승인 요청 표시
+- ✅ **자동 스케줄 변경**: 승인 시 원래 직원 스케줄 삭제, 대타 직원 스케줄 추가
+- ✅ **급여 자동 계산**: 대타 직원 본인 시급/월급으로 자동 계산
+- ✅ **결근 방지**: 원래 직원은 스케줄 삭제로 결근 기록 안 남음
+
+**교대근무 워크플로우**
+1. 직원 A가 "🔄 교대근무 신청" 버튼 클릭
+2. 날짜, 시작시간, 종료시간, 사유 입력하여 신청
+3. 같은 매장 직원들에게 "대타근무 구합니다" 팝업 자동 표시 (실시간)
+4. 직원 B가 "✅ 승인하기" 클릭하면 매칭됨
+5. 관리자 승인 관리 탭에 "🔄 교대근무" 항목 표시
+6. 관리자가 "✅ 승인" 클릭 시:
+   - 직원 A의 스케줄 자동 삭제 → 결근 안 찍힘
+   - 직원 B의 새 스케줄 자동 생성 → 출근해야 하며, 안 하면 결근 찍힘
+   - 급여 자동 계산: 직원 B의 시급/월급으로 계산됨
+
+### 이전 업데이트 (2025-11-05)
 
 **급여 관리 시스템 완전 구현 완료 🎉 (2025-11-05)**
 - ✅ **월급제/연봉제 지원**: 시급제 외에 월급제, 연봉제 급여 계산 추가
@@ -298,8 +328,8 @@ firebase deploy --only hosting
 
 ## 🔗 링크
 
-- **GitHub**: https://github.com/uhi13088/mannamsalon-admin-system
-- **Cloudflare Pages**: https://mannamsalon-admin-system.pages.dev
+- **GitHub**: https://github.com/uhi13088/ABCDC-staff-system
+- **Firebase Hosting**: https://abcdc-staff-system.web.app
 - **Firebase Console**: https://console.firebase.google.com/project/abcdc-staff-system
 
 ## 📧 문의
