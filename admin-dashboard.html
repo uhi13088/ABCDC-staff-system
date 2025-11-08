@@ -101,8 +101,16 @@
         <div class="card">
           <div class="card-header">
             <h3>👥 직원 목록</h3>
+            <button class="btn" style="background: var(--success-color); color: white;" onclick="syncAllEmployeesWithContracts()">
+              🔄 전체 동기화
+            </button>
           </div>
           <div class="card-body">
+            <div style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm); background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+              <p style="margin: 0; font-size: 13px; color: #1565c0;">
+                💡 <strong>전체 동기화</strong>: 모든 직원의 정보를 최신 계약서 기준으로 업데이트하고, 스케줄을 자동 생성합니다.
+              </p>
+            </div>
             <div class="filters">
               <div class="filter-group">
                 <label>매장</label>
@@ -6449,6 +6457,139 @@
       input.select();
       document.execCommand('copy');
       alert('✅ 링크가 복사되었습니다!');
+    }
+    
+    /**
+     * 모든 기존 직원의 정보를 최신 계약서 기준으로 업데이트
+     */
+    async function syncAllEmployeesWithContracts() {
+      if (!confirm('⚠️ 모든 기존 직원의 정보를 최신 계약서 기준으로 업데이트하시겠습니까?\n\n이 작업은 다음을 수행합니다:\n- 각 직원의 최신 계약서 조회\n- users 컬렉션의 store, position, salaryType, salaryAmount 업데이트\n- schedules 컬렉션에 스케줄 자동 생성 (없는 경우)')) {
+        return;
+      }
+      
+      try {
+        console.log('🔄 전체 직원 동기화 시작...');
+        
+        // 모든 직원 조회
+        const usersSnapshot = await db.collection('users')
+          .where('role', '==', 'employee')
+          .get();
+        
+        console.log(`📊 총 ${usersSnapshot.size}명의 직원 발견`);
+        
+        let successCount = 0;
+        let skipCount = 0;
+        let errorCount = 0;
+        
+        for (const userDoc of usersSnapshot.docs) {
+          const userId = userDoc.id;
+          const userData = userDoc.data();
+          
+          // 퇴사자 제외
+          if (userData.status === 'resigned') {
+            console.log(`⏭️ ${userData.name}: 퇴사자 제외`);
+            skipCount++;
+            continue;
+          }
+          
+          try {
+            // 해당 직원의 모든 계약서 조회
+            const contractsSnapshot = await db.collection('contracts')
+              .where('employeeName', '==', userData.name)
+              .where('employeeBirth', '==', userData.birth)
+              .get();
+            
+            if (contractsSnapshot.empty) {
+              console.log(`⚠️ ${userData.name}: 계약서 없음`);
+              skipCount++;
+              continue;
+            }
+            
+            // 최신 계약서 찾기 (createdAt 기준)
+            let latestContract = null;
+            let latestDate = null;
+            
+            contractsSnapshot.forEach(doc => {
+              const contract = doc.data();
+              const createdAt = new Date(contract.createdAt);
+              
+              if (!latestDate || createdAt > latestDate) {
+                latestDate = createdAt;
+                latestContract = { ...contract, employeeId: userId };
+              }
+            });
+            
+            if (!latestContract) {
+              console.log(`⚠️ ${userData.name}: 유효한 계약서 없음`);
+              skipCount++;
+              continue;
+            }
+            
+            console.log(`🔍 ${userData.name}: 최신 계약서 발견 (${latestDate.toISOString().split('T')[0]})`);
+            
+            // 직원 정보 업데이트
+            await updateEmployeeFromContract(latestContract);
+            
+            // 스케줄 생성 (없는 경우만)
+            await createInitialScheduleIfNotExists(latestContract);
+            
+            successCount++;
+            
+          } catch (error) {
+            console.error(`❌ ${userData.name}: 동기화 실패`, error);
+            errorCount++;
+          }
+        }
+        
+        console.log('');
+        console.log('='.repeat(50));
+        console.log('📊 전체 직원 동기화 완료');
+        console.log('='.repeat(50));
+        console.log(`✅ 성공: ${successCount}명`);
+        console.log(`⏭️ 건너뛰기: ${skipCount}명`);
+        console.log(`❌ 실패: ${errorCount}명`);
+        console.log('='.repeat(50));
+        
+        alert(`✅ 전체 직원 동기화 완료!\n\n성공: ${successCount}명\n건너뛰기: ${skipCount}명\n실패: ${errorCount}명\n\n근무스케줄 탭을 새로고침하여 확인하세요.`);
+        
+        // 직원 목록 새로고침
+        loadEmployees();
+        
+      } catch (error) {
+        console.error('❌ 전체 동기화 실패:', error);
+        alert('❌ 동기화 중 오류가 발생했습니다: ' + error.message);
+      }
+    }
+    
+    /**
+     * 스케줄이 없는 경우에만 초기 스케줄 생성
+     * @param {Object} contractData - 계약서 데이터
+     */
+    async function createInitialScheduleIfNotExists(contractData) {
+      try {
+        const employeeId = contractData.employeeId;
+        if (!employeeId) return;
+        
+        const startDate = new Date(contractData.contractStartDate || contractData.startDate);
+        const year = startDate.getFullYear();
+        const weekNum = getWeekNumber(startDate);
+        
+        const scheduleDocId = `${employeeId}_${year}-${weekNum}`;
+        
+        // 이미 스케줄이 있는지 확인
+        const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+        
+        if (scheduleDoc.exists) {
+          console.log(`  ⏭️ 스케줄 이미 존재: ${scheduleDocId}`);
+          return;
+        }
+        
+        // 스케줄이 없으면 생성
+        await createInitialSchedule(contractData);
+        
+      } catch (error) {
+        console.error('❌ 스케줄 생성 확인 실패:', error);
+      }
     }
     
     /**
