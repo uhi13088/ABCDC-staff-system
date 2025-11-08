@@ -6349,6 +6349,9 @@
       
       const store = stores.find(s => s.id === document.getElementById('storeSelect').value);
       
+      // 스케줄 데이터 수집 (요일별 다른 시간 지원)
+      const schedules = collectScheduleData();
+      
       const contractData = {
         id: contractId,
         employeeId: document.getElementById('employeeSelect')?.value || '',  // 직원 UID 추가
@@ -6371,6 +6374,9 @@
         contractEndDate: document.getElementById('endDate').value || '기간의 정함이 없음',
         
         position: document.getElementById('position').value,  // 호환성 유지
+        
+        // ✅ schedules 배열 (요일별 다른 시간 지원)
+        schedules: schedules || [],
         
         // 스케줄 정보 (schedule 객체로 통합)
         schedule: {
@@ -6638,7 +6644,7 @@
     }
     
     /**
-     * 계약서 작성 완료 시 초기 스케줄 자동 생성
+     * 계약서 작성 완료 시 초기 스케줄 자동 생성 (요일별 다른 시간 지원 + 여러 주차)
      * @param {Object} contractData - 계약서 데이터
      */
     async function createInitialSchedule(contractData) {
@@ -6652,69 +6658,137 @@
           return;
         }
         
-        // 계약 시작일 가져오기 (신 필드명 우선)
-        const startDate = new Date(contractData.contractStartDate || contractData.startDate);
-        const year = startDate.getFullYear();
-        const weekNum = getWeekNumber(startDate);
+        // 계약 시작일/종료일 가져오기
+        const startDateStr = contractData.contractStartDate || contractData.startDate;
+        const endDateStr = contractData.contractEndDate || contractData.endDate;
         
-        console.log(`📌 직원: ${contractData.employeeName}, 계약 시작일: ${startDate.toISOString().split('T')[0]}, 주차: ${year}-${weekNum}`);
+        const startDate = new Date(startDateStr);
+        const endDate = endDateStr && endDateStr !== '기간의 정함이 없음' ? new Date(endDateStr) : null;
         
-        // 근무일 파싱 (schedule 객체 또는 개별 필드)
-        const workDaysStr = contractData.schedule?.days || contractData.workDays || '';
-        const workDays = workDaysStr.split(',').map(d => d.trim()).filter(d => d);
+        console.log(`📌 직원: ${contractData.employeeName}`);
+        console.log(`   계약 기간: ${startDateStr} ~ ${endDateStr || '기간의 정함이 없음'}`);
         
-        // 근무시간 파싱 (schedule 객체 또는 개별 필드)
-        const workTimeStr = contractData.schedule?.time || contractData.workTime || '';
-        const timeMatch = workTimeStr.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
-        let startTime = '09:00';
-        let endTime = '18:00';
-        
-        if (timeMatch) {
-          startTime = timeMatch[1];
-          endTime = timeMatch[2];
-        }
-        
-        // 휴게시간 파싱 (schedule 객체 또는 개별 필드)
-        const breakTimeStr = contractData.schedule?.breakTime || contractData.breakTime || '';
-        const breakMatch = breakTimeStr.match(/(\d+)시간/);
-        let breakHours = 0;
-        if (breakMatch) {
-          breakHours = parseFloat(breakMatch[1]);
-        }
-        
-        // 근무 시간 계산 (휴게시간 제외)
-        const [startH, startM] = startTime.split(':').map(Number);
-        const [endH, endM] = endTime.split(':').map(Number);
-        const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-        const workHours = Math.max(0, (totalMinutes / 60) - breakHours);
-        
-        console.log(`⏰ 근무시간: ${startTime} - ${endTime}, 휴게: ${breakHours}시간, 실 근무: ${workHours}시간`);
-        console.log(`📆 근무일: ${workDays.join(', ')}`);
-        
-        // 스케줄 객체 생성
-        const scheduleData = {
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        // 모든 요일에 대해 스케줄 설정
+        // 요일별 근무시간 매핑 생성 (schedules 배열 사용)
+        const dayScheduleMap = {}; // { '월': { startTime, endTime, hours }, ... }
         const allDays = ['월', '화', '수', '목', '금', '토', '일'];
-        allDays.forEach(day => {
-          const isWorkDay = workDays.includes(day);
-          scheduleData[day] = {
-            isWorkDay: isWorkDay,
-            startTime: isWorkDay ? startTime : '',
-            endTime: isWorkDay ? endTime : '',
-            hours: isWorkDay ? workHours : 0
+        
+        // schedules 배열이 있으면 사용
+        if (contractData.schedules && Array.isArray(contractData.schedules) && contractData.schedules.length > 0) {
+          console.log('📋 계약서 schedules 배열 사용');
+          
+          // 휴게시간 파싱
+          const breakTimeStr = contractData.schedule?.breakTime || contractData.breakTime || '';
+          const breakMatch = breakTimeStr.match(/(\d+)시간/);
+          const breakHours = breakMatch ? parseFloat(breakMatch[1]) : 0;
+          
+          contractData.schedules.forEach(schedule => {
+            const startTime = `${String(schedule.startHour).padStart(2, '0')}:${String(schedule.startMinute).padStart(2, '0')}`;
+            const endTime = `${String(schedule.endHour).padStart(2, '0')}:${String(schedule.endMinute).padStart(2, '0')}`;
+            
+            // 근무 시간 계산 (휴게시간 제외)
+            const totalMinutes = (parseInt(schedule.endHour) * 60 + parseInt(schedule.endMinute)) - 
+                                (parseInt(schedule.startHour) * 60 + parseInt(schedule.startMinute));
+            const workHours = Math.max(0, (totalMinutes / 60) - breakHours);
+            
+            // 해당 스케줄의 요일들에 적용
+            schedule.days.forEach(day => {
+              dayScheduleMap[day] = {
+                startTime: startTime,
+                endTime: endTime,
+                hours: workHours
+              };
+            });
+            
+            console.log(`   ${schedule.days.join(', ')}: ${startTime} - ${endTime} (${workHours}h)`);
+          });
+        } else {
+          // schedules 배열이 없으면 기존 방식 사용
+          console.log('📋 workDays/workTime 사용 (모든 근무일 같은 시간)');
+          
+          const workDaysStr = contractData.schedule?.days || contractData.workDays || '';
+          const workDays = workDaysStr.split(',').map(d => d.trim()).filter(d => d);
+          
+          const workTimeStr = contractData.schedule?.time || contractData.workTime || '';
+          const timeMatch = workTimeStr.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+          const startTime = timeMatch ? timeMatch[1] : '09:00';
+          const endTime = timeMatch ? timeMatch[2] : '18:00';
+          
+          const breakTimeStr = contractData.schedule?.breakTime || contractData.breakTime || '';
+          const breakMatch = breakTimeStr.match(/(\d+)시간/);
+          const breakHours = breakMatch ? parseFloat(breakMatch[1]) : 0;
+          
+          const totalMinutes = (parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1])) - 
+                              (parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]));
+          const workHours = Math.max(0, Math.abs(totalMinutes / 60) - breakHours);
+          
+          workDays.forEach(day => {
+            dayScheduleMap[day] = {
+              startTime: startTime,
+              endTime: endTime,
+              hours: workHours
+            };
+          });
+          
+          console.log(`   ${workDays.join(', ')}: ${startTime} - ${endTime} (${workHours}h)`);
+        }
+        
+        // 생성할 주차 범위 결정 (계약 시작일부터 4주 또는 계약 종료일까지)
+        const weeksToCreate = [];
+        let currentDate = new Date(startDate);
+        const maxWeeks = 4; // 최대 4주 생성
+        
+        for (let i = 0; i < maxWeeks; i++) {
+          const monday = getMonday(currentDate);
+          const year = monday.getFullYear();
+          const weekNum = getWeekNumber(monday);
+          
+          // 계약 종료일이 있으면 체크
+          if (endDate && monday > endDate) {
+            break;
+          }
+          
+          weeksToCreate.push({ year, weekNum, monday });
+          
+          // 다음 주로 이동
+          currentDate.setDate(currentDate.getDate() + 7);
+        }
+        
+        console.log(`📅 생성할 주차: ${weeksToCreate.length}주`);
+        
+        // 각 주차별로 스케줄 생성
+        for (const week of weeksToCreate) {
+          const scheduleData = {
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           };
-        });
+          
+          // 모든 요일에 대해 스케줄 설정
+          allDays.forEach(day => {
+            if (dayScheduleMap[day]) {
+              scheduleData[day] = {
+                isWorkDay: true,
+                startTime: dayScheduleMap[day].startTime,
+                endTime: dayScheduleMap[day].endTime,
+                hours: dayScheduleMap[day].hours
+              };
+            } else {
+              scheduleData[day] = {
+                isWorkDay: false,
+                startTime: '',
+                endTime: '',
+                hours: 0
+              };
+            }
+          });
+          
+          // Firestore schedules 컬렉션에 저장
+          const scheduleDocId = `${employeeId}_${week.year}-${week.weekNum}`;
+          await firebase.firestore().collection('schedules').doc(scheduleDocId).set(scheduleData);
+          
+          console.log(`✅ 스케줄 생성: ${scheduleDocId}`);
+        }
         
-        // Firestore schedules 컬렉션에 저장
-        const scheduleDocId = `${employeeId}_${year}-${weekNum}`;
-        await firebase.firestore().collection('schedules').doc(scheduleDocId).set(scheduleData);
-        
-        console.log(`✅ 초기 스케줄 생성 완료: ${scheduleDocId}`);
-        console.log('📊 스케줄 데이터:', scheduleData);
+        console.log(`✅ 초기 스케줄 생성 완료: ${weeksToCreate.length}주`);
         
       } catch (error) {
         console.error('❌ 초기 스케줄 생성 실패:', error);
