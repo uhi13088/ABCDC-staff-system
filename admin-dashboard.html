@@ -8959,15 +8959,47 @@
       if (currentScheduleData.employees) {
         currentScheduleData.employees.forEach(emp => {
           let totalHours = 0;
+          let workDays = 0;
           days.forEach(day => {
             const schedule = emp.schedules[day];
             if (schedule && schedule.isWorkDay) {
               totalHours += parseFloat(schedule.hours);
+              workDays++;
             }
           });
           
           const color = colorMap[emp.name];
-          const estimatedPay = (totalHours * 15000).toLocaleString();
+          
+          // 급여 정보 (시급/월급/연봉)
+          const salaryType = emp.salaryType || 'hourly';
+          const salaryAmount = emp.salaryAmount || 0;
+          let salaryText = '';
+          if (salaryType === 'hourly') {
+            salaryText = `시급: ₩${salaryAmount.toLocaleString()}`;
+          } else if (salaryType === 'monthly') {
+            salaryText = `월급: ₩${salaryAmount.toLocaleString()}`;
+          } else if (salaryType === 'annual') {
+            salaryText = `연봉: ₩${salaryAmount.toLocaleString()}`;
+          }
+          
+          // 주급 계산
+          let weeklySalary = 0;
+          if (salaryType === 'hourly') {
+            weeklySalary = totalHours * salaryAmount;
+            // 주휴수당 (주 15시간 이상)
+            if (totalHours >= 15 && workDays > 0) {
+              const avgDailyHours = totalHours / workDays;
+              const weeklyHolidayPay = avgDailyHours * salaryAmount;
+              weeklySalary += weeklyHolidayPay;
+            }
+          } else if (salaryType === 'monthly') {
+            weeklySalary = salaryAmount / 4.345;
+          } else if (salaryType === 'annual') {
+            weeklySalary = salaryAmount / 12 / 4.345;
+          }
+          
+          // 월 예상
+          const monthlyEstimate = weeklySalary * 4.345;
           
           html += `
             <div style="margin-bottom: 12px; padding: 8px; border-radius: 6px; background: var(--bg-light);">
@@ -8976,8 +9008,10 @@
                 <span style="font-weight: 600; font-size: 12px;">${emp.name}</span>
               </div>
               <div style="font-size: 11px; color: var(--text-secondary); margin-left: 22px;">
+                ${salaryText ? `<div>${salaryText}</div>` : ''}
                 <div>⏱️ ${totalHours.toFixed(1)}시간</div>
-                <div style="color: var(--primary-color); font-weight: 600;">💰 약 ₩${estimatedPay}</div>
+                <div style="color: var(--primary-color); font-weight: 600;">💰 ₩${Math.round(weeklySalary).toLocaleString()} (주급)</div>
+                <div style="font-size: 10px; color: var(--text-secondary);">📅 월 예상: ₩${Math.round(monthlyEstimate).toLocaleString()}</div>
               </div>
             </div>
           `;
@@ -9022,9 +9056,6 @@
       // 시뮬레이터 목록 로드
       await loadSimulatorList();
       
-      // 주차 선택 드롭다운 초기화 (8주치: 이전 4주 + 이후 4주)
-      initSimulatorWeekSelect();
-      
       // UI 업데이트
       updateSimulatorUI();
       
@@ -9057,45 +9088,7 @@
       }
     }
     
-    /**
-     * 주차 선택 드롭다운 초기화
-     */
-    function initSimulatorWeekSelect() {
-      const select = document.getElementById('simulatorWeekSelect');
-      select.innerHTML = '';
-      
-      const today = new Date();
-      const baseMonday = getMonday(today);
-      
-      // 이전 4주 + 현재 + 이후 3주 = 총 8주
-      for (let i = -4; i <= 3; i++) {
-        const monday = new Date(baseMonday);
-        monday.setDate(monday.getDate() + (i * 7));
-        
-        const sunday = new Date(monday);
-        sunday.setDate(sunday.getDate() + 6);
-        
-        const option = document.createElement('option');
-        option.value = monday.toISOString();
-        option.textContent = `${monday.getMonth() + 1}/${monday.getDate()} - ${sunday.getMonth() + 1}/${sunday.getDate()}`;
-        
-        if (i === 0) {
-          option.selected = true;
-          currentSimulatorWeek = monday;
-        }
-        
-        select.appendChild(option);
-      }
-    }
-    
-    /**
-     * 주차 변경
-     */
-    function changeSimulatorWeek() {
-      const select = document.getElementById('simulatorWeekSelect');
-      currentSimulatorWeek = new Date(select.value);
-      updateSimulatorGanttChart();
-    }
+
     
     /**
      * 전체 UI 업데이트
@@ -9115,7 +9108,7 @@
     }
     
     /**
-     * 가상 인원 목록 업데이트
+     * 가상 인원 목록 업데이트 (주간요약과 동일한 상세 표시)
      */
     function updateSimulatorPersonList() {
       const container = document.getElementById('simulatorPersonList');
@@ -9125,27 +9118,67 @@
         return;
       }
       
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const monday = new Date(currentSimulatorWeek);
+      const year = monday.getFullYear();
+      const weekNum = getWeekNumber(monday);
+      const weekKey = `${year}-${weekNum}`;
+      
       let html = '';
       simulatorPersons.forEach((person, index) => {
-        const salaryText = person.salaryType === 'hourly' ? `시급 ₩${person.salaryAmount?.toLocaleString() || 0}` :
-                          person.salaryType === 'monthly' ? `월급 ₩${person.salaryAmount?.toLocaleString() || 0}` :
-                          '급여 미설정';
+        // 급여 정보
+        let salaryText = '';
+        if (person.salaryType === 'hourly') {
+          salaryText = `시급: ₩${person.salaryAmount?.toLocaleString() || 0}`;
+        } else if (person.salaryType === 'monthly') {
+          salaryText = `월급: ₩${person.salaryAmount?.toLocaleString() || 0}`;
+        }
+        
+        // 주간 근무시간 계산
+        let totalHours = 0;
+        let workDays = 0;
+        const personSchedule = simulatorSchedules[person.id]?.[weekKey];
+        if (personSchedule) {
+          days.forEach(day => {
+            const schedule = personSchedule[day];
+            if (schedule && schedule.isWorkDay) {
+              totalHours += parseFloat(schedule.hours || 0);
+              workDays++;
+            }
+          });
+        }
+        
+        // 주급 계산
+        let weeklySalary = 0;
+        if (person.salaryType === 'hourly' && person.salaryAmount) {
+          weeklySalary = totalHours * person.salaryAmount;
+          // 주휴수당 (주 15시간 이상)
+          if (totalHours >= 15 && workDays > 0) {
+            const avgDailyHours = totalHours / workDays;
+            const weeklyHolidayPay = avgDailyHours * person.salaryAmount;
+            weeklySalary += weeklyHolidayPay;
+          }
+        } else if (person.salaryType === 'monthly' && person.salaryAmount) {
+          weeklySalary = person.salaryAmount / 4.345;
+        }
         
         html += `
-          <div style="background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: var(--spacing-sm); cursor: pointer; transition: all 0.2s;" 
+          <div style="background: white; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; cursor: pointer; transition: all 0.2s;" 
                onclick="editSimulatorPerson('${person.id}')"
                onmouseover="this.style.background='#f8f9fa'"
                onmouseout="this.style.background='white'">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <div style="font-weight: 600; font-size: 14px;">${person.name}</div>
-                <div style="font-size: 12px; color: var(--text-secondary);">${salaryText}</div>
-              </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+              <div style="font-weight: 600; font-size: 14px;">${person.name}</div>
               <button onclick="deleteSimulatorPerson('${person.id}', event)" 
-                      style="background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 18px; padding: 4px;"
+                      style="background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 18px; padding: 0; line-height: 1;"
                       title="삭제">
                 ×
               </button>
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary);">
+              ${salaryText ? `<div style="margin-bottom: 2px;">${salaryText}</div>` : ''}
+              <div style="margin-bottom: 2px;">⏱️ ${totalHours.toFixed(1)}시간</div>
+              ${weeklySalary > 0 ? `<div style="color: var(--primary-color); font-weight: 600;">💰 ₩${Math.round(weeklySalary).toLocaleString()}</div>` : ''}
             </div>
           </div>
         `;
@@ -9155,7 +9188,7 @@
     }
     
     /**
-     * 간트 차트 업데이트
+     * 간트 차트 업데이트 (근무스케줄 타임테이블과 동일한 스타일)
      */
     function updateSimulatorGanttChart() {
       const container = document.getElementById('simulatorGanttChart');
@@ -9171,84 +9204,252 @@
       const weekNum = getWeekNumber(monday);
       const weekKey = `${year}-${weekNum}`;
       
-      // 간트 차트 HTML 생성
+      // 직원별 색상 정의
+      const employeeColors = [
+        '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFE66D', '#C7CEEA',
+        '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'
+      ];
+      
+      const colorMap = {};
+      simulatorPersons.forEach((person, index) => {
+        colorMap[person.id] = employeeColors[index % employeeColors.length];
+      });
+      
+      // 날짜 정보 생성
+      const dateInfo = [];
+      days.forEach((day, index) => {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + index);
+        dateInfo.push({
+          day: day,
+          date: `${date.getMonth() + 1}/${date.getDate()}`
+        });
+      });
+      
+      // 각 요일별 근무자 목록 생성
+      const dayWorkers = {};
+      days.forEach(day => {
+        dayWorkers[day] = [];
+      });
+      
+      simulatorPersons.forEach(person => {
+        const personSchedule = simulatorSchedules[person.id]?.[weekKey];
+        if (!personSchedule) return;
+        
+        days.forEach(day => {
+          const schedule = personSchedule[day];
+          if (schedule && schedule.isWorkDay) {
+            dayWorkers[day].push({
+              name: person.name,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime,
+              hours: schedule.hours,
+              color: colorMap[person.id]
+            });
+          }
+        });
+      });
+      
+      // 시간 범위 (06:00 ~ 01:00, 1시간 단위)
+      const startHour = 6;
+      const endHour = 25; // 다음날 01:00
+      const totalHours = endHour - startHour;
+      const rowHeight = 35; // 1시간당 높이 (px)
+      const totalHeight = totalHours * rowHeight;
+      
+      // HTML 구조 생성 (근무스케줄과 동일)
       let html = `
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
-            <thead>
-              <tr style="background: var(--primary-color); color: white;">
-                <th style="padding: 12px; text-align: left; width: 80px;">시간</th>
+        <div style="display: flex; gap: var(--spacing-md); width: 100%; max-width: 1400px; margin: 0 auto;">
+          <!-- 메인 간트차트 -->
+          <div style="flex: 1; display: flex; border: 1px solid var(--border-color); background: white;">
+            <!-- 시간 레이블 열 -->
+            <div style="width: 60px; border-right: 1px solid var(--border-color); background: var(--bg-light);">
+              <div style="height: 45px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); font-weight: 700; font-size: 12px;">
+                시간
+              </div>
+              <div style="position: relative; height: ${totalHeight}px;">
       `;
       
-      days.forEach((day, dayIndex) => {
-        const date = new Date(monday);
-        date.setDate(date.getDate() + dayIndex);
+      // 시간 눈금
+      for (let h = startHour; h <= endHour; h++) {
+        const displayHour = h > 24 ? h - 24 : h;
+        const timeLabel = `${displayHour.toString().padStart(2, '0')}:00`;
+        const topPos = (h - startHour) * rowHeight;
+        
         html += `
-          <th style="padding: 12px; text-align: center; border-left: 1px solid rgba(255,255,255,0.3);">
-            ${day}<br>
-            <span style="font-size: 11px; font-weight: 400;">${date.getMonth() + 1}/${date.getDate()}</span>
-          </th>
+          <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500;">
+            ${timeLabel}
+          </div>
+        `;
+      }
+      
+      html += `
+              </div>
+            </div>
+            
+            <!-- 요일별 간트차트 열들 -->
+      `;
+      
+      // 각 요일별 칼럼
+      dateInfo.forEach((info, dayIndex) => {
+        const day = days[dayIndex];
+        const workers = dayWorkers[day];
+        
+        html += `
+          <div style="flex: 1; ${dayIndex < days.length - 1 ? 'border-right: 1px solid var(--border-color);' : ''}">
+            <!-- 요일 헤더 -->
+            <div style="height: 45px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); background: var(--bg-light); font-weight: 700; font-size: 12px;">
+              <div>${info.day}</div>
+              <div style="font-size: 10px; color: var(--text-secondary); font-weight: 400;">${info.date}</div>
+            </div>
+            
+            <!-- 간트차트 영역 -->
+            <div style="position: relative; height: ${totalHeight}px; background: white;">
+              <!-- 시간 그리드 배경 -->
+        `;
+        
+        // 시간 그리드 라인
+        for (let h = startHour; h <= endHour; h++) {
+          const topPos = (h - startHour) * rowHeight;
+          html += `
+            <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid #f0f0f0;"></div>
+          `;
+        }
+        
+        // 각 직원의 막대
+        if (workers.length > 0) {
+          const maxBarWidth = 18; // 최대 막대 굵기 (%)
+          const minBarWidth = 8;  // 최소 막대 굵기 (%)
+          const minSpacing = 3;   // 최소 간격 (%)
+          
+          let barWidth = maxBarWidth;
+          if (workers.length > 3) {
+            const totalWithSpacing = workers.length * maxBarWidth + (workers.length + 1) * minSpacing;
+            if (totalWithSpacing > 100) {
+              barWidth = (100 - (workers.length + 1) * minSpacing) / workers.length;
+              barWidth = Math.max(barWidth, minBarWidth);
+            }
+          }
+          
+          const totalBarsWidth = workers.length * barWidth;
+          const availableSpace = 100;
+          const spacing = workers.length > 1 ? (availableSpace - totalBarsWidth) / (workers.length + 1) : (availableSpace - barWidth) / 2;
+          
+          workers.forEach((worker, workerIndex) => {
+            const [startH, startM] = worker.startTime.split(':').map(Number);
+            const [endH, endM] = worker.endTime.split(':').map(Number);
+            
+            const startMinutes = (startH - startHour) * 60 + startM;
+            const endMinutes = (endH - startHour) * 60 + endM;
+            
+            const topPos = (startMinutes / 60) * rowHeight;
+            const height = ((endMinutes - startMinutes) / 60) * rowHeight;
+            const leftPos = spacing * (workerIndex + 1) + barWidth * workerIndex;
+            
+            html += `
+              <div style="
+                position: absolute;
+                left: ${leftPos}%;
+                top: ${topPos}px;
+                width: ${barWidth}%;
+                height: ${height}px;
+                background: ${worker.color};
+                opacity: 0.9;
+                box-sizing: border-box;
+                transition: all 0.2s;
+                border-radius: 2px;
+              " 
+              onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
+              onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
+              title="${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
+              </div>
+            `;
+          });
+        }
+        
+        html += `
+            </div>
+          </div>
         `;
       });
       
       html += `
-              </tr>
-            </thead>
-            <tbody>
+          </div>
+          
+          <!-- 오른쪽 주간 요약 -->
+          <div style="min-width: 220px; max-width: 220px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; height: fit-content;">
+            <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">📊 주간 요약</h4>
       `;
       
-      // 시간 슬롯 (06:00 ~ 24:00)
-      for (let hour = 6; hour < 24; hour++) {
-        html += `
-          <tr style="border-bottom: 1px solid var(--border-color);">
-            <td style="padding: 8px; font-size: 11px; color: var(--text-secondary); text-align: center;">${String(hour).padStart(2, '0')}:00</td>
-        `;
+      // 가상 인원별 주간 요약
+      simulatorPersons.forEach(person => {
+        const personSchedule = simulatorSchedules[person.id]?.[weekKey];
+        if (!personSchedule) return;
         
+        let totalHours = 0;
+        let workDays = 0;
         days.forEach(day => {
-          html += `<td style="position: relative; border-left: 1px solid var(--border-color); height: 40px;"></td>`;
+          const schedule = personSchedule[day];
+          if (schedule && schedule.isWorkDay) {
+            totalHours += parseFloat(schedule.hours || 0);
+            workDays++;
+          }
         });
         
-        html += `</tr>`;
-      }
+        if (totalHours === 0) return;
+        
+        const color = colorMap[person.id];
+        
+        // 급여 정보
+        let salaryText = '';
+        if (person.salaryType === 'hourly') {
+          salaryText = `시급: ₩${person.salaryAmount?.toLocaleString() || 0}`;
+        } else if (person.salaryType === 'monthly') {
+          salaryText = `월급: ₩${person.salaryAmount?.toLocaleString() || 0}`;
+        }
+        
+        // 주급 계산
+        let weeklySalary = 0;
+        if (person.salaryType === 'hourly' && person.salaryAmount) {
+          weeklySalary = totalHours * person.salaryAmount;
+          // 주휴수당 (주 15시간 이상)
+          if (totalHours >= 15 && workDays > 0) {
+            const avgDailyHours = totalHours / workDays;
+            const weeklyHolidayPay = avgDailyHours * person.salaryAmount;
+            weeklySalary += weeklyHolidayPay;
+          }
+        } else if (person.salaryType === 'monthly' && person.salaryAmount) {
+          weeklySalary = person.salaryAmount / 4.345;
+        }
+        
+        // 월 예상
+        const monthlyEstimate = weeklySalary * 4.345;
+        
+        html += `
+          <div style="margin-bottom: 12px; padding: 8px; border-radius: 6px; background: var(--bg-light);">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <div style="width: 14px; height: 14px; background: ${color}; border-radius: 3px;"></div>
+              <span style="font-weight: 600; font-size: 12px;">${person.name}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-left: 22px;">
+              ${salaryText ? `<div>${salaryText}</div>` : ''}
+              <div>⏱️ ${totalHours.toFixed(1)}시간</div>
+              <div style="color: var(--primary-color); font-weight: 600;">💰 ₩${Math.round(weeklySalary).toLocaleString()} (주급)</div>
+              <div style="font-size: 10px; color: var(--text-secondary);">📅 월 예상: ₩${Math.round(monthlyEstimate).toLocaleString()}</div>
+            </div>
+          </div>
+        `;
+      });
       
       html += `
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- 스케줄 바 오버레이 -->
-        <div id="ganttBarsContainer" style="position: relative; margin-top: -720px; pointer-events: none;">
-          <!-- 동적으로 바 생성 -->
+          </div>
         </div>
       `;
       
       container.innerHTML = html;
-      
-      // 스케줄 바 렌더링
-      renderGanttBars(weekKey);
     }
     
-    /**
-     * 간트 차트 바 렌더링
-     */
-    function renderGanttBars(weekKey) {
-      const container = document.getElementById('ganttBarsContainer');
-      if (!container) return;
-      
-      const days = ['월', '화', '수', '목', '금', '토', '일'];
-      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
-      
-      let html = '';
-      
-      simulatorPersons.forEach((person, personIndex) => {
-        const personSchedule = simulatorSchedules[person.id]?.[weekKey];
-        if (!personSchedule) return;
-        
-        const color = colors[personIndex % colors.length];
-        
-        days.forEach((day, dayIndex) => {
-          const daySchedule = personSchedule[day];
-          if (!daySchedule || !daySchedule.isWorkDay) return;
+
           
           const startTime = daySchedule.startTime; // "09:00"
           const endTime = daySchedule.endTime; // "18:00"
@@ -10026,16 +10227,10 @@
         
         <!-- 모달 바디 (2단 레이아웃) -->
         <div style="flex: 1; overflow-y: auto; display: flex;">
-          <!-- 좌측: 간트 차트 영역 -->
-          <div style="flex: 1; padding: var(--spacing-lg); border-right: 1px solid var(--border-color);">
-            <div style="margin-bottom: var(--spacing-md);">
-              <label style="font-size: 14px; font-weight: 600; margin-bottom: 8px; display: block;">📅 주차 선택</label>
-              <select id="simulatorWeekSelect" onchange="changeSimulatorWeek()" style="width: 100%; max-width: 300px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
-                <!-- 주차 옵션 동적 생성 -->
-              </select>
-            </div>
-            <div id="simulatorGanttChart" style="background: #f8f9fa; border-radius: 8px; padding: var(--spacing-md); min-height: 400px;">
-              <!-- 간트 차트 렌더링 영역 -->
+          <!-- 좌측: 간트 차트 영역 (근무스케줄과 동일한 스타일) -->
+          <div style="flex: 1; padding: var(--spacing-lg); overflow-y: auto;">
+            <div id="simulatorGanttChart">
+              <!-- 간트 차트 렌더링 영역 (근무스케줄 타임테이블 복사) -->
             </div>
           </div>
           
