@@ -218,35 +218,33 @@ const employeesSnapshot = await db.collection('users')
 
 ---
 
-## ⚠️ 남은 문제
+## ✅ 해결된 문제
 
-### 1. 스케줄 데이터 누락
-**증상:** 
-```
-⚠️ 김연아 스케줄 문서 없음: V6ODL21346fDl3DllMAzZw0Icov2_2025-47
-```
+### 1. 스케줄 데이터 누락 → **해결**
+**해결 방법:** 
+- ✅ 계약서 작성 완료 시 schedules 컬렉션에 초기 스케줄 자동 생성
+- ✅ `createInitialSchedule()` 함수 구현
+- ✅ 휴게시간 제외한 실제 근무시간 자동 계산
 
-**원인:** 
-- schedules 컬렉션에 해당 주차 데이터가 없음
-- 계약서 작성 시 자동 스케줄 생성 로직 필요
-
+### 2. 계약서 필드명 통일 → **해결**
 **해결 방법:**
-1. 계약서 작성 완료 시 schedules 컬렉션에 초기 스케줄 자동 생성
-2. 또는 스케줄 시뮬레이터에서 스케줄 저장 기능 구현
+- ✅ 계약서 저장 시 **신 필드명** 사용으로 통일
+- ✅ 호환성 유지: 구 필드명도 함께 저장 (읽기 호환성)
+- ✅ `getContractField()` 함수로 자동 변환
 
-### 2. 계약서 필드명 통일 필요
-**문제:** 
-- 저장 시: `contractStartDate`, `salaryAmount`
-- 보기 시: `startDate`, `wageAmount`
+**표준 필드명 (최종 확정):**
+- ✅ `contractStartDate` (신) / `startDate` (구 - 호환성)
+- ✅ `contractEndDate` (신) / `endDate` (구 - 호환성)
+- ✅ `salaryType` (신) / `wageType` (구 - 호환성)
+- ✅ `salaryAmount` (신) / `wageAmount` (구 - 호환성)
+- ✅ `salaryPaymentDay` (신) / `paymentDay` (구 - 호환성)
+- ✅ `employeePosition` (신) / `position` (구 - 호환성)
+- ✅ `schedule.days` (신) / `workDays` (구 - 호환성)
+- ✅ `schedule.time` (신) / `workTime` (구 - 호환성)
+- ✅ `schedule.breakTime` (신) / `breakTime` (구 - 호환성)
 
-**현재 상태:** 
-- 호환성 코드로 임시 해결 (OR 조건)
-- 근본적으로는 하나의 필드명으로 통일 권장
-
-**권장 사항:**
-- **contracts 컬렉션 표준 필드명:**
-  - `contractStartDate` (O) / `startDate` (X)
-  - `contractEndDate` (O) / `endDate` (X)
-  - `salaryType` (O) / `wageType` (X)
-  - `salaryAmount` (O) / `wageAmount` (X)
-  - `salaryPaymentDay` (O) / `paymentDay` (X)
+### 3. 최신 계약서 반영 → **해결**
+**해결 방법:**
+- ✅ 계약서 작성 완료 시 직원 정보 자동 업데이트
+- ✅ `updateEmployeeFromContract()` 함수 구현
+- ✅ users 컬렉션의 store, position, salaryType, salaryAmount 자동 동기화

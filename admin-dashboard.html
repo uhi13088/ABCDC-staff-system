@@ -6343,10 +6343,12 @@
       
       const contractData = {
         id: contractId,
+        employeeId: document.getElementById('employeeSelect')?.value || '',  // 직원 UID 추가
         employeeName: document.getElementById('employeeName').value,
         employeeBirth: document.getElementById('employeeBirth').value,
         employeeAddress: document.getElementById('employeeAddress').value,
         employeePhone: document.getElementById('employeePhone').value,
+        employeePosition: document.getElementById('position').value,  // employeePosition 필드 추가
         companyName: store?.name || '',
         companyCEO: store?.ceo || '',
         companyBusinessNumber: store?.businessNumber || '',
@@ -6355,24 +6357,40 @@
         contractType: document.getElementById('contractType').value,
         workStore: document.getElementById('workStore').value,
         storeId: document.getElementById('storeSelect').value,
-        startDate: document.getElementById('startDate').value,
-        endDate: document.getElementById('endDate').value || '기간의 정함이 없음',
-        position: document.getElementById('position').value,
+        
+        // ✅ 신 필드명 사용 (contractStartDate, contractEndDate)
+        contractStartDate: document.getElementById('startDate').value,
+        contractEndDate: document.getElementById('endDate').value || '기간의 정함이 없음',
+        
+        position: document.getElementById('position').value,  // 호환성 유지
+        
+        // 스케줄 정보 (schedule 객체로 통합)
+        schedule: {
+          days: document.getElementById('workDays').value,
+          time: document.getElementById('workTime').value,
+          breakTime: document.getElementById('breakTime').value
+        },
+        // 호환성 유지 (개별 필드도 저장)
         workDays: document.getElementById('workDays').value,
         workTime: document.getElementById('workTime').value,
         breakTime: document.getElementById('breakTime').value,
-        wageType: document.getElementById('wageType').value,
-        wageAmount: document.getElementById('wageAmount').value,
-        paymentDay: document.getElementById('paymentDay').value,
-        salaryPaymentDay: store?.salaryPaymentDay || null, // 4단계: 급여 지급일 (숫자)
-        salaryCalculationType: store?.salaryCalculationType || 'prev_month_full', // 계산 기간 타입
-        salaryCalculationPeriod: store?.salaryCalculationPeriod || null, // 사용자 지정 계산 기간
+        
+        // ✅ 신 필드명 사용 (salaryType, salaryAmount, salaryPaymentDay)
+        salaryType: document.getElementById('wageType').value,
+        salaryAmount: document.getElementById('wageAmount').value,
+        salaryPaymentDay: document.getElementById('paymentDay').value,
+        
+        // 매장 급여 설정
+        salaryCalculationType: store?.salaryCalculationType || 'prev_month_full',
+        salaryCalculationPeriod: store?.salaryCalculationPeriod || null,
+        
         paymentMethod: document.getElementById('paymentMethod').value,
         contractContent: document.getElementById('contractContent').value,
         contractDate: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
         createdAt: new Date().toISOString(),
         signLink: signLink,
         createdBy: firebase.auth().currentUser?.uid || 'unknown',
+        
         // 급여 지급 항목 설정
         allowances: {
           weeklyHoliday: document.getElementById('allowWeeklyHoliday').checked,
@@ -6380,6 +6398,7 @@
           night: document.getElementById('allowNight').checked,
           holiday: document.getElementById('allowHoliday').checked
         },
+        
         // 4대보험 적용 설정
         insurance: {
           type: document.getElementById('insuranceType').value,
@@ -6393,6 +6412,9 @@
         // Firestore에 저장 (문서 ID를 contractId로 지정)
         await firebase.firestore().collection('contracts').doc(contractId).set(contractData);
         console.log('✅ Firestore 저장 완료:', contractId);
+        
+        // 🔥 직원 정보 업데이트 (최신 계약서 내용 반영)
+        await updateEmployeeFromContract(contractData);
         
         // 🔥 계약서 작성 완료 시 스케줄 자동 생성
         await createInitialSchedule(contractData);
@@ -6430,6 +6452,51 @@
     }
     
     /**
+     * 계약서 작성 완료 시 직원 정보 업데이트 (최신 계약서 반영)
+     * @param {Object} contractData - 계약서 데이터
+     */
+    async function updateEmployeeFromContract(contractData) {
+      try {
+        console.log('🔄 직원 정보 업데이트 시작');
+        
+        const employeeId = contractData.employeeId;
+        if (!employeeId) {
+          console.warn('⚠️ 직원 ID가 없어 정보 업데이트를 건너뜁니다.');
+          return;
+        }
+        
+        // 직원 문서 참조
+        const employeeRef = firebase.firestore().collection('users').doc(employeeId);
+        const employeeDoc = await employeeRef.get();
+        
+        if (!employeeDoc.exists) {
+          console.warn(`⚠️ 직원 문서를 찾을 수 없습니다: ${employeeId}`);
+          return;
+        }
+        
+        // 업데이트할 정보 (최신 계약서 기준)
+        const updateData = {
+          store: contractData.workStore,                          // 근무지 (매장 이름)
+          position: contractData.position || contractData.employeePosition,  // 직책
+          salaryType: contractData.salaryType || 'hourly',        // 급여 유형 (신 필드명)
+          salaryAmount: parseInt(contractData.salaryAmount || 0), // 급여 금액 (신 필드명)
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await employeeRef.update(updateData);
+        
+        console.log(`✅ 직원 정보 업데이트 완료: ${contractData.employeeName}`);
+        console.log(`   - 근무지: ${updateData.store}`);
+        console.log(`   - 직책: ${updateData.position}`);
+        console.log(`   - 급여: ${updateData.salaryType} ${updateData.salaryAmount.toLocaleString()}원`);
+        
+      } catch (error) {
+        console.error('❌ 직원 정보 업데이트 실패:', error);
+        // 업데이트 실패해도 계약서 생성은 계속 진행
+      }
+    }
+    
+    /**
      * 계약서 작성 완료 시 초기 스케줄 자동 생성
      * @param {Object} contractData - 계약서 데이터
      */
@@ -6444,19 +6511,19 @@
           return;
         }
         
-        // 계약 시작일 가져오기
-        const startDate = new Date(contractData.startDate || contractData.contractStartDate);
+        // 계약 시작일 가져오기 (신 필드명 우선)
+        const startDate = new Date(contractData.contractStartDate || contractData.startDate);
         const year = startDate.getFullYear();
         const weekNum = getWeekNumber(startDate);
         
         console.log(`📌 직원: ${contractData.employeeName}, 계약 시작일: ${startDate.toISOString().split('T')[0]}, 주차: ${year}-${weekNum}`);
         
-        // 근무일 파싱 (예: "월,화,수,목,금" → ['월', '화', '수', '목', '금'])
-        const workDaysStr = contractData.workDays || '';
+        // 근무일 파싱 (schedule 객체 또는 개별 필드)
+        const workDaysStr = contractData.schedule?.days || contractData.workDays || '';
         const workDays = workDaysStr.split(',').map(d => d.trim()).filter(d => d);
         
-        // 근무시간 파싱 (예: "09:00 - 18:00")
-        const workTimeStr = contractData.workTime || '';
+        // 근무시간 파싱 (schedule 객체 또는 개별 필드)
+        const workTimeStr = contractData.schedule?.time || contractData.workTime || '';
         const timeMatch = workTimeStr.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
         let startTime = '09:00';
         let endTime = '18:00';
@@ -6466,8 +6533,8 @@
           endTime = timeMatch[2];
         }
         
-        // 휴게시간 파싱 (예: "12:00 - 13:00 (1시간)")
-        const breakTimeStr = contractData.breakTime || '';
+        // 휴게시간 파싱 (schedule 객체 또는 개별 필드)
+        const breakTimeStr = contractData.schedule?.breakTime || contractData.breakTime || '';
         const breakMatch = breakTimeStr.match(/(\d+)시간/);
         let breakHours = 0;
         if (breakMatch) {
