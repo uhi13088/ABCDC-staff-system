@@ -7998,8 +7998,10 @@
         
         select.innerHTML = '<option value="">매장 선택</option>';
         
+        console.log('📍 매장 목록:');
         snapshot.forEach(doc => {
           const store = doc.data();
+          console.log(`  - ID: ${doc.id}, 이름: "${store.name}"`);
           const option = document.createElement('option');
           option.value = doc.id;
           option.textContent = store.name;
@@ -8112,7 +8114,18 @@
         const storeDoc = await db.collection('stores').doc(storeId).get();
         const storeName = storeDoc.exists ? storeDoc.data().name : '';
         
-        console.log(`🔍 스케줄 조회: 매장ID=${storeId}, 매장명=${storeName}, 주차=${year}-${weekNum}`);
+        console.log(`🔍 스케줄 조회: 매장ID=${storeId}, 매장명="${storeName}", 주차=${year}-${weekNum}`);
+        
+        // 디버깅: 모든 직원의 store 필드 확인
+        const allEmployeesSnapshot = await db.collection('users')
+          .where('role', '==', 'employee')
+          .get();
+        
+        console.log(`👥 전체 직원 ${allEmployeesSnapshot.size}명의 store 필드:`);
+        allEmployeesSnapshot.forEach(doc => {
+          const data = doc.data();
+          console.log(`  - ${data.name}: store="${data.store}"`);
+        });
         
         // 해당 매장의 모든 직원 조회 (store 필드 사용)
         const employeesSnapshot = await db.collection('users')
@@ -8120,7 +8133,7 @@
           .where('store', '==', storeName)
           .get();
         
-        console.log(`📊 조회된 직원 수: ${employeesSnapshot.size}명`);
+        console.log(`📊 "${storeName}" 매장 조회된 직원 수: ${employeesSnapshot.size}명`);
         
         if (employeesSnapshot.empty) {
           console.log('⚠️ 해당 매장에 직원이 없습니다.');
