@@ -813,6 +813,46 @@
   <!-- HTML2PDF 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+  <!-- 결근 사유 입력 모달 -->
+  <div id="absentReasonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9999; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: var(--border-radius); width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        
+        <!-- 모달 헤더 -->
+        <div style="padding: var(--spacing-lg); border-bottom: 2px solid var(--border-color); background: #fff3cd;">
+          <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #856404;">⚠️ 결근 사유 입력 필수</h3>
+          <p style="margin: 8px 0 0 0; font-size: 13px; color: #856404;">결근 사유를 입력하지 않으면 페이지를 사용할 수 없습니다.</p>
+        </div>
+        
+        <!-- 모달 바디 -->
+        <div style="padding: var(--spacing-lg);">
+          <div id="absentReasonInfo" style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: #f8f9fa; border-radius: 6px; border-left: 4px solid var(--primary-color);">
+            <!-- 결근 날짜 정보 동적 생성 -->
+          </div>
+          
+          <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px;">결근 사유</label>
+          <textarea 
+            id="absentReasonInput" 
+            placeholder="결근 사유를 상세히 입력해주세요.&#10;예) 몸이 아파서 병원 방문, 가족 경조사 등"
+            style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; resize: vertical; font-family: inherit;"
+          ></textarea>
+          
+          <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+            💡 입력한 사유는 관리자에게 전달됩니다.
+          </div>
+        </div>
+        
+        <!-- 모달 푸터 -->
+        <div style="padding: var(--spacing-lg); border-top: 2px solid var(--border-color); text-align: right;">
+          <button class="btn btn-primary" onclick="submitAbsentReason()" style="width: 100%; padding: 12px; font-size: 15px;">
+            ✓ 제출하기
+          </button>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+
   <!-- JavaScript -->
   <script src="js/firebase-config.js"></script>
   <script src="js/config.js"></script>

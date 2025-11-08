@@ -57,6 +57,7 @@
         <button class="tab" data-tab="schedules" onclick="switchTab('schedules')">📅 근무스케줄</button>
         <button class="tab" data-tab="notice" onclick="switchTab('notice')">📢 공지사항</button>
         <button class="tab" data-tab="stores" onclick="switchTab('stores')">🏪 매장 관리</button>
+        <button class="tab" data-tab="settings" onclick="switchTab('settings')">⚙️ 시스템 설정</button>
       </div>
 
       <div id="tabDashboard" class="tab-content active">
@@ -196,8 +197,8 @@
                   <th>매장</th>
                   <th>출근</th>
                   <th>퇴근</th>
-                  <th>근무시간</th>
                   <th>상태</th>
+                  <th>상세</th>
                 </tr>
               </thead>
               <tbody id="attendanceTableBody">
@@ -313,10 +314,22 @@
         <div class="card">
           <div class="card-header">
             <h3>📝 계약서 목록</h3>
-            <button class="btn btn-primary" onclick="openContractPage()">+ 새 계약서 작성</button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary" onclick="openContractPage()">+ 새 계약서 작성</button>
+              <button class="btn btn-secondary" onclick="openAdditionalContractPage()" style="background: var(--primary-color); color: white;">➕ 추가 계약서 작성</button>
+            </div>
           </div>
           <div class="card-body">
             <div class="filters">
+              <div class="filter-group">
+                <label>매장</label>
+                <select id="contractStoreFilter">
+                  <option value="">전체</option>
+                  <option value="부천시청점">부천시청점</option>
+                  <option value="상동점">상동점</option>
+                  <option value="부천역사점">부천역사점</option>
+                </select>
+              </div>
               <div class="filter-group">
                 <label>근무상태</label>
                 <select id="contractEmploymentStatusFilter">
@@ -335,6 +348,7 @@
                 <tr>
                   <th>직원명</th>
                   <th>계약 유형</th>
+                  <th>매장</th>
                   <th>계약 기간</th>
                   <th>작성일</th>
                   <th>상태</th>
@@ -343,7 +357,7 @@
               </thead>
               <tbody id="contractsTableBody">
                 <tr>
-                  <td colspan="6" style="text-align: center; color: var(--text-secondary);">계약서 정보를 불러오는 중...</td>
+                  <td colspan="7" style="text-align: center; color: var(--text-secondary);">계약서 정보를 불러오는 중...</td>
                 </tr>
               </tbody>
             </table>
@@ -480,6 +494,19 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="tabSettings" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>⚙️ 시스템 설정</h3>
+          </div>
+          <div class="card-body">
+            <p style="text-align: center; padding: 40px; color: var(--text-secondary);">
+              시스템 설정 기능은 준비 중입니다.
+            </p>
           </div>
         </div>
       </div>
@@ -826,6 +853,9 @@
     // Firebase 인증 및 전체 관리자 기능
     // ===========================================
 
+    // 🔥 추가 계약서 작성 모드 전역 변수
+    let isAdditionalContractMode = false;
+
     async function showMainScreen() {
       document.getElementById('mainScreen').classList.remove('hidden');
       
@@ -1047,6 +1077,7 @@
       try {
         const contractsSnapshot = await firebase.firestore().collection('contracts').get();
         const employeeMap = new Map();
+        const unsignedEmployeeMap = new Map(); // 미서명 계약서 직원별 카운트
         
         contractsSnapshot.forEach(doc => {
           const contractData = doc.data();
@@ -1060,10 +1091,16 @@
             totalContracts++;
           }
           
-          if (!isSigned) unsignedContracts++;
+          // 🔥 미서명 계약서는 직원별로 1개만 카운트
+          if (!isSigned) {
+            if (!unsignedEmployeeMap.has(empKey)) {
+              unsignedEmployeeMap.set(empKey, true);
+              unsignedContracts++;
+            }
+          }
         });
         
-        console.log(`📊 대시보드: 총 ${totalContracts}개 계약서, 미서명 ${unsignedContracts}개`);
+        console.log(`📊 대시보드: 총 ${totalContracts}개 계약서, 미서명 ${unsignedContracts}개 (직원별 중복 제거)`);
       } catch (error) {
         console.warn('⚠️ Firestore 계약서 수 조회 실패:', error);
       }
@@ -2186,6 +2223,11 @@
      * @returns {Object} { text: '상태명', class: 'badge-클래스' }
      */
     function calculateAttendanceStatus(att) {
+      // attendance 문서에 status 필드가 있으면 우선 사용 (직원이 수동으로 결근 표시한 경우)
+      if (att.status === 'absent') {
+        return { text: '결근', class: 'danger' };
+      }
+      
       // 출근 기록 없음
       if (!att.clockIn) {
         return { text: '결근', class: 'danger' };
@@ -2205,17 +2247,17 @@
       
       // 09:00 이후 출근은 지각으로 임시 판정
       if (att.clockIn > '09:00') {
-        status = { text: '지각', class: 'warning' };
+        status = { text: '지각', class: 'danger' };
       }
       
       // 18:00 이전 퇴근은 조퇴로 임시 판정
       if (att.clockOut < '18:00') {
-        status = { text: '조퇴', class: 'info' };
+        status = { text: '조퇴', class: 'danger' };
       }
       
       // 지각이면서 조퇴면 '지각+조퇴'
       if (att.clockIn > '09:00' && att.clockOut < '18:00') {
-        status = { text: '지각+조퇴', class: 'warning' };
+        status = { text: '지각+조퇴', class: 'danger' };
       }
       
       return status;
@@ -2230,7 +2272,7 @@
         return;
       }
       
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">근태 정보를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">근태 정보를 불러오는 중...</td></tr>';
       
       try {
         console.log('🔍 Firestore 쿼리 시작: attendance 컬렉션');
@@ -2249,7 +2291,7 @@
         
         if (attendanceSnapshot.empty) {
           console.warn('⚠️ attendance 컬렉션이 비어있습니다');
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">근태 정보가 없습니다.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">근태 정보가 없습니다.</td></tr>';
           return;
         }
         
@@ -2310,14 +2352,14 @@
             // 퇴사자만
             return empStatus === 'resigned';
           } else {
-            // 필터 없음: 기본적으로 resigned 제외 (재직자만)
-            return empStatus !== 'resigned';
+            // 전체 = 재직자 + 퇴사자 모두
+            return true;
           }
         });
         console.log(`👤 근무상태 필터 적용 (${employmentStatusFilter || '기본:재직자'}):`, attendanceList.length);
         
         if (attendanceList.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">조건에 맞는 근태 정보가 없습니다.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">조건에 맞는 근태 정보가 없습니다.</td></tr>';
           return;
         }
         
@@ -2334,7 +2376,6 @@
               <td>${att.store || '-'}</td>
               <td>${att.clockIn || '-'}</td>
               <td>${att.clockOut || '-'}</td>
-              <td>${att.workType || '정규근무'}</td>
               <td><span class="badge badge-${statusClass}">${statusText}</span></td>
               <td>
                 <button class="btn btn-sm btn-secondary" onclick="showAttendanceDetailModal('${att.id}', '${att.employeeName || att.name}', '${att.uid}', '${att.date}', '${att.clockIn || ''}', '${att.clockOut || ''}', '${att.store || ''}', '${att.workType || '정규근무'}', '${statusText}')" style="margin-right: 4px;">📋 상세</button>
@@ -2345,7 +2386,7 @@
         }).join('');
       } catch (error) {
         console.error('❌ 근태 목록 로드 실패:', error);
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--danger-color);">❌ 근태 정보를 불러오는데 실패했습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger-color);">❌ 근태 정보를 불러오는데 실패했습니다.</td></tr>';
       }
     }
 
@@ -2413,12 +2454,8 @@
             if (empStatus !== 'resigned') {
               continue;
             }
-          } else {
-            // 필터 없음: 기본적으로 resigned 제외 (재직자만)
-            if (empStatus === 'resigned') {
-              continue;
-            }
           }
+          // else: 전체 = 재직자 + 퇴사자 모두 표시 (필터링 없음)
           
           // 해당 직원의 계약서 찾기 (복합 인덱스 없이 처리)
           const contractsSnapshot = await firebase.firestore().collection('contracts')
@@ -3611,14 +3648,50 @@
       }
     }
 
+    /**
+     * 매장 필터 옵션 동적 로드 (매장 관리 탭과 동기화)
+     */
+    async function loadStoreFilterOptions() {
+      const storeFilter = document.getElementById('contractStoreFilter');
+      if (!storeFilter) return;
+      
+      try {
+        const storesSnapshot = await firebase.firestore().collection('stores').get();
+        const currentValue = storeFilter.value; // 현재 선택값 저장
+        
+        // 옵션 초기화 (전체는 유지)
+        storeFilter.innerHTML = '<option value="">전체</option>';
+        
+        // Firestore에서 매장 목록 추가
+        storesSnapshot.forEach(doc => {
+          const store = doc.data();
+          const option = document.createElement('option');
+          option.value = store.name;
+          option.textContent = store.name;
+          storeFilter.appendChild(option);
+        });
+        
+        // 이전 선택값 복원
+        if (currentValue) {
+          storeFilter.value = currentValue;
+        }
+      } catch (error) {
+        console.error('❌ 매장 필터 로드 실패:', error);
+      }
+    }
+
     async function loadContracts() {
       const tbody = document.getElementById('contractsTableBody');
       if (!tbody) return;
       
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">계약서를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">계약서를 불러오는 중...</td></tr>';
+      
+      // 🔥 매장 필터 동적 로드 (매장 관리 탭과 동기화)
+      await loadStoreFilterOptions();
       
       try {
-        // 근무상태 필터
+        // 필터 값 가져오기
+        const storeFilter = document.getElementById('contractStoreFilter').value;
         const employmentStatusFilter = document.getElementById('contractEmploymentStatusFilter').value;
         
         // 직원 정보 가져오기 (필터링용 - 필터 여부와 관계없이 항상 가져오기)
@@ -3641,6 +3714,14 @@
           const signedContracts = signedContractsCache;
           const isSigned = signedContracts.some(sc => sc.id === contractId);
           
+          // 매장 필터 적용
+          if (storeFilter) {
+            console.log(`🏪 매장 필터 체크: storeFilter=${storeFilter}, workStore=${contractData.workStore}, companyName=${contractData.companyName}`);
+            if (contractData.workStore !== storeFilter && contractData.companyName !== storeFilter) {
+              return;
+            }
+          }
+          
           // 근무상태 필터 적용
           const empKey = `${contractData.employeeName}_${contractData.employeeBirth}`;
           const empStatus = employeeStatusMap[empKey] || 'approved';
@@ -3655,19 +3736,15 @@
             if (empStatus !== 'resigned') {
               return;
             }
-          } else {
-            // 필터 없음: 기본적으로 resigned 제외 (재직자만)
-            if (empStatus === 'resigned') {
-              return;
-            }
           }
+          // else: 전체 = 재직자 + 퇴사자 모두 표시 (필터링 없음)
           
           allContracts.push({
             id: contractId,
             name: contractData.employeeName,
             birth: contractData.employeeBirth,
             type: contractData.contractType,
-            period: `${contractData.startDate} ~ ${contractData.endDate}`,
+            period: `${contractData.contractStartDate || contractData.startDate || '-'} ~ ${contractData.contractEndDate || contractData.endDate || '-'}`,
             createdAt: contractData.createdAt || new Date().toISOString(),
             status: isSigned ? '서명완료' : '서명대기',
             data: contractData
@@ -3675,7 +3752,7 @@
         });
         
         if (allContracts.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);"><p style="margin-bottom: 16px;">생성된 계약서가 없습니다.</p><button class="btn btn-primary" onclick="openContractPage()">+ 첫 계약서 작성하기</button></td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);"><p style="margin-bottom: 16px;">생성된 계약서가 없습니다.</p><button class="btn btn-primary" onclick="openContractPage()">+ 첫 계약서 작성하기</button></td></tr>';
           return;
         }
         
@@ -3697,48 +3774,85 @@
         // 테이블 행 생성
         const rows = [];
         employeeGroups.forEach((contracts, key) => {
-          const latestContract = contracts[0]; // 최신 계약서
-          const contractCount = contracts.length;
+          // 🔥 일반 계약서와 추가 계약서 분리
+          const normalContracts = contracts.filter(c => !c.data.isAdditional);
+          const additionalContracts = contracts.filter(c => c.data.isAdditional);
           
-          // 계약서 선택 드롭다운 생성
-          const contractOptions = contracts.map((contract, index) => {
-            const date = new Date(contract.createdAt);
-            const dateStr = date.toLocaleDateString('ko-KR');
-            const timeStr = date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-            const label = `${dateStr} ${timeStr}${index === 0 ? ' (최신)' : ''}`;
-            return `<option value="${contract.id}">${label}</option>`;
-          }).join('');
+          // 🔥 일반 계약서: 최신 1개만 표시 (드롭다운으로 이력 선택)
+          if (normalContracts.length > 0) {
+            const latestContract = normalContracts[0];
+            const contractCount = normalContracts.length;
+            const statusClass = latestContract.status === '서명완료' ? 'badge-success' : 'badge-warning';
+            
+            // 계약서 선택 드롭다운 생성
+            const contractOptions = normalContracts.map((contract, index) => {
+              const date = new Date(contract.createdAt);
+              const dateStr = date.toLocaleDateString('ko-KR');
+              const timeStr = date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+              const label = `${dateStr} ${timeStr}${index === 0 ? ' (최신)' : ''}`;
+              return `<option value="${contract.id}">${label}</option>`;
+            }).join('');
+            
+            const selectId = `contract-select-${latestContract.id}`;
+            
+            rows.push(`
+              <tr data-contract-id="${latestContract.id}">
+                <td style="width: 120px;">
+                  <strong>${latestContract.name}</strong>
+                  ${contractCount > 1 ? `<br><span class="badge" style="background: var(--primary-color); color: white; font-size: 11px;">📝 ${contractCount}건</span>` : ''}
+                </td>
+                <td style="width: 100px;">${latestContract.data.contractType || latestContract.type}</td>
+                <td style="width: 120px;">${latestContract.data.workStore || latestContract.data.companyName || '-'}</td>
+                <td style="width: 200px;">${latestContract.period}</td>
+                <td style="width: 150px;">
+                  ${contractCount > 1 ? `
+                    <select id="${selectId}" class="form-control" style="font-size: 13px; padding: 4px 8px;" onchange="updateContractButtons('${selectId}', this.value)">
+                      ${contractOptions}
+                    </select>
+                  ` : `
+                    ${new Date(latestContract.createdAt).toLocaleDateString('ko-KR')} ${new Date(latestContract.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                  `}
+                </td>
+                <td style="width: 80px;"><span class="badge ${statusClass}" id="status-${latestContract.id}">${latestContract.status}</span></td>
+                <td style="width: 200px;">
+                  <div id="buttons-${latestContract.id}" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    <button class="btn btn-sm btn-secondary" onclick="viewContract('${latestContract.id}')">📄 보기</button>
+                    ${latestContract.status === '서명대기' ? `<button class="btn btn-sm btn-primary" onclick="sendContractLink('${latestContract.id}')">📧 링크전송</button>` : ''}
+                    <button class="btn btn-sm" style="background: #dc3545; color: white;" onclick="deleteContract('${latestContract.id}', '${latestContract.name}')">🗑️ 삭제</button>
+                  </div>
+                </td>
+              </tr>
+            `);
+          }
           
-          const selectId = `contract-select-${latestContract.id}`;
-          const statusClass = latestContract.status === '서명완료' ? 'badge-success' : 'badge-warning';
-          
-          rows.push(`
-            <tr data-contract-id="${latestContract.id}">
-              <td>
-                <strong>${latestContract.name}</strong>
-                ${contractCount > 1 ? `<br><span class="badge" style="background: var(--primary-color); color: white; font-size: 11px;">📝 ${contractCount}건</span>` : ''}
-              </td>
-              <td>${latestContract.type}</td>
-              <td>${latestContract.period}</td>
-              <td>
-                ${contractCount > 1 ? `
-                  <select id="${selectId}" class="form-control" style="font-size: 13px; padding: 4px 8px;" onchange="updateContractButtons('${selectId}', this.value)">
-                    ${contractOptions}
-                  </select>
-                ` : `
-                  ${new Date(latestContract.createdAt).toLocaleDateString('ko-KR')} ${new Date(latestContract.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                `}
-              </td>
-              <td><span class="badge ${statusClass}" id="status-${latestContract.id}">${latestContract.status}</span></td>
-              <td>
-                <div id="buttons-${latestContract.id}" style="display: flex; gap: 4px; flex-wrap: wrap;">
-                  <button class="btn btn-sm btn-secondary" onclick="viewContract('${latestContract.id}')">📄 보기</button>
-                  ${latestContract.status === '서명대기' ? `<button class="btn btn-sm btn-primary" onclick="sendContractLink('${latestContract.id}')">📧 링크전송</button>` : ''}
-                  <button class="btn btn-sm" style="background: #dc3545; color: white;" onclick="deleteContract('${latestContract.id}', '${latestContract.name}')">🗑️ 삭제</button>
-                </div>
-              </td>
-            </tr>
-          `);
+          // 🔥 추가 계약서: 모두 별도 행으로 표시
+          additionalContracts.forEach((contract, index) => {
+            const statusClass = contract.status === '서명완료' ? 'badge-success' : 'badge-warning';
+            const createdDate = new Date(contract.createdAt);
+            const dateStr = createdDate.toLocaleDateString('ko-KR');
+            const timeStr = createdDate.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            
+            rows.push(`
+              <tr data-contract-id="${contract.id}">
+                <td style="width: 120px;">
+                  <strong>${contract.name}</strong>
+                  <br><span class="badge" style="background: var(--info-color); color: white; font-size: 11px;">➕ 추가 계약서</span>
+                </td>
+                <td style="width: 100px;">${contract.data.contractType || contract.type}</td>
+                <td style="width: 120px;">${contract.data.workStore || contract.data.companyName || '-'}</td>
+                <td style="width: 200px;">${contract.period}</td>
+                <td style="width: 150px;">${dateStr} ${timeStr}</td>
+                <td style="width: 80px;"><span class="badge ${statusClass}" id="status-${contract.id}">${contract.status}</span></td>
+                <td style="width: 200px;">
+                  <div id="buttons-${contract.id}" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    <button class="btn btn-sm btn-secondary" onclick="viewContract('${contract.id}')">📄 보기</button>
+                    ${contract.status === '서명대기' ? `<button class="btn btn-sm btn-primary" onclick="sendContractLink('${contract.id}')">📧 링크전송</button>` : ''}
+                    <button class="btn btn-sm" style="background: #dc3545; color: white;" onclick="deleteContract('${contract.id}', '${contract.name}')">🗑️ 삭제</button>
+                  </div>
+                </td>
+              </tr>
+            `);
+          });
         });
         
         tbody.innerHTML = rows.join('');
@@ -4615,6 +4729,10 @@
     // 계약서 작성 모달 열기/닫기
     function openContractPage() {
       console.log('🚀 계약서 모달 열기');
+      
+      // 🔥 일반 계약서 모드 (추가 계약서 아님)
+      isAdditionalContractMode = false;
+      
       const modal = document.getElementById('contractModal');
       if (!modal) {
         console.error('❌ contractModal을 찾을 수 없습니다');
@@ -4914,6 +5032,8 @@
     function closeContractModal() {
       if (confirm('작성 중인 내용이 저장되지 않을 수 있습니다.\n닫으시겠습니까?')) {
         document.getElementById('contractModal').style.display = 'none';
+        // 🔥 추가 계약서 모드 초기화
+        isAdditionalContractMode = false;
       }
     }
     
@@ -6322,6 +6442,51 @@
       }
     }
 
+    /**
+     * 추가 계약서 작성 페이지 열기
+     * 같은 직원이 여러 매장에서 근무할 수 있도록 추가 계약서 작성
+     */
+    function openAdditionalContractPage() {
+      console.log('🚀 추가 계약서 모달 열기');
+      
+      // 🔥 추가 계약서 모드 활성화
+      isAdditionalContractMode = true;
+      
+      const modal = document.getElementById('contractModal');
+      if (!modal) {
+        console.error('❌ contractModal을 찾을 수 없습니다');
+        return;
+      }
+      
+      // 모달 표시
+      modal.style.display = 'flex';
+      
+      // 작성하기 탭 강제 활성화
+      const formTab = document.getElementById('formTab');
+      const formTabBtn = document.getElementById('formTabBtn');
+      const previewTab = document.getElementById('previewTab');
+      const previewTabBtn = document.getElementById('previewTabBtn');
+      
+      if (formTab && formTabBtn) {
+        formTab.classList.add('active');
+        formTab.style.display = 'block';
+        formTabBtn.classList.add('active');
+      }
+      
+      if (previewTab && previewTabBtn) {
+        previewTab.classList.remove('active');
+        previewTab.style.display = 'none';
+        previewTabBtn.classList.remove('active');
+      }
+      
+      // 모달이 화면에 렌더링될 때까지 대기
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          initializeContractFormNow();
+        });
+      });
+    }
+
     // 계약서 생성
     async function generateContract() {
       console.log('📝 계약서 생성 시작');
@@ -6330,6 +6495,45 @@
       if (!validateForm()) {
         alert('⚠️ 필수 항목을 모두 입력해주세요.');
         return;
+      }
+      
+      // 🔥 미서명 계약서 덮어쓰기 로직: 같은 직원 + 같은 매장의 미서명 계약서만 삭제
+      const employeeName = document.getElementById('employeeName').value;
+      const employeeBirth = document.getElementById('employeeBirth').value;
+      const workStore = document.getElementById('workStore').value;
+      
+      if (employeeName && employeeBirth && workStore) {
+        try {
+          const unsignedContractsSnapshot = await firebase.firestore().collection('contracts')
+            .where('employeeName', '==', employeeName)
+            .where('employeeBirth', '==', employeeBirth)
+            .where('signedAt', '==', null)
+            .get();
+          
+          if (!unsignedContractsSnapshot.empty) {
+            console.log(`⚠️ ${employeeName}의 미서명 계약서 ${unsignedContractsSnapshot.size}개 발견`);
+            
+            // 같은 매장의 미서명 계약서만 삭제 (다른 매장은 유지)
+            const deletePromises = [];
+            unsignedContractsSnapshot.docs.forEach(doc => {
+              const data = doc.data();
+              if (data.workStore === workStore || data.companyName === workStore) {
+                console.log(`🗑️ 미서명 계약서 삭제 (같은 매장): ${doc.id}`);
+                deletePromises.push(firebase.firestore().collection('contracts').doc(doc.id).delete());
+              } else {
+                console.log(`✅ 미서명 계약서 유지 (다른 매장): ${doc.id} - ${data.workStore}`);
+              }
+            });
+            
+            if (deletePromises.length > 0) {
+              await Promise.all(deletePromises);
+              console.log('✅ 같은 매장 미서명 계약서 삭제 완료');
+            }
+          }
+        } catch (error) {
+          console.error('❌ 미서명 계약서 확인/삭제 실패:', error);
+          // 에러가 있어도 계속 진행 (새 계약서 생성)
+        }
       }
       
       const contractId = 'C' + Date.now();
@@ -6404,6 +6608,9 @@
         createdAt: new Date().toISOString(),
         signLink: signLink,
         createdBy: firebase.auth().currentUser?.uid || 'unknown',
+        
+        // 🔥 추가 계약서 여부 (isAdditionalContractMode 전역 변수 사용)
+        isAdditional: isAdditionalContractMode,
         
         // 급여 지급 항목 설정
         allowances: {
@@ -7706,6 +7913,14 @@
           </div>
         </div>
 
+        <!-- 결근 사유 (결근인 경우에만 표시) -->
+        <div id="detailAbsentReason" style="background: #fff3cd; padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg); display: none;">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: #856404;">📝 결근 사유</h3>
+          <div id="detailAbsentReasonContent" style="font-size: 14px; color: #856404; line-height: 1.6;">
+            <!-- 결근 사유가 여기 표시됩니다 -->
+          </div>
+        </div>
+
         <!-- 계약서 근무시간 비교 -->
         <div id="detailContractComparison" style="background: #fff3cd; padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg); display: none;">
           <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: #856404;">⚠️ 계약서 근무시간 비교</h3>
@@ -8137,6 +8352,36 @@
       }
       
       document.getElementById('detailStatus').innerHTML = `<span class="badge badge-${calculateAttendanceStatus({clockIn, clockOut}).class}">${status}</span>`;
+      
+      // 🔥 결근 사유 표시 (결근인 경우)
+      if (status === '결근') {
+        try {
+          const attDoc = await firebase.firestore().collection('attendance').doc(attendanceId).get();
+          if (attDoc.exists) {
+            const attData = attDoc.data();
+            const absentReasonDiv = document.getElementById('detailAbsentReason');
+            const absentReasonContent = document.getElementById('detailAbsentReasonContent');
+            
+            if (attData.absentReason && attData.absentReason.trim() !== '') {
+              absentReasonContent.innerHTML = `
+                <div style="margin-bottom: 8px;">${attData.absentReason}</div>
+                ${attData.reasonSubmittedAt ? `
+                  <div style="font-size: 12px; color: #856404; margin-top: 8px; padding-top: 8px; border-top: 1px solid #ffeaa7;">
+                    제출 시간: ${attData.reasonSubmittedAt.toDate ? attData.reasonSubmittedAt.toDate().toLocaleString('ko-KR') : '-'}
+                  </div>
+                ` : ''}
+              `;
+            } else {
+              absentReasonContent.innerHTML = '<div style="color: var(--danger-color); font-weight: 600;">⚠️ 사유 미입력</div>';
+            }
+            absentReasonDiv.style.display = 'block';
+          }
+        } catch (error) {
+          console.error('결근 사유 조회 실패:', error);
+        }
+      } else {
+        document.getElementById('detailAbsentReason').style.display = 'none';
+      }
       
       // 수정 버튼에 데이터 전달용 저장
       document.getElementById('detailEditButton').setAttribute('data-date', date);

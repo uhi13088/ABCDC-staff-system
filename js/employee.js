@@ -144,6 +144,9 @@ async function loadUserInfo(uid, name) {
     // 관리자 근무시간 수정 알림 체크 (비동기로 실행)
     checkAdminTimeEdits().catch(err => console.error('근무시간 수정 알림 체크 오류:', err));
     
+    // 미처리 결근 사유 체크 (비동기로 실행)
+    checkPendingAbsentReasons().catch(err => console.error('결근 사유 체크 오류:', err));
+    
   } catch (error) {
     console.error('❌ 사용자 정보 로드 오류:', error);
     // 오류 발생 시에도 기본 정보로 진행
@@ -162,6 +165,9 @@ async function loadUserInfo(uid, name) {
     
     // 관리자 근무시간 수정 알림 체크 (비동기로 실행)
     checkAdminTimeEdits().catch(err => console.error('근무시간 수정 알림 체크 오류:', err));
+    
+    // 미처리 결근 사유 체크 (비동기로 실행)
+    checkPendingAbsentReasons().catch(err => console.error('결근 사유 체크 오류:', err));
   }
 }
 
@@ -3058,4 +3064,220 @@ function renderEmployeeSchedule(schedules, monday) {
   html += '</div>';
   
   container.innerHTML = html;
+}
+
+// ===================================================================
+// 결근 사유 입력 시스템
+// ===================================================================
+
+// 전역 변수: 현재 처리 중인 결근 정보
+let pendingAbsentRecords = [];
+let currentAbsentRecordIndex = 0;
+let isAbsentModalBlocking = false; // 페이지 이동 차단 플래그
+
+/**
+ * 미처리 결근 사유 확인
+ * 로그인 시 자동 실행
+ */
+async function checkPendingAbsentReasons() {
+  if (!currentUser || !currentUser.uid) {
+    console.log('⚠️ currentUser 정보 없음, 결근 체크 건너뜀');
+    return;
+  }
+  
+  console.log('🔍 미처리 결근 사유 확인 시작');
+  
+  try {
+    // 결근 기록 중 사유가 없는 것 찾기
+    const snapshot = await db.collection('attendance')
+      .where('uid', '==', currentUser.uid)
+      .where('status', '==', 'absent')
+      .get();
+    
+    pendingAbsentRecords = [];
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // absentReason이 없거나 빈 문자열인 경우
+      if (!data.absentReason || data.absentReason.trim() === '') {
+        pendingAbsentRecords.push({
+          id: doc.id,
+          date: data.date,
+          ...data
+        });
+      }
+    });
+    
+    // 날짜 순으로 정렬 (오래된 것부터)
+    pendingAbsentRecords.sort((a, b) => a.date.localeCompare(b.date));
+    
+    console.log(`📊 미처리 결근: ${pendingAbsentRecords.length}건`);
+    
+    if (pendingAbsentRecords.length > 0) {
+      currentAbsentRecordIndex = 0;
+      showAbsentReasonModal();
+    }
+    
+  } catch (error) {
+    console.error('❌ 결근 사유 확인 실패:', error);
+  }
+}
+
+/**
+ * 결근 사유 입력 모달 표시
+ */
+function showAbsentReasonModal() {
+  if (currentAbsentRecordIndex >= pendingAbsentRecords.length) {
+    // 모든 결근 사유 입력 완료
+    closeAbsentReasonModal();
+    alert('✅ 모든 결근 사유 입력이 완료되었습니다.');
+    return;
+  }
+  
+  const record = pendingAbsentRecords[currentAbsentRecordIndex];
+  
+  // 날짜 포맷팅
+  const dateObj = new Date(record.date);
+  const dateStr = `${dateObj.getFullYear()}년 ${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일`;
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const dayStr = dayNames[dateObj.getDay()];
+  
+  // 정보 표시
+  document.getElementById('absentReasonInfo').innerHTML = `
+    <div style="font-size: 14px;">
+      <div style="font-weight: 600; margin-bottom: 4px;">📅 결근 날짜</div>
+      <div style="font-size: 16px; color: var(--primary-color); font-weight: 700;">
+        ${dateStr} (${dayStr}요일)
+      </div>
+      ${pendingAbsentRecords.length > 1 ? `
+        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+          ${currentAbsentRecordIndex + 1} / ${pendingAbsentRecords.length}번째 결근 사유 입력
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  // 입력 필드 초기화
+  document.getElementById('absentReasonInput').value = '';
+  
+  // 모달 표시
+  document.getElementById('absentReasonModal').style.display = 'block';
+  isAbsentModalBlocking = true;
+  
+  // 페이지 이동 차단
+  blockPageNavigation();
+  
+  console.log(`📝 결근 사유 입력 모달 표시: ${dateStr}`);
+}
+
+/**
+ * 결근 사유 제출
+ */
+async function submitAbsentReason() {
+  const reason = document.getElementById('absentReasonInput').value.trim();
+  
+  if (!reason) {
+    alert('⚠️ 결근 사유를 입력해주세요.');
+    document.getElementById('absentReasonInput').focus();
+    return;
+  }
+  
+  if (reason.length < 5) {
+    alert('⚠️ 결근 사유를 5자 이상 입력해주세요.');
+    document.getElementById('absentReasonInput').focus();
+    return;
+  }
+  
+  const record = pendingAbsentRecords[currentAbsentRecordIndex];
+  
+  try {
+    // Firestore 업데이트
+    await db.collection('attendance').doc(record.id).update({
+      absentReason: reason,
+      reasonSubmittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      reasonSubmittedBy: 'employee'
+    });
+    
+    console.log(`✅ 결근 사유 제출 완료: ${record.date}`);
+    
+    // 다음 결근으로 이동
+    currentAbsentRecordIndex++;
+    
+    if (currentAbsentRecordIndex < pendingAbsentRecords.length) {
+      // 다음 결근 사유 입력
+      showAbsentReasonModal();
+    } else {
+      // 모든 입력 완료
+      closeAbsentReasonModal();
+      alert('✅ 모든 결근 사유 입력이 완료되었습니다.\n이제 정상적으로 페이지를 사용하실 수 있습니다.');
+    }
+    
+  } catch (error) {
+    console.error('❌ 결근 사유 제출 실패:', error);
+    alert('❌ 결근 사유 제출에 실패했습니다.\n다시 시도해주세요.');
+  }
+}
+
+/**
+ * 결근 사유 모달 닫기
+ */
+function closeAbsentReasonModal() {
+  document.getElementById('absentReasonModal').style.display = 'none';
+  isAbsentModalBlocking = false;
+  unblockPageNavigation();
+}
+
+/**
+ * 페이지 이동 차단
+ */
+function blockPageNavigation() {
+  // 탭 클릭 차단
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(btn => {
+    btn.dataset.originalOnclick = btn.getAttribute('onclick');
+    btn.setAttribute('onclick', 'alertAbsentReasonRequired(); return false;');
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  });
+  
+  // beforeunload 이벤트로 페이지 이탈 경고
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+}
+
+/**
+ * 페이지 이동 차단 해제
+ */
+function unblockPageNavigation() {
+  // 탭 클릭 복원
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(btn => {
+    const originalOnclick = btn.dataset.originalOnclick;
+    if (originalOnclick) {
+      btn.setAttribute('onclick', originalOnclick);
+      delete btn.dataset.originalOnclick;
+    }
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  });
+  
+  // beforeunload 이벤트 제거
+  window.removeEventListener('beforeunload', beforeUnloadHandler);
+}
+
+/**
+ * beforeunload 핸들러
+ */
+function beforeUnloadHandler(e) {
+  if (isAbsentModalBlocking) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+}
+
+/**
+ * 결근 사유 입력 필요 알림
+ */
+function alertAbsentReasonRequired() {
+  alert('⚠️ 결근 사유를 먼저 입력해주세요.\n사유 입력 후 페이지를 사용하실 수 있습니다.');
 }
