@@ -9215,14 +9215,11 @@
         colorMap[person.id] = employeeColors[index % employeeColors.length];
       });
       
-      // 날짜 정보 생성
+      // 요일 정보 생성 (날짜 제거)
       const dateInfo = [];
       days.forEach((day, index) => {
-        const date = new Date(monday);
-        date.setDate(date.getDate() + index);
         dateInfo.push({
-          day: day,
-          date: `${date.getMonth() + 1}/${date.getDate()}`
+          day: day
         });
       });
       
@@ -9297,10 +9294,9 @@
         
         html += `
           <div style="flex: 1; ${dayIndex < days.length - 1 ? 'border-right: 1px solid var(--border-color);' : ''}">
-            <!-- 요일 헤더 -->
-            <div style="height: 45px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); background: var(--bg-light); font-weight: 700; font-size: 12px;">
-              <div>${info.day}</div>
-              <div style="font-size: 10px; color: var(--text-secondary); font-weight: 400;">${info.date}</div>
+            <!-- 요일 헤더 (날짜 제거) -->
+            <div style="height: 45px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); background: var(--bg-light); font-weight: 700; font-size: 14px;">
+              ${info.day}
             </div>
             
             <!-- 간트차트 영역 -->
