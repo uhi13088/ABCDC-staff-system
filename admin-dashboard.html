@@ -8157,6 +8157,7 @@
           
           if (scheduleDoc.exists) {
             const scheduleData = scheduleDoc.data();
+            console.log(`  📅 ${empData.name} 스케줄 문서 발견:`, scheduleDocId);
             
             // 각 요일별 스케줄 파싱
             days.forEach(day => {
@@ -8168,11 +8169,15 @@
                   hours: daySchedule.hours || 0,
                   isWorkDay: daySchedule.isWorkDay !== false
                 };
+                if (schedules[day].isWorkDay) {
+                  console.log(`    ${day}: ${schedules[day].startTime} - ${schedules[day].endTime} (${schedules[day].hours}h)`);
+                }
               } else {
                 schedules[day] = { isWorkDay: false };
               }
             });
           } else {
+            console.log(`  ⚠️ ${empData.name} 스케줄 문서 없음:`, scheduleDocId);
             // 스케줄이 없으면 모두 휴무로 표시
             days.forEach(day => {
               schedules[day] = { isWorkDay: false };
