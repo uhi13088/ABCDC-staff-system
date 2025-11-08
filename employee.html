@@ -412,10 +412,11 @@
         <div class="card">
           <div class="card-header">
             <h3>✔️ 문서 승인 신청</h3>
-            <div style="display: flex; gap: var(--spacing-sm);">
+            <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
               <button class="btn btn-primary btn-sm" onclick="showPurchaseRequestModal()">💳 구매 신청</button>
               <button class="btn btn-primary btn-sm" onclick="showDisposalRequestModal()">🗑️ 폐기 신청</button>
               <button class="btn btn-primary btn-sm" onclick="showResignationRequestModal()">📄 퇴직서 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showShiftRequestModal()" style="background: var(--info-color);">🔄 교대근무 신청</button>
             </div>
           </div>
           
@@ -681,6 +682,50 @@
     </div>
   </div>
 
+  <!-- 교대근무 신청 모달 -->
+  <div id="shiftRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔄 교대근무 신청</h3>
+        <button class="modal-close" onclick="closeShiftRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" style="margin-bottom: var(--spacing-lg);">
+          <strong>💡 교대근무란?</strong><br>
+          부득이한 사정으로 출근이 어려울 때, 같은 매장의 다른 직원에게 대타 근무를 요청할 수 있습니다.<br>
+          <small style="color: var(--text-secondary);">
+            • 승인되면 원래 근무자는 결근 처리되지 않습니다 (급여 없음)<br>
+            • 승인한 직원은 해당 시간에 출근해야 하며, 정상 급여가 지급됩니다
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label>교대 희망 날짜 <span style="color: var(--danger-color);">*</span></label>
+          <input type="date" id="shiftRequestDate" required>
+        </div>
+        
+        <div class="form-group">
+          <label>근무 시작 시간 <span style="color: var(--danger-color);">*</span></label>
+          <input type="time" id="shiftRequestStartTime" required>
+        </div>
+        
+        <div class="form-group">
+          <label>근무 종료 시간 <span style="color: var(--danger-color);">*</span></label>
+          <input type="time" id="shiftRequestEndTime" required>
+        </div>
+        
+        <div class="form-group">
+          <label>사유 <span style="color: var(--danger-color);">*</span></label>
+          <textarea id="shiftRequestReason" rows="3" placeholder="교대근무가 필요한 사유를 간단히 입력해주세요" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeShiftRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitShiftRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 근무시간 수정 모달 -->
   <div id="editAttendanceModal" class="modal-overlay" style="display: none;">
     <div class="modal-content" style="max-width: 500px;">
@@ -813,6 +858,26 @@
   <!-- HTML2PDF 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+  <!-- 교대근무 요청 알림 모달 (실시간 팝업) -->
+  <div id="shiftRequestNotificationModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div style="background: var(--info-color); color: white; padding: 20px; border-radius: 12px 12px 0 0;">
+          <h3 style="margin: 0; font-size: 18px;">🔄 대타근무 구합니다!</h3>
+        </div>
+        <div style="padding: 24px;">
+          <div id="shiftNotificationContent" style="margin-bottom: 24px; line-height: 1.8; font-size: 15px;">
+            <!-- 동적으로 생성 -->
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <button class="btn btn-secondary" onclick="rejectShiftRequest()" style="flex: 1;">거절</button>
+            <button class="btn btn-primary" onclick="acceptShiftRequest()" style="flex: 1; background: var(--success-color);">✅ 승인하기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 결근 사유 입력 모달 -->
   <div id="absentReasonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9999; overflow-y: auto;">
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
@@ -849,6 +914,83 @@
           </button>
         </div>
         
+      </div>
+    </div>
+  </div>
+
+  <!-- 교대근무 신청 모달 -->
+  <div id="shiftRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">🔄 교대근무 신청</h2>
+        <button class="modal-close" onclick="closeShiftRequestModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" style="margin-bottom: var(--spacing-lg);">
+          <strong>💡 교대근무 신청 안내</strong><br>
+          출근하지 못하는 날짜와 시간을 선택하면, 같은 매장의 다른 직원에게 대타 요청이 전송됩니다.
+        </div>
+        
+        <div class="form-group">
+          <label for="shiftRequestDate">근무 날짜 *</label>
+          <input type="date" id="shiftRequestDate" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="shiftRequestSchedule">근무 시간 *</label>
+          <select id="shiftRequestSchedule" required>
+            <option value="">선택하세요</option>
+          </select>
+          <small style="color: var(--text-secondary); display: block; margin-top: 4px;">
+            해당 날짜의 본인 스케줄이 자동으로 표시됩니다.
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label for="shiftRequestReason">사유 *</label>
+          <textarea id="shiftRequestReason" placeholder="교대근무가 필요한 사유를 입력하세요..." rows="4" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeShiftRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitShiftRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 교대근무 요청 알림 모달 (다른 직원들에게 표시) -->
+  <div id="shiftNotificationModal" class="modal-overlay" style="display: none; z-index: 10000;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header" style="background: var(--info-color); color: white;">
+        <h2 style="margin: 0;">🔔 대타근무 요청</h2>
+      </div>
+      <div class="modal-body">
+        <div style="text-align: center; padding: var(--spacing-lg); background: var(--bg-light); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <div style="font-size: 24px; margin-bottom: var(--spacing-md);">🙋‍♂️</div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: var(--spacing-sm);" id="shiftNotifRequester"></div>
+          <div style="font-size: 14px; color: var(--text-secondary);">님이 대타근무를 요청했습니다</div>
+        </div>
+        
+        <div style="background: white; border: 2px solid var(--info-color); border-radius: var(--border-radius); padding: var(--spacing-lg); margin-bottom: var(--spacing-lg);">
+          <div style="display: grid; grid-template-columns: 80px 1fr; gap: var(--spacing-sm); font-size: 14px;">
+            <div style="font-weight: 600;">📅 날짜:</div>
+            <div id="shiftNotifDate"></div>
+            
+            <div style="font-weight: 600;">⏰ 시간:</div>
+            <div id="shiftNotifTime"></div>
+            
+            <div style="font-weight: 600;">📝 사유:</div>
+            <div id="shiftNotifReason" style="color: var(--text-secondary);"></div>
+          </div>
+        </div>
+        
+        <div class="alert alert-warning" style="font-size: 13px;">
+          ⚠️ 승인 시 해당 날짜/시간에 출근하지 않으면 결근 처리됩니다.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="rejectShiftRequest()">거절</button>
+        <button class="btn btn-primary" onclick="acceptShiftRequest()">승인</button>
       </div>
     </div>
   </div>

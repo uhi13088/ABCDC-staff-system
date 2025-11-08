@@ -273,6 +273,7 @@
                   <option value="purchase">💳 구매</option>
                   <option value="disposal">🗑️ 폐기</option>
                   <option value="resignation">📄 퇴직서</option>
+                  <option value="shift">🔄 교대근무</option>
                 </select>
               </div>
               <div class="filter-group">
@@ -3315,22 +3316,62 @@
         const typeFilter = document.getElementById('approvalTypeFilter')?.value || '';
         const statusFilter = document.getElementById('approvalStatusFilter')?.value || '';
         
-        let query = db.collection('approvals');
+        let approvals = [];
         
-        if (typeFilter) {
-          query = query.where('type', '==', typeFilter);
+        // 교대근무 승인 조회 (shift_requests 컬렉션)
+        if (!typeFilter || typeFilter === 'shift') {
+          let shiftQuery = db.collection('shift_requests').where('status', '==', 'matched');
+          if (!statusFilter) {
+            shiftQuery = shiftQuery.where('approvedByAdmin', '==', false);
+          }
+          
+          const shiftSnapshot = await shiftQuery.get();
+          shiftSnapshot.forEach(doc => {
+            const data = doc.data();
+            approvals.push({
+              id: doc.id,
+              type: 'shift',
+              applicantName: data.requesterName,
+              status: data.approvedByAdmin ? 'approved' : 'pending',
+              createdAt: data.matchedAt || data.createdAt,
+              data: {
+                requesterName: data.requesterName,
+                matchedUserName: data.matchedUserName,
+                workDate: data.workDate,
+                workStartTime: data.workStartTime,
+                workEndTime: data.workEndTime,
+                reason: data.reason,
+                store: data.store
+              }
+            });
+          });
         }
         
-        if (statusFilter) {
-          query = query.where('status', '==', statusFilter);
-        } else {
-          // 기본적으로 대기중만 표시
-          query = query.where('status', '==', 'pending');
+        // 기존 승인 문서 조회 (approvals 컬렉션)
+        if (!typeFilter || typeFilter !== 'shift') {
+          let query = db.collection('approvals');
+          
+          if (typeFilter && typeFilter !== 'shift') {
+            query = query.where('type', '==', typeFilter);
+          }
+          
+          if (statusFilter) {
+            query = query.where('status', '==', statusFilter);
+          } else {
+            // 기본적으로 대기중만 표시
+            query = query.where('status', '==', 'pending');
+          }
+          
+          const snapshot = await query.get();
+          snapshot.forEach(doc => {
+            approvals.push({
+              id: doc.id,
+              ...doc.data()
+            });
+          });
         }
         
-        const snapshot = await query.get();
-        
-        if (snapshot.empty) {
+        if (approvals.length === 0) {
           tbody.innerHTML = `
             <tr>
               <td colspan="6" style="text-align: center; padding: 40px;">
@@ -3344,14 +3385,6 @@
           `;
           return;
         }
-        
-        const approvals = [];
-        snapshot.forEach(doc => {
-          approvals.push({
-            id: doc.id,
-            ...doc.data()
-          });
-        });
         
         // 최신순 정렬
         approvals.sort((a, b) => {
@@ -3368,13 +3401,15 @@
           const typeEmoji = {
             'purchase': '💳',
             'disposal': '🗑️',
-            'resignation': '📄'
+            'resignation': '📄',
+            'shift': '🔄'
           };
           
           const typeText = {
             'purchase': '구매',
             'disposal': '폐기',
-            'resignation': '퇴직서'
+            'resignation': '퇴직서',
+            'shift': '교대근무'
           };
           
           const statusBadge = {
@@ -3393,22 +3428,24 @@
             summary = `${approval.data?.category || '-'}`;
           } else if (approval.type === 'resignation') {
             summary = `희망 퇴직일: ${approval.data?.resignationDate || '-'}`;
+          } else if (approval.type === 'shift') {
+            summary = `${approval.data?.requesterName} → ${approval.data?.matchedUserName} (${approval.data?.workDate} ${approval.data?.workStartTime}~${approval.data?.workEndTime})`;
           }
           
           // 매니저는 승인/거부 버튼 표시 안 함
           const actionButtons = !isManager && approval.status === 'pending'
             ? `<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-                <button class="btn btn-sm" style="background: var(--primary-color); color: white;" onclick="viewApprovalDetail('${approval.id}')">
+                <button class="btn btn-sm" style="background: var(--primary-color); color: white;" onclick="viewApprovalDetail('${approval.id}', '${approval.type}')">
                   📄 상세
                 </button>
                 <button class="btn btn-sm" style="background: var(--success-color, #28a745); color: white;" onclick="approveDocument('${approval.id}', '${approval.type}')">
                   ✅ 승인
                 </button>
-                <button class="btn btn-sm" style="background: var(--danger-color, #dc3545); color: white;" onclick="rejectDocument('${approval.id}')">
+                <button class="btn btn-sm" style="background: var(--danger-color, #dc3545); color: white;" onclick="rejectDocument('${approval.id}', '${approval.type}')">
                   ❌ 거부
                 </button>
               </div>`
-            : `<button class="btn btn-sm" style="background: var(--text-secondary); color: white;" onclick="viewApprovalDetail('${approval.id}')">
+            : `<button class="btn btn-sm" style="background: var(--text-secondary); color: white;" onclick="viewApprovalDetail('${approval.id}', '${approval.type}')">
                 📄 상세보기
               </button>`;
           
@@ -3593,28 +3630,81 @@
       }
       
       try {
-        await db.collection('approvals').doc(approvalId).update({
-          status: 'approved',
-          approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          approvedBy: sessionStorage.getItem('admin_email')
-        });
-        
-        // 퇴직서인 경우 계정 삭제
-        if (type === 'resignation') {
-          const doc = await db.collection('approvals').doc(approvalId).get();
-          const approval = doc.data();
+        // 교대근무 승인 처리
+        if (type === 'shift') {
+          // 교대근무 요청 데이터 가져오기
+          const shiftDoc = await db.collection('shift_requests').doc(approvalId).get();
+          const shiftData = shiftDoc.data();
           
-          if (approval.applicantUid) {
-            // users 컬렉션에서 삭제
-            await db.collection('users').doc(approval.applicantUid).delete();
-            // employees 컬렉션에서 삭제
-            await db.collection('employees').doc(approval.applicantUid).delete();
+          // 1. 원래 직원(A)의 스케줄 찾아서 삭제
+          const originalScheduleQuery = await db.collection('schedules')
+            .where('userId', '==', shiftData.requesterId)
+            .where('store', '==', shiftData.store)
+            .where('date', '==', shiftData.workDate)
+            .get();
+          
+          const deletePromises = [];
+          originalScheduleQuery.forEach(doc => {
+            deletePromises.push(db.collection('schedules').doc(doc.id).delete());
+            console.log(`✅ 원래 직원(${shiftData.requesterName}) 스케줄 삭제: ${shiftData.workDate}`);
+          });
+          
+          // 2. 대타 직원(B)의 새 스케줄 추가
+          const newSchedule = {
+            userId: shiftData.matchedUserId,
+            userName: shiftData.matchedUserName,
+            store: shiftData.store,
+            date: shiftData.workDate,
+            startTime: shiftData.workStartTime,
+            endTime: shiftData.workEndTime,
+            isShiftReplacement: true, // 교대근무 표시
+            originalRequesterId: shiftData.requesterId,
+            originalRequesterName: shiftData.requesterName,
+            shiftRequestId: approvalId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          
+          deletePromises.push(db.collection('schedules').add(newSchedule));
+          console.log(`✅ 대타 직원(${shiftData.matchedUserName}) 스케줄 추가: ${shiftData.workDate} ${shiftData.workStartTime}~${shiftData.workEndTime}`);
+          
+          // 3. 모든 작업 실행
+          await Promise.all(deletePromises);
+          
+          // 4. 교대근무 요청 상태 업데이트
+          await db.collection('shift_requests').doc(approvalId).update({
+            status: 'approved',
+            approvedByAdmin: true,
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedBy: sessionStorage.getItem('admin_email')
+          });
+          
+          alert('✅ 교대근무가 승인되었습니다.\n스케줄이 자동으로 변경되었습니다.');
+        } else {
+          // 기존 문서 승인 처리
+          await db.collection('approvals').doc(approvalId).update({
+            status: 'approved',
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedBy: sessionStorage.getItem('admin_email')
+          });
+          
+          // 퇴직서인 경우 계정 삭제
+          if (type === 'resignation') {
+            const doc = await db.collection('approvals').doc(approvalId).get();
+            const approval = doc.data();
             
-            console.log(`✅ 퇴직서 승인으로 ${approval.applicantName} 직원 계정 삭제 완료`);
+            if (approval.applicantUid) {
+              // users 컬렉션에서 삭제
+              await db.collection('users').doc(approval.applicantUid).delete();
+              // employees 컬렉션에서 삭제
+              await db.collection('employees').doc(approval.applicantUid).delete();
+              
+              console.log(`✅ 퇴직서 승인으로 ${approval.applicantName} 직원 계정 삭제 완료`);
+            }
           }
+          
+          alert('✅ 문서가 승인되었습니다.');
         }
         
-        alert('✅ 문서가 승인되었습니다.');
         loadApprovals(); // 목록 새로고침
         
       } catch (error) {
@@ -3624,7 +3714,7 @@
     }
 
     // 문서 거부
-    async function rejectDocument(approvalId) {
+    async function rejectDocument(approvalId, type) {
       const reason = prompt('거부 사유를 입력하세요:');
       
       if (reason === null) {
@@ -3632,12 +3722,24 @@
       }
       
       try {
-        await db.collection('approvals').doc(approvalId).update({
-          status: 'rejected',
-          rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          rejectedBy: sessionStorage.getItem('admin_email'),
-          rejectReason: reason
-        });
+        // 교대근무 거부 처리
+        if (type === 'shift') {
+          await db.collection('shift_requests').doc(approvalId).update({
+            status: 'rejected',
+            approvedByAdmin: false,
+            rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            rejectedBy: sessionStorage.getItem('admin_email'),
+            rejectReason: reason
+          });
+        } else {
+          // 기존 문서 거부 처리
+          await db.collection('approvals').doc(approvalId).update({
+            status: 'rejected',
+            rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            rejectedBy: sessionStorage.getItem('admin_email'),
+            rejectReason: reason
+          });
+        }
         
         alert('❌ 문서가 거부되었습니다.');
         loadApprovals(); // 목록 새로고침
