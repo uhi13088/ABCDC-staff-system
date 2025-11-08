@@ -3303,6 +3303,10 @@ async function showShiftRequestModal() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('shiftRequestDate').value = tomorrow.toISOString().split('T')[0];
   document.getElementById('shiftRequestDate').min = tomorrow.toISOString().split('T')[0];
+  
+  // 시간 기본값: 오전 12:00 ~ 오후 10:00
+  document.getElementById('shiftRequestStartTime').value = '00:00';
+  document.getElementById('shiftRequestEndTime').value = '22:00';
 }
 
 /**
@@ -3325,8 +3329,8 @@ async function submitShiftRequest() {
   const endTime = document.getElementById('shiftRequestEndTime').value;
   const reason = document.getElementById('shiftRequestReason').value.trim();
   
-  if (!date || !startTime || !endTime || !reason) {
-    alert('모든 항목을 입력해주세요.');
+  if (!date || !startTime || !endTime) {
+    alert('날짜와 시간을 입력해주세요.');
     return;
   }
   
@@ -3343,7 +3347,7 @@ async function submitShiftRequest() {
       workDate: date,
       workStartTime: startTime,
       workEndTime: endTime,
-      reason: reason,
+      reason: reason || '사유 없음',
       status: 'pending',
       matchedUserId: null,
       matchedUserName: null,

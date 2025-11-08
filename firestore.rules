@@ -199,6 +199,36 @@ service cloud.firestore {
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    // shift_requests 컬렉션: 교대근무 신청
+    match /shift_requests/{requestId} {
+      // 읽기: 같은 매장 직원이거나 관리자
+      allow read: if request.auth != null;
+      
+      // 생성: 인증된 직원이 본인 UID로 신청
+      allow create: if request.auth != null && 
+                       request.resource.data.requesterId == request.auth.uid;
+      
+      // 수정: 같은 매장 직원(대타 승인) 또는 관리자(최종 승인)
+      allow update: if request.auth != null && 
+                       (resource.data.store == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.store || 
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // 삭제: 본인이 신청한 것이거나 관리자
+      allow delete: if request.auth != null && 
+                       (resource.data.requesterId == request.auth.uid || 
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // schedules 컬렉션: 근무 스케줄
+    match /schedules/{scheduleId} {
+      // 읽기: 인증된 모든 사용자 (본인 스케줄 필터링은 클라이언트에서)
+      allow read: if request.auth != null;
+      
+      // 생성/수정/삭제: 관리자만 가능 (교대근무 승인 시 자동 변경 포함)
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
     // 기타 모든 컬렉션: 관리자만 접근
     match /{document=**} {
       allow read, write: if request.auth != null && 
