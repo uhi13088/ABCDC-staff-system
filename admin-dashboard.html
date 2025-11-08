@@ -1845,29 +1845,29 @@
                 </tr>
                 <tr>
                   <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">계약 기간</th>
-                  <td style="border: 1px solid #333; padding: 10px;">${contract.startDate} ~ ${contract.endDate}</td>
+                  <td style="border: 1px solid #333; padding: 10px;">${contract.contractStartDate || contract.startDate || '-'} ~ ${contract.contractEndDate || contract.endDate || '-'}</td>
                 </tr>
                 <tr>
                   <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">근무 장소</th>
-                  <td style="border: 1px solid #333; padding: 10px;">${contract.workStore}</td>
+                  <td style="border: 1px solid #333; padding: 10px;">${contract.workStore || contract.workPlace || '-'}</td>
                 </tr>
                 <tr>
                   <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">업무 내용</th>
-                  <td style="border: 1px solid #333; padding: 10px;">${contract.position}</td>
+                  <td style="border: 1px solid #333; padding: 10px;">${contract.position || contract.employeePosition || '-'}</td>
                 </tr>
                 <tr>
                   <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">근무 일시</th>
                   <td style="border: 1px solid #333; padding: 10px; line-height: 1.8;">
-                    <div>근무일: ${contract.workDays}</div>
-                    <div>근무시간: ${contract.workTime}</div>
-                    <div>휴게시간: ${contract.breakTime || '근로기준법 준수'}</div>
+                    <div>근무일: ${contract.workDays || contract.schedule?.days || '-'}</div>
+                    <div>근무시간: ${contract.workTime || contract.schedule?.time || '-'}</div>
+                    <div>휴게시간: ${contract.breakTime || contract.schedule?.breakTime || '근로기준법 준수'}</div>
                   </td>
                 </tr>
                 <tr>
                   <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: left;">급여 조건</th>
                   <td style="border: 1px solid #333; padding: 10px; line-height: 1.8;">
-                    <div>${contract.wageType}: ${contract.wageAmount}원</div>
-                    <div>지급일: ${contract.paymentDay || '매월 말일'}</div>
+                    <div>${contract.wageType || contract.salaryType || '시급'}: ${(contract.wageAmount || contract.salaryAmount || 0).toLocaleString()}원</div>
+                    <div>지급일: ${contract.paymentDay || contract.salaryPaymentDay || '매월 말일'}</div>
                     <div>지급방법: ${contract.paymentMethod || '계좌이체'}</div>
                   </td>
                 </tr>
