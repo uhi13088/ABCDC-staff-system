@@ -933,7 +933,62 @@ function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth
       const contractStartMinutes = timeToMinutes(contract.workStartTime);
       const contractEndMinutes = timeToMinutes(contract.workEndTime);
       const actualStartMinutes = timeToMinutes(record.clockIn);
-      const actualEndMi
+      const actualEndMinutes = timeToMinutes(record.clockOut);
+      
+      // 조기출근 처리
+      const earlyMinutes = contractStartMinutes - actualStartMinutes;
+      if (earlyMinutes > 0 && earlyMinutes < thresholds.earlyClockIn) {
+        adjustedClockIn = contract.workStartTime;
+        console.log(`⏰ 조기출근 ${earlyMinutes}분 (허용 ${thresholds.earlyClockIn}분 미만) → 미적용`);
+      }
+      
+      // 조기퇴근 처리
+      const earlyLeaveMinutes = contractEndMinutes - actualEndMinutes;
+      if (earlyLeaveMinutes > 0 && earlyLeaveMinutes <= thresholds.earlyClockOut) {
+        adjustedClockOut = contract.workEndTime;
+        console.log(`⏰ 조기퇴근 ${earlyLeaveMinutes}분 (허용 ${thresholds.earlyClockOut}분 이내) → 차감 없음`);
+      } else if (earlyLeaveMinutes > thresholds.earlyClockOut) {
+        console.log(`⚠️ 조기퇴근 ${earlyLeaveMinutes}분 (허용 ${thresholds.earlyClockOut}분 초과) → 차감`);
+      }
+      
+      // 초과근무 처리
+      const overtimeMinutes = actualEndMinutes - contractEndMinutes;
+      if (overtimeMinutes > 0 && overtimeMinutes < thresholds.overtime) {
+        adjustedClockOut = contract.workEndTime;
+        console.log(`⏰ 초과근무 ${overtimeMinutes}분 (허용 ${thresholds.overtime}분 미만) → 미적용`);
+      }
+    }
+    
+    const minutes = getWorkMinutes(adjustedClockIn, adjustedClockOut);
+    totalMinutes += minutes;
+    
+    // 주차별 근무시간 누적
+    const weekKey = getWeekKey(record.date);
+    if (!weeklyMinutes[weekKey]) {
+      weeklyMinutes[weekKey] = 0;
+    }
+    weeklyMinutes[weekKey] += minutes;
+  });
+  
+  // 주휴수당 계산 (주 15시간 이상 근무한 주만)
+  const weeklyHolidayHours = Object.values(weeklyMinutes)
+    .filter(minutes => minutes >= 15 * 60) // 15시간 이상
+    .reduce((sum, minutes) => {
+      const weekHours = minutes / 60;
+      const holidayHours = (weekHours / 40) * 8; // 주 40시간 기준 8시간
+      return sum + holidayHours;
+    }, 0);
+  
+  const totalHours = totalMinutes / 60;
+  
+  return {
+    totalHours: totalHours,
+    weeklyHolidayHours: weeklyHolidayHours,
+    workDays: records.length,
+    absences: Object.keys(weeklyAbsences).length
+  };
+}
+
 // ===========================================
 // 교대근무 신청 시스템
 // ===========================================
