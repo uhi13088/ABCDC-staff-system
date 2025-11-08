@@ -8133,20 +8133,20 @@
           .where('store', '==', storeName)
           .get();
         
-        console.log(`📊 "${storeName}" 매장 조회된 직원 수: ${employeesSnapshot.size}명`);
-        
-        if (employeesSnapshot.empty) {
-          console.log('⚠️ 해당 매장에 직원이 없습니다.');
-          currentScheduleData = { type: 'schedule', employees: [] };
-          return;
-        }
+        console.log(`📊 "${storeName}" 매장 전체 조회: ${employeesSnapshot.size}명`);
         
         const employees = [];
         
-        // 각 직원의 스케줄 데이터 로드
+        // 각 직원의 스케줄 데이터 로드 (퇴사자 제외)
         for (const empDoc of employeesSnapshot.docs) {
           const empData = empDoc.data();
           const empUid = empDoc.id;
+          
+          // 퇴사자 제외
+          if (empData.status === 'resigned') {
+            console.log(`  ⏭️ ${empData.name}: 퇴사자 제외`);
+            continue;
+          }
           
           // schedules 컬렉션에서 해당 직원의 주간 스케줄 조회
           const scheduleDocId = `${empUid}_${year}-${weekNum}`;
@@ -8223,19 +8223,19 @@
         
         console.log(`📊 조회된 직원 수: ${employeesSnapshot.size}명`);
         
-        if (employeesSnapshot.empty) {
-          console.log('⚠️ 해당 매장에 직원이 없습니다.');
-          currentScheduleData = { type: 'attendance', employees: [] };
-          return;
-        }
-        
         const employees = [];
         const days = ['월', '화', '수', '목', '금', '토', '일'];
         
-        // 각 직원의 출퇴근 기록 로드
+        // 각 직원의 출퇴근 기록 로드 (퇴사자 제외)
         for (const empDoc of employeesSnapshot.docs) {
           const empData = empDoc.data();
           const empUid = empDoc.id;
+          
+          // 퇴사자 제외
+          if (empData.status === 'resigned') {
+            console.log(`  ⏭️ ${empData.name}: 퇴사자 제외`);
+            continue;
+          }
           
           const schedules = {};
           
@@ -8652,6 +8652,13 @@
       
       employeesSnapshot.forEach(doc => {
         const empData = doc.data();
+        
+        // 퇴사자 제외
+        if (empData.status === 'resigned') {
+          console.log(`  ⏭️ ${empData.name}: 퇴사자 제외 (시뮬레이터)`);
+          return;
+        }
+        
         employees.push({
           uid: doc.id,
           name: empData.name,
