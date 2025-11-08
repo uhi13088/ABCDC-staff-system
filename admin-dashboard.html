@@ -8108,11 +8108,19 @@
      */
     async function loadScheduleData(storeId, year, weekNum) {
       try {
-        // 해당 매장의 모든 직원 조회
+        // 선택된 매장 이름 가져오기
+        const storeDoc = await db.collection('stores').doc(storeId).get();
+        const storeName = storeDoc.exists ? storeDoc.data().name : '';
+        
+        console.log(`🔍 스케줄 조회: 매장ID=${storeId}, 매장명=${storeName}, 주차=${year}-${weekNum}`);
+        
+        // 해당 매장의 모든 직원 조회 (store 필드 사용)
         const employeesSnapshot = await db.collection('users')
           .where('role', '==', 'employee')
-          .where('storeId', '==', storeId)
+          .where('store', '==', storeName)
           .get();
+        
+        console.log(`📊 조회된 직원 수: ${employeesSnapshot.size}명`);
         
         if (employeesSnapshot.empty) {
           console.log('⚠️ 해당 매장에 직원이 없습니다.');
@@ -8183,11 +8191,19 @@
      */
     async function loadAttendanceData(storeId, monday) {
       try {
-        // 해당 매장의 모든 직원 조회
+        // 선택된 매장 이름 가져오기
+        const storeDoc = await db.collection('stores').doc(storeId).get();
+        const storeName = storeDoc.exists ? storeDoc.data().name : '';
+        
+        console.log(`🔍 출퇴근 기록 조회: 매장ID=${storeId}, 매장명=${storeName}`);
+        
+        // 해당 매장의 모든 직원 조회 (store 필드 사용)
         const employeesSnapshot = await db.collection('users')
           .where('role', '==', 'employee')
-          .where('storeId', '==', storeId)
+          .where('store', '==', storeName)
           .get();
+        
+        console.log(`📊 조회된 직원 수: ${employeesSnapshot.size}명`);
         
         if (employeesSnapshot.empty) {
           console.log('⚠️ 해당 매장에 직원이 없습니다.');
@@ -8601,9 +8617,11 @@
       
       // 매장 정보 및 직원 목록 로드
       const storeDoc = await db.collection('stores').doc(storeId).get();
+      const storeName = storeDoc.exists ? storeDoc.data().name : '';
+      
       const employeesSnapshot = await db.collection('users')
         .where('role', '==', 'employee')
-        .where('storeId', '==', storeId)
+        .where('store', '==', storeName)
         .get();
       
       if (employeesSnapshot.empty) {
