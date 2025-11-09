@@ -287,3 +287,321 @@ exports.cleanupOldResignedUsers = functions.https.onRequest(async (req, res) => 
     });
   }
 });
+
+/**
+ * 자동 결근 기록 생성 (매일 자정 1분 실행)
+ * 
+ * Cloud Scheduler 설정:
+ * - 스케줄: 1 0 * * * (매일 자정 1분, Asia/Seoul)
+ * - 타임존: Asia/Seoul
+ * - URL: https://us-central1-abcdc-staff-system.cloudfunctions.net/createAbsentRecords
+ * 
+ * 기능:
+ * 1. 어제 날짜 기준으로 모든 계약서 조회
+ * 2. 어제 출근일이었는데 attendance 기록이 없는 경우
+ * 3. 자동으로 status: 'absent' 결근 기록 생성
+ */
+exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
+  console.log('🔄 자동 결근 기록 생성 시작');
+  
+  try {
+    const db = admin.firestore();
+    
+    // 어제 날짜 계산 (KST 기준)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // 어제의 요일 계산 (0: 일요일, 1: 월요일, ..., 6: 토요일)
+    const yesterdayDayOfWeek = yesterday.getDay();
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const yesterdayDayName = dayNames[yesterdayDayOfWeek];
+    
+    console.log(`📅 대상 날짜: ${yesterdayStr} (${yesterdayDayName}요일)`);
+    
+    // 1. 모든 활성 계약서 조회
+    const contractsSnapshot = await db.collection('contracts')
+      .where('status', '==', 'active')
+      .get();
+    
+    console.log(`📋 활성 계약서: ${contractsSnapshot.size}개`);
+    
+    if (contractsSnapshot.empty) {
+      return res.status(200).json({
+        success: true,
+        message: '활성 계약서가 없습니다.',
+        date: yesterdayStr,
+        createdCount: 0
+      });
+    }
+    
+    // 2. 어제 출근일이었던 직원 필터링
+    const workersYesterday = [];
+    
+    contractsSnapshot.forEach(doc => {
+      const contract = doc.data();
+      
+      // workDays 배열에 어제 요일이 포함되어 있는지 체크
+      // workDays: ['월', '화', '수', '목', '금'] 형식
+      if (contract.workDays && contract.workDays.includes(yesterdayDayName)) {
+        workersYesterday.push({
+          contractId: doc.id,
+          ...contract
+        });
+      }
+    });
+    
+    console.log(`👥 어제 출근 예정이었던 직원: ${workersYesterday.length}명`);
+    
+    if (workersYesterday.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: '어제 출근 예정이었던 직원이 없습니다.',
+        date: yesterdayStr,
+        dayOfWeek: yesterdayDayName,
+        createdCount: 0
+      });
+    }
+    
+    // 3. attendance 기록 확인 및 결근 기록 생성
+    const createdRecords = [];
+    const batch = db.batch();
+    
+    for (const worker of workersYesterday) {
+      // 해당 직원의 어제 attendance 기록 확인
+      const attendanceQuery = await db.collection('attendance')
+        .where('uid', '==', worker.employeeId)
+        .where('date', '==', yesterdayStr)
+        .get();
+      
+      // attendance 기록이 없으면 결근 기록 생성
+      if (attendanceQuery.empty) {
+        const newAbsentRef = db.collection('attendance').doc();
+        
+        const absentRecord = {
+          uid: worker.employeeId,
+          name: worker.employeeName,
+          store: worker.workStore,
+          date: yesterdayStr,
+          status: 'absent',
+          clockIn: null,
+          clockOut: null,
+          workType: '계약',
+          autoCreated: true, // 자동 생성 표시
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        batch.set(newAbsentRef, absentRecord);
+        
+        createdRecords.push({
+          id: newAbsentRef.id,
+          name: worker.employeeName,
+          store: worker.workStore,
+          date: yesterdayStr
+        });
+        
+        console.log(`➕ 결근 기록 생성: ${worker.employeeName} (${worker.workStore}) - ${yesterdayStr}`);
+      } else {
+        console.log(`✓ 출근 기록 존재: ${worker.employeeName} (${worker.workStore})`);
+      }
+    }
+    
+    // 4. 배치 커밋
+    if (createdRecords.length > 0) {
+      await batch.commit();
+      console.log(`✅ ${createdRecords.length}명의 결근 기록 생성 완료`);
+    } else {
+      console.log(`✓ 생성할 결근 기록 없음 (모두 출근 기록 존재)`);
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: `${createdRecords.length}명의 결근 기록이 생성되었습니다.`,
+      date: yesterdayStr,
+      dayOfWeek: yesterdayDayName,
+      totalWorkers: workersYesterday.length,
+      createdCount: createdRecords.length,
+      createdRecords: createdRecords
+    });
+    
+  } catch (error) {
+    console.error('❌ 자동 결근 기록 생성 실패:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+/**
+ * 수동 결근 기록 생성 테스트 (특정 날짜)
+ * 
+ * 사용법:
+ * curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/createAbsentRecordsForDate \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"date":"2025-11-08"}'
+ * 
+ * 기능: 특정 날짜에 대한 결근 기록을 수동으로 생성 (테스트/보정용)
+ */
+exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) => {
+  // POST 요청만 허용
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      error: 'Method Not Allowed. Use POST.'
+    });
+  }
+  
+  const targetDate = req.body.date;
+  
+  if (!targetDate) {
+    return res.status(400).json({
+      success: false,
+      error: '날짜를 지정해주세요. 예: {"date":"2025-11-08"}'
+    });
+  }
+  
+  // 날짜 형식 검증 (YYYY-MM-DD)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    return res.status(400).json({
+      success: false,
+      error: '날짜 형식이 잘못되었습니다. YYYY-MM-DD 형식으로 입력해주세요.'
+    });
+  }
+  
+  console.log(`🔄 수동 결근 기록 생성 시작 (날짜: ${targetDate})`);
+  
+  try {
+    const db = admin.firestore();
+    
+    // 지정된 날짜의 Date 객체 생성
+    const targetDateObj = new Date(targetDate + 'T00:00:00+09:00');
+    const targetDayOfWeek = targetDateObj.getDay();
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const targetDayName = dayNames[targetDayOfWeek];
+    
+    console.log(`📅 대상 날짜: ${targetDate} (${targetDayName}요일)`);
+    
+    // 1. 모든 활성 계약서 조회
+    const contractsSnapshot = await db.collection('contracts')
+      .where('status', '==', 'active')
+      .get();
+    
+    console.log(`📋 활성 계약서: ${contractsSnapshot.size}개`);
+    
+    if (contractsSnapshot.empty) {
+      return res.status(200).json({
+        success: true,
+        message: '활성 계약서가 없습니다.',
+        date: targetDate,
+        createdCount: 0
+      });
+    }
+    
+    // 2. 지정 날짜에 출근일이었던 직원 필터링
+    const workersOnDate = [];
+    
+    contractsSnapshot.forEach(doc => {
+      const contract = doc.data();
+      
+      if (contract.workDays && contract.workDays.includes(targetDayName)) {
+        workersOnDate.push({
+          contractId: doc.id,
+          ...contract
+        });
+      }
+    });
+    
+    console.log(`👥 ${targetDate} 출근 예정이었던 직원: ${workersOnDate.length}명`);
+    
+    if (workersOnDate.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `${targetDate}에 출근 예정이었던 직원이 없습니다.`,
+        date: targetDate,
+        dayOfWeek: targetDayName,
+        createdCount: 0
+      });
+    }
+    
+    // 3. attendance 기록 확인 및 결근 기록 생성
+    const createdRecords = [];
+    const existingRecords = [];
+    const batch = db.batch();
+    
+    for (const worker of workersOnDate) {
+      // 해당 직원의 attendance 기록 확인
+      const attendanceQuery = await db.collection('attendance')
+        .where('uid', '==', worker.employeeId)
+        .where('date', '==', targetDate)
+        .get();
+      
+      // attendance 기록이 없으면 결근 기록 생성
+      if (attendanceQuery.empty) {
+        const newAbsentRef = db.collection('attendance').doc();
+        
+        const absentRecord = {
+          uid: worker.employeeId,
+          name: worker.employeeName,
+          store: worker.workStore,
+          date: targetDate,
+          status: 'absent',
+          clockIn: null,
+          clockOut: null,
+          workType: '계약',
+          autoCreated: true,
+          manuallyCreated: true, // 수동 생성 표시
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        batch.set(newAbsentRef, absentRecord);
+        
+        createdRecords.push({
+          id: newAbsentRef.id,
+          name: worker.employeeName,
+          store: worker.workStore,
+          date: targetDate
+        });
+        
+        console.log(`➕ 결근 기록 생성: ${worker.employeeName} (${worker.workStore}) - ${targetDate}`);
+      } else {
+        existingRecords.push({
+          name: worker.employeeName,
+          store: worker.workStore
+        });
+        console.log(`✓ 출근 기록 존재: ${worker.employeeName} (${worker.workStore})`);
+      }
+    }
+    
+    // 4. 배치 커밋
+    if (createdRecords.length > 0) {
+      await batch.commit();
+      console.log(`✅ ${createdRecords.length}명의 결근 기록 생성 완료`);
+    } else {
+      console.log(`✓ 생성할 결근 기록 없음`);
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: `${createdRecords.length}명의 결근 기록이 생성되었습니다.`,
+      date: targetDate,
+      dayOfWeek: targetDayName,
+      totalWorkers: workersOnDate.length,
+      createdCount: createdRecords.length,
+      existingCount: existingRecords.length,
+      createdRecords: createdRecords,
+      existingRecords: existingRecords
+    });
+    
+  } catch (error) {
+    console.error('❌ 수동 결근 기록 생성 실패:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
