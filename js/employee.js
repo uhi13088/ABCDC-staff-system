@@ -3210,11 +3210,45 @@ async function loadEmployeeSchedule() {
     const mondayStr = monday.toISOString().split('T')[0];
     const sundayStr = sunday.toISOString().split('T')[0];
     
+    console.log(`📅 내 스케줄 조회 시작`);
+    console.log(`   사용자: ${currentUser.name} (uid: ${currentUser.uid})`);
+    console.log(`   기간: ${mondayStr} ~ ${sundayStr}`);
+    
     const schedulesSnapshot = await db.collection('schedules')
       .where('userId', '==', currentUser.uid)
       .where('date', '>=', mondayStr)
       .where('date', '<=', sundayStr)
       .get();
+    
+    console.log(`   ✅ 조회 완료: ${schedulesSnapshot.size}개 스케줄 발견`);
+    
+    // 샘플 데이터 확인 (디버깅)
+    if (schedulesSnapshot.size > 0) {
+      console.log(`   📋 샘플 데이터 (최대 3개):`);
+      schedulesSnapshot.docs.slice(0, 3).forEach((doc, idx) => {
+        const data = doc.data();
+        console.log(`      ${idx + 1}. userId: "${data.userId}", userName: "${data.userName}", date: ${data.date}, time: ${data.startTime}-${data.endTime}`);
+      });
+    } else {
+      console.warn(`   ⚠️ 내 스케줄이 하나도 없습니다!`);
+      console.warn(`   디버깅: userId가 정확한지 확인하세요: "${currentUser.uid}"`);
+      
+      // 전체 스케줄 중 내 이름으로 검색 (디버깅용)
+      const allSchedules = await db.collection('schedules')
+        .where('userName', '==', currentUser.name)
+        .where('date', '>=', mondayStr)
+        .where('date', '<=', sundayStr)
+        .get();
+      
+      console.warn(`   userName으로 검색: ${allSchedules.size}개`);
+      if (allSchedules.size > 0) {
+        console.warn(`   ⚠️ 발견! userName은 일치하지만 userId가 다릅니다:`);
+        allSchedules.docs.slice(0, 3).forEach((doc, idx) => {
+          const data = doc.data();
+          console.warn(`      ${idx + 1}. userId: "${data.userId}" (현재 uid: "${currentUser.uid}")`);
+        });
+      }
+    }
     
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     const schedules = {};
@@ -3243,6 +3277,20 @@ async function loadEmployeeSchedule() {
         originalRequesterName: scheduleData.originalRequesterName || null
       });
     });
+    
+    // 스케줄이 없을 때 안내 메시지
+    const hasSchedules = Object.values(schedules).some(daySchedules => daySchedules.length > 0);
+    if (!hasSchedules) {
+      console.warn(`   📭 이번 주 스케줄이 없습니다.`);
+      document.getElementById('employeeScheduleContainer').innerHTML = 
+        '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">' +
+        '<div style="font-size: 48px; margin-bottom: 16px;">📭</div>' +
+        '<p style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">이번 주 스케줄이 없습니다</p>' +
+        '<p style="font-size: 14px;">관리자가 스케줄을 등록하면 여기에 표시됩니다.</p>' +
+        '<p style="font-size: 13px; color: var(--primary-color); margin-top: 16px;">💡 관리자에게 스케줄 등록을 요청하세요.</p>' +
+        '</div>';
+      return;
+    }
     
     renderEmployeeSchedule(schedules, monday);
     
