@@ -3309,9 +3309,85 @@ async function showShiftRequestModal() {
   document.getElementById('shiftRequestDate').value = tomorrow.toISOString().split('T')[0];
   document.getElementById('shiftRequestDate').min = tomorrow.toISOString().split('T')[0];
   
-  // 시간 기본값: 오전 12:00 ~ 오후 10:00
-  document.getElementById('shiftRequestStartTime').value = '00:00';
-  document.getElementById('shiftRequestEndTime').value = '22:00';
+  // 사유 기본값
+  document.getElementById('shiftRequestReason').value = '개인사정';
+  
+  // 근무시간 초기화
+  document.getElementById('shiftRequestStartTime').value = '';
+  document.getElementById('shiftRequestEndTime').value = '';
+  document.getElementById('shiftScheduleSelectGroup').style.display = 'none';
+  
+  // 내일 날짜의 근무시간 자동 로드
+  await loadMyScheduleForDate();
+}
+
+/**
+ * 선택한 날짜의 본인 근무시간 자동 로드
+ */
+async function loadMyScheduleForDate() {
+  const selectedDate = document.getElementById('shiftRequestDate').value;
+  
+  if (!selectedDate) {
+    return;
+  }
+  
+  try {
+    // 선택한 날짜의 Date 객체 생성
+    const date = new Date(selectedDate + 'T00:00:00');
+    const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+    const year = date.getFullYear();
+    const weekNum = getWeekNumber(date);
+    
+    console.log(`🔍 ${selectedDate} (${dayOfWeek}요일) 근무시간 조회: ${year}년 ${weekNum}주차`);
+    
+    // 본인의 해당 주차 스케줄 문서 조회
+    const scheduleDocId = `${currentUser.uid}_${year}-${weekNum}`;
+    const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+    
+    if (!scheduleDoc.exists) {
+      alert(`⚠️ ${selectedDate} (${dayOfWeek}요일)에 등록된 근무가 없습니다.\n교대근무는 근무가 예정된 날짜에만 신청할 수 있습니다.`);
+      document.getElementById('shiftRequestStartTime').value = '';
+      document.getElementById('shiftRequestEndTime').value = '';
+      document.getElementById('shiftScheduleSelectGroup').style.display = 'none';
+      return;
+    }
+    
+    const scheduleData = scheduleDoc.data();
+    const daySchedule = scheduleData[dayOfWeek];
+    
+    if (!daySchedule || !daySchedule.isWorkDay) {
+      alert(`⚠️ ${selectedDate} (${dayOfWeek}요일)은 휴무입니다.\n교대근무는 근무가 예정된 날짜에만 신청할 수 있습니다.`);
+      document.getElementById('shiftRequestStartTime').value = '';
+      document.getElementById('shiftRequestEndTime').value = '';
+      document.getElementById('shiftScheduleSelectGroup').style.display = 'none';
+      return;
+    }
+    
+    // 해당 날짜의 근무시간 설정
+    document.getElementById('shiftRequestStartTime').value = daySchedule.startTime;
+    document.getElementById('shiftRequestEndTime').value = daySchedule.endTime;
+    document.getElementById('shiftScheduleSelectGroup').style.display = 'none';
+    
+    console.log(`✅ 근무시간 자동 설정: ${daySchedule.startTime} ~ ${daySchedule.endTime}`);
+    
+  } catch (error) {
+    console.error('❌ 근무시간 조회 실패:', error);
+    alert('❌ 근무시간을 조회하는데 실패했습니다.');
+  }
+}
+
+/**
+ * 근무시간 선택 (여러 개 있을 경우 - 현재는 사용 안 함, 향후 확장용)
+ */
+function fillScheduleTime() {
+  const select = document.getElementById('shiftScheduleSelect');
+  const selectedOption = select.options[select.selectedIndex];
+  
+  if (selectedOption.value) {
+    const [startTime, endTime] = selectedOption.value.split('~');
+    document.getElementById('shiftRequestStartTime').value = startTime;
+    document.getElementById('shiftRequestEndTime').value = endTime;
+  }
 }
 
 /**
@@ -3323,6 +3399,7 @@ function closeShiftRequestModal() {
   document.getElementById('shiftRequestStartTime').value = '';
   document.getElementById('shiftRequestEndTime').value = '';
   document.getElementById('shiftRequestReason').value = '';
+  document.getElementById('shiftScheduleSelectGroup').style.display = 'none';
 }
 
 /**
@@ -3963,4 +4040,17 @@ async function submitImmediateReason() {
     console.error('❌ 사유 제출 오류:', error);
     alert('❌ 사유 등록에 실패했습니다.');
   }
+}
+
+/**
+ * ISO 8601 주차 계산 (월요일 기준)
+ * @param {Date} date - 날짜 객체
+ * @returns {number} 주차 번호 (1-53)
+ */
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }

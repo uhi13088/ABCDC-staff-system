@@ -702,22 +702,31 @@
         
         <div class="form-group">
           <label>교대 희망 날짜 <span style="color: var(--danger-color);">*</span></label>
-          <input type="date" id="shiftRequestDate" required>
+          <input type="date" id="shiftRequestDate" onchange="loadMyScheduleForDate()" required>
+        </div>
+        
+        <!-- 근무시간 선택 (해당 날짜에 여러 근무가 있을 경우) -->
+        <div class="form-group" id="shiftScheduleSelectGroup" style="display: none;">
+          <label>근무시간 선택 <span style="color: var(--danger-color);">*</span></label>
+          <select id="shiftScheduleSelect" onchange="fillScheduleTime()" required>
+            <option value="">근무시간을 선택하세요</option>
+          </select>
         </div>
         
         <div class="form-group">
           <label>근무 시작 시간 <span style="color: var(--danger-color);">*</span></label>
-          <input type="time" id="shiftRequestStartTime" required>
+          <input type="time" id="shiftRequestStartTime" readonly style="background-color: #f5f5f5; cursor: not-allowed;" required>
+          <small style="color: var(--text-secondary); font-size: 12px;">📌 선택한 날짜의 본인 근무시간이 자동으로 표시됩니다</small>
         </div>
         
         <div class="form-group">
           <label>근무 종료 시간 <span style="color: var(--danger-color);">*</span></label>
-          <input type="time" id="shiftRequestEndTime" required>
+          <input type="time" id="shiftRequestEndTime" readonly style="background-color: #f5f5f5; cursor: not-allowed;" required>
         </div>
         
         <div class="form-group">
           <label>사유</label>
-          <textarea id="shiftRequestReason" rows="3" placeholder="교대근무가 필요한 사유를 간단히 입력해주세요 (선택사항)"></textarea>
+          <textarea id="shiftRequestReason" rows="3" placeholder="교대근무가 필요한 사유를 간단히 입력해주세요 (선택사항)">개인사정</textarea>
         </div>
       </div>
       <div class="modal-footer">
