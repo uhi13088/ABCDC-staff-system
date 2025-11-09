@@ -505,8 +505,23 @@
             <h3>⚙️ 시스템 설정</h3>
           </div>
           <div class="card-body">
-            <p style="text-align: center; padding: 40px; color: var(--text-secondary);">
-              시스템 설정 기능은 준비 중입니다.
+            <h4 style="margin-bottom: var(--spacing-md);">🔧 데이터 마이그레이션</h4>
+            
+            <div style="background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: var(--radius-md); padding: var(--spacing-md); margin-bottom: var(--spacing-lg);">
+              <p style="margin: 0 0 8px 0; font-weight: 600; color: var(--warning-text);">⚠️ 계약서 employeeId 수정</p>
+              <p style="margin: 0 0 16px 0; font-size: 14px; color: var(--text-secondary);">
+                employeeId가 없는 계약서를 자동으로 찾아서 수정합니다.<br>
+                employeeName + employeeBirth로 직원을 찾아 employeeId를 채워줍니다.
+              </p>
+              <button class="btn btn-warning" onclick="migrateContractEmployeeIds()" style="background: var(--warning); color: white;">
+                🔄 계약서 employeeId 자동 수정
+              </button>
+              <div id="migrationLog" style="margin-top: var(--spacing-md); font-family: monospace; font-size: 13px; background: var(--bg-secondary); padding: var(--spacing-sm); border-radius: var(--radius-sm); max-height: 300px; overflow-y: auto; display: none;">
+              </div>
+            </div>
+            
+            <p style="text-align: center; padding: 20px; color: var(--text-secondary); font-size: 14px;">
+              다른 시스템 설정 기능은 준비 중입니다.
             </p>
           </div>
         </div>
@@ -10780,6 +10795,96 @@
       } catch (error) {
         console.error('❌ PDF 저장 실패:', error);
         alert('PDF 저장에 실패했습니다.');
+      }
+    }
+
+    // 🔧 계약서 employeeId 마이그레이션
+    async function migrateContractEmployeeIds() {
+      const logDiv = document.getElementById('migrationLog');
+      logDiv.style.display = 'block';
+      logDiv.innerHTML = '<p style="color: var(--primary);">🔄 마이그레이션 시작...</p>';
+      
+      try {
+        const db = firebase.firestore();
+        
+        // 1. 모든 계약서 가져오기
+        const contractsSnapshot = await db.collection('contracts').get();
+        logDiv.innerHTML += `<p>📋 총 ${contractsSnapshot.size}개의 계약서를 찾았습니다.</p>`;
+        
+        let fixedCount = 0;
+        let errorCount = 0;
+        let skipCount = 0;
+        
+        // 2. employeeId가 없는 계약서 찾기
+        for (const contractDoc of contractsSnapshot.docs) {
+          const contractData = contractDoc.data();
+          const contractId = contractDoc.id;
+          
+          // employeeId가 이미 있으면 건너뛰기
+          if (contractData.employeeId) {
+            skipCount++;
+            continue;
+          }
+          
+          logDiv.innerHTML += `<p style="color: var(--warning);">⚠️ employeeId 없음: ${contractData.employeeName} (${contractData.employeeBirth})</p>`;
+          
+          // 3. employeeName + employeeBirth로 users에서 직원 찾기
+          try {
+            const usersSnapshot = await db.collection('users')
+              .where('name', '==', contractData.employeeName)
+              .where('birth', '==', contractData.employeeBirth)
+              .where('role', '==', 'employee')
+              .get();
+            
+            if (usersSnapshot.empty) {
+              logDiv.innerHTML += `<p style="color: var(--error);">  ❌ 일치하는 직원을 찾을 수 없습니다.</p>`;
+              errorCount++;
+              continue;
+            }
+            
+            if (usersSnapshot.size > 1) {
+              logDiv.innerHTML += `<p style="color: var(--warning);">  ⚠️ 여러 명의 직원이 발견됨 (${usersSnapshot.size}명). 첫 번째 직원으로 설정합니다.</p>`;
+            }
+            
+            const employeeDoc = usersSnapshot.docs[0];
+            const employeeId = employeeDoc.id;
+            
+            // 4. 계약서에 employeeId 추가
+            await db.collection('contracts').doc(contractId).update({
+              employeeId: employeeId,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              migratedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            logDiv.innerHTML += `<p style="color: var(--success);">  ✅ employeeId 설정 완료: ${employeeId}</p>`;
+            fixedCount++;
+            
+          } catch (error) {
+            logDiv.innerHTML += `<p style="color: var(--error);">  ❌ 오류: ${error.message}</p>`;
+            errorCount++;
+          }
+        }
+        
+        // 5. 결과 요약
+        logDiv.innerHTML += `<p style="border-top: 2px solid var(--border-color); padding-top: 8px; margin-top: 8px; font-weight: 600;">
+          📊 마이그레이션 완료<br>
+          ✅ 수정됨: ${fixedCount}개<br>
+          ⏭️ 건너뜀 (이미 있음): ${skipCount}개<br>
+          ❌ 오류: ${errorCount}개
+        </p>`;
+        
+        if (fixedCount > 0) {
+          alert(`✅ ${fixedCount}개의 계약서가 수정되었습니다!\n\n이제 직원 페이지에서 계약서를 확인할 수 있습니다.`);
+        } else if (skipCount === contractsSnapshot.size) {
+          alert('ℹ️ 모든 계약서에 이미 employeeId가 있습니다.');
+        } else {
+          alert(`⚠️ ${errorCount}개의 계약서를 수정하지 못했습니다.\n로그를 확인해주세요.`);
+        }
+        
+      } catch (error) {
+        console.error('마이그레이션 실패:', error);
+        logDiv.innerHTML += `<p style="color: var(--error);">❌ 마이그레이션 실패: ${error.message}</p>`;
+        alert('마이그레이션 중 오류가 발생했습니다.');
       }
     }
   </script>

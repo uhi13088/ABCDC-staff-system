@@ -8,14 +8,18 @@
 }
 
 :root {
+  --primary: #8b7355;
   --primary-color: #8b7355;
   --primary-dark: #6b5d4f;
   --bg-light: #f5f1e8;
   --bg-white: #fdfcfa;
+  --bg-secondary: #f9f7f4;
   --text-primary: #6b5d4f;
   --text-secondary: #9b8a76;
   --border-color: #e8dfd0;
   --border-radius: 8px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
   --shadow-sm: 0 2px 8px rgba(107, 93, 79, 0.08);
   --shadow-lg: 0 8px 24px rgba(107, 93, 79, 0.15);
   --spacing-xs: 6px;
@@ -23,8 +27,14 @@
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
+  --success: #7a9b7a;
   --success-color: #7a9b7a;
+  --warning: #d4a574;
   --warning-color: #d4a574;
+  --warning-bg: #fef9f3;
+  --warning-border: #f5e5d3;
+  --warning-text: #d4a574;
+  --error: #c67b7b;
   --danger-color: #c67b7b;
 }
 
@@ -138,6 +148,16 @@ body {
 .btn-success {
   background: var(--success-color);
   color: var(--bg-white);
+}
+
+.btn-warning {
+  background: var(--warning);
+  color: var(--bg-white);
+}
+
+.btn-warning:hover {
+  background: #c59464;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-info {
