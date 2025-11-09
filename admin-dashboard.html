@@ -7337,6 +7337,7 @@
               if (docCount % 500 === 0) {
                 await batch.commit();
                 console.log(`   ${docCount}개 스케줄 생성 중...`);
+                batch = firebase.firestore().batch(); // 새 배치 생성
               }
             }
           });
