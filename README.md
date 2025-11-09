@@ -64,7 +64,23 @@ curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/cleanupOr
 
 ## 📦 배포
 
-### Firebase Hosting (메인 배포 방식)
+### GitHub → Firebase Hosting 자동 배포
+이 프로젝트는 **GitHub Actions를 통한 자동 배포**가 설정되어 있습니다.
+
+```bash
+# GitHub에 푸시하면 자동으로 Firebase Hosting에 배포됩니다
+git add .
+git commit -m "Update feature"
+git push origin main
+```
+
+**자동 배포 프로세스**:
+1. `main` 브랜치에 코드 푸시
+2. GitHub Actions 자동 실행
+3. Firebase Hosting 자동 배포
+4. 배포 완료 (약 2-3분 소요)
+
+### 수동 배포 (선택사항)
 ```bash
 # 프로젝트 빌드 및 배포
 firebase deploy --only hosting
@@ -235,6 +251,20 @@ firebase deploy
 ## 📝 주요 업데이트
 
 ### 최신 업데이트 (2025-11-09)
+
+**🔧 데이터 마이그레이션 시스템 추가**
+- ✅ **계약서 employeeId 자동 수정**: 관리자 페이지 → 시스템 설정 탭
+- ✅ **employeeId 누락 계약서 자동 감지**: employeeName + employeeBirth로 직원 조회
+- ✅ **자동 데이터 복구**: Firestore 계약서 데이터 자동 업데이트
+- ✅ **상세 마이그레이션 로그**: 수정 완료/건너뜀/오류 건수 실시간 표시
+- ✅ **계약서 원본보기 버그 수정**: 계약 기간 undefined 해결 (contractStartDate/contractEndDate 폴백 지원)
+
+**🐛 버그 수정**
+- ✅ 직원 페이지 계약서 조회 개선: employeeId → employeeName 폴백 로직 수정
+- ✅ 계약서 원본보기 페이지 날짜 표시 오류 수정
+- ✅ 디버깅 로그 추가: 계약서 조회 실패 원인 자동 분석
+
+### 이전 업데이트 (2025-11-09)
 
 **🤖 자동 결근 기록 생성 시스템 (Cloud Functions) 🎉**
 - ✅ **매일 자동 실행**: Cloud Scheduler로 매일 자정 1분에 자동 실행
