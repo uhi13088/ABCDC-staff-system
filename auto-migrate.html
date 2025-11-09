@@ -167,6 +167,42 @@
         log('🚀 자동 마이그레이션 시작');
         log('========================================\n');
 
+        // 로그인 상태 확인
+        const user = firebase.auth().currentUser;
+        if (!user) {
+          log('❌ 로그인이 필요합니다!', 'error');
+          log('관리자 계정으로 로그인 후 다시 시도하세요.', 'error');
+          log('로그인 페이지: https://abcdc-staff-system.web.app/admin-login.html', 'warning');
+          updateProgress(0, '로그인 필요');
+          document.getElementById('startBtn').disabled = false;
+          return;
+        }
+        
+        log(`현재 로그인: ${user.email}`);
+        
+        // 관리자 권한 확인
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        if (!userDoc.exists) {
+          log('❌ 사용자 정보를 찾을 수 없습니다.', 'error');
+          updateProgress(0, '사용자 정보 없음');
+          document.getElementById('startBtn').disabled = false;
+          return;
+        }
+        
+        const userData = userDoc.data();
+        log(`사용자 권한: ${userData.role || '권한 없음'}`);
+        
+        if (userData.role !== 'admin') {
+          log('❌ 관리자 권한이 필요합니다!', 'error');
+          log(`현재 권한: ${userData.role}`, 'error');
+          log('관리자 계정으로 다시 로그인하세요.', 'warning');
+          updateProgress(0, '관리자 권한 필요');
+          document.getElementById('startBtn').disabled = false;
+          return;
+        }
+        
+        log('✅ 관리자 권한 확인 완료\n', 'success');
+
         // 0단계: 구조 확인
         updateProgress(0, '0단계: 현재 데이터 구조 확인 중...');
         const structureCheck = await checkStructure();
