@@ -196,6 +196,14 @@
       const savedEmail = localStorage.getItem('employee_saved_email');
       const savedPassword = localStorage.getItem('employee_saved_password');
       
+      // 관리자 이메일이 저장되어 있으면 삭제 (uhi1308, admin 등)
+      if (savedEmail && (savedEmail.includes('uhi1308') || savedEmail.includes('admin'))) {
+        localStorage.removeItem('employee_saved_email');
+        localStorage.removeItem('employee_saved_password');
+        console.log('⚠️ 관리자 계정 자동 입력 정보 삭제됨');
+        return;
+      }
+      
       if (savedEmail && savedPassword) {
         document.getElementById('employeeId').value = savedEmail;
         document.getElementById('employeePassword').value = savedPassword;
@@ -226,6 +234,10 @@
           
           // 직원 권한 확인 (admin, manager가 아닌 경우만 허용)
           if (userData.role === 'admin' || userData.role === 'manager') {
+            // 관리자 계정이 저장된 경우 localStorage 삭제
+            localStorage.removeItem('employee_saved_email');
+            localStorage.removeItem('employee_saved_password');
+            
             alert('❌ 관리자 계정은 관리자 로그인 페이지를 이용해주세요.');
             await auth.signOut();
             return;
