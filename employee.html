@@ -879,6 +879,33 @@
     </div>
   </div>
 
+  <!-- 즉시 사유 입력 모달 (지각/조퇴/초과근무/조기출근) -->
+  <div id="immediateReasonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10001; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: var(--border-radius); width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div style="padding: var(--spacing-lg); border-bottom: 2px solid var(--border-color); background: #fff3cd;">
+          <h3 id="immediateReasonTitle" style="margin: 0; font-size: 18px; font-weight: 700; color: #856404;"></h3>
+          <p id="immediateReasonDesc" style="margin: 8px 0 0 0; font-size: 13px; color: #856404;"></p>
+        </div>
+        <div style="padding: var(--spacing-lg);">
+          <div id="immediateReasonInfo" style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: #f8f9fa; border-radius: 6px; border-left: 4px solid var(--primary-color);"></div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px;">사유</label>
+          <textarea 
+            id="immediateReasonInput" 
+            placeholder="사유를 상세히 입력해주세요."
+            style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; resize: vertical; font-family: inherit;"
+          ></textarea>
+          <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+            💡 입력한 사유는 관리자에게 전달됩니다.
+          </div>
+        </div>
+        <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); display: flex; gap: 12px;">
+          <button class="btn btn-primary" onclick="submitImmediateReason()" style="flex: 1;">확인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 결근 사유 입력 모달 -->
   <div id="absentReasonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9999; overflow-y: auto;">
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">

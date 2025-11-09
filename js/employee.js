@@ -336,14 +336,19 @@ async function recordAttendance(type) {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
       
+      let docRef;
       if (snapshot.empty) {
-        await db.collection('attendance').add(recordData);
+        docRef = await db.collection('attendance').add(recordData);
       } else {
-        await snapshot.docs[0].ref.update({
+        docRef = snapshot.docs[0].ref;
+        await docRef.update({
           clockIn: timeStr,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       }
+      
+      // 계약서 조회하여 지각/조기출근 체크
+      await checkClockInViolation(timeStr, dateStr, docRef, snapshot.empty ? docRef.id : snapshot.docs[0].id);
       
       alert(`✅ 출근 처리되었습니다!\n\n시간: ${timeStr}\n날짜: ${dateStr}`);
       
@@ -375,8 +380,8 @@ async function recordAttendance(type) {
       // 근무 시간 계산
       const workTime = calculateWorkTime(todayRecord.clockIn, timeStr);
       
-      // 계약서 근무시간과 비교 체크
-      await checkContractTimeViolation(todayRecord.clockIn, timeStr, snapshot.docs[0].id, dateStr);
+      // 계약서 근무시간과 비교 체크 (조퇴/초과근무)
+      await checkClockOutViolation(todayRecord.clockIn, timeStr, snapshot.docs[0].id, dateStr);
       
       alert(`✅ 퇴근 처리되었습니다!\n\n시간: ${timeStr}\n근무 시간: ${workTime}\n\n수고하셨습니다! 😊`);
     }
@@ -3690,4 +3695,272 @@ function formatDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+// ===========================================
+// 출퇴근 시간 위반 체크 및 즉시 사유 입력
+// ===========================================
+
+let currentReasonContext = null; // 현재 사유 입력 컨텍스트
+
+/**
+ * 출근 시간 위반 체크 (지각/조기출근)
+ */
+async function checkClockInViolation(clockInTime, date, attendanceRef, attendanceId) {
+  if (!currentUser) return;
+  
+  try {
+    // 계약서 조회
+    const contractsSnapshot = await db.collection('contracts')
+      .where('employeeName', '==', currentUser.name)
+      .where('employeeBirth', '==', currentUser.birth)
+      .where('workStore', '==', currentUser.store)
+      .limit(1)
+      .get();
+    
+    if (contractsSnapshot.empty) {
+      console.log('⚠️ 계약서 없음, 출근 체크 건너뜀');
+      return;
+    }
+    
+    const contract = contractsSnapshot.docs[0].data();
+    const contractStartTime = contract.workStartTime;
+    
+    if (!contractStartTime) return;
+    
+    // 매장 허용시간 설정 조회
+    const thresholds = await getStoreThresholds(currentUser.store);
+    
+    // 시간을 분으로 변환
+    const clockInMinutes = timeToMinutes(clockInTime);
+    const contractStartMinutes = timeToMinutes(contractStartTime);
+    
+    // 지각 체크
+    const lateMinutes = clockInMinutes - contractStartMinutes;
+    if (lateMinutes > thresholds.earlyClockIn) {
+      console.log(`🚨 지각 감지: ${lateMinutes}분 늦음`);
+      showImmediateReasonModal('late', {
+        attendanceId: attendanceId,
+        attendanceRef: attendanceRef,
+        date: date,
+        clockInTime: clockInTime,
+        contractStartTime: contractStartTime,
+        lateMinutes: lateMinutes
+      });
+      return;
+    }
+    
+    // 조기출근 체크  
+    const earlyMinutes = contractStartMinutes - clockInMinutes;
+    if (earlyMinutes > thresholds.earlyClockIn) {
+      console.log(`🚨 조기출근 감지: ${earlyMinutes}분 일찍 출근`);
+      showImmediateReasonModal('earlyArrival', {
+        attendanceId: attendanceId,
+        attendanceRef: attendanceRef,
+        date: date,
+        clockInTime: clockInTime,
+        contractStartTime: contractStartTime,
+        earlyMinutes: earlyMinutes
+      });
+      return;
+    }
+    
+  } catch (error) {
+    console.error('❌ 출근 시간 체크 오류:', error);
+  }
+}
+
+/**
+ * 퇴근 시간 위반 체크 (조퇴/초과근무)
+ */
+async function checkClockOutViolation(clockInTime, clockOutTime, attendanceId, date) {
+  if (!currentUser) return;
+  
+  try {
+    // 계약서 조회
+    const contractsSnapshot = await db.collection('contracts')
+      .where('employeeName', '==', currentUser.name)
+      .where('employeeBirth', '==', currentUser.birth)
+      .where('workStore', '==', currentUser.store)
+      .limit(1)
+      .get();
+    
+    if (contractsSnapshot.empty) {
+      console.log('⚠️ 계약서 없음, 퇴근 체크 건너뜀');
+      return;
+    }
+    
+    const contract = contractsSnapshot.docs[0].data();
+    const contractEndTime = contract.workEndTime;
+    
+    if (!contractEndTime) return;
+    
+    // 매장 허용시간 설정 조회
+    const thresholds = await getStoreThresholds(currentUser.store);
+    
+    // 시간을 분으로 변환
+    const clockOutMinutes = timeToMinutes(clockOutTime);
+    const contractEndMinutes = timeToMinutes(contractEndTime);
+    
+    // 조퇴 체크
+    const earlyLeaveMinutes = contractEndMinutes - clockOutMinutes;
+    if (earlyLeaveMinutes > thresholds.earlyClockOut) {
+      console.log(`🚨 조퇴 감지: ${earlyLeaveMinutes}분 일찍 퇴근`);
+      showImmediateReasonModal('earlyLeave', {
+        attendanceId: attendanceId,
+        date: date,
+        clockOutTime: clockOutTime,
+        contractEndTime: contractEndTime,
+        earlyLeaveMinutes: earlyLeaveMinutes
+      });
+      return;
+    }
+    
+    // 초과근무 체크
+    const overtimeMinutes = clockOutMinutes - contractEndMinutes;
+    if (overtimeMinutes > thresholds.overtime) {
+      console.log(`🚨 초과근무 감지: ${overtimeMinutes}분 초과`);
+      showImmediateReasonModal('overtime', {
+        attendanceId: attendanceId,
+        date: date,
+        clockOutTime: clockOutTime,
+        contractEndTime: contractEndTime,
+        overtimeMinutes: overtimeMinutes
+      });
+      return;
+    }
+    
+  } catch (error) {
+    console.error('❌ 퇴근 시간 체크 오류:', error);
+  }
+}
+
+/**
+ * 매장 허용시간 설정 조회
+ */
+async function getStoreThresholds(storeName) {
+  const defaultThresholds = {
+    earlyClockIn: 15,    // 조기출근 허용시간 (분)
+    earlyClockOut: 5,    // 조퇴 허용시간 (분)
+    overtime: 5          // 초과근무 허용시간 (분)
+  };
+  
+  try {
+    const storeSnapshot = await db.collection('stores')
+      .where('name', '==', storeName)
+      .limit(1)
+      .get();
+    
+    if (!storeSnapshot.empty) {
+      const storeData = storeSnapshot.docs[0].data();
+      if (storeData.attendanceThresholds) {
+        return storeData.attendanceThresholds;
+      }
+    }
+  } catch (error) {
+    console.error('❌ 매장 설정 조회 오류:', error);
+  }
+  
+  return defaultThresholds;
+}
+
+/**
+ * 즉시 사유 입력 모달 표시
+ */
+function showImmediateReasonModal(type, context) {
+  currentReasonContext = { type, ...context };
+  
+  const modal = document.getElementById('immediateReasonModal');
+  const title = document.getElementById('immediateReasonTitle');
+  const desc = document.getElementById('immediateReasonDesc');
+  const info = document.getElementById('immediateReasonInfo');
+  const input = document.getElementById('immediateReasonInput');
+  
+  // 유형별 메시지
+  const messages = {
+    late: {
+      title: '⏰ 지각 사유 입력',
+      desc: '예정 출근 시간보다 늦게 출근하셨습니다.',
+      info: `예정 출근: ${context.contractStartTime}<br>실제 출근: ${context.clockInTime}<br><strong style="color: var(--danger-color);">${context.lateMinutes}분 지각</strong>`
+    },
+    earlyArrival: {
+      title: '🌅 조기출근 사유 입력',
+      desc: '예정 출근 시간보다 일찍 출근하셨습니다.',
+      info: `예정 출근: ${context.contractStartTime}<br>실제 출근: ${context.clockInTime}<br><strong style="color: var(--info-color);">${context.earlyMinutes}분 조기출근</strong>`
+    },
+    earlyLeave: {
+      title: '🏃 조퇴 사유 입력',
+      desc: '예정 퇴근 시간보다 일찍 퇴근하셨습니다.',
+      info: `예정 퇴근: ${context.contractEndTime}<br>실제 퇴근: ${context.clockOutTime}<br><strong style="color: var(--danger-color);">${context.earlyLeaveMinutes}분 조퇴</strong>`
+    },
+    overtime: {
+      title: '🌙 초과근무 사유 입력',
+      desc: '예정 퇴근 시간보다 늦게 퇴근하셨습니다.',
+      info: `예정 퇴근: ${context.contractEndTime}<br>실제 퇴근: ${context.clockOutTime}<br><strong style="color: var(--primary-color);">${context.overtimeMinutes}분 초과근무</strong>`
+    }
+  };
+  
+  const message = messages[type];
+  title.textContent = message.title;
+  desc.textContent = message.desc;
+  info.innerHTML = message.info;
+  input.value = '';
+  
+  modal.style.display = 'flex';
+}
+
+/**
+ * 즉시 사유 제출
+ */
+async function submitImmediateReason() {
+  const reason = document.getElementById('immediateReasonInput').value.trim();
+  
+  if (!reason) {
+    alert('⚠️ 사유를 입력해주세요.');
+    return;
+  }
+  
+  if (reason.length < 5) {
+    alert('⚠️ 사유를 5자 이상 입력해주세요.');
+    return;
+  }
+  
+  try {
+    const { type, attendanceId, attendanceRef } = currentReasonContext;
+    
+    // 유형별 필드명
+    const reasonFields = {
+      late: 'lateReason',
+      earlyArrival: 'earlyArrivalReason',
+      earlyLeave: 'earlyLeaveReason',
+      overtime: 'overtimeReason'
+    };
+    
+    const fieldName = reasonFields[type];
+    
+    // Firestore 업데이트
+    const updateData = {
+      [fieldName]: reason,
+      [`${fieldName}SubmittedAt`]: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (attendanceRef) {
+      await attendanceRef.update(updateData);
+    } else {
+      await db.collection('attendance').doc(attendanceId).update(updateData);
+    }
+    
+    console.log(`✅ ${type} 사유 제출 완료`);
+    
+    // 모달 닫기
+    document.getElementById('immediateReasonModal').style.display = 'none';
+    currentReasonContext = null;
+    
+    alert('✅ 사유가 등록되었습니다.');
+    
+  } catch (error) {
+    console.error('❌ 사유 제출 오류:', error);
+    alert('❌ 사유 등록에 실패했습니다.');
+  }
 }
