@@ -183,8 +183,10 @@
     window.addEventListener('DOMContentLoaded', function() {
       const savedEmail = localStorage.getItem('admin_saved_email');
       const savedPassword = localStorage.getItem('admin_saved_password');
+      const rememberMeChecked = localStorage.getItem('admin_remember_me') === 'true';
       
-      if (savedEmail && savedPassword) {
+      // 기억하기 체크가 true일 때만 자동 입력
+      if (rememberMeChecked && savedEmail && savedPassword) {
         document.getElementById('adminEmail').value = savedEmail;
         document.getElementById('adminPassword').value = savedPassword;
         document.getElementById('rememberMe').checked = true;
@@ -246,9 +248,11 @@
           if (rememberMe) {
             localStorage.setItem('admin_saved_email', email);
             localStorage.setItem('admin_saved_password', password);
+            localStorage.setItem('admin_remember_me', 'true');
           } else {
             localStorage.removeItem('admin_saved_email');
             localStorage.removeItem('admin_saved_password');
+            localStorage.removeItem('admin_remember_me');
           }
           
           // 인증 성공 - 세션 저장 후 대시보드로 이동
