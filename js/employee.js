@@ -2196,25 +2196,47 @@ async function loadMyApprovals() {
   tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">신청 내역을 불러오는 중...</td></tr>';
   
   try {
-    const snapshot = await db.collection('approvals')
+    // 문서 승인 (구매/폐기/퇴직서) 조회
+    const approvalsSnapshot = await db.collection('approvals')
       .where('applicantUid', '==', currentUser.uid)
       .get();
     
-    if (snapshot.empty) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);"><div style="font-size: 48px; margin-bottom: 16px;">📝</div><p>아직 신청한 문서가 없습니다.</p><p style="font-size: 13px; margin-top: 8px;">상단의 버튼을 눌러 문서를 신청해보세요!</p></td></tr>';
-      return;
-    }
+    // 교대근무 신청 조회
+    const shiftRequestsSnapshot = await db.collection('shift_requests')
+      .where('requesterId', '==', currentUser.uid)
+      .get();
     
-    const approvals = [];
-    snapshot.forEach(doc => {
-      approvals.push({
+    const allRequests = [];
+    
+    // 문서 승인 추가
+    approvalsSnapshot.forEach(doc => {
+      allRequests.push({
         id: doc.id,
+        collection: 'approvals',
         ...doc.data()
       });
     });
     
+    // 교대근무 신청 추가
+    shiftRequestsSnapshot.forEach(doc => {
+      const data = doc.data();
+      allRequests.push({
+        id: doc.id,
+        collection: 'shift_requests',
+        type: 'shift',
+        status: data.finalApprovalStatus || 'pending',
+        createdAt: data.createdAt,
+        data: data
+      });
+    });
+    
+    if (allRequests.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);"><div style="font-size: 48px; margin-bottom: 16px;">📝</div><p>아직 신청한 문서가 없습니다.</p><p style="font-size: 13px; margin-top: 8px;">상단의 버튼을 눌러 문서를 신청해보세요!</p></td></tr>';
+      return;
+    }
+    
     // 클라이언트 측에서 날짜순 정렬 (최신순)
-    approvals.sort((a, b) => {
+    allRequests.sort((a, b) => {
       const aTime = a.createdAt?.toDate?.() || new Date(0);
       const bTime = b.createdAt?.toDate?.() || new Date(0);
       return bTime - aTime;
@@ -2223,50 +2245,59 @@ async function loadMyApprovals() {
     const typeEmoji = {
       'purchase': '💳',
       'disposal': '🗑️',
-      'resignation': '📄'
+      'resignation': '📄',
+      'shift': '🔄'
     };
     
     const typeText = {
       'purchase': '구매',
       'disposal': '폐기',
-      'resignation': '퇴직서'
+      'resignation': '퇴직서',
+      'shift': '교대근무'
     };
     
     const statusBadge = {
       'pending': '<span class="badge badge-warning" style="background: #ffc107; color: #000;">대기중</span>',
       'approved': '<span class="badge badge-success">승인됨</span>',
-      'rejected': '<span class="badge badge-danger">거부됨</span>'
+      'rejected': '<span class="badge badge-danger">거부됨</span>',
+      'cancelled': '<span class="badge" style="background: #999; color: white;">취소됨</span>'
     };
     
-    tbody.innerHTML = approvals.map(approval => {
-      const createdDate = approval.createdAt?.toDate?.() ? approval.createdAt.toDate().toLocaleString('ko-KR') : '-';
+    tbody.innerHTML = allRequests.map(request => {
+      const createdDate = request.createdAt?.toDate?.() ? request.createdAt.toDate().toLocaleString('ko-KR') : '-';
       
       // 요약 정보
       let summary = '';
-      if (approval.type === 'purchase') {
-        const items = approval.data?.items || [];
+      if (request.type === 'purchase') {
+        const items = request.data?.items || [];
         summary = items.length > 0 ? `${items[0].item} 외 ${items.length - 1}건` : '-';
-      } else if (approval.type === 'disposal') {
-        summary = `${approval.data?.category || '-'}`;
-      } else if (approval.type === 'resignation') {
-        summary = `희망일: ${approval.data?.resignationDate || '-'}`;
+      } else if (request.type === 'disposal') {
+        summary = `${request.data?.category || '-'}`;
+      } else if (request.type === 'resignation') {
+        summary = `희망일: ${request.data?.resignationDate || '-'}`;
+      } else if (request.type === 'shift') {
+        summary = `${request.data?.workDate || '-'} ${request.data?.workStartTime || ''}-${request.data?.workEndTime || ''}`;
       }
       
-      const detailButton = `<button class="btn btn-sm" style="background: var(--primary-color); color: white;" onclick="viewMyApprovalDetail('${approval.id}')">
-        📄 상세보기
-      </button>`;
+      const detailButton = request.collection === 'approvals' 
+        ? `<button class="btn btn-sm" style="background: var(--primary-color); color: white;" onclick="viewMyApprovalDetail('${request.id}')">
+            📄 상세보기
+          </button>`
+        : `<button class="btn btn-sm" style="background: var(--info-color); color: white;" onclick="viewShiftRequestDetail('${request.id}')">
+            📄 상세보기
+          </button>`;
       
       // 거부 사유 표시
-      const rejectInfo = approval.status === 'rejected' && approval.rejectReason 
-        ? `<br><small style="color: var(--danger-color);">거부 사유: ${approval.rejectReason}</small>`
+      const rejectInfo = request.status === 'rejected' && request.rejectReason 
+        ? `<br><small style="color: var(--danger-color);">거부 사유: ${request.rejectReason}</small>`
         : '';
       
       return `
         <tr>
-          <td>${typeEmoji[approval.type] || ''} ${typeText[approval.type] || '-'}</td>
+          <td>${typeEmoji[request.type] || ''} ${typeText[request.type] || '-'}</td>
           <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${summary}</td>
           <td style="font-size: 12px;">${createdDate}</td>
-          <td>${statusBadge[approval.status] || '-'}${rejectInfo}</td>
+          <td>${statusBadge[request.status] || '-'}${rejectInfo}</td>
           <td>${detailButton}</td>
         </tr>
       `;
@@ -2661,8 +2692,114 @@ async function submitResignationRequest() {
 
 // 내 승인 상세보기
 async function viewMyApprovalDetail(approvalId) {
-  alert('📄 상세보기 기능은 곧 추가됩니다.');
-  // TODO: 상세보기 모달 구현
+  try {
+    const doc = await db.collection('approvals').doc(approvalId).get();
+    if (!doc.exists) {
+      alert('❌ 문서를 찾을 수 없습니다.');
+      return;
+    }
+    
+    const approval = doc.data();
+    const typeText = {
+      'purchase': '구매 신청',
+      'disposal': '폐기 신청',
+      'resignation': '퇴직서 신청'
+    };
+    
+    const statusText = {
+      'pending': '승인 대기중',
+      'approved': '승인됨',
+      'rejected': '거부됨'
+    };
+    
+    let detailHtml = '';
+    
+    if (approval.type === 'purchase') {
+      const items = approval.data?.items || [];
+      detailHtml = `
+        <h4>구매 물품</h4>
+        ${items.map((item, idx) => `
+          <div style="border: 1px solid var(--border-color); padding: 12px; margin: 8px 0; border-radius: 4px;">
+            <strong>${idx + 1}. ${item.item}</strong><br>
+            구매처: ${item.vendor}<br>
+            가격: ${parseInt(item.price).toLocaleString()}원<br>
+            수량: ${item.quantity}개
+          </div>
+        `).join('')}
+        <p><strong>총 금액:</strong> ${parseInt(approval.data?.totalPrice || 0).toLocaleString()}원</p>
+        <p><strong>구매 사유:</strong> ${approval.data?.reason || '-'}</p>
+      `;
+    } else if (approval.type === 'disposal') {
+      detailHtml = `
+        <p><strong>품목:</strong> ${approval.data?.category || '-'}</p>
+        <p><strong>사유:</strong> ${approval.data?.reason || '-'}</p>
+      `;
+    } else if (approval.type === 'resignation') {
+      detailHtml = `
+        <p><strong>희망 퇴직일:</strong> ${approval.data?.resignationDate || '-'}</p>
+        <p><strong>사유:</strong> ${approval.data?.reason || '-'}</p>
+      `;
+    }
+    
+    const rejectInfo = approval.status === 'rejected' && approval.rejectReason
+      ? `<div style="background: #ffebee; border-left: 4px solid #f44336; padding: 12px; margin-top: 12px;">
+          <strong style="color: #f44336;">거부 사유:</strong><br>
+          ${approval.rejectReason}
+        </div>`
+      : '';
+    
+    alert(`📄 ${typeText[approval.type] || '문서'} 상세 정보\n\n상태: ${statusText[approval.status]}\n신청일: ${approval.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '-'}\n\n${detailHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')}\n\n${approval.rejectReason ? '거부 사유: ' + approval.rejectReason : ''}`);
+    
+  } catch (error) {
+    console.error('❌ 상세보기 오류:', error);
+    alert('❌ 상세 정보를 불러오는데 실패했습니다.');
+  }
+}
+
+async function viewShiftRequestDetail(requestId) {
+  try {
+    const doc = await db.collection('shift_requests').doc(requestId).get();
+    if (!doc.exists) {
+      alert('❌ 교대근무 신청을 찾을 수 없습니다.');
+      return;
+    }
+    
+    const request = doc.data();
+    
+    const statusText = {
+      'pending': '대타 찾는 중',
+      'matched': '대타 승인 대기',
+      'approved': '최종 승인됨',
+      'rejected': '거부됨',
+      'cancelled': '취소됨'
+    };
+    
+    let detailText = `📄 교대근무 신청 상세 정보\n\n`;
+    detailText += `상태: ${statusText[request.finalApprovalStatus] || '알 수 없음'}\n`;
+    detailText += `신청일: ${request.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '-'}\n\n`;
+    detailText += `근무 날짜: ${request.workDate}\n`;
+    detailText += `근무 시간: ${request.workStartTime} ~ ${request.workEndTime}\n`;
+    detailText += `사유: ${request.reason || '-'}\n\n`;
+    
+    if (request.matchedUserId && request.matchedUserName) {
+      detailText += `대타 직원: ${request.matchedUserName}\n`;
+      detailText += `대타 승인일: ${request.matchedAt?.toDate?.()?.toLocaleString('ko-KR') || '-'}\n`;
+    }
+    
+    if (request.finalApprovalStatus === 'approved' && request.approvedAt) {
+      detailText += `\n최종 승인일: ${request.approvedAt.toDate().toLocaleString('ko-KR')}`;
+    }
+    
+    if (request.finalApprovalStatus === 'rejected' && request.rejectReason) {
+      detailText += `\n\n거부 사유: ${request.rejectReason}`;
+    }
+    
+    alert(detailText);
+    
+  } catch (error) {
+    console.error('❌ 상세보기 오류:', error);
+    alert('❌ 상세 정보를 불러오는데 실패했습니다.');
+  }
 }
 
 // ===================================================================
@@ -3643,15 +3780,16 @@ async function loadStoreSchedule() {
     
     // 직원별로 스케줄 정리
     const employeeSchedules = {};
+    const userIds = new Set();
     
     scheduleQuery.forEach(doc => {
       const data = doc.data();
       const employeeId = data.userId;
-      const employeeName = data.userName;
+      userIds.add(employeeId);
       
       if (!employeeSchedules[employeeId]) {
         employeeSchedules[employeeId] = {
-          name: employeeName,
+          name: '', // 나중에 채움
           schedules: []
         };
       }
@@ -3659,9 +3797,26 @@ async function loadStoreSchedule() {
       employeeSchedules[employeeId].schedules.push({
         date: data.date,
         startTime: data.startTime,
-        endTime: data.endTime
+        endTime: data.endTime,
+        isShiftReplacement: data.isShiftReplacement || false
       });
     });
+    
+    // users 컬렉션에서 직원 이름 가져오기
+    for (const userId of userIds) {
+      try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          employeeSchedules[userId].name = userData.name || '이름 없음';
+        } else {
+          employeeSchedules[userId].name = '알 수 없음';
+        }
+      } catch (error) {
+        console.error(`직원 ${userId} 정보 로드 실패:`, error);
+        employeeSchedules[userId].name = '로드 실패';
+      }
+    }
     
     renderStoreScheduleTimeline(employeeSchedules, monday);
     

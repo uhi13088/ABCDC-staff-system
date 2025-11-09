@@ -9442,10 +9442,8 @@
                     }
                   }
                   
-                  // 대체근무면 색상 변경
-                  if (schedule.isShiftReplacement) {
-                    barColor = '#FFC107'; // 노란색 (대체근무)
-                  }
+                  // 대체근무는 승인자(현재 직원)의 색상을 그대로 사용 (색상 변경 안 함)
+                  // isShiftReplacement는 표시용으로만 사용
                   
                   dayWorkers[day].push({
                     name: emp.name,
