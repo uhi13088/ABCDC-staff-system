@@ -1541,7 +1541,7 @@ function renderContracts(contracts) {
           <table style="width: 100%; margin-bottom: var(--spacing-md);">
             <tr>
               <td style="padding: 8px 0; color: var(--text-secondary); width: 120px;">계약 기간</td>
-              <td style="padding: 8px 0; font-weight: 600;">${contract.startDate} ~ ${contract.endDate || '기간의 정함 없음'}</td>
+              <td style="padding: 8px 0; font-weight: 600;">${contract.contractStartDate || contract.startDate || '-'} ~ ${contract.contractEndDate || contract.endDate || '기간의 정함 없음'}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: var(--text-secondary);">직책/직무</td>
