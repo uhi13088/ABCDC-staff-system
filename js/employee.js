@@ -513,10 +513,9 @@ async function checkContractTimeViolation(clockIn, clockOut, attendanceId, atten
   if (!currentUser) return;
   
   try {
-    // 계약서 조회
+    // 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const contractsSnapshot = await db.collection('contracts')
-      .where('employeeName', '==', currentUser.name)
-      .where('employeeBirth', '==', currentUser.birth)
+      .where('employeeId', '==', currentUser.uid)
       .get();
     
     if (contractsSnapshot.empty) {
@@ -838,10 +837,9 @@ async function loadSalary() {
     let hourlyWage = 10000; // 기본값
     
     try {
-      // 현재 사용자의 계약서 조회 (주민번호 기준)
+      // 현재 사용자의 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
       const contractsSnapshot = await db.collection('contracts')
-        .where('employeeName', '==', currentUser.name)
-        .where('employeeBirth', '==', currentUser.birth)
+        .where('employeeId', '==', currentUser.uid)
         .get();
       
       if (!contractsSnapshot.empty) {
@@ -884,8 +882,7 @@ async function loadSalary() {
     let latestContract = null;
     try {
       const contractsSnapshot = await db.collection('contracts')
-        .where('employeeName', '==', currentUser.name)
-        .where('employeeBirth', '==', currentUser.birth)
+        .where('employeeId', '==', currentUser.uid)
         .get();
       
       if (!contractsSnapshot.empty) {
@@ -1457,28 +1454,25 @@ async function loadContracts() {
     
     const contracts = [];
     
-    // 1. Firestore에서 계약서 조회 (이름과 생년월일로 필터링)
-    const snapshot = await db.collection('contracts').get();
+    // 1. Firestore에서 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
+    const snapshot = await db.collection('contracts')
+      .where('employeeId', '==', currentUser.uid)
+      .get();
     
     for (const doc of snapshot.docs) {
       const contractData = doc.data();
       const contractId = doc.id;
       
-      // 현재 사용자의 계약서인지 확인 (이름과 생년월일로)
-      if (contractData.employeeName === currentUser.name && 
-          contractData.employeeBirth === currentUser.birth) {
-        
-        // 서명 상태 확인
-        const signedDoc = await db.collection('signedContracts').doc(contractId).get();
-        const isSigned = signedDoc.exists;
-        
-        contracts.push({
-          contractId: contractId,
-          ...contractData,
-          status: isSigned ? '서명완료' : '서명대기',
-          signedAt: isSigned ? signedDoc.data().signedAt : null
-        });
-      }
+      // 서명 상태 확인
+      const signedDoc = await db.collection('signedContracts').doc(contractId).get();
+      const isSigned = signedDoc.exists;
+      
+      contracts.push({
+        contractId: contractId,
+        ...contractData,
+        status: isSigned ? '서명완료' : '서명대기',
+        signedAt: isSigned ? signedDoc.data().signedAt : null
+      });
     }
     
 
@@ -4239,10 +4233,9 @@ async function checkClockInViolation(clockInTime, date, attendanceRef, attendanc
   if (!currentUser) return;
   
   try {
-    // 계약서 조회
+    // 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const contractsSnapshot = await db.collection('contracts')
-      .where('employeeName', '==', currentUser.name)
-      .where('employeeBirth', '==', currentUser.birth)
+      .where('employeeId', '==', currentUser.uid)
       .where('workStore', '==', currentUser.store)
       .limit(1)
       .get();
@@ -4306,10 +4299,9 @@ async function checkClockOutViolation(clockInTime, clockOutTime, attendanceId, d
   if (!currentUser) return;
   
   try {
-    // 계약서 조회
+    // 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const contractsSnapshot = await db.collection('contracts')
-      .where('employeeName', '==', currentUser.name)
-      .where('employeeBirth', '==', currentUser.birth)
+      .where('employeeId', '==', currentUser.uid)
       .where('workStore', '==', currentUser.store)
       .limit(1)
       .get();
