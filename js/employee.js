@@ -1451,7 +1451,8 @@ async function loadContracts() {
   }
   
   try {
-    console.log('📝 계약서 조회:', { uid: currentUser.uid, name: currentUser.name, birth: currentUser.birth });
+    console.log('📝 계약서 조회 시작');
+    console.log('   사용자 정보:', { uid: currentUser.uid, name: currentUser.name, birth: currentUser.birth });
     
     const contracts = [];
     
@@ -1459,6 +1460,27 @@ async function loadContracts() {
     const snapshot = await db.collection('contracts')
       .where('employeeId', '==', currentUser.uid)
       .get();
+    
+    console.log(`   ✅ employeeId 조회 결과: ${snapshot.size}개 계약서`);
+    
+    // employeeId로 못 찾으면 employeeName + employeeBirth로 재시도 (하위 호환)
+    if (snapshot.empty) {
+      console.warn('   ⚠️ employeeId로 계약서를 찾을 수 없습니다. employeeName으로 재시도...');
+      const nameSnapshot = await db.collection('contracts')
+        .where('employeeName', '==', currentUser.name)
+        .where('employeeBirth', '==', currentUser.birth)
+        .get();
+      
+      console.log(`   📋 employeeName 조회 결과: ${nameSnapshot.size}개 계약서`);
+      
+      if (nameSnapshot.size > 0) {
+        console.warn('   ⚠️ 발견! 계약서의 employeeId가 설정되지 않았습니다:');
+        nameSnapshot.docs.forEach((doc, idx) => {
+          const data = doc.data();
+          console.warn(`      ${idx + 1}. employeeId: "${data.employeeId || 'NULL'}", employeeName: "${data.employeeName}"`);
+        });
+      }
+    }
     
     for (const doc of snapshot.docs) {
       const contractData = doc.data();
