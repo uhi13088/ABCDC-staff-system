@@ -7299,12 +7299,14 @@
         console.log(`📅 생성할 주차: ${weeksToCreate.length}주`);
         
         // 새 구조: 각 날짜별 근무를 개별 문서로 생성
-        const batch = firebase.firestore().batch();
+        let batch = firebase.firestore().batch();
         let docCount = 0;
         
         for (const week of weeksToCreate) {
           // 해당 주의 각 요일별로 처리
-          allDays.forEach((day, dayIndex) => {
+          for (let dayIndex = 0; dayIndex < allDays.length; dayIndex++) {
+            const day = allDays[dayIndex];
+            
             // 해당 요일에 근무가 있는지 확인
             if (dayScheduleMap[day]) {
               // 해당 날짜 계산
@@ -7340,7 +7342,7 @@
                 batch = firebase.firestore().batch(); // 새 배치 생성
               }
             }
-          });
+          }
         }
         
         // 남은 배치 커밋

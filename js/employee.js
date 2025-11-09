@@ -3885,16 +3885,15 @@ async function loadStoreSchedule() {
     
     // 직원별로 스케줄 정리
     const employeeSchedules = {};
-    const userIds = new Set();
     
     scheduleQuery.forEach(doc => {
       const data = doc.data();
       const employeeId = data.userId;
-      userIds.add(employeeId);
+      const employeeName = data.userName || '이름 없음'; // 스케줄 문서에 저장된 이름 사용
       
       if (!employeeSchedules[employeeId]) {
         employeeSchedules[employeeId] = {
-          name: '', // 나중에 채움
+          name: employeeName,
           schedules: []
         };
       }
@@ -3907,22 +3906,6 @@ async function loadStoreSchedule() {
       });
     });
     
-    // users 컬렉션에서 직원 이름 가져오기
-    for (const userId of userIds) {
-      try {
-        const userDoc = await db.collection('users').doc(userId).get();
-        if (userDoc.exists) {
-          const userData = userDoc.data();
-          employeeSchedules[userId].name = userData.name || '이름 없음';
-        } else {
-          employeeSchedules[userId].name = '알 수 없음';
-        }
-      } catch (error) {
-        console.error(`직원 ${userId} 정보 로드 실패:`, error);
-        employeeSchedules[userId].name = '로드 실패';
-      }
-    }
-    
     renderStoreScheduleTimeline(employeeSchedules, monday);
     
   } catch (error) {
@@ -3933,105 +3916,175 @@ async function loadStoreSchedule() {
 }
 
 /**
- * 타임라인 형태로 스케줄 렌더링 (색상과 이름만)
+ * 간트차트 형태로 스케줄 렌더링 (관리자 페이지와 동일)
  */
 function renderStoreScheduleTimeline(employeeSchedules, monday) {
   const container = document.getElementById('storeScheduleTimeline');
   const days = ['월', '화', '수', '목', '금', '토', '일'];
   
-  // 시간대 (06:00 ~ 24:00)
-  const hours = [];
-  for (let h = 6; h <= 24; h++) {
-    hours.push(h);
-  }
-  
   // 직원별 색상
   const employeeColors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', 
-    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
-    '#F8B88B', '#FAD390', '#F3A683', '#778BEB'
+    '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFE66D', '#C7CEEA',
+    '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'
   ];
   
-  let html = '<div style="display: flex; gap: 8px;">';
+  const colorMap = {};
+  let index = 0;
+  Object.entries(employeeSchedules).forEach(([employeeId, data]) => {
+    colorMap[data.name] = employeeColors[index % employeeColors.length];
+    index++;
+  });
   
-  // 각 요일별로 타임라인 생성
-  days.forEach((day, dayIndex) => {
+  // 날짜 정보 생성
+  const dateInfo = [];
+  days.forEach((day, index) => {
     const date = new Date(monday);
-    date.setDate(date.getDate() + dayIndex);
-    const dateStr = formatDate(date);
-    const displayDate = `${date.getMonth() + 1}/${date.getDate()}`;
+    date.setDate(date.getDate() + index);
+    dateInfo.push({
+      day: day,
+      date: `${date.getMonth() + 1}/${date.getDate()}`
+    });
+  });
+  
+  // 각 요일별 근무자 목록 생성
+  const dayWorkers = {};
+  days.forEach(day => {
+    dayWorkers[day] = [];
+  });
+  
+  Object.entries(employeeSchedules).forEach(([employeeId, empData]) => {
+    days.forEach((day, dayIndex) => {
+      const date = new Date(monday);
+      date.setDate(date.getDate() + dayIndex);
+      const dateStr = formatDate(date);
+      
+      // 해당 날짜의 스케줄 찾기
+      const schedulesForDay = empData.schedules.filter(s => s.date === dateStr);
+      
+      schedulesForDay.forEach(schedule => {
+        dayWorkers[day].push({
+          name: empData.name,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          color: colorMap[empData.name],
+          isShiftReplacement: schedule.isShiftReplacement || false
+        });
+      });
+    });
+  });
+  
+  // 시간 범위 (06:00 ~ 01:00)
+  const startHour = 6;
+  const endHour = 25; // 다음날 01:00
+  const totalHours = endHour - startHour;
+  const rowHeight = 35; // 1시간당 높이
+  const totalHeight = totalHours * rowHeight;
+  
+  // HTML 생성
+  let html = `
+    <div style="display: flex; gap: var(--spacing-md); width: 100%; max-width: 1400px; margin: 0 auto;">
+      <!-- 시간 레이블 열 -->
+      <div style="width: 60px; border-right: 1px solid var(--border-color); background: var(--bg-light);">
+        <div style="height: 45px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); font-weight: 700; font-size: 12px;">
+          시간
+        </div>
+        <div style="position: relative; height: ${totalHeight}px;">
+  `;
+  
+  // 시간 눈금
+  for (let h = startHour; h <= endHour; h++) {
+    const displayHour = h > 24 ? h - 24 : h;
+    const timeLabel = `${displayHour.toString().padStart(2, '0')}:00`;
+    const topPos = (h - startHour) * rowHeight;
     
     html += `
-      <div style="flex: 1; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; min-width: 180px;">
-        <div style="background: var(--primary-color); color: white; padding: 12px; text-align: center; font-weight: 600;">
-          ${day}<br>
-          <span style="font-size: 11px; opacity: 0.9;">${displayDate}</span>
+      <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500;">
+        ${timeLabel}
+      </div>
+    `;
+  }
+  
+  html += `
         </div>
-        <div style="position: relative; height: 600px; background: white;">
+      </div>
+      
+      <!-- 요일별 간트차트 열들 -->
+  `;
+  
+  // 각 요일별 칼럼
+  dateInfo.forEach((info, dayIndex) => {
+    const day = days[dayIndex];
+    const workers = dayWorkers[day];
+    
+    html += `
+      <div style="flex: 1; ${dayIndex < days.length - 1 ? 'border-right: 1px solid var(--border-color);' : ''}">
+        <!-- 요일 헤더 -->
+        <div style="height: 45px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 2px solid var(--border-color); background: var(--bg-light); font-weight: 700; font-size: 12px;">
+          <div>${info.day}</div>
+          <div style="font-size: 10px; color: var(--text-secondary); font-weight: 400;">${info.date}</div>
+        </div>
+        
+        <!-- 간트차트 영역 -->
+        <div style="position: relative; height: ${totalHeight}px; background: white;">
     `;
     
-    // 시간 눈금
-    hours.forEach(hour => {
-      const top = ((hour - 6) / 18) * 600;
+    // 시간 그리드 라인
+    for (let h = startHour; h <= endHour; h++) {
+      const topPos = (h - startHour) * rowHeight;
       html += `
-        <div style="position: absolute; left: 0; right: 0; top: ${top}px; border-top: 1px solid #f0f0f0; padding-left: 4px;">
-          <span style="font-size: 10px; color: var(--text-secondary);">${hour}:00</span>
-        </div>
+        <div style="position: absolute; top: ${topPos}px; width: 100%; height: ${rowHeight}px; border-bottom: 1px solid #f0f0f0;"></div>
       `;
-    });
+    }
     
-    // 각 직원의 스케줄 바
-    let employeeIndex = 0;
-    Object.entries(employeeSchedules).forEach(([employeeId, data]) => {
-      // 해당 날짜의 모든 스케줄 찾기 (여러 근무 지원)
-      const schedulesForDay = data.schedules.filter(s => s.date === dateStr);
+    // 각 직원의 막대
+    if (workers.length > 0) {
+      const maxBarWidth = 18; // 최대 막대 굵기 (%)
+      const minBarWidth = 8;  // 최소 막대 굵기 (%)
+      const minSpacing = 3;   // 최소 간격 (%)
       
-      if (schedulesForDay.length > 0) {
-        const color = employeeColors[employeeIndex % employeeColors.length];
-        
-        // 각 근무마다 막대 생성
-        schedulesForDay.forEach((schedule, scheduleIdx) => {
-          const startParts = schedule.startTime.split(':');
-          const endParts = schedule.endTime.split(':');
-          const startHour = parseInt(startParts[0]) + parseInt(startParts[1]) / 60;
-          const endHour = parseInt(endParts[0]) + parseInt(endParts[1]) / 60;
-          
-          // 06:00 ~ 24:00 범위로 계산
-          const top = ((startHour - 6) / 18) * 600;
-          const height = ((endHour - startHour) / 18) * 600;
-          
-          // 여러 근무가 있을 경우 좌우로 배치
-          const totalSchedules = schedulesForDay.length;
-          const width = totalSchedules > 1 ? `${100 / totalSchedules}%` : 'calc(100% - 38px)';
-          const leftOffset = totalSchedules > 1 ? `calc(30px + ${scheduleIdx * (100 / totalSchedules)}%)` : '30px';
-          
-          html += `
-            <div style="
-              position: absolute;
-              left: ${leftOffset};
-              width: ${width};
-              top: ${top}px;
-              height: ${height}px;
-              background: ${color};
-              border-radius: 4px;
-              padding: 8px;
-              color: white;
-              font-size: 13px;
-              font-weight: 600;
-              text-align: center;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            ">
-              ${data.name}
-            </div>
-          `;
-        });
+      let barWidth = maxBarWidth;
+      if (workers.length > 3) {
+        const totalWithSpacing = workers.length * maxBarWidth + (workers.length + 1) * minSpacing;
+        if (totalWithSpacing > 100) {
+          barWidth = (100 - (workers.length + 1) * minSpacing) / workers.length;
+          barWidth = Math.max(barWidth, minBarWidth);
+        }
       }
       
-      employeeIndex++;
-    });
+      const totalBarsWidth = workers.length * barWidth;
+      const availableSpace = 100;
+      const spacing = workers.length > 1 ? (availableSpace - totalBarsWidth) / (workers.length + 1) : (availableSpace - barWidth) / 2;
+      
+      workers.forEach((worker, workerIndex) => {
+        const [startH, startM] = worker.startTime.split(':').map(Number);
+        const [endH, endM] = worker.endTime.split(':').map(Number);
+        
+        const startMinutes = (startH - startHour) * 60 + startM;
+        const endMinutes = (endH - startHour) * 60 + endM;
+        
+        const topPos = (startMinutes / 60) * rowHeight;
+        const height = ((endMinutes - startMinutes) / 60) * rowHeight;
+        const leftPos = spacing * (workerIndex + 1) + barWidth * workerIndex;
+        
+        html += `
+          <div style="
+            position: absolute;
+            left: ${leftPos}%;
+            top: ${topPos}px;
+            width: ${barWidth}%;
+            height: ${height}px;
+            background: ${worker.color};
+            opacity: 0.9;
+            border-radius: 2px;
+            transition: all 0.2s;
+          " 
+          onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
+          onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
+          title="${worker.name}: ${worker.startTime}-${worker.endTime}">
+          </div>
+        `;
+      });
+    }
     
     html += `
         </div>
@@ -4039,23 +4092,24 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
     `;
   });
   
-  html += '</div>';
+  html += `
+      </div>
+    </div>
+  `;
   
-  // 오른쪽에 직원 목록 (범례)
+  // 직원 목록 (범례)
   html += '<div style="margin-top: 20px; padding: 16px; background: var(--bg-light); border-radius: 8px;">';
   html += '<h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 700;">👥 직원 목록</h4>';
   html += '<div style="display: flex; flex-wrap: wrap; gap: 12px;">';
   
-  let employeeIndex = 0;
   Object.entries(employeeSchedules).forEach(([employeeId, data]) => {
-    const color = employeeColors[employeeIndex % employeeColors.length];
+    const color = colorMap[data.name];
     html += `
       <div style="display: flex; align-items: center; gap: 8px;">
         <div style="width: 20px; height: 20px; background: ${color}; border-radius: 4px;"></div>
         <span style="font-size: 13px;">${data.name}</span>
       </div>
     `;
-    employeeIndex++;
   });
   
   html += '</div></div>';
