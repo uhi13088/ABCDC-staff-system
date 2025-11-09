@@ -9301,7 +9301,7 @@
               // 상태 판별 (정상/지각/조퇴/결근)
               let status = 'normal'; // normal, late, early, absent
               
-              if (attendanceData.status === 'absent' || !attendanceData.checkInTime) {
+              if (attendanceData.status === 'absent' || !attendanceData.clockIn) {
                 status = 'absent';
               } else if (attendanceData.isLate) {
                 status = 'late';
@@ -9310,8 +9310,8 @@
               }
               
               schedules[day] = {
-                startTime: attendanceData.checkInTime || '',
-                endTime: attendanceData.checkOutTime || '',
+                startTime: attendanceData.clockIn || '',
+                endTime: attendanceData.clockOut || '',
                 hours: attendanceData.actualHours || 0,
                 isWorkDay: true,
                 status: status,

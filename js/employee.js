@@ -368,9 +368,9 @@ async function recordAttendance(type, unscheduledReason = null) {
     
     console.log('🕐 출퇴근 기록:', { type, uid: currentUser.uid, name: currentUser.name, dateStr, timeStr, unscheduledReason });
     
-    // 오늘 기록 확인
+    // 오늘 기록 확인 (관리자 페이지와 통일: userId 사용)
     const todayDocRef = db.collection('attendance')
-      .where('uid', '==', currentUser.uid)
+      .where('userId', '==', currentUser.uid)
       .where('date', '==', dateStr);
     
     const snapshot = await todayDocRef.get();
@@ -387,7 +387,8 @@ async function recordAttendance(type, unscheduledReason = null) {
       
       // 출근 기록 생성/업데이트
       const recordData = {
-        uid: currentUser.uid,
+        userId: currentUser.uid,  // 관리자 페이지와 통일 (userId 사용)
+        uid: currentUser.uid,     // 하위 호환성 유지
         name: currentUser.name,
         store: currentUser.store,
         date: dateStr,
@@ -615,7 +616,7 @@ async function updateCurrentStatus() {
     
     // Firestore에서 오늘 기록 확인
     const todayDocRef = db.collection('attendance')
-      .where('uid', '==', currentUser.uid)
+      .where('userId', '==', currentUser.uid)
       .where('date', '==', dateStr);
     
     const snapshot = await todayDocRef.get();
@@ -723,7 +724,7 @@ async function loadAttendance() {
     console.log('📊 근무내역 조회:', { uid: currentUser.uid, filterMonth });
     
     const snapshot = await db.collection('attendance')
-      .where('uid', '==', currentUser.uid)
+      .where('userId', '==', currentUser.uid)
       .where('date', '>=', startDate)
       .where('date', '<=', endDate)
       .orderBy('date', 'desc')
@@ -808,7 +809,7 @@ async function loadSalary() {
     console.log('💰 급여 조회:', { uid: currentUser.uid, filterMonth });
     
     const snapshot = await db.collection('attendance')
-      .where('uid', '==', currentUser.uid)
+      .where('userId', '==', currentUser.uid)
       .where('date', '>=', startDate)
       .where('date', '<=', endDate)
       .get();
@@ -3356,7 +3357,7 @@ async function checkPendingAbsentReasons() {
   try {
     // 결근 기록 중 사유가 없는 것 찾기
     const snapshot = await db.collection('attendance')
-      .where('uid', '==', currentUser.uid)
+      .where('userId', '==', currentUser.uid)
       .where('status', '==', 'absent')
       .get();
     
