@@ -391,6 +391,7 @@
         <div class="card">
           <div class="card-header">
             <h3>📅 내 스케줄</h3>
+            <button class="btn btn-secondary btn-sm" onclick="showStoreScheduleModal()">🏪 매장 스케줄표</button>
           </div>
           
           <div class="card-body">
@@ -996,6 +997,27 @@
   </div>
 
   <!-- JavaScript -->
+  <!-- 매장 스케줄표 모달 -->
+  <div id="storeScheduleModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 1400px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3>🏪 매장 스케줄표</h3>
+        <button class="modal-close" onclick="closeStoreScheduleModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- 주차 네비게이션 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-light); border-radius: var(--border-radius);">
+          <button class="btn btn-secondary btn-sm" onclick="changeStoreScheduleWeek(-1)">◀ 이전 주</button>
+          <div style="font-size: 15px; font-weight: 600;" id="storeScheduleWeekDisplay"></div>
+          <button class="btn btn-secondary btn-sm" onclick="changeStoreScheduleWeek(1)">다음 주 ▶</button>
+        </div>
+        
+        <!-- 타임라인 스케줄 -->
+        <div id="storeScheduleTimeline" style="overflow-x: auto;"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/firebase-config.js"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>

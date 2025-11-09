@@ -3452,3 +3452,242 @@ function rejectShiftRequest() {
   document.getElementById('shiftRequestNotificationModal').style.display = 'none';
   currentShiftRequestId = null;
 }
+
+// ===========================================
+// 매장 스케줄표 모달
+// ===========================================
+
+let currentStoreScheduleWeek = 0; // 0 = 이번 주, -1 = 지난 주, 1 = 다음 주
+
+/**
+ * 매장 스케줄표 모달 열기
+ */
+async function showStoreScheduleModal() {
+  currentStoreScheduleWeek = 0;
+  document.getElementById('storeScheduleModal').style.display = 'flex';
+  await loadStoreSchedule();
+}
+
+/**
+ * 매장 스케줄표 모달 닫기
+ */
+function closeStoreScheduleModal() {
+  document.getElementById('storeScheduleModal').style.display = 'none';
+}
+
+/**
+ * 주차 변경
+ */
+async function changeStoreScheduleWeek(direction) {
+  currentStoreScheduleWeek += direction;
+  await loadStoreSchedule();
+}
+
+/**
+ * 매장 전체 스케줄 로드
+ */
+async function loadStoreSchedule() {
+  if (!currentUser || !currentUser.store) return;
+  
+  const monday = getStoreMonday(currentStoreScheduleWeek);
+  const year = monday.getFullYear();
+  const weekNum = getStoreWeekNumber(monday);
+  
+  // 주차 표시 업데이트
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  document.getElementById('storeScheduleWeekDisplay').textContent = 
+    `${year}년 ${weekNum}주차 (${monday.getMonth()+1}/${monday.getDate()} ~ ${sunday.getMonth()+1}/${sunday.getDate()})`;
+  
+  try {
+    // 같은 매장의 모든 직원 스케줄 조회
+    const scheduleQuery = await db.collection('schedules')
+      .where('store', '==', currentUser.store)
+      .where('date', '>=', formatDate(monday))
+      .where('date', '<=', formatDate(sunday))
+      .get();
+    
+    // 직원별로 스케줄 정리
+    const employeeSchedules = {};
+    
+    scheduleQuery.forEach(doc => {
+      const data = doc.data();
+      const employeeId = data.userId;
+      const employeeName = data.userName;
+      
+      if (!employeeSchedules[employeeId]) {
+        employeeSchedules[employeeId] = {
+          name: employeeName,
+          schedules: []
+        };
+      }
+      
+      employeeSchedules[employeeId].schedules.push({
+        date: data.date,
+        startTime: data.startTime,
+        endTime: data.endTime
+      });
+    });
+    
+    renderStoreScheduleTimeline(employeeSchedules, monday);
+    
+  } catch (error) {
+    console.error('❌ 매장 스케줄 로드 실패:', error);
+    document.getElementById('storeScheduleTimeline').innerHTML = 
+      '<p style="text-align: center; padding: 40px; color: var(--text-secondary);">스케줄을 불러오는데 실패했습니다.</p>';
+  }
+}
+
+/**
+ * 타임라인 형태로 스케줄 렌더링 (색상과 이름만)
+ */
+function renderStoreScheduleTimeline(employeeSchedules, monday) {
+  const container = document.getElementById('storeScheduleTimeline');
+  const days = ['월', '화', '수', '목', '금', '토', '일'];
+  
+  // 시간대 (06:00 ~ 24:00)
+  const hours = [];
+  for (let h = 6; h <= 24; h++) {
+    hours.push(h);
+  }
+  
+  // 직원별 색상
+  const employeeColors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', 
+    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
+    '#F8B88B', '#FAD390', '#F3A683', '#778BEB'
+  ];
+  
+  let html = '<div style="display: flex; gap: 8px;">';
+  
+  // 각 요일별로 타임라인 생성
+  days.forEach((day, dayIndex) => {
+    const date = new Date(monday);
+    date.setDate(date.getDate() + dayIndex);
+    const dateStr = formatDate(date);
+    const displayDate = `${date.getMonth() + 1}/${date.getDate()}`;
+    
+    html += `
+      <div style="flex: 1; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; min-width: 180px;">
+        <div style="background: var(--primary-color); color: white; padding: 12px; text-align: center; font-weight: 600;">
+          ${day}<br>
+          <span style="font-size: 11px; opacity: 0.9;">${displayDate}</span>
+        </div>
+        <div style="position: relative; height: 600px; background: white;">
+    `;
+    
+    // 시간 눈금
+    hours.forEach(hour => {
+      const top = ((hour - 6) / 18) * 600;
+      html += `
+        <div style="position: absolute; left: 0; right: 0; top: ${top}px; border-top: 1px solid #f0f0f0; padding-left: 4px;">
+          <span style="font-size: 10px; color: var(--text-secondary);">${hour}:00</span>
+        </div>
+      `;
+    });
+    
+    // 각 직원의 스케줄 바
+    let employeeIndex = 0;
+    Object.entries(employeeSchedules).forEach(([employeeId, data]) => {
+      const schedule = data.schedules.find(s => s.date === dateStr);
+      
+      if (schedule) {
+        const startParts = schedule.startTime.split(':');
+        const endParts = schedule.endTime.split(':');
+        const startHour = parseInt(startParts[0]) + parseInt(startParts[1]) / 60;
+        const endHour = parseInt(endParts[0]) + parseInt(endParts[1]) / 60;
+        
+        // 06:00 ~ 24:00 범위로 계산
+        const top = ((startHour - 6) / 18) * 600;
+        const height = ((endHour - startHour) / 18) * 600;
+        
+        const color = employeeColors[employeeIndex % employeeColors.length];
+        
+        html += `
+          <div style="
+            position: absolute;
+            left: 30px;
+            right: 8px;
+            top: ${top}px;
+            height: ${height}px;
+            background: ${color};
+            border-radius: 4px;
+            padding: 8px;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          ">
+            ${data.name}
+          </div>
+        `;
+      }
+      
+      employeeIndex++;
+    });
+    
+    html += `
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  
+  // 오른쪽에 직원 목록 (범례)
+  html += '<div style="margin-top: 20px; padding: 16px; background: var(--bg-light); border-radius: 8px;">';
+  html += '<h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 700;">👥 직원 목록</h4>';
+  html += '<div style="display: flex; flex-wrap: wrap; gap: 12px;">';
+  
+  let employeeIndex = 0;
+  Object.entries(employeeSchedules).forEach(([employeeId, data]) => {
+    const color = employeeColors[employeeIndex % employeeColors.length];
+    html += `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 20px; height: 20px; background: ${color}; border-radius: 4px;"></div>
+        <span style="font-size: 13px;">${data.name}</span>
+      </div>
+    `;
+    employeeIndex++;
+  });
+  
+  html += '</div></div>';
+  
+  container.innerHTML = html;
+}
+
+/**
+ * 주의 월요일 가져오기
+ */
+function getStoreMonday(weekOffset) {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diff + (weekOffset * 7));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+/**
+ * 주차 번호 계산
+ */
+function getStoreWeekNumber(date) {
+  const firstDay = new Date(date.getFullYear(), 0, 1);
+  const days = Math.floor((date - firstDay) / (24 * 60 * 60 * 1000));
+  return Math.ceil((days + firstDay.getDay() + 1) / 7);
+}
+
+/**
+ * 날짜 포맷 (YYYY-MM-DD)
+ */
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
