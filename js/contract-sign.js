@@ -113,8 +113,8 @@ function displayContract() {
     document.getElementById('previewCompanyPhone').textContent = contractData.companyPhone || '-';
     document.getElementById('previewCompanyAddress').textContent = contractData.companyAddress || '-';
     
-    document.getElementById('previewStartDate').textContent = contractData.startDate || '-';
-    document.getElementById('previewEndDate').textContent = contractData.endDate || '기간의 정함이 없음';
+    document.getElementById('previewStartDate').textContent = contractData.contractStartDate || contractData.startDate || '-';
+    document.getElementById('previewEndDate').textContent = contractData.contractEndDate || contractData.endDate || '기간의 정함이 없음';
     document.getElementById('previewStore').textContent = contractData.workStore || '-';
     document.getElementById('previewPosition').textContent = contractData.position || '-';
     document.getElementById('previewWorkDays').textContent = contractData.workDays || '-';
@@ -165,8 +165,8 @@ function displaySignedContract(signedData) {
     document.getElementById('previewCompanyPhone').textContent = signedData.companyPhone || '-';
     document.getElementById('previewCompanyAddress').textContent = signedData.companyAddress || '-';
     
-    document.getElementById('previewStartDate').textContent = signedData.startDate || '-';
-    document.getElementById('previewEndDate').textContent = signedData.endDate || '기간의 정함이 없음';
+    document.getElementById('previewStartDate').textContent = signedData.contractStartDate || signedData.startDate || '-';
+    document.getElementById('previewEndDate').textContent = signedData.contractEndDate || signedData.endDate || '기간의 정함이 없음';
     document.getElementById('previewStore').textContent = signedData.workStore || '-';
     document.getElementById('previewPosition').textContent = signedData.position || '-';
     document.getElementById('previewWorkDays').textContent = signedData.workDays || '-';
