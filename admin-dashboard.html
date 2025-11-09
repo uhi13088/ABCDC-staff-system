@@ -3819,97 +3819,76 @@
       }
       
       try {
-        // 교대근무 승인 처리
+        // 교대근무 승인 처리 (새 구조: 날짜별 개별 문서)
         if (type === 'shift') {
           // 교대근무 요청 데이터 가져오기
           const shiftDoc = await db.collection('shift_requests').doc(approvalId).get();
           const shiftData = shiftDoc.data();
           
-          // 1. 교대 날짜로부터 년도, 주차, 요일 계산
-          const shiftDate = new Date(shiftData.workDate); // YYYY-MM-DD
-          const year = shiftDate.getFullYear();
-          const weekNum = getWeekNumber(shiftDate);
-          const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][shiftDate.getDay()];
+          console.log(`📅 교대근무 승인: ${shiftData.workDate} ${shiftData.workStartTime}-${shiftData.workEndTime}`);
+          console.log(`   신청자: ${shiftData.requesterName}, 승인자: ${shiftData.matchedUserName}`);
           
-          console.log(`📅 교대근무 날짜: ${shiftData.workDate} = ${year}년 ${weekNum}주차 ${dayOfWeek}요일`);
-          
-          // 2. 원래 직원(A)의 해당 주차 스케줄 문서에서 해당 요일 삭제
-          const originalScheduleDocId = `${shiftData.requesterId}_${year}-${weekNum}`;
-          const originalScheduleRef = db.collection('schedules').doc(originalScheduleDocId);
-          
+          // 1. 원래 직원(A)의 해당 날짜 해당 근무 문서 삭제
           try {
-            const originalScheduleDoc = await originalScheduleRef.get();
-            if (originalScheduleDoc.exists) {
-              // 해당 요일 필드를 { isWorkDay: false }로 변경 (휴무 처리)
-              await originalScheduleRef.update({
-                [dayOfWeek]: { isWorkDay: false }
+            // 신청자의 해당 날짜, 해당 시간대 근무 문서 찾기
+            const originalScheduleQuery = await db.collection('schedules')
+              .where('userId', '==', shiftData.requesterId)
+              .where('date', '==', shiftData.workDate)
+              .where('startTime', '==', shiftData.workStartTime)
+              .where('endTime', '==', shiftData.workEndTime)
+              .get();
+            
+            if (!originalScheduleQuery.empty) {
+              // 해당 근무 문서 삭제
+              const deletePromises = [];
+              originalScheduleQuery.forEach(doc => {
+                deletePromises.push(doc.ref.delete());
+                console.log(`✅ 신청자(${shiftData.requesterName}) 근무 삭제: ${shiftData.workDate} ${shiftData.workStartTime}-${shiftData.workEndTime}`);
               });
-              console.log(`✅ 원래 직원(${shiftData.requesterName}) ${dayOfWeek}요일 스케줄 삭제 (휴무 처리)`);
+              await Promise.all(deletePromises);
             } else {
-              console.log(`⚠️ 원래 직원(${shiftData.requesterName}) 스케줄 문서 없음: ${originalScheduleDocId}`);
+              console.log(`⚠️ 신청자(${shiftData.requesterName}) 해당 근무 문서 없음`);
             }
           } catch (err) {
-            console.error(`❌ 원래 직원 스케줄 삭제 실패:`, err);
+            console.error(`❌ 신청자 근무 삭제 실패:`, err);
+            throw err; // 오류 발생 시 전체 트랜잭션 중단
           }
           
-          // 3. 대타 직원(B)의 해당 주차 스케줄 문서에 해당 요일 추가
-          const matchedScheduleDocId = `${shiftData.matchedUserId}_${year}-${weekNum}`;
-          const matchedScheduleRef = db.collection('schedules').doc(matchedScheduleDocId);
-          
-          // 근무시간 계산
-          const startTime = shiftData.workStartTime; // "09:00"
-          const endTime = shiftData.workEndTime; // "18:00"
-          const [startHour, startMin] = startTime.split(':').map(Number);
-          const [endHour, endMin] = endTime.split(':').map(Number);
-          const hours = (endHour * 60 + endMin - (startHour * 60 + startMin)) / 60;
-          
-          const newDaySchedule = {
-            startTime: startTime,
-            endTime: endTime,
-            hours: hours,
-            isWorkDay: true,
-            isShiftReplacement: true, // 교대근무 표시
-            originalRequesterId: shiftData.requesterId,
-            originalRequesterName: shiftData.requesterName,
-            shiftRequestId: approvalId
-          };
-          
+          // 2. 승인자(B)에게 새 근무 문서 추가
           try {
-            const matchedScheduleDoc = await matchedScheduleRef.get();
-            if (matchedScheduleDoc.exists) {
-              // 기존 문서가 있으면 해당 요일만 업데이트
-              await matchedScheduleRef.update({
-                [dayOfWeek]: newDaySchedule
-              });
-              console.log(`✅ 대타 직원(${shiftData.matchedUserName}) ${dayOfWeek}요일 스케줄 업데이트`);
-            } else {
-              // 문서가 없으면 새로 생성
-              const newScheduleDoc = {
-                userId: shiftData.matchedUserId,
-                userName: shiftData.matchedUserName,
-                store: shiftData.store,
-                year: year,
-                weekNumber: weekNum,
-                [dayOfWeek]: newDaySchedule,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-              };
-              
-              // 다른 요일은 휴무로 초기화
-              const allDays = ['월', '화', '수', '목', '금', '토', '일'];
-              allDays.forEach(day => {
-                if (day !== dayOfWeek && !newScheduleDoc[day]) {
-                  newScheduleDoc[day] = { isWorkDay: false };
-                }
-              });
-              
-              await matchedScheduleRef.set(newScheduleDoc);
-              console.log(`✅ 대타 직원(${shiftData.matchedUserName}) ${dayOfWeek}요일 스케줄 생성`);
-            }
+            // 근무시간 계산
+            const startTime = shiftData.workStartTime;
+            const endTime = shiftData.workEndTime;
+            const [startHour, startMin] = startTime.split(':').map(Number);
+            const [endHour, endMin] = endTime.split(':').map(Number);
+            const hours = (endHour * 60 + endMin - (startHour * 60 + startMin)) / 60;
+            
+            // 새 근무 문서 생성
+            const newSchedule = {
+              userId: shiftData.matchedUserId,
+              userName: shiftData.matchedUserName,
+              store: shiftData.store,
+              date: shiftData.workDate,
+              startTime: startTime,
+              endTime: endTime,
+              hours: hours,
+              isShiftReplacement: true, // 대체근무 표시
+              shiftRequestId: approvalId,
+              originalRequesterId: shiftData.requesterId,
+              originalRequesterName: shiftData.requesterName,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            await db.collection('schedules').add(newSchedule);
+            console.log(`✅ 승인자(${shiftData.matchedUserName}) 근무 추가: ${shiftData.workDate} ${startTime}-${endTime}`);
+            
           } catch (err) {
-            console.error(`❌ 대타 직원 스케줄 추가 실패:`, err);
+            console.error(`❌ 승인자 근무 추가 실패:`, err);
+            throw err; // 오류 발생 시 전체 트랜잭션 중단
           }
           
-          // 4. 교대근무 요청 상태 업데이트
+          // 3. 교대근무 요청 상태 업데이트
           await db.collection('shift_requests').doc(approvalId).update({
             status: 'approved',
             approvedByAdmin: true,
@@ -3917,7 +3896,9 @@
             approvedBy: sessionStorage.getItem('admin_email')
           });
           
-          alert('✅ 교대근무가 승인되었습니다.\n스케줄이 자동으로 변경되었습니다.');
+          alert('✅ 교대근무가 승인되었습니다.\n\n' +
+                `• ${shiftData.requesterName}: 해당 근무 삭제됨\n` +
+                `• ${shiftData.matchedUserName}: 새 근무 추가됨 (기존 근무 유지)`);
         } else {
           // 기존 문서 승인 처리
           await db.collection('approvals').doc(approvalId).update({
@@ -7125,16 +7106,30 @@
         if (!employeeId) return;
         
         const startDate = new Date(contractData.contractStartDate || contractData.startDate);
-        const year = startDate.getFullYear();
-        const weekNum = getWeekNumber(startDate);
         
-        const scheduleDocId = `${employeeId}_${year}-${weekNum}`;
+        // 계약 시작일이 속한 주의 월요일 계산
+        const monday = new Date(startDate);
+        const dayOfWeek = monday.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        monday.setDate(monday.getDate() + diff);
         
-        // 이미 스케줄이 있는지 확인
-        const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+        // 해당 주의 일요일 계산
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
         
-        if (scheduleDoc.exists) {
-          console.log(`  ⏭️ 스케줄 이미 존재: ${scheduleDocId}`);
+        const mondayStr = monday.toISOString().split('T')[0];
+        const sundayStr = sunday.toISOString().split('T')[0];
+        
+        // 해당 주에 이미 스케줄이 있는지 확인 (새 구조: 날짜 범위 쿼리)
+        const existingSchedules = await db.collection('schedules')
+          .where('userId', '==', employeeId)
+          .where('date', '>=', mondayStr)
+          .where('date', '<=', sundayStr)
+          .limit(1)
+          .get();
+        
+        if (!existingSchedules.empty) {
+          console.log(`  ⏭️ 스케줄 이미 존재: ${mondayStr} ~ ${sundayStr}`);
           return;
         }
         
@@ -7303,40 +7298,56 @@
         
         console.log(`📅 생성할 주차: ${weeksToCreate.length}주`);
         
-        // 각 주차별로 스케줄 생성
+        // 새 구조: 각 날짜별 근무를 개별 문서로 생성
+        const batch = firebase.firestore().batch();
+        let docCount = 0;
+        
         for (const week of weeksToCreate) {
-          const scheduleData = {
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          };
-          
-          // 모든 요일에 대해 스케줄 설정
-          allDays.forEach(day => {
+          // 해당 주의 각 요일별로 처리
+          allDays.forEach((day, dayIndex) => {
+            // 해당 요일에 근무가 있는지 확인
             if (dayScheduleMap[day]) {
-              scheduleData[day] = {
-                isWorkDay: true,
+              // 해당 날짜 계산
+              const workDate = new Date(week.monday);
+              workDate.setDate(workDate.getDate() + dayIndex);
+              const dateStr = workDate.toISOString().split('T')[0]; // YYYY-MM-DD
+              
+              // 새 스케줄 문서 생성
+              const scheduleRef = firebase.firestore().collection('schedules').doc();
+              const scheduleData = {
+                userId: employeeId,
+                userName: contractData.employeeName,
+                store: contractData.workStore,
+                date: dateStr,
                 startTime: dayScheduleMap[day].startTime,
                 endTime: dayScheduleMap[day].endTime,
-                hours: dayScheduleMap[day].hours
+                hours: dayScheduleMap[day].hours,
+                isShiftReplacement: false,
+                shiftRequestId: null,
+                originalRequesterId: null,
+                originalRequesterName: null,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
               };
-            } else {
-              scheduleData[day] = {
-                isWorkDay: false,
-                startTime: '',
-                endTime: '',
-                hours: 0
-              };
+              
+              batch.set(scheduleRef, scheduleData);
+              docCount++;
+              
+              // 500개마다 커밋
+              if (docCount % 500 === 0) {
+                await batch.commit();
+                console.log(`   ${docCount}개 스케줄 생성 중...`);
+              }
             }
           });
-          
-          // Firestore schedules 컬렉션에 저장
-          const scheduleDocId = `${employeeId}_${week.year}-${week.weekNum}`;
-          await firebase.firestore().collection('schedules').doc(scheduleDocId).set(scheduleData);
-          
-          console.log(`✅ 스케줄 생성: ${scheduleDocId}`);
         }
         
-        console.log(`✅ 초기 스케줄 생성 완료: ${weeksToCreate.length}주`);
+        // 남은 배치 커밋
+        if (docCount % 500 !== 0) {
+          await batch.commit();
+        }
+        
+        console.log(`✅ 초기 스케줄 생성 완료: ${docCount}개 근무`);
         
       } catch (error) {
         console.error('❌ 초기 스케줄 생성 실패:', error);
@@ -9062,7 +9073,7 @@
     }
 
     /**
-     * 스케줄 데이터 로드 (schedules 컬렉션에서)
+     * 스케줄 데이터 로드 (새 구조: 날짜별 개별 문서)
      */
     async function loadScheduleData(storeId, year, weekNum) {
       try {
@@ -9072,28 +9083,28 @@
         
         console.log(`🔍 스케줄 조회: 매장ID=${storeId}, 매장명="${storeName}", 주차=${year}-${weekNum}`);
         
-        // 디버깅: 모든 직원의 store 필드 확인
-        const allEmployeesSnapshot = await db.collection('users')
-          .where('role', '==', 'employee')
-          .get();
+        // 해당 주의 월요일과 일요일 날짜 계산
+        const monday = getMonday(currentScheduleWeek);
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
         
-        console.log(`👥 전체 직원 ${allEmployeesSnapshot.size}명의 store 필드:`);
-        allEmployeesSnapshot.forEach(doc => {
-          const data = doc.data();
-          console.log(`  - ${data.name}: store="${data.store}"`);
-        });
+        const mondayStr = monday.toISOString().split('T')[0];
+        const sundayStr = sunday.toISOString().split('T')[0];
         
-        // 해당 매장의 모든 직원 조회 (store 필드 사용)
+        console.log(`📅 조회 기간: ${mondayStr} ~ ${sundayStr}`);
+        
+        // 해당 매장의 모든 직원 조회 (퇴사자 제외)
         const employeesSnapshot = await db.collection('users')
           .where('role', '==', 'employee')
           .where('store', '==', storeName)
           .get();
         
-        console.log(`📊 "${storeName}" 매장 전체 조회: ${employeesSnapshot.size}명`);
+        console.log(`👥 "${storeName}" 매장 직원: ${employeesSnapshot.size}명`);
         
         const employees = [];
+        const days = ['월', '화', '수', '목', '금', '토', '일'];
         
-        // 각 직원의 스케줄 데이터 로드 (퇴사자 제외)
+        // 각 직원의 해당 주 스케줄 조회
         for (const empDoc of employeesSnapshot.docs) {
           const empData = empDoc.data();
           const empUid = empDoc.id;
@@ -9104,41 +9115,44 @@
             continue;
           }
           
-          // schedules 컬렉션에서 해당 직원의 주간 스케줄 조회
-          const scheduleDocId = `${empUid}_${year}-${weekNum}`;
-          const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+          // 해당 직원의 해당 주 모든 스케줄 조회
+          const schedulesSnapshot = await db.collection('schedules')
+            .where('userId', '==', empUid)
+            .where('date', '>=', mondayStr)
+            .where('date', '<=', sundayStr)
+            .get();
           
+          console.log(`  📅 ${empData.name}: ${schedulesSnapshot.size}개 근무`);
+          
+          // 요일별로 스케줄 정리 (한 날짜에 여러 근무가 있을 수 있음)
           const schedules = {};
-          const days = ['월', '화', '수', '목', '금', '토', '일'];
+          days.forEach(day => {
+            schedules[day] = []; // 배열로 변경 (여러 근무 가능)
+          });
           
-          if (scheduleDoc.exists) {
-            const scheduleData = scheduleDoc.data();
-            console.log(`  📅 ${empData.name} 스케줄 문서 발견:`, scheduleDocId);
+          schedulesSnapshot.forEach(doc => {
+            const scheduleData = doc.data();
+            const scheduleDate = new Date(scheduleData.date + 'T00:00:00');
+            const dayOfWeek = scheduleDate.getDay(); // 0=일, 1=월, ..., 6=토
+            const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월=0, ..., 일=6
+            const dayName = days[dayIndex];
             
-            // 각 요일별 스케줄 파싱
-            days.forEach(day => {
-              if (scheduleData[day]) {
-                const daySchedule = scheduleData[day];
-                schedules[day] = {
-                  startTime: daySchedule.startTime || '',
-                  endTime: daySchedule.endTime || '',
-                  hours: daySchedule.hours || 0,
-                  isWorkDay: daySchedule.isWorkDay !== false
-                };
-                if (schedules[day].isWorkDay) {
-                  console.log(`    ${day}: ${schedules[day].startTime} - ${schedules[day].endTime} (${schedules[day].hours}h)`);
-                }
-              } else {
-                schedules[day] = { isWorkDay: false };
-              }
+            schedules[dayName].push({
+              startTime: scheduleData.startTime || '',
+              endTime: scheduleData.endTime || '',
+              hours: scheduleData.hours || 0,
+              isShiftReplacement: scheduleData.isShiftReplacement || false,
+              isWorkDay: true
             });
-          } else {
-            console.log(`  ⚠️ ${empData.name} 스케줄 문서 없음:`, scheduleDocId);
-            // 스케줄이 없으면 모두 휴무로 표시
-            days.forEach(day => {
-              schedules[day] = { isWorkDay: false };
-            });
-          }
+          });
+          
+          // 로그 출력
+          days.forEach(day => {
+            if (schedules[day].length > 0) {
+              const timesStr = schedules[day].map(s => `${s.startTime}-${s.endTime}`).join(', ');
+              console.log(`    ${day}: ${timesStr}`);
+            }
+          });
           
           // 계약서에서 급여 정보 조회
           let salaryType = 'hourly';
@@ -9175,7 +9189,7 @@
           employees.push({
             uid: empUid,
             name: empData.name || '이름없음',
-            schedules: schedules,
+            schedules: schedules, // schedules[day] = [{startTime, endTime, hours, isShiftReplacement}...]
             salaryType: salaryType,
             salaryAmount: salaryAmount
           });
@@ -9331,20 +9345,30 @@
         // 각 직원의 스케줄 카드
         if (currentScheduleData.employees) {
           currentScheduleData.employees.forEach(emp => {
-            const schedule = emp.schedules[day];
+            const scheduleArray = emp.schedules[day]; // 이제 배열임
             
-            if (schedule && schedule.isWorkDay) {
-              html += `
-                <div style="background: #e3f2fd; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">👤 ${emp.name}</div>
-                  <div style="font-size: 12px; color: #1976d2; border-top: 2px solid #1976d2; padding-top: 4px; margin-top: 4px;">
-                    🕐 ${schedule.startTime} - ${schedule.endTime}
-                  </div>
-                  <div style="font-size: 11px; color: #555; margin-top: 2px;">
-                    ⏱️ ${schedule.hours}시간
-                  </div>
-                </div>
-              `;
+            // 배열이고 요소가 있으면 모두 표시
+            if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
+              scheduleArray.forEach(schedule => {
+                if (schedule.isWorkDay) {
+                  // 대체근무 표시
+                  const replacementIcon = schedule.isShiftReplacement ? '🔄 ' : '';
+                  const backgroundColor = schedule.isShiftReplacement ? '#fff3cd' : '#e3f2fd';
+                  const borderColor = schedule.isShiftReplacement ? '#ffc107' : '#1976d2';
+                  
+                  html += `
+                    <div style="background: ${backgroundColor}; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">${replacementIcon}👤 ${emp.name}</div>
+                      <div style="font-size: 12px; color: #1976d2; border-top: 2px solid ${borderColor}; padding-top: 4px; margin-top: 4px;">
+                        🕐 ${schedule.startTime} - ${schedule.endTime}
+                      </div>
+                      <div style="font-size: 11px; color: #555; margin-top: 2px;">
+                        ⏱️ ${schedule.hours}시간
+                      </div>
+                    </div>
+                  `;
+                }
+              });
             }
             // 휴무는 표시하지 않음
           });
@@ -9400,28 +9424,40 @@
       if (currentScheduleData.employees) {
         currentScheduleData.employees.forEach(emp => {
           days.forEach(day => {
-            const schedule = emp.schedules[day];
-            if (schedule && schedule.isWorkDay) {
-              // 출퇴근 기록인 경우 상태에 따라 색상 변경
-              let barColor = colorMap[emp.name];
-              if (currentScheduleData.type === 'attendance' && schedule.status) {
-                switch (schedule.status) {
-                  case 'late': barColor = '#FFA726'; break; // 주황색 (지각)
-                  case 'early': barColor = '#FFB74D'; break; // 연한 주황색 (조퇴)
-                  case 'absent': barColor = '#EF5350'; break; // 빨간색 (결근)
-                  default: barColor = '#66BB6A'; // 초록색 (정상)
+            const scheduleArray = emp.schedules[day]; // 이제 배열임
+            
+            // 배열이고 요소가 있으면 모두 처리
+            if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
+              scheduleArray.forEach(schedule => {
+                if (schedule.isWorkDay) {
+                  // 출퇴근 기록인 경우 상태에 따라 색상 변경
+                  let barColor = colorMap[emp.name];
+                  if (currentScheduleData.type === 'attendance' && schedule.status) {
+                    switch (schedule.status) {
+                      case 'late': barColor = '#FFA726'; break; // 주황색 (지각)
+                      case 'early': barColor = '#FFB74D'; break; // 연한 주황색 (조퇴)
+                      case 'absent': barColor = '#EF5350'; break; // 빨간색 (결근)
+                      default: barColor = '#66BB6A'; // 초록색 (정상)
+                    }
+                  }
+                  
+                  // 대체근무면 색상 변경
+                  if (schedule.isShiftReplacement) {
+                    barColor = '#FFC107'; // 노란색 (대체근무)
+                  }
+                  
+                  dayWorkers[day].push({
+                    name: emp.name,
+                    startTime: schedule.startTime,
+                    endTime: schedule.endTime,
+                    hours: schedule.hours,
+                    color: barColor,
+                    status: schedule.status || 'normal',
+                    scheduledStart: schedule.scheduledStart || '',
+                    scheduledEnd: schedule.scheduledEnd || '',
+                    isShiftReplacement: schedule.isShiftReplacement || false
+                  });
                 }
-              }
-              
-              dayWorkers[day].push({
-                name: emp.name,
-                startTime: schedule.startTime,
-                endTime: schedule.endTime,
-                hours: schedule.hours,
-                color: barColor,
-                status: schedule.status || 'normal',
-                scheduledStart: schedule.scheduledStart || '',
-                scheduledEnd: schedule.scheduledEnd || ''
               });
             }
           });
@@ -9575,10 +9611,20 @@
           let totalHours = 0;
           let workDays = 0;
           days.forEach(day => {
-            const schedule = emp.schedules[day];
-            if (schedule && schedule.isWorkDay) {
-              totalHours += parseFloat(schedule.hours);
-              workDays++;
+            const scheduleArray = emp.schedules[day]; // 배열임
+            
+            // 배열의 모든 스케줄 시간 합산
+            if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
+              scheduleArray.forEach(schedule => {
+                if (schedule.isWorkDay) {
+                  totalHours += parseFloat(schedule.hours);
+                  // 하루에 여러 근무가 있어도 근무일 수는 1일로만 카운트
+                }
+              });
+              // 해당 날짜에 근무가 하나라도 있으면 근무일 수 증가
+              if (scheduleArray.some(s => s.isWorkDay)) {
+                workDays++;
+              }
             }
           });
           

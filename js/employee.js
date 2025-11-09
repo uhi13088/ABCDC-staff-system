@@ -2966,33 +2966,46 @@ async function loadEmployeeSchedule() {
     `${year}년 ${weekNum}주차 (${monday.getMonth()+1}/${monday.getDate()} ~ ${sunday.getMonth()+1}/${sunday.getDate()})`;
   
   try {
-    // 내 스케줄 조회
-    const scheduleDocId = `${currentUser.uid}_${year}-${weekNum}`;
-    const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+    // 내 스케줄 조회 - 새 구조: 날짜별 개별 문서 쿼리
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    
+    const mondayStr = monday.toISOString().split('T')[0];
+    const sundayStr = sunday.toISOString().split('T')[0];
+    
+    const schedulesSnapshot = await db.collection('schedules')
+      .where('userId', '==', currentUser.uid)
+      .where('date', '>=', mondayStr)
+      .where('date', '<=', sundayStr)
+      .get();
     
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     const schedules = {};
     
-    if (scheduleDoc.exists) {
-      const scheduleData = scheduleDoc.data();
+    // 초기화: 각 날짜별로 빈 배열 생성
+    days.forEach(day => {
+      schedules[day] = [];
+    });
+    
+    // 쿼리 결과를 날짜별로 정리 (배열 구조)
+    schedulesSnapshot.forEach(doc => {
+      const scheduleData = doc.data();
+      const scheduleDate = new Date(scheduleData.date + 'T00:00:00');
+      const dayOfWeek = scheduleDate.getDay(); // 0=일요일, 1=월요일, ...
+      const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월요일을 0으로 만들기
+      const dayName = days[dayIndex];
       
-      days.forEach(day => {
-        if (scheduleData[day] && scheduleData[day].isWorkDay) {
-          schedules[day] = {
-            startTime: scheduleData[day].startTime || '',
-            endTime: scheduleData[day].endTime || '',
-            hours: scheduleData[day].hours || 0,
-            isWorkDay: true
-          };
-        } else {
-          schedules[day] = { isWorkDay: false };
-        }
+      schedules[dayName].push({
+        startTime: scheduleData.startTime || '',
+        endTime: scheduleData.endTime || '',
+        hours: scheduleData.hours || 0,
+        isWorkDay: true,
+        isShiftReplacement: scheduleData.isShiftReplacement || false,
+        shiftRequestId: scheduleData.shiftRequestId || null,
+        originalRequesterId: scheduleData.originalRequesterId || null,
+        originalRequesterName: scheduleData.originalRequesterName || null
       });
-    } else {
-      days.forEach(day => {
-        schedules[day] = { isWorkDay: false };
-      });
-    }
+    });
     
     renderEmployeeSchedule(schedules, monday);
     
@@ -3016,7 +3029,7 @@ function renderEmployeeSchedule(schedules, monday) {
     const date = new Date(monday);
     date.setDate(date.getDate() + index);
     const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-    const schedule = schedules[day];
+    const scheduleArray = schedules[day]; // 이제 배열임
     
     const isToday = date.toDateString() === new Date().toDateString();
     
@@ -3043,20 +3056,29 @@ function renderEmployeeSchedule(schedules, monday) {
         </div>
     `;
     
-    if (schedule && schedule.isWorkDay) {
-      html += `
-        <div style="text-align: center; padding: var(--spacing-sm);">
-          <div style="background: var(--primary-color); color: white; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
-            <div style="font-size: 12px; font-weight: 600;">근무</div>
-          </div>
-          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">
-            ${schedule.startTime} - ${schedule.endTime}
-          </div>
-          <div style="font-size: 11px; color: var(--text-secondary);">
-            ${schedule.hours}시간
-          </div>
-        </div>
-      `;
+    // 배열이고 근무가 있으면 모두 표시
+    if (scheduleArray && scheduleArray.length > 0) {
+      scheduleArray.forEach(schedule => {
+        if (schedule.isWorkDay) {
+          // 대체근무 표시
+          const replacementIcon = schedule.isShiftReplacement ? '🔄 ' : '';
+          const backgroundColor = schedule.isShiftReplacement ? '#fff3cd' : 'var(--primary-color)';
+          
+          html += `
+            <div style="text-align: center; padding: var(--spacing-sm); margin-bottom: 8px;">
+              <div style="background: ${backgroundColor}; color: ${schedule.isShiftReplacement ? '#856404' : 'white'}; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">${replacementIcon}근무</div>
+              </div>
+              <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">
+                ${schedule.startTime} - ${schedule.endTime}
+              </div>
+              <div style="font-size: 11px; color: var(--text-secondary);">
+                ${schedule.hours}시간
+              </div>
+            </div>
+          `;
+        }
+      });
     } else {
       html += `
         <div style="text-align: center; padding: var(--spacing-lg); color: var(--text-secondary);">
@@ -3332,19 +3354,19 @@ async function loadMyScheduleForDate() {
   }
   
   try {
-    // 선택한 날짜의 Date 객체 생성
+    // 선택한 날짜의 스케줄 조회 (새 구조: 날짜별 개별 문서)
     const date = new Date(selectedDate + 'T00:00:00');
     const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
-    const year = date.getFullYear();
-    const weekNum = getWeekNumber(date);
     
-    console.log(`🔍 ${selectedDate} (${dayOfWeek}요일) 근무시간 조회: ${year}년 ${weekNum}주차`);
+    console.log(`🔍 ${selectedDate} (${dayOfWeek}요일) 근무시간 조회`);
     
-    // 본인의 해당 주차 스케줄 문서 조회
-    const scheduleDocId = `${currentUser.uid}_${year}-${weekNum}`;
-    const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+    // 해당 날짜의 모든 스케줄 조회
+    const schedulesSnapshot = await db.collection('schedules')
+      .where('userId', '==', currentUser.uid)
+      .where('date', '==', selectedDate)
+      .get();
     
-    if (!scheduleDoc.exists) {
+    if (schedulesSnapshot.empty) {
       alert(`⚠️ ${selectedDate} (${dayOfWeek}요일)에 등록된 근무가 없습니다.\n교대근무는 근무가 예정된 날짜에만 신청할 수 있습니다.`);
       document.getElementById('shiftRequestStartTime').value = '';
       document.getElementById('shiftRequestEndTime').value = '';
@@ -3352,10 +3374,21 @@ async function loadMyScheduleForDate() {
       return;
     }
     
-    const scheduleData = scheduleDoc.data();
-    const daySchedule = scheduleData[dayOfWeek];
+    // 해당 날짜의 모든 근무시간 수집
+    const schedules = [];
+    schedulesSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.isWorkDay !== false) {
+        schedules.push({
+          startTime: data.startTime,
+          endTime: data.endTime,
+          hours: data.hours,
+          isShiftReplacement: data.isShiftReplacement || false
+        });
+      }
+    });
     
-    if (!daySchedule || !daySchedule.isWorkDay) {
+    if (schedules.length === 0) {
       alert(`⚠️ ${selectedDate} (${dayOfWeek}요일)은 휴무입니다.\n교대근무는 근무가 예정된 날짜에만 신청할 수 있습니다.`);
       document.getElementById('shiftRequestStartTime').value = '';
       document.getElementById('shiftRequestEndTime').value = '';
@@ -3363,12 +3396,31 @@ async function loadMyScheduleForDate() {
       return;
     }
     
-    // 해당 날짜의 근무시간 설정
-    document.getElementById('shiftRequestStartTime').value = daySchedule.startTime;
-    document.getElementById('shiftRequestEndTime').value = daySchedule.endTime;
-    document.getElementById('shiftScheduleSelectGroup').style.display = 'none';
-    
-    console.log(`✅ 근무시간 자동 설정: ${daySchedule.startTime} ~ ${daySchedule.endTime}`);
+    // 근무가 1개면 자동 설정
+    if (schedules.length === 1) {
+      document.getElementById('shiftRequestStartTime').value = schedules[0].startTime;
+      document.getElementById('shiftRequestEndTime').value = schedules[0].endTime;
+      document.getElementById('shiftScheduleSelectGroup').style.display = 'none';
+      
+      console.log(`✅ 근무시간 자동 설정: ${schedules[0].startTime} ~ ${schedules[0].endTime}`);
+    } 
+    // 근무가 여러 개면 선택 UI 표시
+    else {
+      const selectGroup = document.getElementById('shiftScheduleSelectGroup');
+      const select = document.getElementById('shiftScheduleSelect');
+      
+      // 옵션 생성
+      let optionsHtml = '<option value="">근무시간 선택</option>';
+      schedules.forEach((schedule, index) => {
+        const label = schedule.isShiftReplacement ? '(대체근무)' : '';
+        optionsHtml += `<option value="${schedule.startTime}~${schedule.endTime}">${schedule.startTime} ~ ${schedule.endTime} ${label}</option>`;
+      });
+      
+      select.innerHTML = optionsHtml;
+      selectGroup.style.display = 'block';
+      
+      console.log(`✅ ${schedules.length}개의 근무시간 발견, 선택 필요`);
+    }
     
   } catch (error) {
     console.error('❌ 근무시간 조회 실패:', error);
@@ -3671,42 +3723,51 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
     // 각 직원의 스케줄 바
     let employeeIndex = 0;
     Object.entries(employeeSchedules).forEach(([employeeId, data]) => {
-      const schedule = data.schedules.find(s => s.date === dateStr);
+      // 해당 날짜의 모든 스케줄 찾기 (여러 근무 지원)
+      const schedulesForDay = data.schedules.filter(s => s.date === dateStr);
       
-      if (schedule) {
-        const startParts = schedule.startTime.split(':');
-        const endParts = schedule.endTime.split(':');
-        const startHour = parseInt(startParts[0]) + parseInt(startParts[1]) / 60;
-        const endHour = parseInt(endParts[0]) + parseInt(endParts[1]) / 60;
-        
-        // 06:00 ~ 24:00 범위로 계산
-        const top = ((startHour - 6) / 18) * 600;
-        const height = ((endHour - startHour) / 18) * 600;
-        
+      if (schedulesForDay.length > 0) {
         const color = employeeColors[employeeIndex % employeeColors.length];
         
-        html += `
-          <div style="
-            position: absolute;
-            left: 30px;
-            right: 8px;
-            top: ${top}px;
-            height: ${height}px;
-            background: ${color};
-            border-radius: 4px;
-            padding: 8px;
-            color: white;
-            font-size: 13px;
-            font-weight: 600;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          ">
-            ${data.name}
-          </div>
-        `;
+        // 각 근무마다 막대 생성
+        schedulesForDay.forEach((schedule, scheduleIdx) => {
+          const startParts = schedule.startTime.split(':');
+          const endParts = schedule.endTime.split(':');
+          const startHour = parseInt(startParts[0]) + parseInt(startParts[1]) / 60;
+          const endHour = parseInt(endParts[0]) + parseInt(endParts[1]) / 60;
+          
+          // 06:00 ~ 24:00 범위로 계산
+          const top = ((startHour - 6) / 18) * 600;
+          const height = ((endHour - startHour) / 18) * 600;
+          
+          // 여러 근무가 있을 경우 좌우로 배치
+          const totalSchedules = schedulesForDay.length;
+          const width = totalSchedules > 1 ? `${100 / totalSchedules}%` : 'calc(100% - 38px)';
+          const leftOffset = totalSchedules > 1 ? `calc(30px + ${scheduleIdx * (100 / totalSchedules)}%)` : '30px';
+          
+          html += `
+            <div style="
+              position: absolute;
+              left: ${leftOffset};
+              width: ${width};
+              top: ${top}px;
+              height: ${height}px;
+              background: ${color};
+              border-radius: 4px;
+              padding: 8px;
+              color: white;
+              font-size: 13px;
+              font-weight: 600;
+              text-align: center;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            ">
+              ${data.name}
+            </div>
+          `;
+        });
       }
       
       employeeIndex++;
