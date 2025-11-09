@@ -229,6 +229,24 @@ service cloud.firestore {
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    // schedules_backup 컬렉션: 마이그레이션 백업 (임시)
+    match /schedules_backup/{scheduleId} {
+      allow read, write: if request.auth != null && 
+                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // schedules_new 컬렉션: 마이그레이션 변환 결과 (임시)
+    match /schedules_new/{scheduleId} {
+      allow read, write: if request.auth != null && 
+                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // schedules_old 컬렉션: 마이그레이션 이전 데이터 보관 (임시)
+    match /schedules_old/{scheduleId} {
+      allow read, write: if request.auth != null && 
+                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
     // 기타 모든 컬렉션: 관리자만 접근
     match /{document=**} {
       allow read, write: if request.auth != null && 
