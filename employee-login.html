@@ -193,25 +193,17 @@
 
     // 페이지 로드 시 저장된 정보 불러오기
     window.addEventListener('DOMContentLoaded', function() {
-      const savedEmail = localStorage.getItem('employee_saved_email');
-      const savedPassword = localStorage.getItem('employee_saved_password');
-      const rememberMeChecked = localStorage.getItem('employee_remember_me') === 'true';
+      // ⚠️ 보안: 기존 저장된 모든 로그인 정보 강제 삭제
+      localStorage.removeItem('employee_saved_email');
+      localStorage.removeItem('employee_saved_password');
+      localStorage.removeItem('employee_remember_me');
       
-      // 관리자 이메일이 저장되어 있으면 삭제 (uhi1308, admin 등)
-      if (savedEmail && (savedEmail.includes('uhi1308') || savedEmail.includes('admin'))) {
-        localStorage.removeItem('employee_saved_email');
-        localStorage.removeItem('employee_saved_password');
-        localStorage.removeItem('employee_remember_me');
-        console.log('⚠️ 관리자 계정 자동 입력 정보 삭제됨');
-        return;
-      }
+      // 입력 필드 초기화
+      document.getElementById('employeeId').value = '';
+      document.getElementById('employeePassword').value = '';
+      document.getElementById('rememberMe').checked = false;
       
-      // 기억하기 체크가 true일 때만 자동 입력
-      if (rememberMeChecked && savedEmail && savedPassword) {
-        document.getElementById('employeeId').value = savedEmail;
-        document.getElementById('employeePassword').value = savedPassword;
-        document.getElementById('rememberMe').checked = true;
-      }
+      console.log('✅ 직원 로그인 페이지 - 저장된 정보 없음 (보안 강화)');
     });
 
     async function handleLogin() {
