@@ -3632,6 +3632,18 @@
         z-index: 10000;
       `;
       
+      const items = approval.data?.items || [];
+      const itemsHtml = items.map((item, idx) => `
+        <div style="border: 1px solid #ddd; padding: 12px; margin: 8px 0; border-radius: 8px; background: #fafafa;">
+          <div style="font-weight: 600; color: #333; margin-bottom: 8px;">${idx + 1}. ${item.item}</div>
+          <div style="color: #666; font-size: 14px;">
+            <div>구매처: ${item.vendor}</div>
+            <div>가격: ${parseInt(item.price || 0).toLocaleString()}원</div>
+            <div>수량: ${item.quantity}개</div>
+          </div>
+        </div>
+      `).join('');
+      
       modal.innerHTML = `
         <div style="background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
           <h3 style="margin-bottom: 20px; color: #333;">🛒 구매 신청서 상세</h3>
@@ -3640,46 +3652,53 @@
             <strong>신청자:</strong> ${approval.applicantName || 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>매장:</strong> ${approval.store || 'N/A'}
+            <strong>신청 이메일:</strong> ${approval.applicantEmail || 'N/A'}
           </div>
+          
           <div style="margin-bottom: 16px;">
-            <strong>물품명:</strong> ${approval.itemName || 'N/A'}
+            <strong>구매 물품 목록:</strong>
+            ${itemsHtml || '<div style="color: #999;">물품 정보 없음</div>'}
           </div>
-          <div style="margin-bottom: 16px;">
-            <strong>수량:</strong> ${approval.quantity || 'N/A'}
+          
+          <div style="margin-bottom: 16px; padding: 12px; background: #e3f2fd; border-radius: 8px;">
+            <strong>총 금액:</strong> <span style="font-size: 18px; color: #1976d2; font-weight: 600;">₩${parseInt(approval.data?.totalPrice || 0).toLocaleString()}</span>
           </div>
-          <div style="margin-bottom: 16px;">
-            <strong>금액:</strong> ₩${(approval.amount || 0).toLocaleString()}
-          </div>
+          
           <div style="margin-bottom: 16px;">
             <strong>구매 사유:</strong><br>
-            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px;">
-              ${approval.reason || 'N/A'}
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px; white-space: pre-wrap;">
+              ${approval.data?.reason || '사유 없음'}
             </div>
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR') : 'N/A'}
+            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
             <strong>상태:</strong> 
-            <span style="padding: 4px 12px; border-radius: 12px; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
-              ${approval.status === 'approved' ? '승인됨' : approval.status === 'rejected' ? '거부됨' : '대기중'}
+            <span style="padding: 6px 16px; border-radius: 12px; font-weight: 600; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+              ${approval.status === 'approved' ? '✅ 승인됨' : approval.status === 'rejected' ? '❌ 거부됨' : '⏳ 대기중'}
             </span>
           </div>
+          ${approval.status === 'rejected' && approval.rejectionReason ? `
+            <div style="margin-bottom: 16px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+              <strong>거부 사유:</strong><br>
+              ${approval.rejectionReason}
+            </div>
+          ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
             ${approval.status === 'pending' ? `
               <button onclick="approveDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인
               </button>
               <button onclick="rejectDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ❌ 거부
               </button>
             ` : ''}
             <button onclick="this.closest('div').parentElement.parentElement.remove();" 
-              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
               닫기
             </button>
           </div>
@@ -3706,43 +3725,46 @@
             <strong>신청자:</strong> ${approval.applicantName || 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>매장:</strong> ${approval.store || 'N/A'}
+            <strong>신청 이메일:</strong> ${approval.applicantEmail || 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>물품명:</strong> ${approval.itemName || 'N/A'}
+            <strong>품목:</strong> ${approval.data?.category || 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>수량:</strong> ${approval.quantity || 'N/A'}
-          </div>
-          <div style="margin-bottom: 16px;">
-            <strong>폐기 사유:</strong><br>
-            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px;">
-              ${approval.reason || 'N/A'}
+            <strong>폐기 상세 내용:</strong><br>
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px; white-space: pre-wrap;">
+              ${approval.data?.details || '상세 내용 없음'}
             </div>
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR') : 'N/A'}
+            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
             <strong>상태:</strong> 
-            <span style="padding: 4px 12px; border-radius: 12px; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
-              ${approval.status === 'approved' ? '승인됨' : approval.status === 'rejected' ? '거부됨' : '대기중'}
+            <span style="padding: 6px 16px; border-radius: 12px; font-weight: 600; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+              ${approval.status === 'approved' ? '✅ 승인됨' : approval.status === 'rejected' ? '❌ 거부됨' : '⏳ 대기중'}
             </span>
           </div>
+          ${approval.status === 'rejected' && approval.rejectionReason ? `
+            <div style="margin-bottom: 16px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+              <strong>거부 사유:</strong><br>
+              ${approval.rejectionReason}
+            </div>
+          ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
             ${approval.status === 'pending' ? `
               <button onclick="approveDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인
               </button>
               <button onclick="rejectDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ❌ 거부
               </button>
             ` : ''}
             <button onclick="this.closest('div').parentElement.parentElement.remove();" 
-              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
               닫기
             </button>
           </div>
@@ -3766,43 +3788,57 @@
           <h3 style="margin-bottom: 20px; color: #333;">📄 퇴직서 상세</h3>
           
           <div style="margin-bottom: 16px;">
-            <strong>신청자:</strong> ${approval.applicantName || 'N/A'}
+            <strong>신청자:</strong> ${approval.data?.name || approval.applicantName || 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>매장:</strong> ${approval.store || 'N/A'}
+            <strong>신청 이메일:</strong> ${approval.applicantEmail || 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
-            <strong>퇴직 희망일:</strong> ${approval.resignationDate || 'N/A'}
+            <strong>퇴직 희망일:</strong> ${approval.data?.resignationDate || 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
             <strong>퇴직 사유:</strong><br>
-            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px;">
-              ${approval.reason || 'N/A'}
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px; white-space: pre-wrap;">
+              ${approval.data?.reason || '사유 없음'}
             </div>
           </div>
+          ${approval.data?.employeeSignature ? `
+            <div style="margin-bottom: 16px;">
+              <strong>신청자 서명:</strong><br>
+              <div style="border: 1px solid #ddd; padding: 8px; background: white; border-radius: 8px; margin-top: 8px;">
+                <img src="${approval.data.employeeSignature}" alt="신청자 서명" style="max-width: 200px; height: auto; display: block;">
+              </div>
+            </div>
+          ` : ''}
           <div style="margin-bottom: 16px;">
-            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR') : 'N/A'}
+            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
           </div>
           <div style="margin-bottom: 16px;">
             <strong>상태:</strong> 
-            <span style="padding: 4px 12px; border-radius: 12px; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
-              ${approval.status === 'approved' ? '승인됨 (계정 삭제됨)' : approval.status === 'rejected' ? '거부됨' : '대기중'}
+            <span style="padding: 6px 16px; border-radius: 12px; font-weight: 600; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+              ${approval.status === 'approved' ? '✅ 승인됨 (계정 삭제됨)' : approval.status === 'rejected' ? '❌ 거부됨' : '⏳ 대기중'}
             </span>
           </div>
+          ${approval.status === 'rejected' && approval.rejectionReason ? `
+            <div style="margin-bottom: 16px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+              <strong>거부 사유:</strong><br>
+              ${approval.rejectionReason}
+            </div>
+          ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
             ${approval.status === 'pending' ? `
-              <button onclick="if(confirm('퇴직서를 승인하면 해당 직원의 계정이 삭제됩니다. 계속하시겠습니까?')) { approveDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove(); }" 
-                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              <button onclick="if(confirm('⚠️ 퇴직서를 승인하면 해당 직원의 계정이 삭제됩니다.\\n\\n계속하시겠습니까?')) { approveDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove(); }" 
+                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인 (계정 삭제)
               </button>
               <button onclick="rejectDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ❌ 거부
               </button>
             ` : ''}
             <button onclick="this.closest('div').parentElement.parentElement.remove();" 
-              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
               닫기
             </button>
           </div>
