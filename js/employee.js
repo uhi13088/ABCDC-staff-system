@@ -3876,6 +3876,11 @@ async function loadStoreSchedule() {
     `${year}년 ${weekNum}주차 (${monday.getMonth()+1}/${monday.getDate()} ~ ${sunday.getMonth()+1}/${sunday.getDate()})`;
   
   try {
+    console.log(`📅 매장 스케줄 로드 시작`);
+    console.log(`   사용자: ${currentUser.name} (${currentUser.uid})`);
+    console.log(`   매장: "${currentUser.store}"`);
+    console.log(`   기간: ${formatDate(monday)} ~ ${formatDate(sunday)}`);
+    
     // 같은 매장의 모든 직원 스케줄 조회
     const scheduleQuery = await db.collection('schedules')
       .where('store', '==', currentUser.store)
@@ -3883,8 +3888,32 @@ async function loadStoreSchedule() {
       .where('date', '<=', formatDate(sunday))
       .get();
     
-    console.log(`📅 매장 스케줄 로드: ${currentUser.store} (${formatDate(monday)} ~ ${formatDate(sunday)})`);
-    console.log(`   총 ${scheduleQuery.size}개 스케줄 문서 발견`);
+    console.log(`   ✅ Firestore 쿼리 완료: ${scheduleQuery.size}개 스케줄 문서 발견`);
+    
+    // 디버깅: 첫 3개 문서의 store 값 확인
+    if (scheduleQuery.size > 0) {
+      console.log(`   📋 샘플 데이터 (최대 3개):`);
+      scheduleQuery.docs.slice(0, 3).forEach((doc, idx) => {
+        const data = doc.data();
+        console.log(`      ${idx + 1}. store: "${data.store}", userName: "${data.userName}", date: ${data.date}`);
+      });
+    } else {
+      console.warn(`   ⚠️ 스케줄이 하나도 없습니다!`);
+      console.warn(`   디버깅: 매장명이 정확한지 확인하세요: "${currentUser.store}"`);
+      
+      // 모든 스케줄 문서 확인 (디버깅용)
+      const allSchedules = await db.collection('schedules')
+        .where('date', '>=', formatDate(monday))
+        .where('date', '<=', formatDate(sunday))
+        .get();
+      
+      console.warn(`   전체 기간 스케줄: ${allSchedules.size}개`);
+      if (allSchedules.size > 0) {
+        const stores = new Set();
+        allSchedules.docs.forEach(doc => stores.add(doc.data().store));
+        console.warn(`   발견된 매장들: ${Array.from(stores).join(', ')}`);
+      }
+    }
     
     // 직원별로 스케줄 정리
     const employeeSchedules = {};
@@ -4083,10 +4112,6 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
         const height = ((endMinutes - startMinutes) / 60) * rowHeight;
         const leftPos = spacing * (workerIndex + 1) + barWidth * workerIndex;
         
-        // 이름 표시 여부 (막대 높이가 충분한 경우만)
-        const showName = height > 50; // 50px 이상일 때 이름 표시
-        const showTime = height > 30; // 30px 이상일 때 시간 표시
-        
         html += `
           <div style="
             position: absolute;
@@ -4098,41 +4123,11 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
             opacity: 0.9;
             border-radius: 4px;
             transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 4px 2px;
-            box-sizing: border-box;
-            overflow: hidden;
             cursor: pointer;
           " 
           onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 3px 10px rgba(0,0,0,0.3)';" 
           onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
           title="${worker.name}: ${worker.startTime}-${worker.endTime}">
-            ${showName ? `
-              <div style="
-                font-size: 10px;
-                font-weight: 700;
-                color: white;
-                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-width: 100%;
-                line-height: 1.2;
-              ">${worker.name}</div>
-            ` : ''}
-            ${showTime ? `
-              <div style="
-                font-size: 9px;
-                font-weight: 500;
-                color: rgba(255,255,255,0.95);
-                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-                margin-top: 2px;
-                line-height: 1.2;
-              ">${worker.startTime}<br>${worker.endTime}</div>
-            ` : ''}
           </div>
         `;
       });
@@ -4192,11 +4187,6 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
   });
   
   html += `
-      </div>
-      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.2);">
-        <p style="color: rgba(255,255,255,0.9); font-size: 12px; margin: 0; line-height: 1.6;">
-          💡 <strong>사용 팁:</strong> 막대에 마우스를 올리면 상세 정보를 볼 수 있습니다.
-        </p>
       </div>
     </div>
   `;
