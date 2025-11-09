@@ -1054,6 +1054,43 @@
     </div>
   </div>
 
+  <!-- 예정 외 출근 확인 모달 -->
+  <div id="unscheduledClockInModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>⚠️ 예정된 출근시간이 아닙니다</h3>
+        <button class="modal-close" onclick="closeUnscheduledClockInModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; margin-bottom: 20px; border-radius: 4px;">
+          <p style="margin: 0 0 8px 0; font-weight: 600; color: #856404;">
+            <i class="fas fa-exclamation-triangle"></i> 오늘 예정된 근무시간이 없습니다.
+          </p>
+          <p id="unscheduledWarningText" style="margin: 0; font-size: 14px; color: #856404;"></p>
+        </div>
+        
+        <div class="form-group">
+          <label for="unscheduledReason">출근 사유 <span style="color: var(--danger-color);">*</span></label>
+          <textarea 
+            id="unscheduledReason" 
+            rows="4" 
+            placeholder="예정된 근무시간이 아닌데 출근하는 이유를 입력해주세요.&#10;예: 긴급 업무, 교대 근무 등"
+            style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; font-family: inherit; resize: vertical;"
+          ></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+          <button class="btn btn-secondary" style="flex: 1;" onclick="closeUnscheduledClockInModal()">
+            취소
+          </button>
+          <button class="btn btn-primary" style="flex: 1;" onclick="confirmUnscheduledClockIn()">
+            출근하기
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/firebase-config.js"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>

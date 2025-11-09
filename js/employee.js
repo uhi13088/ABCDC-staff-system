@@ -271,9 +271,71 @@ function showTab(tabName) {
 /**
  * 출근 처리
  */
-function showClockIn() {
-  if (confirm('지금 출근하시겠습니까?')) {
-    recordAttendance('출근');
+async function showClockIn() {
+  if (!currentUser) {
+    alert('❌ 로그인 정보가 없습니다.');
+    return;
+  }
+  
+  // 오늘 날짜
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = formatTime(now);
+  
+  try {
+    // 오늘 스케줄 조회
+    const schedulesSnapshot = await db.collection('schedules')
+      .where('userId', '==', currentUser.uid)
+      .where('date', '==', dateStr)
+      .get();
+    
+    // 스케줄이 없으면 경고 모달
+    if (schedulesSnapshot.empty) {
+      showUnscheduledClockInModal('오늘은 예정된 근무가 없습니다.');
+      return;
+    }
+    
+    // 스케줄이 있으면 시간 확인
+    let hasMatchingSchedule = false;
+    let scheduledTimes = [];
+    
+    schedulesSnapshot.forEach(doc => {
+      const schedule = doc.data();
+      scheduledTimes.push(`${schedule.startTime} ~ ${schedule.endTime}`);
+      
+      // 출근 시간 범위 확인 (예정 시작시간 ±30분)
+      const scheduledStart = schedule.startTime; // "09:00"
+      const [scheduleHour, scheduleMinute] = scheduledStart.split(':').map(Number);
+      const scheduleTime = scheduleHour * 60 + scheduleMinute;
+      
+      const [nowHour, nowMinute] = timeStr.split(':').map(Number);
+      const nowTime = nowHour * 60 + nowMinute;
+      
+      // 출근 허용 범위: 예정 시작시간 30분 전 ~ 예정 시작시간 30분 후
+      const diffMinutes = nowTime - scheduleTime;
+      if (diffMinutes >= -30 && diffMinutes <= 30) {
+        hasMatchingSchedule = true;
+      }
+    });
+    
+    // 예정 시간과 맞지 않으면 경고 모달
+    if (!hasMatchingSchedule) {
+      const timesText = scheduledTimes.join(', ');
+      showUnscheduledClockInModal(`예정된 근무시간: ${timesText}\n현재 시간: ${timeStr}\n\n예정 시간과 30분 이상 차이가 납니다.`);
+      return;
+    }
+    
+    // 정상 출근
+    if (confirm('지금 출근하시겠습니까?')) {
+      recordAttendance('출근');
+    }
+    
+  } catch (error) {
+    console.error('❌ 스케줄 확인 오류:', error);
+    // 오류 발생 시 그냥 출근 처리
+    if (confirm('지금 출근하시겠습니까?')) {
+      recordAttendance('출근');
+    }
   }
 }
 
@@ -289,8 +351,9 @@ function showClockOut() {
 /**
  * 출퇴근 기록 저장 (Firestore)
  * @param {string} type - '출근' 또는 '퇴근'
+ * @param {string} unscheduledReason - 예정 외 출근 사유 (옵션)
  */
-async function recordAttendance(type) {
+async function recordAttendance(type, unscheduledReason = null) {
   // currentUser 체크
   if (!currentUser) {
     console.error('❌ currentUser is null in recordAttendance');
@@ -303,7 +366,7 @@ async function recordAttendance(type) {
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = formatTime(now);
     
-    console.log('🕐 출퇴근 기록:', { type, uid: currentUser.uid, name: currentUser.name, dateStr, timeStr });
+    console.log('🕐 출퇴근 기록:', { type, uid: currentUser.uid, name: currentUser.name, dateStr, timeStr, unscheduledReason });
     
     // 오늘 기록 확인
     const todayDocRef = db.collection('attendance')
@@ -335,6 +398,12 @@ async function recordAttendance(type) {
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
+      
+      // 예정 외 출근 사유가 있으면 추가
+      if (unscheduledReason) {
+        recordData.unscheduledClockIn = true;
+        recordData.unscheduledReason = unscheduledReason;
+      }
       
       let docRef;
       if (snapshot.empty) {
@@ -398,6 +467,42 @@ async function recordAttendance(type) {
     console.error('❌ 출퇴근 기록 오류:', error);
     alert('❌ 기록 중 오류가 발생했습니다.\n\n' + error.message);
   }
+}
+
+/**
+ * 예정 외 출근 확인 모달 열기
+ */
+function showUnscheduledClockInModal(warningText) {
+  document.getElementById('unscheduledWarningText').textContent = warningText;
+  document.getElementById('unscheduledReason').value = '';
+  document.getElementById('unscheduledClockInModal').style.display = 'flex';
+}
+
+/**
+ * 예정 외 출근 확인 모달 닫기
+ */
+function closeUnscheduledClockInModal() {
+  document.getElementById('unscheduledClockInModal').style.display = 'none';
+}
+
+/**
+ * 예정 외 출근 확정 (사유 포함)
+ */
+async function confirmUnscheduledClockIn() {
+  const reason = document.getElementById('unscheduledReason').value.trim();
+  
+  if (!reason) {
+    alert('⚠️ 출근 사유를 입력해주세요.');
+    return;
+  }
+  
+  closeUnscheduledClockInModal();
+  
+  // 사유를 전역 변수에 저장
+  window.unscheduledClockInReason = reason;
+  
+  // 출근 처리 (사유 포함)
+  recordAttendance('출근', reason);
 }
 
 /**
