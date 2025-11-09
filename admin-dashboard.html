@@ -3623,6 +3623,195 @@
       }
     }
 
+    // 구매 상세 모달 표시
+    function showPurchaseDetailModal(approvalId, approval) {
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        z-index: 10000;
+      `;
+      
+      modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+          <h3 style="margin-bottom: 20px; color: #333;">🛒 구매 신청서 상세</h3>
+          
+          <div style="margin-bottom: 16px;">
+            <strong>신청자:</strong> ${approval.applicantName || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>매장:</strong> ${approval.store || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>물품명:</strong> ${approval.itemName || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>수량:</strong> ${approval.quantity || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>금액:</strong> ₩${(approval.amount || 0).toLocaleString()}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>구매 사유:</strong><br>
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px;">
+              ${approval.reason || 'N/A'}
+            </div>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR') : 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>상태:</strong> 
+            <span style="padding: 4px 12px; border-radius: 12px; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+              ${approval.status === 'approved' ? '승인됨' : approval.status === 'rejected' ? '거부됨' : '대기중'}
+            </span>
+          </div>
+          
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            ${approval.status === 'pending' ? `
+              <button onclick="approveDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                ✅ 승인
+              </button>
+              <button onclick="rejectDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                ❌ 거부
+              </button>
+            ` : ''}
+            <button onclick="this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              닫기
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+
+    // 폐기 상세 모달 표시
+    function showDisposalDetailModal(approvalId, approval) {
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        z-index: 10000;
+      `;
+      
+      modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+          <h3 style="margin-bottom: 20px; color: #333;">🗑️ 폐기 신청서 상세</h3>
+          
+          <div style="margin-bottom: 16px;">
+            <strong>신청자:</strong> ${approval.applicantName || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>매장:</strong> ${approval.store || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>물품명:</strong> ${approval.itemName || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>수량:</strong> ${approval.quantity || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>폐기 사유:</strong><br>
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px;">
+              ${approval.reason || 'N/A'}
+            </div>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR') : 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>상태:</strong> 
+            <span style="padding: 4px 12px; border-radius: 12px; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+              ${approval.status === 'approved' ? '승인됨' : approval.status === 'rejected' ? '거부됨' : '대기중'}
+            </span>
+          </div>
+          
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            ${approval.status === 'pending' ? `
+              <button onclick="approveDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                ✅ 승인
+              </button>
+              <button onclick="rejectDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                ❌ 거부
+              </button>
+            ` : ''}
+            <button onclick="this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              닫기
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+
+    // 퇴직서 상세 모달 표시
+    function showResignationDetailModal(approvalId, approval) {
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        z-index: 10000;
+      `;
+      
+      modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+          <h3 style="margin-bottom: 20px; color: #333;">📄 퇴직서 상세</h3>
+          
+          <div style="margin-bottom: 16px;">
+            <strong>신청자:</strong> ${approval.applicantName || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>매장:</strong> ${approval.store || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>퇴직 희망일:</strong> ${approval.resignationDate || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>퇴직 사유:</strong><br>
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px;">
+              ${approval.reason || 'N/A'}
+            </div>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR') : 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>상태:</strong> 
+            <span style="padding: 4px 12px; border-radius: 12px; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+              ${approval.status === 'approved' ? '승인됨 (계정 삭제됨)' : approval.status === 'rejected' ? '거부됨' : '대기중'}
+            </span>
+          </div>
+          
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            ${approval.status === 'pending' ? `
+              <button onclick="if(confirm('퇴직서를 승인하면 해당 직원의 계정이 삭제됩니다. 계속하시겠습니까?')) { approveDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove(); }" 
+                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                ✅ 승인 (계정 삭제)
+              </button>
+              <button onclick="rejectDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                ❌ 거부
+              </button>
+            ` : ''}
+            <button onclick="this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              닫기
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+
     // 문서 승인
     async function approveDocument(approvalId, type) {
       if (!confirm('이 문서를 승인하시겠습니까?')) {
@@ -3636,39 +3825,89 @@
           const shiftDoc = await db.collection('shift_requests').doc(approvalId).get();
           const shiftData = shiftDoc.data();
           
-          // 1. 원래 직원(A)의 스케줄 찾아서 삭제
-          const originalScheduleQuery = await db.collection('schedules')
-            .where('userId', '==', shiftData.requesterId)
-            .where('store', '==', shiftData.store)
-            .where('date', '==', shiftData.workDate)
-            .get();
+          // 1. 교대 날짜로부터 년도, 주차, 요일 계산
+          const shiftDate = new Date(shiftData.workDate); // YYYY-MM-DD
+          const year = shiftDate.getFullYear();
+          const weekNum = getWeekNumber(shiftDate);
+          const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][shiftDate.getDay()];
           
-          const deletePromises = [];
-          originalScheduleQuery.forEach(doc => {
-            deletePromises.push(db.collection('schedules').doc(doc.id).delete());
-            console.log(`✅ 원래 직원(${shiftData.requesterName}) 스케줄 삭제: ${shiftData.workDate}`);
-          });
+          console.log(`📅 교대근무 날짜: ${shiftData.workDate} = ${year}년 ${weekNum}주차 ${dayOfWeek}요일`);
           
-          // 2. 대타 직원(B)의 새 스케줄 추가
-          const newSchedule = {
-            userId: shiftData.matchedUserId,
-            userName: shiftData.matchedUserName,
-            store: shiftData.store,
-            date: shiftData.workDate,
-            startTime: shiftData.workStartTime,
-            endTime: shiftData.workEndTime,
+          // 2. 원래 직원(A)의 해당 주차 스케줄 문서에서 해당 요일 삭제
+          const originalScheduleDocId = `${shiftData.requesterId}_${year}-${weekNum}`;
+          const originalScheduleRef = db.collection('schedules').doc(originalScheduleDocId);
+          
+          try {
+            const originalScheduleDoc = await originalScheduleRef.get();
+            if (originalScheduleDoc.exists) {
+              // 해당 요일 필드를 { isWorkDay: false }로 변경 (휴무 처리)
+              await originalScheduleRef.update({
+                [dayOfWeek]: { isWorkDay: false }
+              });
+              console.log(`✅ 원래 직원(${shiftData.requesterName}) ${dayOfWeek}요일 스케줄 삭제 (휴무 처리)`);
+            } else {
+              console.log(`⚠️ 원래 직원(${shiftData.requesterName}) 스케줄 문서 없음: ${originalScheduleDocId}`);
+            }
+          } catch (err) {
+            console.error(`❌ 원래 직원 스케줄 삭제 실패:`, err);
+          }
+          
+          // 3. 대타 직원(B)의 해당 주차 스케줄 문서에 해당 요일 추가
+          const matchedScheduleDocId = `${shiftData.matchedUserId}_${year}-${weekNum}`;
+          const matchedScheduleRef = db.collection('schedules').doc(matchedScheduleDocId);
+          
+          // 근무시간 계산
+          const startTime = shiftData.workStartTime; // "09:00"
+          const endTime = shiftData.workEndTime; // "18:00"
+          const [startHour, startMin] = startTime.split(':').map(Number);
+          const [endHour, endMin] = endTime.split(':').map(Number);
+          const hours = (endHour * 60 + endMin - (startHour * 60 + startMin)) / 60;
+          
+          const newDaySchedule = {
+            startTime: startTime,
+            endTime: endTime,
+            hours: hours,
+            isWorkDay: true,
             isShiftReplacement: true, // 교대근무 표시
             originalRequesterId: shiftData.requesterId,
             originalRequesterName: shiftData.requesterName,
-            shiftRequestId: approvalId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            shiftRequestId: approvalId
           };
           
-          deletePromises.push(db.collection('schedules').add(newSchedule));
-          console.log(`✅ 대타 직원(${shiftData.matchedUserName}) 스케줄 추가: ${shiftData.workDate} ${shiftData.workStartTime}~${shiftData.workEndTime}`);
-          
-          // 3. 모든 작업 실행
-          await Promise.all(deletePromises);
+          try {
+            const matchedScheduleDoc = await matchedScheduleRef.get();
+            if (matchedScheduleDoc.exists) {
+              // 기존 문서가 있으면 해당 요일만 업데이트
+              await matchedScheduleRef.update({
+                [dayOfWeek]: newDaySchedule
+              });
+              console.log(`✅ 대타 직원(${shiftData.matchedUserName}) ${dayOfWeek}요일 스케줄 업데이트`);
+            } else {
+              // 문서가 없으면 새로 생성
+              const newScheduleDoc = {
+                userId: shiftData.matchedUserId,
+                userName: shiftData.matchedUserName,
+                store: shiftData.store,
+                year: year,
+                weekNumber: weekNum,
+                [dayOfWeek]: newDaySchedule,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+              };
+              
+              // 다른 요일은 휴무로 초기화
+              const allDays = ['월', '화', '수', '목', '금', '토', '일'];
+              allDays.forEach(day => {
+                if (day !== dayOfWeek && !newScheduleDoc[day]) {
+                  newScheduleDoc[day] = { isWorkDay: false };
+                }
+              });
+              
+              await matchedScheduleRef.set(newScheduleDoc);
+              console.log(`✅ 대타 직원(${shiftData.matchedUserName}) ${dayOfWeek}요일 스케줄 생성`);
+            }
+          } catch (err) {
+            console.error(`❌ 대타 직원 스케줄 추가 실패:`, err);
+          }
           
           // 4. 교대근무 요청 상태 업데이트
           await db.collection('shift_requests').doc(approvalId).update({
@@ -8901,10 +9140,44 @@
             });
           }
           
+          // 계약서에서 급여 정보 조회
+          let salaryType = 'hourly';
+          let salaryAmount = 0;
+          
+          try {
+            const contractSnapshot = await db.collection('contracts')
+              .where('employeeId', '==', empUid)
+              .where('status', '==', 'active')
+              .limit(1)
+              .get();
+            
+            if (!contractSnapshot.empty) {
+              const contractData = contractSnapshot.docs[0].data();
+              salaryType = contractData.salaryType || 'hourly';
+              
+              // 급여 타입에 따라 금액 추출
+              if (salaryType === 'hourly') {
+                salaryAmount = contractData.hourlyWage || 0;
+              } else if (salaryType === 'monthly') {
+                salaryAmount = contractData.monthlySalary || 0;
+              } else if (salaryType === 'annual') {
+                salaryAmount = contractData.annualSalary || 0;
+              }
+              
+              console.log(`  💰 ${empData.name} 급여: ${salaryType} = ₩${salaryAmount.toLocaleString()}`);
+            } else {
+              console.log(`  ⚠️ ${empData.name} 활성 계약서 없음`);
+            }
+          } catch (err) {
+            console.warn(`  ⚠️ ${empData.name} 계약서 조회 실패:`, err);
+          }
+          
           employees.push({
             uid: empUid,
             name: empData.name || '이름없음',
-            schedules: schedules
+            schedules: schedules,
+            salaryType: salaryType,
+            salaryAmount: salaryAmount
           });
         }
         
@@ -9072,14 +9345,8 @@
                   </div>
                 </div>
               `;
-            } else {
-              html += `
-                <div style="background: #f5f5f5; border-radius: 8px; padding: 10px; margin-bottom: 8px; text-align: center; color: #999;">
-                  <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">👤 ${emp.name}</div>
-                  <div style="font-size: 12px;">휴무</div>
-                </div>
-              `;
             }
+            // 휴무는 표시하지 않음
           });
         }
         
