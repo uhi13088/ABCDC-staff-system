@@ -1464,6 +1464,7 @@ async function loadContracts() {
     console.log(`   ✅ employeeId 조회 결과: ${snapshot.size}개 계약서`);
     
     // employeeId로 못 찾으면 employeeName + employeeBirth로 재시도 (하위 호환)
+    let finalSnapshot = snapshot;
     if (snapshot.empty) {
       console.warn('   ⚠️ employeeId로 계약서를 찾을 수 없습니다. employeeName으로 재시도...');
       const nameSnapshot = await db.collection('contracts')
@@ -1479,10 +1480,12 @@ async function loadContracts() {
           const data = doc.data();
           console.warn(`      ${idx + 1}. employeeId: "${data.employeeId || 'NULL'}", employeeName: "${data.employeeName}"`);
         });
+        // employeeName으로 찾은 계약서 사용
+        finalSnapshot = nameSnapshot;
       }
     }
     
-    for (const doc of snapshot.docs) {
+    for (const doc of finalSnapshot.docs) {
       const contractData = doc.data();
       const contractId = doc.id;
       
