@@ -3883,6 +3883,9 @@ async function loadStoreSchedule() {
       .where('date', '<=', formatDate(sunday))
       .get();
     
+    console.log(`📅 매장 스케줄 로드: ${currentUser.store} (${formatDate(monday)} ~ ${formatDate(sunday)})`);
+    console.log(`   총 ${scheduleQuery.size}개 스케줄 문서 발견`);
+    
     // 직원별로 스케줄 정리
     const employeeSchedules = {};
     
@@ -3896,6 +3899,7 @@ async function loadStoreSchedule() {
           name: employeeName,
           schedules: []
         };
+        console.log(`   👤 직원 추가: ${employeeName} (${employeeId})`);
       }
       
       employeeSchedules[employeeId].schedules.push({
@@ -3905,6 +3909,19 @@ async function loadStoreSchedule() {
         isShiftReplacement: data.isShiftReplacement || false
       });
     });
+    
+    const employeeCount = Object.keys(employeeSchedules).length;
+    console.log(`✅ 매장 스케줄 로드 완료: ${employeeCount}명의 직원 스케줄`);
+    
+    if (employeeCount === 0) {
+      document.getElementById('storeScheduleTimeline').innerHTML = 
+        '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">' +
+        '<div style="font-size: 48px; margin-bottom: 16px;">📭</div>' +
+        '<p style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">이번 주 매장 스케줄이 없습니다</p>' +
+        '<p style="font-size: 14px;">관리자가 스케줄을 등록하면 여기에 표시됩니다.</p>' +
+        '</div>';
+      return;
+    }
     
     renderStoreScheduleTimeline(employeeSchedules, monday);
     
@@ -4066,6 +4083,10 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
         const height = ((endMinutes - startMinutes) / 60) * rowHeight;
         const leftPos = spacing * (workerIndex + 1) + barWidth * workerIndex;
         
+        // 이름 표시 여부 (막대 높이가 충분한 경우만)
+        const showName = height > 50; // 50px 이상일 때 이름 표시
+        const showTime = height > 30; // 30px 이상일 때 시간 표시
+        
         html += `
           <div style="
             position: absolute;
@@ -4075,12 +4096,43 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
             height: ${height}px;
             background: ${worker.color};
             opacity: 0.9;
-            border-radius: 2px;
+            border-radius: 4px;
             transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 2px;
+            box-sizing: border-box;
+            overflow: hidden;
+            cursor: pointer;
           " 
-          onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
+          onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 3px 10px rgba(0,0,0,0.3)';" 
           onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
           title="${worker.name}: ${worker.startTime}-${worker.endTime}">
+            ${showName ? `
+              <div style="
+                font-size: 10px;
+                font-weight: 700;
+                color: white;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+                line-height: 1.2;
+              ">${worker.name}</div>
+            ` : ''}
+            ${showTime ? `
+              <div style="
+                font-size: 9px;
+                font-weight: 500;
+                color: rgba(255,255,255,0.95);
+                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                margin-top: 2px;
+                line-height: 1.2;
+              ">${worker.startTime}<br>${worker.endTime}</div>
+            ` : ''}
           </div>
         `;
       });
@@ -4097,22 +4149,57 @@ function renderStoreScheduleTimeline(employeeSchedules, monday) {
     </div>
   `;
   
-  // 직원 목록 (범례)
-  html += '<div style="margin-top: 20px; padding: 16px; background: var(--bg-light); border-radius: 8px;">';
-  html += '<h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 700;">👥 직원 목록</h4>';
-  html += '<div style="display: flex; flex-wrap: wrap; gap: 12px;">';
+  // 직원 목록 (범례) - 더 명확하게 표시
+  const employeeCount = Object.keys(employeeSchedules).length;
+  html += `
+    <div style="margin-top: 24px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+      <h4 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700; color: white; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 20px;">👥</span>
+        <span>우리 매장 직원 목록</span>
+        <span style="background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">${employeeCount}명</span>
+      </h4>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+  `;
   
   Object.entries(employeeSchedules).forEach(([employeeId, data]) => {
     const color = colorMap[data.name];
+    const scheduleCount = data.schedules.length;
     html += `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="width: 20px; height: 20px; background: ${color}; border-radius: 4px;"></div>
-        <span style="font-size: 13px;">${data.name}</span>
+      <div style="
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        background: white; 
+        padding: 10px 12px; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+        cursor: pointer;
+      " 
+      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)';"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
+        <div style="width: 24px; height: 24px; background: ${color}; border-radius: 6px; flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 13px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            ${data.name}
+          </div>
+          <div style="font-size: 10px; color: #999; margin-top: 2px;">
+            이번주 ${scheduleCount}일 근무
+          </div>
+        </div>
       </div>
     `;
   });
   
-  html += '</div></div>';
+  html += `
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.2);">
+        <p style="color: rgba(255,255,255,0.9); font-size: 12px; margin: 0; line-height: 1.6;">
+          💡 <strong>사용 팁:</strong> 막대에 마우스를 올리면 상세 정보를 볼 수 있습니다.
+        </p>
+      </div>
+    </div>
+  `;
   
   container.innerHTML = html;
 }
