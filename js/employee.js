@@ -3277,7 +3277,38 @@ async function loadEmployeeSchedule() {
     `${year}년 ${weekNum}주차 (${monday.getMonth()+1}/${monday.getDate()} ~ ${sunday.getMonth()+1}/${sunday.getDate()})`;
   
   try {
-    // 내 스케줄 조회 - 새 구조: 날짜별 개별 문서 쿼리
+    // 1. 최신 계약서 조회 (createdAt 기준)
+    console.log(`📋 최신 계약서 조회 시작`);
+    const contractsSnapshot = await db.collection('contracts')
+      .where('employeeId', '==', currentUser.uid)
+      .get();
+    
+    let latestContract = null;
+    let contractStartDate = null;
+    
+    if (!contractsSnapshot.empty) {
+      // createdAt 기준으로 정렬하여 최신 계약서 찾기
+      const contracts = contractsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      contracts.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+        return dateB - dateA; // 내림차순
+      });
+      
+      latestContract = contracts[0];
+      contractStartDate = latestContract.contractStartDate || latestContract.startDate;
+      
+      console.log(`   ✅ 최신 계약서: ${latestContract.id}`);
+      console.log(`   📅 계약 시작일: ${contractStartDate}`);
+    } else {
+      console.warn(`   ⚠️ 계약서가 없습니다. 모든 스케줄을 표시합니다.`);
+    }
+    
+    // 2. 내 스케줄 조회 - 새 구조: 날짜별 개별 문서 쿼리
     const sunday = new Date(monday);
     sunday.setDate(sunday.getDate() + 6);
     
@@ -3332,11 +3363,35 @@ async function loadEmployeeSchedule() {
       schedules[day] = [];
     });
     
-    // 쿼리 결과를 날짜별로 정리 (배열 구조)
+    // 3. 스케줄 필터링 및 날짜별로 정리
+    let filteredCount = 0;
+    let totalCount = 0;
+    
     schedulesSnapshot.forEach(doc => {
       const scheduleData = doc.data();
-      const scheduleDate = new Date(scheduleData.date + 'T00:00:00');
-      const dayOfWeek = scheduleDate.getDay(); // 0=일요일, 1=월요일, ...
+      totalCount++;
+      
+      // 필터링 로직
+      const isShiftReplacement = scheduleData.isShiftReplacement || false;
+      const scheduleDate = scheduleData.date; // "YYYY-MM-DD" 형식
+      
+      // 대체근무는 무조건 표시
+      if (isShiftReplacement) {
+        console.log(`   ✅ 대체근무: ${scheduleDate} (항상 표시)`);
+      } else if (contractStartDate) {
+        // 최신 계약서 시작일 이후 스케줄만 표시
+        if (scheduleDate < contractStartDate) {
+          console.log(`   ⏭️ 이전 계약서 스케줄: ${scheduleDate} < ${contractStartDate} (제외)`);
+          filteredCount++;
+          return; // 이 스케줄은 표시하지 않음
+        } else {
+          console.log(`   ✅ 최신 계약서 스케줄: ${scheduleDate} >= ${contractStartDate}`);
+        }
+      }
+      
+      // 날짜별로 정리
+      const scheduleDateObj = new Date(scheduleData.date + 'T00:00:00');
+      const dayOfWeek = scheduleDateObj.getDay(); // 0=일요일, 1=월요일, ...
       const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월요일을 0으로 만들기
       const dayName = days[dayIndex];
       
@@ -3345,12 +3400,14 @@ async function loadEmployeeSchedule() {
         endTime: scheduleData.endTime || '',
         hours: scheduleData.hours || 0,
         isWorkDay: true,
-        isShiftReplacement: scheduleData.isShiftReplacement || false,
+        isShiftReplacement: isShiftReplacement,
         shiftRequestId: scheduleData.shiftRequestId || null,
         originalRequesterId: scheduleData.originalRequesterId || null,
         originalRequesterName: scheduleData.originalRequesterName || null
       });
     });
+    
+    console.log(`   📊 필터링 결과: 총 ${totalCount}개 중 ${totalCount - filteredCount}개 표시, ${filteredCount}개 제외`);
     
     // 스케줄이 없을 때 안내 메시지
     const hasSchedules = Object.values(schedules).some(daySchedules => daySchedules.length > 0);
