@@ -3414,18 +3414,22 @@ async function loadEmployeeSchedule() {
           }
         }
         
-        if (validContract) {
-          // 이 날짜의 유효 계약서가 최신 계약서인 경우만 표시
-          if (validContract.id === latestContract.id) {
-            console.log(`   ✅ 최신 계약서 스케줄: ${scheduleDate} (계약서: ${validContract.id})`);
+        // 최신 계약서 시작일 이전: 모든 스케줄 표시
+        // 최신 계약서 시작일 이후: 최신 계약서 스케줄만 표시
+        const latestStartDate = latestContract.contractStartDate || latestContract.startDate;
+        
+        if (scheduleDate < latestStartDate) {
+          // 최신 계약서 시작 전 - 모든 스케줄 표시
+          console.log(`   ✅ 이전 계약서 스케줄: ${scheduleDate} < ${latestStartDate} (표시)`);
+        } else {
+          // 최신 계약서 시작 후 - 최신 계약서 스케줄만 표시
+          if (validContract && validContract.id === latestContract.id) {
+            console.log(`   ✅ 최신 계약서 스케줄: ${scheduleDate} >= ${latestStartDate} (표시)`);
           } else {
-            console.log(`   ⏭️ 이전 계약서 스케줄: ${scheduleDate} (계약서: ${validContract.id}, 최신 우선)`);
+            console.log(`   ⏭️ 이전 계약서 스케줄: ${scheduleDate} >= ${latestStartDate} (최신 우선, 제외)`);
             filteredCount++;
             return; // 제외
           }
-        } else {
-          // 유효 계약서가 없는 경우도 표시
-          console.log(`   ✅ 스케줄: ${scheduleDate} (계약서 없음)`);
         }
       } else {
         // 계약서가 없으면 모두 표시
