@@ -209,10 +209,20 @@
     </div>
     
     <div class="form-group" style="margin-bottom: 24px;">
-      <label style="display: flex; align-items: center; cursor: pointer; font-weight: normal;">
-        <input type="checkbox" id="rememberMe" style="width: auto; margin-right: 8px; cursor: pointer;">
-        <span style="font-size: 14px; color: var(--text-secondary);">아이디/비밀번호 기억하기</span>
-      </label>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <label style="display: flex; align-items: center; cursor: pointer; font-weight: normal;">
+          <input type="checkbox" id="rememberMe" style="width: auto; margin-right: 8px; cursor: pointer;">
+          <span style="font-size: 14px; color: var(--text-secondary);">아이디/비밀번호 기억하기</span>
+        </label>
+        <button 
+          type="button" 
+          onclick="clearLoginHistory()" 
+          style="background: none; border: none; color: var(--text-secondary); font-size: 13px; cursor: pointer; padding: 4px 8px; text-decoration: underline; transition: color 0.2s;"
+          onmouseover="this.style.color='#dc2626'" 
+          onmouseout="this.style.color='var(--text-secondary)'">
+          로그인기록 삭제
+        </button>
+      </div>
     </div>
     
     <button class="btn btn-primary" style="width: 100%;" onclick="handleAdminLogin()">로그인</button>
@@ -252,19 +262,38 @@
     
     console.log('✅ 관리자 로그인 페이지 로드');
 
+    // 로그인 기록 삭제 함수
+    function clearLoginHistory() {
+      if (confirm('저장된 로그인 정보를 모두 삭제하시겠습니까?')) {
+        // 로컬 스토리지에서 저장된 정보 삭제
+        localStorage.removeItem('admin_saved_email');
+        localStorage.removeItem('admin_saved_password');
+        localStorage.removeItem('admin_remember_me');
+        
+        // 입력 필드 초기화
+        document.getElementById('adminEmail').value = '';
+        document.getElementById('adminPassword').value = '';
+        document.getElementById('rememberMe').checked = false;
+        
+        alert('✅ 로그인 기록이 삭제되었습니다.');
+        console.log('✅ 관리자 로그인 기록 삭제 완료');
+      }
+    }
+
     // 페이지 로드 시 저장된 정보 불러오기
     window.addEventListener('DOMContentLoaded', function() {
-      // ⚠️ 보안: 기존 저장된 모든 로그인 정보 강제 삭제
-      localStorage.removeItem('admin_saved_email');
-      localStorage.removeItem('admin_saved_password');
-      localStorage.removeItem('admin_remember_me');
+      const savedEmail = localStorage.getItem('admin_saved_email');
+      const savedPassword = localStorage.getItem('admin_saved_password');
+      const rememberMe = localStorage.getItem('admin_remember_me') === 'true';
       
-      // 입력 필드 초기화
-      document.getElementById('adminEmail').value = '';
-      document.getElementById('adminPassword').value = '';
-      document.getElementById('rememberMe').checked = false;
-      
-      console.log('✅ 관리자 로그인 페이지 - 저장된 정보 없음 (보안 강화)');
+      if (rememberMe && savedEmail && savedPassword) {
+        document.getElementById('adminEmail').value = savedEmail;
+        document.getElementById('adminPassword').value = savedPassword;
+        document.getElementById('rememberMe').checked = true;
+        console.log('✅ 관리자 로그인 - 저장된 정보 불러오기 완료');
+      } else {
+        console.log('✅ 관리자 로그인 - 저장된 정보 없음');
+      }
     });
 
     async function handleAdminLogin() {
