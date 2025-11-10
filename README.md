@@ -64,25 +64,31 @@ curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/cleanupOr
 
 ## 📦 배포
 
-### GitHub → Firebase Hosting 자동 배포
-이 프로젝트는 **GitHub Actions를 통한 자동 배포**가 설정되어 있습니다.
+### ⚡ **GitHub → Firebase Hosting 자동 배포 (권장)**
+
+**🎯 이 프로젝트는 GitHub Actions를 통한 자동 배포가 설정되어 있습니다.**
 
 ```bash
-# GitHub에 푸시하면 자동으로 Firebase Hosting에 배포됩니다
+# ✅ GitHub에 푸시하면 자동으로 Firebase Hosting에 배포됩니다
 git add .
 git commit -m "Update feature"
 git push origin main
 ```
 
-**자동 배포 프로세스**:
-1. `main` 브랜치에 코드 푸시
-2. GitHub Actions 자동 실행
-3. Firebase Hosting 자동 배포
-4. 배포 완료 (약 2-3분 소요)
+**🚀 자동 배포 프로세스**:
+1. ✅ `main` 브랜치에 코드 푸시
+2. ✅ GitHub Actions 자동 실행
+3. ✅ Firebase Hosting 자동 배포 (GitHub-Firebase 연동)
+4. ✅ 배포 완료 (약 2-3분 소요)
+
+**⚠️ 중요: Firebase CLI 로그인 불필요**
+- GitHub Actions가 자동으로 Firebase 배포 수행
+- 로컬에서 `firebase deploy` 실행 불필요
+- **GitHub 푸시만 하면 자동 배포됨**
 
 ### 수동 배포 (선택사항)
 ```bash
-# 프로젝트 빌드 및 배포
+# 프로젝트 빌드 및 배포 (Firebase 로그인 필요)
 firebase deploy --only hosting
 
 # Cloud Functions도 함께 배포
