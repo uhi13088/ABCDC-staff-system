@@ -94,6 +94,9 @@ async function loadContractData() {
 function displayContract() {
   try {
     console.log('🖥️ 계약서 화면 표시 시작');
+    console.log('📊 계약서 데이터:', contractData);
+    console.log('💰 급여 타입:', contractData.wageType, contractData.salaryType);
+    console.log('💰 급여 금액:', contractData.wageAmount, contractData.salaryAmount);
     
     // 로딩 숨기기
     document.getElementById('loadingSection').style.display = 'none';
@@ -120,10 +123,16 @@ function displayContract() {
     document.getElementById('previewWorkDays').textContent = contractData.workDays || '-';
     document.getElementById('previewWorkTime').textContent = contractData.workTime || '-';
     document.getElementById('previewBreakTime').textContent = contractData.breakTime || '-';
-    document.getElementById('previewWageType').textContent = contractData.wageType || '-';
-    document.getElementById('previewWageAmount').textContent = contractData.wageAmount || '-';
-    document.getElementById('previewPaymentDay').textContent = contractData.paymentDay || '-';
-    document.getElementById('previewPaymentMethod').textContent = contractData.paymentMethod || '-';
+    
+    // 급여 조건 처리 (여러 필드명 지원)
+    const wageType = contractData.wageType || contractData.salaryType || 'undefined';
+    const wageAmount = contractData.wageAmount || contractData.salaryAmount || 'undefined';
+    const paymentDay = contractData.paymentDay || contractData.salaryPaymentDay || '매월 말일';
+    
+    document.getElementById('previewWageType').textContent = wageType;
+    document.getElementById('previewWageAmount').textContent = wageAmount !== 'undefined' ? Number(wageAmount).toLocaleString() : 'undefined';
+    document.getElementById('previewPaymentDay').textContent = paymentDay;
+    document.getElementById('previewPaymentMethod').textContent = contractData.paymentMethod || '계좌이체';
     document.getElementById('previewContractBody').textContent = contractData.contractContent || '';
     document.getElementById('previewContractDate').textContent = contractData.contractDate || '';
     
@@ -144,8 +153,10 @@ function displayContract() {
 
 function displaySignedContract(signedData) {
   try {
-    console.log('📄 서명 완료된 계약서 표시 시작 [v2]');
+    console.log('📄 서명 완료된 계약서 표시 시작 [v3]');
     console.log('📄 signedData:', signedData);
+    console.log('💰 급여 타입:', signedData.wageType, signedData.salaryType);
+    console.log('💰 급여 금액:', signedData.wageAmount, signedData.salaryAmount);
     
     // 로딩 숨기기
     document.getElementById('loadingSection').style.display = 'none';
@@ -172,10 +183,16 @@ function displaySignedContract(signedData) {
     document.getElementById('previewWorkDays').textContent = signedData.workDays || '-';
     document.getElementById('previewWorkTime').textContent = signedData.workTime || '-';
     document.getElementById('previewBreakTime').textContent = signedData.breakTime || '-';
-    document.getElementById('previewWageType').textContent = signedData.wageType || '-';
-    document.getElementById('previewWageAmount').textContent = signedData.wageAmount || '-';
-    document.getElementById('previewPaymentDay').textContent = signedData.paymentDay || '-';
-    document.getElementById('previewPaymentMethod').textContent = signedData.paymentMethod || '-';
+    
+    // 급여 조건 처리 (여러 필드명 지원)
+    const wageType = signedData.wageType || signedData.salaryType || 'undefined';
+    const wageAmount = signedData.wageAmount || signedData.salaryAmount || 'undefined';
+    const paymentDay = signedData.paymentDay || signedData.salaryPaymentDay || '매월 말일';
+    
+    document.getElementById('previewWageType').textContent = wageType;
+    document.getElementById('previewWageAmount').textContent = wageAmount !== 'undefined' ? Number(wageAmount).toLocaleString() : 'undefined';
+    document.getElementById('previewPaymentDay').textContent = paymentDay;
+    document.getElementById('previewPaymentMethod').textContent = signedData.paymentMethod || '계좌이체';
     document.getElementById('previewContractBody').textContent = signedData.contractContent || '';
     document.getElementById('previewContractDate').textContent = signedData.contractDate || '';
     
