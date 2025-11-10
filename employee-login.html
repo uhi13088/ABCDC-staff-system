@@ -208,12 +208,12 @@
       
       <div class="form-group">
         <label for="employeeId">아이디 (이메일)</label>
-        <input type="email" id="employeeId" placeholder="example@matnam.com" autocomplete="employee-email">
+        <input type="email" id="employeeId" placeholder="example@matnam.com" autocomplete="off">
       </div>
 
       <div class="form-group">
         <label for="employeePassword">비밀번호</label>
-        <input type="password" id="employeePassword" placeholder="비밀번호를 입력하세요" autocomplete="employee-password" onkeypress="if(event.key==='Enter') handleLogin()">
+        <input type="password" id="employeePassword" placeholder="비밀번호를 입력하세요" autocomplete="off" onkeypress="if(event.key==='Enter') handleLogin()">
       </div>
 
       <div class="form-group" style="margin-bottom: 24px;">
@@ -274,18 +274,38 @@
 
     // 로그인 기록 삭제 함수
     function clearLoginHistory() {
-      if (confirm('저장된 로그인 정보를 모두 삭제하시겠습니까?')) {
+      if (confirm('저장된 로그인 정보를 모두 삭제하시겠습니까?\n\n⚠️ 브라우저 자동완성 기록도 함께 삭제됩니다.')) {
         // 로컬 스토리지에서 저장된 정보 삭제
         localStorage.removeItem('employee_saved_email');
         localStorage.removeItem('employee_saved_password');
         localStorage.removeItem('employee_remember_me');
         
         // 입력 필드 초기화
-        document.getElementById('employeeId').value = '';
-        document.getElementById('employeePassword').value = '';
+        const emailInput = document.getElementById('employeeId');
+        const passwordInput = document.getElementById('employeePassword');
+        
+        emailInput.value = '';
+        passwordInput.value = '';
         document.getElementById('rememberMe').checked = false;
         
-        alert('✅ 로그인 기록이 삭제되었습니다.');
+        // 브라우저 자동완성 기록 삭제 (autocomplete 강제 초기화)
+        emailInput.setAttribute('autocomplete', 'new-email');
+        passwordInput.setAttribute('autocomplete', 'new-password');
+        
+        // 폼 초기화
+        const form = emailInput.form;
+        if (form) {
+          form.reset();
+        }
+        
+        // 재로드로 브라우저 자동완성 강제 삭제
+        setTimeout(() => {
+          emailInput.setAttribute('autocomplete', 'off');
+          passwordInput.setAttribute('autocomplete', 'off');
+          alert('✅ 로그인 기록이 삭제되었습니다.\n\n페이지를 새로고침하면 완전히 삭제됩니다.');
+          location.reload();
+        }, 100);
+        
         console.log('✅ 직원 로그인 기록 삭제 완료');
       }
     }

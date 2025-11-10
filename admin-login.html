@@ -200,12 +200,12 @@
     
     <div class="form-group">
       <label for="adminEmail">이메일</label>
-      <input type="email" id="adminEmail" placeholder="이메일 주소를 입력하세요" onkeypress="if(event.key==='Enter') document.getElementById('adminPassword').focus()">
+      <input type="email" id="adminEmail" placeholder="이메일 주소를 입력하세요" autocomplete="off" onkeypress="if(event.key==='Enter') document.getElementById('adminPassword').focus()">
     </div>
     
     <div class="form-group">
       <label for="adminPassword">비밀번호</label>
-      <input type="password" id="adminPassword" placeholder="비밀번호를 입력하세요" onkeypress="if(event.key==='Enter') handleAdminLogin()">
+      <input type="password" id="adminPassword" placeholder="비밀번호를 입력하세요" autocomplete="off" onkeypress="if(event.key==='Enter') handleAdminLogin()">
     </div>
     
     <div class="form-group" style="margin-bottom: 24px;">
@@ -264,18 +264,38 @@
 
     // 로그인 기록 삭제 함수
     function clearLoginHistory() {
-      if (confirm('저장된 로그인 정보를 모두 삭제하시겠습니까?')) {
+      if (confirm('저장된 로그인 정보를 모두 삭제하시겠습니까?\n\n⚠️ 브라우저 자동완성 기록도 함께 삭제됩니다.')) {
         // 로컬 스토리지에서 저장된 정보 삭제
         localStorage.removeItem('admin_saved_email');
         localStorage.removeItem('admin_saved_password');
         localStorage.removeItem('admin_remember_me');
         
         // 입력 필드 초기화
-        document.getElementById('adminEmail').value = '';
-        document.getElementById('adminPassword').value = '';
+        const emailInput = document.getElementById('adminEmail');
+        const passwordInput = document.getElementById('adminPassword');
+        
+        emailInput.value = '';
+        passwordInput.value = '';
         document.getElementById('rememberMe').checked = false;
         
-        alert('✅ 로그인 기록이 삭제되었습니다.');
+        // 브라우저 자동완성 기록 삭제 (autocomplete 강제 초기화)
+        emailInput.setAttribute('autocomplete', 'new-email');
+        passwordInput.setAttribute('autocomplete', 'new-password');
+        
+        // 폼 초기화
+        const form = emailInput.form;
+        if (form) {
+          form.reset();
+        }
+        
+        // 재로드로 브라우저 자동완성 강제 삭제
+        setTimeout(() => {
+          emailInput.setAttribute('autocomplete', 'off');
+          passwordInput.setAttribute('autocomplete', 'off');
+          alert('✅ 로그인 기록이 삭제되었습니다.\n\n페이지를 새로고침하면 완전히 삭제됩니다.');
+          location.reload();
+        }, 100);
+        
         console.log('✅ 관리자 로그인 기록 삭제 완료');
       }
     }
