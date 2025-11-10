@@ -190,47 +190,74 @@
       min-width: 150px;
     }
 
-    /* 공지사항 - 극도로 작게 축소 */
+    /* 공지사항 - 통합 박스 */
     .notice-section .card {
-      margin-bottom: var(--spacing-xs);
+      margin-bottom: var(--spacing-md);
       border-radius: var(--radius-sm);
     }
 
     .notice-section .card-header {
-      padding: 6px 10px;
+      padding: 12px 16px;
       border-bottom: none;
     }
 
     .notice-section .card-header h3 {
-      font-size: 11px;
+      font-size: 14px;
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       margin: 0;
     }
 
     .notice-section .card-body {
-      padding: 6px 10px;
-      font-size: 11px;
-      line-height: 1.4;
+      padding: 12px 16px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* 공지사항 아이템 */
+    .notice-item {
+      padding: 12px 0;
+    }
+
+    .notice-item:not(:last-child) {
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .notice-item-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .notice-item-content {
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .notice-item-date {
+      font-size: 12px;
+      color: var(--text-tertiary);
     }
 
     .notice-section #noNoticeMessage .card-body {
       text-align: center;
-      padding: var(--spacing-sm);
+      padding: var(--spacing-lg);
     }
 
     .notice-section #noNoticeMessage svg {
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       fill: var(--text-secondary);
-      margin: 0 auto 4px;
+      margin: 0 auto 8px;
       display: block;
     }
 
     .notice-section #noNoticeMessage .card-body p {
-      font-size: 11px;
+      font-size: 14px;
       color: var(--text-secondary);
       margin: 0;
     }
@@ -308,26 +335,14 @@
 
       <!-- 공지사항 -->
       <div class="notice-section" id="noticeSection" style="display: none;">
-        <!-- 중요 공지사항 영역 (빨간색 강조) -->
-        <div id="importantNoticeArea" style="display: none;">
-          <div class="card" style="background: linear-gradient(135deg, #fee2e2 0%, #fff5f5 100%); border-left: 3px solid #ef4444;">
-            <div class="card-header">
-              <h3 style="color: #dc2626;">⭐ 중요</h3>
-            </div>
-            <div class="card-body">
-              <div id="importantNoticeList"></div>
-            </div>
+        <!-- 통합 공지사항 -->
+        <div class="card">
+          <div class="card-header">
+            <h3>📢 공지사항</h3>
           </div>
-        </div>
-
-        <!-- 일반 공지사항 영역 -->
-        <div id="normalNoticeArea" style="display: none;">
-          <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #fff 100%); border-left: 3px solid var(--primary-color);">
-            <div class="card-header">
-              <h3>공지사항</h3>
-            </div>
-            <div class="card-body">
-              <div id="normalNoticeList"></div>
+          <div class="card-body">
+            <div id="unifiedNoticeList">
+              <!-- 공지사항이 동적으로 추가됩니다 -->
             </div>
           </div>
         </div>

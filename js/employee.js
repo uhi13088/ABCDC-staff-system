@@ -1700,81 +1700,53 @@ async function loadNotices() {
     // 공지사항 영역 표시
     document.getElementById('noticeSection').style.display = 'block';
     
-    // 중요/일반 공지사항 분리
-    const importantNotices = notices.filter(n => n.important);
-    const normalNotices = notices.filter(n => !n.important);
-    
-    // 중요 공지사항 표시
-    if (importantNotices.length > 0) {
-      const importantArea = document.getElementById('importantNoticeArea');
-      const importantList = document.getElementById('importantNoticeList');
+    // 공지사항이 있을 때
+    if (notices.length > 0) {
+      const unifiedList = document.getElementById('unifiedNoticeList');
       
-      importantArea.style.display = 'block';
-      importantList.innerHTML = importantNotices.map(notice => {
+      // 중요 공지사항을 앞에, 일반 공지사항을 뒤에 정렬
+      const sortedNotices = notices.sort((a, b) => {
+        // 중요 공지사항 우선
+        if (a.important && !b.important) return -1;
+        if (!a.important && b.important) return 1;
+        
+        // 같은 타입이면 날짜순
+        return b.createdAt?.toMillis() - a.createdAt?.toMillis();
+      });
+      
+      // 최신 5개만 표시
+      const displayNotices = sortedNotices.slice(0, 5);
+      
+      unifiedList.innerHTML = displayNotices.map((notice, index) => {
         const dateStr = formatFirestoreTimestamp(notice.createdAt);
+        const isImportant = notice.important;
         
         return `
-          <div style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: white; border-radius: var(--border-radius); border: 1px solid #fecaca;">
-            <h4 style="margin: 0 0 var(--spacing-xs) 0; font-size: 16px; color: #dc2626;">
-              ⭐ ${notice.title}
-            </h4>
-            <p style="white-space: pre-wrap; line-height: 1.7; color: var(--text-primary); margin: var(--spacing-sm) 0;">
-              ${notice.content}
-            </p>
-            <div style="font-size: 12px; color: var(--text-secondary); text-align: right;">
-              ${dateStr}
+          <div class="notice-item">
+            <div class="notice-item-title">
+              ${isImportant ? '<span style="color: #dc2626;">⭐</span>' : ''}
+              <span style="color: ${isImportant ? '#dc2626' : 'var(--text-primary)'};">${notice.title}</span>
             </div>
-          </div>
-        `;
-      }).join('');
-    } else {
-      document.getElementById('importantNoticeArea').style.display = 'none';
-    }
-    
-    // 일반 공지사항 표시 (최신 3개만)
-    if (normalNotices.length > 0) {
-      const normalArea = document.getElementById('normalNoticeArea');
-      const normalList = document.getElementById('normalNoticeList');
-      
-      normalArea.style.display = 'block';
-      
-      const displayNotices = normalNotices.slice(0, 3);
-      
-      normalList.innerHTML = displayNotices.map(notice => {
-        const dateStr = formatFirestoreTimestamp(notice.createdAt);
-        
-        return `
-          <div style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: white; border-radius: var(--border-radius); border: 1px solid #fde68a;">
-            <h4 style="margin: 0 0 var(--spacing-xs) 0; font-size: 16px; color: var(--text-primary);">
-              ${notice.title}
-            </h4>
-            <p style="white-space: pre-wrap; line-height: 1.7; color: var(--text-primary); margin: var(--spacing-sm) 0;">
-              ${notice.content}
-            </p>
-            <div style="font-size: 12px; color: var(--text-secondary); text-align: right;">
-              ${dateStr}
-            </div>
+            <div class="notice-item-content">${notice.content}</div>
+            <div class="notice-item-date">${dateStr}</div>
           </div>
         `;
       }).join('');
       
-      // 더 많은 공지사항이 있을 때 안내 메시지
-      if (normalNotices.length > 3) {
-        normalList.innerHTML += `
-          <div style="text-align: center; padding: var(--spacing-sm); color: var(--text-secondary); font-size: 13px;">
-            외 ${normalNotices.length - 3}개의 공지사항이 더 있습니다.
+      // 더 많은 공지사항이 있을 때 안내
+      if (sortedNotices.length > 5) {
+        unifiedList.innerHTML += `
+          <div style="text-align: center; padding: 12px 0; color: var(--text-secondary); font-size: 13px;">
+            외 ${sortedNotices.length - 5}개의 공지사항이 더 있습니다.
           </div>
         `;
       }
-    } else {
-      document.getElementById('normalNoticeArea').style.display = 'none';
-    }
-    
-    // 공지사항이 하나도 없을 때
-    if (importantNotices.length === 0 && normalNotices.length === 0) {
-      document.getElementById('noNoticeMessage').style.display = 'block';
-    } else {
+      
       document.getElementById('noNoticeMessage').style.display = 'none';
+    } else {
+      // 공지사항이 없을 때
+      document.getElementById('unifiedNoticeList').innerHTML = '';
+      document.getElementById('noNoticeMessage').style.display = 'block';
     }
     
   } catch (error) {
