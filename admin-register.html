@@ -7,28 +7,31 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --primary-color: #8b7355; 
-      --primary-dark: #6b5d4f; 
-      --bg-light: #f5f1e8; 
-      --bg-white: #fdfcfa;
-      --text-primary: #6b5d4f; 
-      --text-secondary: #9b8a76; 
-      --border-color: #e8dfd0; 
-      --border-radius: 8px;
-      --shadow-sm: 0 2px 8px rgba(107, 93, 79, 0.08); 
-      --shadow-lg: 0 8px 24px rgba(107, 93, 79, 0.15);
+      --primary-color: #2563EB; 
+      --primary-dark: #1E40AF;
+      --primary-light: #3B82F6;
+      --bg-light: #F5F7FB; 
+      --bg-white: #FFFFFF;
+      --text-primary: #0F172A; 
+      --text-secondary: #64748B; 
+      --border-color: #E2E8F0; 
+      --border-radius: 12px;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 8px 0 rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.1);
       --spacing-xs: 6px; 
       --spacing-sm: 12px; 
       --spacing-md: 16px; 
       --spacing-lg: 24px; 
       --spacing-xl: 32px;
-      --success-color: #7a9b7a; 
-      --warning-color: #d4a574; 
-      --danger-color: #c67b7b;
+      --success-color: #10B981; 
+      --warning-color: #F59E0B; 
+      --danger-color: #EF4444;
+      --font-sans: 'Noto Sans KR', Inter, system-ui, -apple-system, sans-serif;
     }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      font-family: var(--font-sans);
       background: var(--bg-light);
       min-height: 100vh;
       display: flex;
@@ -40,7 +43,7 @@
 
     .register-box {
       background: var(--bg-white);
-      border-radius: 12px;
+      border-radius: var(--border-radius);
       padding: 48px 40px;
       box-shadow: var(--shadow-lg);
       max-width: 500px;
@@ -48,6 +51,12 @@
       max-height: 90vh;
       overflow-y: auto;
       border: 1px solid var(--border-color);
+    }
+
+    @media (max-width: 640px) {
+      .register-box {
+        padding: 32px 24px;
+      }
     }
 
     .logo {
@@ -129,13 +138,13 @@
     }
 
     .error {
-      background: #f5e3e3;
-      color: #8b5555;
-      padding: 12px;
+      background: #FEE2E2;
+      color: #991B1B;
+      padding: 12px 16px;
       border-radius: var(--border-radius);
       margin-bottom: 20px;
       font-size: 14px;
-      border: 1px solid #e8c0c0;
+      border: 1px solid #FECACA;
       display: none;
     }
 
@@ -144,13 +153,13 @@
     }
 
     .success {
-      background: #e6f2e6;
-      color: #4a6b4a;
-      padding: 12px;
+      background: #D1FAE5;
+      color: #065F46;
+      padding: 12px 16px;
       border-radius: var(--border-radius);
       margin-bottom: 20px;
       font-size: 14px;
-      border: 1px solid #c0dcc0;
+      border: 1px solid #A7F3D0;
       display: none;
     }
 
@@ -203,13 +212,13 @@
     }
 
     .role-info {
-      background: #f0f8ff;
+      background: #EFF6FF;
       padding: 12px;
       border-radius: var(--border-radius);
       font-size: 13px;
-      color: #4a5f7a;
+      color: #1E40AF;
       margin-top: 8px;
-      border: 1px solid #d0e5ff;
+      border: 1px solid #DBEAFE;
     }
 
     .role-info strong {
@@ -219,7 +228,15 @@
 </head>
 <body>
   <div class="register-box">
-    <div class="logo">☕</div>
+    <div class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 8h1a4 4 0 1 1 0 8h-1"/>
+        <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/>
+        <line x1="6" y1="1" x2="6" y2="4"/>
+        <line x1="10" y1="1" x2="10" y2="4"/>
+        <line x1="14" y1="1" x2="14" y2="4"/>
+      </svg>
+    </div>
     <h1>맛남살롱</h1>
     <p class="subtitle">관리자 가입 신청</p>
 
@@ -230,7 +247,13 @@
       <input type="text" style="display:none" aria-hidden="true">
       <input type="password" style="display:none" aria-hidden="true">
       <!-- 기본 정보 -->
-      <div class="section-title">👤 기본 정보</div>
+      <div class="section-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        기본 정보
+      </div>
       
       <div class="form-group">
         <label for="name">이름 <span class="required">*</span></label>
@@ -244,7 +267,13 @@
       </div>
 
       <!-- 직책/권한 정보 -->
-      <div class="section-title">💼 권한 정보</div>
+      <div class="section-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        </svg>
+        권한 정보
+      </div>
       
       <div class="form-group">
         <label for="role">직책 <span class="required">*</span></label>
@@ -260,7 +289,13 @@
       </div>
 
       <!-- 계정 정보 -->
-      <div class="section-title">🔐 계정 정보</div>
+      <div class="section-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        계정 정보
+      </div>
       
       <div class="form-group">
         <label for="email">이메일 (로그인 ID) <span class="required">*</span></label>
@@ -281,7 +316,25 @@
       <button type="submit" id="registerBtn" class="btn">가입 신청하기</button>
     </form>
 
-    <div class="loading" id="loading">⏳ 가입 신청 처리 중...</div>
+    <div class="loading" id="loading">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 6px; animation: spin 1s linear infinite;">
+        <line x1="12" y1="2" x2="12" y2="6"/>
+        <line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+        <line x1="2" y1="12" x2="6" y2="12"/>
+        <line x1="18" y1="12" x2="22" y2="12"/>
+        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+      </svg>
+      가입 신청 처리 중...
+    </div>
+    <style>
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
 
     <div class="login-link">
       이미 계정이 있으신가요? <a href="admin-login.html">로그인</a>
