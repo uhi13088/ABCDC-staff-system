@@ -1532,11 +1532,37 @@ async function loadContracts() {
       return;
     }
     
-    // 날짜 기준 정렬 (최신순)
+    // 날짜 기준 정렬 (최신순 - 서명 여부와 무관하게 작성일 기준)
     contracts.sort((a, b) => {
-      const dateA = a.savedAt ? new Date(a.savedAt) : new Date(0);
-      const dateB = b.savedAt ? new Date(b.savedAt) : new Date(0);
-      return dateB - dateA;
+      // 여러 날짜 필드 중 가장 최근 것을 사용
+      const getLatestDate = (contract) => {
+        const dates = [];
+        
+        // 1. createdAt (작성일) - 가장 확실한 기준
+        if (contract.createdAt) {
+          dates.push(new Date(contract.createdAt));
+        }
+        
+        // 2. savedAt (저장일)
+        if (contract.savedAt) {
+          dates.push(new Date(contract.savedAt));
+        }
+        
+        // 3. contractStartDate (계약 시작일)
+        if (contract.contractStartDate) {
+          dates.push(new Date(contract.contractStartDate));
+        } else if (contract.startDate) {
+          dates.push(new Date(contract.startDate));
+        }
+        
+        // 가장 최근 날짜 반환, 없으면 epoch
+        return dates.length > 0 ? Math.max(...dates) : 0;
+      };
+      
+      const dateA = getLatestDate(a);
+      const dateB = getLatestDate(b);
+      
+      return dateB - dateA; // 내림차순 (최신 먼저)
     });
     
     renderContracts(contracts);
