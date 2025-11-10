@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>직원용 페이지 - 맛남살롱 근무관리</title>
+  
+  <!-- 캐시 방지 메타 태그 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
   <link rel="stylesheet" href="css/common.css">
   <style>
     body {
@@ -1091,12 +1097,20 @@
     </div>
   </div>
 
+  <!-- 캐시 방지를 위한 버전 관리 -->
+  <script>
+    // 현재 날짜를 버전으로 사용 (YYYYMMDDHH 형식)
+    const VERSION = new Date().toISOString().slice(0,13).replace(/[-:T]/g, '');
+  </script>
   <script src="js/firebase-config.js"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
-  <script src="js/employee.js"></script>
-  <script src="js/employee-contract-modal.js"></script>
+  <script>
+    // 동적으로 버전이 포함된 스크립트 로드
+    document.write('<script src="js/employee.js?v=' + VERSION + '"><\/script>');
+    document.write('<script src="js/employee-contract-modal.js?v=' + VERSION + '"><\/script>');
+  </script>
 </body>
 </html>
