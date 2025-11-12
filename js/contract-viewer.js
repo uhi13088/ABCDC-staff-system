@@ -152,14 +152,11 @@ async function showContractViewModal(contract, currentId, allContracts = []) {
     `;
   }
   
-  // PDF 저장 및 인쇄 버튼 (관리자 페이지에서만 표시)
-  let actionButtonsHtml = '';
-  if (typeof downloadContractPDF !== 'undefined') {
-    actionButtonsHtml = `
-      <button class="btn btn-primary" onclick="downloadContractPDF('${contract.id}')">📥 PDF 저장</button>
-      <button class="btn btn-secondary" onclick="printContract()">🖨️ 인쇄</button>
-    `;
-  }
+  // PDF 저장 및 인쇄 버튼 (관리자/직원 모두 표시)
+  const actionButtonsHtml = `
+    <button class="btn btn-primary" onclick="downloadContractPDF('${contract.id}')">📥 PDF 저장</button>
+    <button class="btn btn-secondary" onclick="printContract()">🖨️ 인쇄</button>
+  `;
   
   modal.innerHTML = `
     <div class="modal-content" style="max-width: 1000px; max-height: 95vh; overflow-y: auto; padding: 0;">
@@ -290,10 +287,179 @@ window.switchContractVersion = function(contractId) {
 };
 
 /**
- * 인쇄 기능 (관리자 페이지에서만 사용)
+ * 인쇄 기능
  */
 window.printContract = function() {
   window.print();
 };
+
+/**
+ * PDF 저장 기능 (html2pdf 라이브러리 사용)
+ * @param {string} contractId - 계약서 ID
+ */
+window.downloadContractPDF = function(contractId) {
+  const contractArea = document.getElementById('contractPrintArea');
+  if (!contractArea) {
+    alert('❌ 계약서를 찾을 수 없습니다.');
+    return;
+  }
+  
+  // html2pdf 라이브러리 로드 확인
+  if (typeof html2pdf === 'undefined') {
+    // 라이브러리 동적 로드
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.onload = function() {
+      generatePDF(contractArea, contractId);
+    };
+    document.head.appendChild(script);
+  } else {
+    generatePDF(contractArea, contractId);
+  }
+};
+
+/**
+ * PDF 생성 함수
+ * @param {HTMLElement} element - PDF로 변환할 HTML 요소
+ * @param {string} contractId - 계약서 ID
+ */
+async function generatePDF(element, contractId) {
+  // Firestore에서 계약서 가져오기
+  let contract = null;
+  try {
+    const db = firebase.firestore();
+    const docRef = await db.collection('contracts').doc(contractId).get();
+    if (!docRef.exists) {
+      alert('❌ 계약서를 찾을 수 없습니다.');
+      return;
+    }
+    contract = docRef.data();
+  } catch (error) {
+    console.error('❌ 계약서 조회 실패:', error);
+    alert('❌ 계약서를 불러올 수 없습니다.');
+    return;
+  }
+  
+  const fileName = `근로계약서_${contract.employeeName}_${new Date().toISOString().split('T')[0]}.pdf`;
+  
+  // 서명 데이터 가져오기
+  let signedContracts = [];
+  if (typeof signedContractsCache !== 'undefined') {
+    signedContracts = signedContractsCache;
+  } else {
+    const signedContractsStr = localStorage.getItem('signedContracts');
+    signedContracts = signedContractsStr ? JSON.parse(signedContractsStr) : [];
+  }
+  
+  const signedContract = signedContracts.find(sc => sc.id === contract.id);
+  
+  // 서명이 있으면 다시 그려넣기
+  if (signedContract && signedContract.signature) {
+    // 기존 서명 제거
+    element.querySelectorAll('.avoid-page-break').forEach(div => {
+      if (div.querySelector('img[alt="서명"], img[alt="근로자 서명"], img[alt="대표 서명"]')) {
+        div.remove();
+      }
+    });
+    
+    // 매장별 대표 서명 가져오기
+    let ceoSignature = '';
+    try {
+      const db = firebase.firestore();
+      const storeSnapshot = await db.collection('stores')
+        .where('name', '==', contract.workStore)
+        .limit(1)
+        .get();
+      if (!storeSnapshot.empty) {
+        const storeData = storeSnapshot.docs[0].data();
+        ceoSignature = storeData.ceoSignature || '';
+      }
+    } catch (error) {
+      console.warn('⚠️ 매장 서명 조회 실패:', error);
+    }
+    
+    const signDate = new Date(signedContract.signedAt);
+    const signatureHtml = `
+      <div class="avoid-page-break" style="margin-top: 60px; page-break-inside: avoid;">
+        <p style="margin-bottom: 20px; font-size: 16px; text-align: center;"><strong>서명일: ${signDate.toLocaleDateString('ko-KR')}</strong></p>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 40px;">
+          <!-- 사용자(대표) 서명 -->
+          <div style="flex: 1; text-align: center;">
+            ${ceoSignature ? `
+              <img src="${ceoSignature}" alt="대표 서명" style="width: 200px; height: 80px; display: block; margin: 0 auto; object-fit: contain;">
+            ` : `
+              <div style="width: 200px; height: 80px; border: 2px dashed #ddd; display: flex; align-items: center; justify-content: center; margin: 0 auto; color: #999; font-size: 12px;">
+                대표 서명 미등록
+              </div>
+            `}
+            <p style="margin-top: 8px; font-weight: 600; font-size: 14px;">사용자: ${contract.companyCEO || contract.companyName} (인)</p>
+          </div>
+          
+          <!-- 근로자 서명 -->
+          <div style="flex: 1; text-align: center;">
+            <img src="${signedContract.signature}" alt="근로자 서명" style="width: 200px; height: 80px; display: block; margin: 0 auto; object-fit: contain;">
+            <p style="margin-top: 8px; font-weight: 600; font-size: 14px;">근로자: ${contract.employeeName} (서명)</p>
+          </div>
+        </div>
+      </div>
+    `;
+    element.insertAdjacentHTML('beforeend', signatureHtml);
+    console.log('✅ 양쪽 서명 재주입 완료');
+  }
+  
+  // PDF 생성 시작 알림
+  const loadingDiv = document.createElement('div');
+  loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000; text-align: center;';
+  loadingDiv.innerHTML = '<p style="margin: 0; font-size: 16px; font-weight: 600;">📄 PDF 생성 중...</p><p style="margin-top: 8px; font-size: 14px; color: #666;">서명 이미지 처리 중...</p>';
+  document.body.appendChild(loadingDiv);
+  
+  // PDF 생성 전 padding 제거
+  const originalPadding = element.style.padding;
+  element.style.padding = '0';
+  
+  // 500ms 대기
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const opt = {
+    margin: 10, // 상하좌우 1cm (10mm)
+    filename: fileName,
+    image: { 
+      type: 'jpeg', 
+      quality: 0.98 
+    },
+    html2canvas: { 
+      scale: 2,
+      useCORS: false,
+      logging: true,
+      letterRendering: true,
+      imageTimeout: 0
+    },
+    jsPDF: { 
+      unit: 'mm', 
+      format: 'a4', 
+      orientation: 'portrait',
+      compress: true
+    },
+    pagebreak: { 
+      mode: 'css',
+      before: '.page-break-before',
+      after: '.page-break-after'
+    }
+  };
+  
+  html2pdf().set(opt).from(element).save().then(() => {
+    // padding 복원
+    element.style.padding = originalPadding;
+    document.body.removeChild(loadingDiv);
+    console.log('✅ PDF 생성 완료:', fileName);
+    alert('✅ PDF 다운로드 완료!');
+  }).catch(err => {
+    // padding 복원
+    element.style.padding = originalPadding;
+    document.body.removeChild(loadingDiv);
+    console.error('❌ PDF 생성 실패:', err);
+    alert('❌ PDF 생성에 실패했습니다:\n' + err.message);
+  });
+}
 
 console.log('✅ contract-viewer.js 로드 완료');
