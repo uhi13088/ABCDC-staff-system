@@ -9384,7 +9384,7 @@
             
             // attendance 컬렉션에서 해당 날짜 기록 조회
             const attendanceSnapshot = await db.collection('attendance')
-              .where('userId', '==', empUid)
+              .where('uid', '==', empUid)
               .where('date', '==', dateStr)
               .get();
             
