@@ -9309,6 +9309,40 @@
         
         console.log(`📅 조회 기간: ${mondayStr} ~ ${sundayStr}`);
         
+        // 🧹 구 스케줄 자동 삭제 (contractId 없는 기본 스케줄)
+        try {
+          console.log('🧹 구 스케줄 자동 삭제 시작...');
+          
+          // contractId가 없고 isShiftReplacement가 false인 스케줄 조회
+          const oldSchedulesSnapshot = await db.collection('schedules')
+            .where('date', '>=', mondayStr)
+            .where('date', '<=', sundayStr)
+            .get();
+          
+          let deleteCount = 0;
+          const batch = db.batch();
+          
+          oldSchedulesSnapshot.forEach(doc => {
+            const schedule = doc.data();
+            // contractId가 없고 대체근무가 아닌 기본 스케줄만 삭제
+            if (!schedule.contractId && schedule.isShiftReplacement === false) {
+              batch.delete(doc.ref);
+              deleteCount++;
+              console.log(`  🗑️ 삭제 대상: ${schedule.date} (userId: ${schedule.userId})`);
+            }
+          });
+          
+          if (deleteCount > 0) {
+            await batch.commit();
+            console.log(`✅ 구 스케줄 ${deleteCount}개 자동 삭제 완료`);
+          } else {
+            console.log('✅ 삭제할 구 스케줄 없음');
+          }
+        } catch (cleanupError) {
+          console.warn('⚠️ 구 스케줄 삭제 실패:', cleanupError);
+          // 삭제 실패해도 스케줄 로드는 계속 진행
+        }
+        
         // 해당 매장의 모든 직원 조회 (퇴사자 제외)
         const employeesSnapshot = await db.collection('users')
           .where('role', '==', 'employee')
