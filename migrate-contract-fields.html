@@ -103,6 +103,7 @@
     };
     
     firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
     const logEl = document.getElementById('log');
     
     function log(message, type = 'info') {
