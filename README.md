@@ -271,7 +271,32 @@ firebase deploy
 
 ## 📝 주요 업데이트
 
-### 최신 업데이트 (2025-11-09)
+### 최신 업데이트 (2025-11-12)
+
+**🔧 계약서 상세보기 공통 모듈화 완료**
+- ✅ **contract-viewer.js 공통 모듈 생성**: 계약서 상세보기 로직을 단일 파일로 통합
+- ✅ **관리자/직원 페이지 통합**: 두 페이지가 동일한 계약서 상세보기 모달 사용
+- ✅ **한 번 수정으로 양쪽 반영**: contract-viewer.js 수정 시 관리자/직원 페이지 모두 자동 반영
+- ✅ **코드 중복 제거**: employee.js에서 300줄 이상의 중복 코드 제거
+- ✅ **유지보수성 향상**: 계약서 표시 로직을 한 곳에서 관리
+
+**모듈 구조**:
+```
+js/contract-viewer.js (공통 모듈)
+├── viewContract()           - 계약서 조회
+├── showContractViewModal()  - 상세보기 모달 표시
+└── closeContractViewModal() - 모달 닫기
+
+admin-dashboard.html → contract-viewer.js 로드
+employee.html        → contract-viewer.js 로드
+```
+
+**🐛 버그 수정**
+- ✅ favicon.ico 404 오류 해결 (기본 파비콘 추가)
+- ✅ 버튼 텍스트 통일: "계약서 원본 보기" → "계약서 상세보기"
+- ✅ 필드명 호환성 완벽 지원: salaryType/wageType, salaryAmount/wageAmount 모두 표시
+
+### 이전 업데이트 (2025-11-09)
 
 **🔧 데이터 마이그레이션 시스템 추가**
 - ✅ **계약서 employeeId 자동 수정**: 관리자 페이지 → 시스템 설정 탭
