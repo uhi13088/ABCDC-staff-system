@@ -385,6 +385,7 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   }
   
   // 주휴수당 - 주 15시간 이상 근무한 주에 대해서만 (단, 결근이 없는 주만)
+  // 법원 판결 기준: 주휴수당 = 시급 × (주 근무시간 ÷ 5)
   if (contract.allowances?.weeklyHoliday) {
     let weeklyHolidayHours = 0;
     Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
@@ -395,16 +396,16 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
       }
       
       if (weekHours >= 15) {
-        // 주휴수당 = (주 근무시간 / 40) × 8시간
-        const weekHolidayHours = (weekHours / 40) * 8;
+        // 법원 판결 기준: 주휴수당 시간 = 주 근무시간 ÷ 5
+        const weekHolidayHours = weekHours / 5;
         weeklyHolidayHours += weekHolidayHours;
-        console.log(`✅ ${weekKey}: 주휴수당 적용 (근무시간: ${weekHours.toFixed(2)}시간, 주휴수당: ${weekHolidayHours.toFixed(2)}시간)`);
+        console.log(`✅ ${weekKey}: 주휴수당 적용 (근무시간: ${weekHours.toFixed(2)}시간, 주휴수당 시간: ${weekHolidayHours.toFixed(2)}시간, 금액: ${Math.round(result.hourlyWage * weekHolidayHours).toLocaleString()}원)`);
       } else {
         console.log(`⚠️ ${weekKey}: 15시간 미만으로 주휴수당 제외 (근무시간: ${weekHours.toFixed(2)}시간)`);
       }
     });
     result.weeklyHolidayPay = Math.round(result.hourlyWage * weeklyHolidayHours);
-    console.log(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}시간 × ${result.hourlyWage}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
+    console.log(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}시간 × ${result.hourlyWage.toLocaleString()}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
   }
   
   // 퇴직금 계산 (1년 이상 근속, 주 15시간 이상 근무)
