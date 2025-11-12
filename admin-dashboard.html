@@ -3401,29 +3401,39 @@
         // 교대근무 승인 조회 (shift_requests 컬렉션)
         if (!typeFilter || typeFilter === 'shift') {
           let shiftQuery = db.collection('shift_requests').where('status', '==', 'matched');
-          if (!statusFilter) {
+          
+          // 상태 필터 적용
+          if (statusFilter === 'pending') {
             shiftQuery = shiftQuery.where('approvedByAdmin', '==', false);
+          } else if (statusFilter === 'approved') {
+            shiftQuery = shiftQuery.where('approvedByAdmin', '==', true);
           }
+          // statusFilter가 '' (전체)이면 필터 없이 모두 조회
           
           const shiftSnapshot = await shiftQuery.get();
           shiftSnapshot.forEach(doc => {
             const data = doc.data();
-            approvals.push({
-              id: doc.id,
-              type: 'shift',
-              applicantName: data.requesterName,
-              status: data.approvedByAdmin ? 'approved' : 'pending',
-              createdAt: data.matchedAt || data.createdAt,
-              data: {
-                requesterName: data.requesterName,
-                matchedUserName: data.matchedUserName,
-                workDate: data.workDate,
-                workStartTime: data.workStartTime,
-                workEndTime: data.workEndTime,
-                reason: data.reason,
-                store: data.store
-              }
-            });
+            const currentStatus = data.approvedByAdmin ? 'approved' : 'pending';
+            
+            // 상태 필터가 없거나 일치하는 경우만 추가
+            if (!statusFilter || statusFilter === currentStatus) {
+              approvals.push({
+                id: doc.id,
+                type: 'shift',
+                applicantName: data.requesterName,
+                status: currentStatus,
+                createdAt: data.matchedAt || data.createdAt,
+                data: {
+                  requesterName: data.requesterName,
+                  matchedUserName: data.matchedUserName,
+                  workDate: data.workDate,
+                  workStartTime: data.workStartTime,
+                  workEndTime: data.workEndTime,
+                  reason: data.reason,
+                  store: data.store
+                }
+              });
+            }
           });
         }
         
@@ -3437,10 +3447,8 @@
           
           if (statusFilter) {
             query = query.where('status', '==', statusFilter);
-          } else {
-            // 기본적으로 대기중만 표시
-            query = query.where('status', '==', 'pending');
           }
+          // statusFilter가 '' (전체)이면 상태 필터 없이 모두 조회
           
           const snapshot = await query.get();
           snapshot.forEach(doc => {
