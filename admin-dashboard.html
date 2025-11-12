@@ -9677,15 +9677,23 @@
               const dayIndex = (attendanceDate.getDay() + 6) % 7; // 월요일=0, 일요일=6
               const day = days[dayIndex];
               
-              // 상태 판별 (정상/지각/조퇴/결근)
-              let status = 'normal';
+              // 상태 판별 (calculateAttendanceStatus 함수 사용)
+              const calculatedStatus = calculateAttendanceStatus({
+                status: attendanceData.status,
+                clockIn: attendanceData.clockIn,
+                clockOut: attendanceData.clockOut
+              });
               
-              if (attendanceData.status === 'absent' || !attendanceData.clockIn) {
+              // 상태 매핑 (근무기록 탭과 동일하게)
+              let status = 'normal';
+              if (calculatedStatus.text === '결근') {
                 status = 'absent';
-              } else if (attendanceData.isLate) {
+              } else if (calculatedStatus.text === '지각' || calculatedStatus.text === '지각+조퇴') {
                 status = 'late';
-              } else if (attendanceData.isEarlyLeave) {
+              } else if (calculatedStatus.text === '조퇴') {
                 status = 'early';
+              } else if (calculatedStatus.text === '근무중') {
+                status = 'working';
               }
               
               employeeMap[empUid].schedules[day] = {
@@ -9694,6 +9702,7 @@
                 hours: attendanceData.actualHours || 0,
                 isWorkDay: true,
                 status: status,
+                statusText: calculatedStatus.text, // 상세 상태 텍스트 추가
                 scheduledStart: attendanceData.scheduledStartTime || '',
                 scheduledEnd: attendanceData.scheduledEndTime || ''
               };
@@ -9822,30 +9831,31 @@
               if (scheduleData && scheduleData.isWorkDay) {
                 // 상태별 색상 설정
                 let backgroundColor, borderColor, statusIcon, statusText;
-                switch (scheduleData.status) {
-                  case 'absent':
-                    backgroundColor = '#ffe5e5';
-                    borderColor = '#dc3545';
-                    statusIcon = '❌';
-                    statusText = '결근';
-                    break;
-                  case 'late':
-                    backgroundColor = '#fff3cd';
-                    borderColor = '#ffc107';
-                    statusIcon = '⚠️';
-                    statusText = '지각';
-                    break;
-                  case 'early':
-                    backgroundColor = '#fff3cd';
-                    borderColor = '#ffc107';
-                    statusIcon = '⚠️';
-                    statusText = '조퇴';
-                    break;
-                  default:
-                    backgroundColor = '#d4edda';
-                    borderColor = '#28a745';
-                    statusIcon = '✅';
-                    statusText = '정상';
+                
+                // statusText 우선 사용 (calculateAttendanceStatus 결과)
+                statusText = scheduleData.statusText || '정상';
+                
+                // 상태 텍스트에 따라 색상 설정
+                if (statusText === '결근') {
+                  backgroundColor = '#ffe5e5';
+                  borderColor = '#dc3545';
+                  statusIcon = '❌';
+                } else if (statusText === '지각' || statusText === '지각+조퇴') {
+                  backgroundColor = '#fff3cd';
+                  borderColor = '#ffc107';
+                  statusIcon = '⚠️';
+                } else if (statusText === '조퇴') {
+                  backgroundColor = '#fff3cd';
+                  borderColor = '#ffc107';
+                  statusIcon = '⚠️';
+                } else if (statusText === '근무중') {
+                  backgroundColor = '#d1ecf1';
+                  borderColor = '#17a2b8';
+                  statusIcon = '🔄';
+                } else {
+                  backgroundColor = '#d4edda';
+                  borderColor = '#28a745';
+                  statusIcon = '✅';
                 }
                 
                 html += `
@@ -9973,12 +9983,19 @@
               // 출퇴근 기록 모드 (단일 객체)
               if (scheduleData && scheduleData.isWorkDay) {
                 let barColor = colorMap[emp.name];
-                // 상태에 따라 색상 변경
-                switch (scheduleData.status) {
-                  case 'late': barColor = '#FFA726'; break; // 주황색 (지각)
-                  case 'early': barColor = '#FFB74D'; break; // 연한 주황색 (조퇴)
-                  case 'absent': barColor = '#EF5350'; break; // 빨간색 (결근)
-                  default: barColor = '#66BB6A'; // 초록색 (정상)
+                const statusText = scheduleData.statusText || '정상';
+                
+                // 상태 텍스트에 따라 색상 변경
+                if (statusText === '결근') {
+                  barColor = '#EF5350'; // 빨간색
+                } else if (statusText === '지각' || statusText === '지각+조퇴') {
+                  barColor = '#FFA726'; // 주황색
+                } else if (statusText === '조퇴') {
+                  barColor = '#FFB74D'; // 연한 주황색
+                } else if (statusText === '근무중') {
+                  barColor = '#29B6F6'; // 하늘색
+                } else {
+                  barColor = '#66BB6A'; // 초록색 (정상)
                 }
                 
                 dayWorkers[day].push({
@@ -9988,6 +10005,7 @@
                   hours: scheduleData.hours,
                   color: barColor,
                   status: scheduleData.status || 'normal',
+                  statusText: statusText,
                   scheduledStart: scheduleData.scheduledStart || '',
                   scheduledEnd: scheduleData.scheduledEnd || '',
                   isShiftReplacement: false
