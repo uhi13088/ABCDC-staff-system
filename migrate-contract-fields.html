@@ -79,29 +79,7 @@
       • 실행 후에는 되돌릴 수 없습니다
     </div>
 
-    <div id="loginSection" style="margin: 20px 0;">
-      <div class="status warning">
-        <strong>🔐 로그인이 필요합니다</strong><br>
-        관리자 계정으로 로그인하세요.
-      </div>
-      <div style="display: flex; gap: 10px; align-items: flex-end;">
-        <div style="flex: 1;">
-          <label style="display: block; margin-bottom: 5px; font-weight: 600;">이메일</label>
-          <input type="email" id="loginEmail" placeholder="admin@example.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-        </div>
-        <div style="flex: 1;">
-          <label style="display: block; margin-bottom: 5px; font-weight: 600;">비밀번호</label>
-          <input type="password" id="loginPassword" placeholder="••••••••" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-        </div>
-        <button onclick="login()" style="height: 42px;">🔐 로그인</button>
-      </div>
-    </div>
-
-    <div id="actionSection" style="margin: 20px 0; display: none;">
-      <div class="status success">
-        <strong>✅ 로그인 성공</strong><br>
-        <span id="userInfo"></span>
-      </div>
+    <div id="actionSection" style="margin: 20px 0;">
       <button onclick="analyzeContracts()">🔍 분석 (읽기 전용)</button>
       <button onclick="migrateContracts()" class="danger" id="migrateBtn" disabled>⚡ 마이그레이션 실행</button>
     </div>
@@ -112,55 +90,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  
+  <script src="js/firebase-config.js"></script>
+
   <script>
-    // Firebase 직접 초기화 (firebase-config.js 사용 안 함)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDfOCVHKaF3L4ZaVPqc0Fn_WXqKiBaQsEU",
-      authDomain: "abcdc-staff-system.firebaseapp.com",
-      projectId: "abcdc-staff-system",
-      storageBucket: "abcdc-staff-system.firebasestorage.app",
-      messagingSenderId: "775708268326",
-      appId: "1:775708268326:web:9d4e74c2fbcad91aaa94ec"
-    };
-    
-    firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const auth = firebase.auth();
     const logEl = document.getElementById('log');
-    
-    // 로그인 함수
-    async function login() {
-      const email = document.getElementById('loginEmail').value.trim();
-      const password = document.getElementById('loginPassword').value;
-      
-      if (!email || !password) {
-        alert('⚠️ 이메일과 비밀번호를 입력하세요.');
-        return;
-      }
-      
-      try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // 관리자 권한 확인
-        const userDoc = await db.collection('users').doc(user.uid).get();
-        const userData = userDoc.data();
-        
-        if (userData && (userData.role === 'admin' || userData.role === 'owner')) {
-          document.getElementById('loginSection').style.display = 'none';
-          document.getElementById('actionSection').style.display = 'block';
-          document.getElementById('userInfo').textContent = `${user.email} (${userData.role})`;
-          log('✅ 로그인 성공: ' + user.email, 'success');
-        } else {
-          await auth.signOut();
-          alert('❌ 관리자 권한이 없습니다.');
-        }
-      } catch (error) {
-        alert('❌ 로그인 실패: ' + error.message);
-        console.error(error);
-      }
-    }
     
     function log(message, type = 'info') {
       const timestamp = new Date().toLocaleTimeString('ko-KR');
