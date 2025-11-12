@@ -9368,6 +9368,14 @@
           
           console.log(`  📅 ${empData.name}: ${schedulesSnapshot.size}개 근무 조회됨`);
           
+          // 🔍 스케줄 상세 정보 로그
+          if (schedulesSnapshot.size > 0) {
+            schedulesSnapshot.forEach(doc => {
+              const s = doc.data();
+              console.log(`    - ${s.date}: ${s.startTime}-${s.endTime}, contractId: ${s.contractId || '없음'}, isShiftReplacement: ${s.isShiftReplacement}`);
+            });
+          }
+          
           // 요일별로 스케줄 정리 (한 날짜에 여러 근무가 있을 수 있음)
           const schedules = {};
           days.forEach(day => {
@@ -9417,13 +9425,22 @@
             
             // 기본 근무계약서: 최신 계약서 ID와 일치하는 스케줄만 선택
             if (dateSchedules.regular.length > 0) {
+              console.log(`    🔍 ${date} (${dayName}): ${dateSchedules.regular.length}개 기본 스케줄 처리 중`);
+              console.log(`       최신 계약서 ID: ${latestContractId}`);
+              dateSchedules.regular.forEach((s, idx) => {
+                console.log(`       [${idx}] contractId: ${s.contractId}, createdAt: ${s.createdAt}, ${s.startTime}-${s.endTime}`);
+              });
+              
               let selectedSchedule = null;
               
               if (latestContractId) {
                 // 최신 계약서 ID와 일치하는 스케줄 찾기
                 selectedSchedule = dateSchedules.regular.find(s => s.contractId === latestContractId);
                 
-                if (!selectedSchedule) {
+                if (selectedSchedule) {
+                  console.log(`       ✅ contractId 일치하는 스케줄 선택: ${selectedSchedule.startTime}-${selectedSchedule.endTime}`);
+                } else {
+                  console.log(`       ⚠️ contractId 일치하는 스케줄 없음 - createdAt 기준 최신 선택`);
                   // contractId가 없는 스케줄이면 createdAt 기준으로 최신 1개 선택
                   const sortedRegular = dateSchedules.regular.sort((a, b) => {
                     const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -9431,6 +9448,7 @@
                     return bTime - aTime; // 최신순
                   });
                   selectedSchedule = sortedRegular[0];
+                  console.log(`       ℹ️ 최신 스케줄 선택: ${selectedSchedule.startTime}-${selectedSchedule.endTime}`);
                 }
               } else {
                 // 계약서가 없으면 createdAt 기준으로 최신 1개 선택
@@ -9450,10 +9468,9 @@
                   isShiftReplacement: false,
                   isWorkDay: true
                 });
-              }
-              
-              if (dateSchedules.regular.length > 1) {
-                console.log(`    ℹ️ ${date} (${dayName}): ${dateSchedules.regular.length}개 기본 스케줄 중 최신 계약서(${latestContractId}) 것만 표시`);
+                console.log(`       ✅ ${dayName} 스케줄 추가됨: ${selectedSchedule.startTime}-${selectedSchedule.endTime}`);
+              } else {
+                console.log(`       ❌ ${dayName} 선택된 스케줄 없음`);
               }
             }
             
