@@ -9351,77 +9351,78 @@
         
         console.log(`🔍 출퇴근 기록 조회: 매장ID=${storeId}, 매장명=${storeName}`);
         
-        // 해당 매장의 모든 직원 조회 (store 필드 사용)
-        const employeesSnapshot = await db.collection('users')
-          .where('role', '==', 'employee')
+        // 주간 시작일과 종료일 계산
+        const days = ['월', '화', '수', '목', '금', '토', '일'];
+        const startDate = new Date(monday);
+        const endDate = new Date(monday);
+        endDate.setDate(endDate.getDate() + 6);
+        
+        const startDateStr = startDate.toISOString().split('T')[0];
+        const endDateStr = endDate.toISOString().split('T')[0];
+        
+        console.log(`📅 조회 기간: ${startDateStr} ~ ${endDateStr}`);
+        
+        // attendance 컬렉션에서 해당 매장의 해당 주 출퇴근 기록 직접 조회
+        const attendanceSnapshot = await db.collection('attendance')
           .where('store', '==', storeName)
+          .where('date', '>=', startDateStr)
+          .where('date', '<=', endDateStr)
           .get();
         
-        console.log(`📊 조회된 직원 수: ${employeesSnapshot.size}명`);
+        console.log(`📊 조회된 출퇴근 기록: ${attendanceSnapshot.size}건`);
         
-        const employees = [];
-        const days = ['월', '화', '수', '목', '금', '토', '일'];
+        // 직원별로 그룹화
+        const employeeMap = {};
         
-        // 각 직원의 출퇴근 기록 로드 (퇴사자 제외)
-        for (const empDoc of employeesSnapshot.docs) {
-          const empData = empDoc.data();
-          const empUid = empDoc.id;
+        attendanceSnapshot.forEach(doc => {
+          const attendanceData = doc.data();
+          const empUid = attendanceData.uid;
+          const empName = attendanceData.employeeName || attendanceData.name || '이름없음';
           
-          // 퇴사자 제외
-          if (empData.status === 'resigned') {
-            console.log(`  ⏭️ ${empData.name}: 퇴사자 제외`);
-            continue;
+          if (!employeeMap[empUid]) {
+            employeeMap[empUid] = {
+              uid: empUid,
+              name: empName,
+              schedules: {}
+            };
+            
+            // 모든 요일 초기화
+            days.forEach(day => {
+              employeeMap[empUid].schedules[day] = { isWorkDay: false };
+            });
           }
           
-          const schedules = {};
+          // 날짜를 요일로 변환
+          const attendanceDate = new Date(attendanceData.date + 'T00:00:00');
+          const dayIndex = (attendanceDate.getDay() + 6) % 7; // 월요일=0, 일요일=6
+          const day = days[dayIndex];
           
-          // 주간 각 요일별 출퇴근 기록 조회
-          for (let i = 0; i < 7; i++) {
-            const date = new Date(monday);
-            date.setDate(date.getDate() + i);
-            const dateStr = date.toISOString().split('T')[0];
-            const day = days[i];
-            
-            // attendance 컬렉션에서 해당 날짜 기록 조회
-            const attendanceSnapshot = await db.collection('attendance')
-              .where('uid', '==', empUid)
-              .where('date', '==', dateStr)
-              .get();
-            
-            if (!attendanceSnapshot.empty) {
-              const attendanceData = attendanceSnapshot.docs[0].data();
-              
-              // 상태 판별 (정상/지각/조퇴/결근)
-              let status = 'normal'; // normal, late, early, absent
-              
-              if (attendanceData.status === 'absent' || !attendanceData.clockIn) {
-                status = 'absent';
-              } else if (attendanceData.isLate) {
-                status = 'late';
-              } else if (attendanceData.isEarlyLeave) {
-                status = 'early';
-              }
-              
-              schedules[day] = {
-                startTime: attendanceData.clockIn || '',
-                endTime: attendanceData.clockOut || '',
-                hours: attendanceData.actualHours || 0,
-                isWorkDay: true,
-                status: status,
-                scheduledStart: attendanceData.scheduledStartTime || '',
-                scheduledEnd: attendanceData.scheduledEndTime || ''
-              };
-            } else {
-              schedules[day] = { isWorkDay: false };
-            }
+          // 상태 판별 (정상/지각/조퇴/결근)
+          let status = 'normal';
+          
+          if (attendanceData.status === 'absent' || !attendanceData.clockIn) {
+            status = 'absent';
+          } else if (attendanceData.isLate) {
+            status = 'late';
+          } else if (attendanceData.isEarlyLeave) {
+            status = 'early';
           }
           
-          employees.push({
-            uid: empUid,
-            name: empData.name || '이름없음',
-            schedules: schedules
-          });
-        }
+          employeeMap[empUid].schedules[day] = {
+            startTime: attendanceData.clockIn || '',
+            endTime: attendanceData.clockOut || '',
+            hours: attendanceData.actualHours || 0,
+            isWorkDay: true,
+            status: status,
+            scheduledStart: attendanceData.scheduledStartTime || '',
+            scheduledEnd: attendanceData.scheduledEndTime || ''
+          };
+        });
+        
+        // 배열로 변환
+        const employees = Object.values(employeeMap);
+        
+        console.log(`✅ 직원 ${employees.length}명의 출퇴근 기록 로드 완료`);
         
         currentScheduleData = {
           type: 'attendance',
