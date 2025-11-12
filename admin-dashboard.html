@@ -1054,24 +1054,47 @@
         selectedContent.style.display = 'block';
       }
       switch(tabName) {
-        case 'dashboard': loadDashboard(); break;
-        case 'admins': loadAdmins(); break;
+        case 'dashboard': 
+          detachAttendanceListener();
+          loadDashboard(); 
+          break;
+        case 'admins': 
+          detachAttendanceListener();
+          loadAdmins(); 
+          break;
         case 'employees': 
+          detachAttendanceListener();
           loadStoresForFilter('employeeStoreFilter'); 
           loadEmployees(); 
           break;
         case 'attendance': 
+          detachAttendanceListener();
           loadStoresForAttendanceFilter(); 
           loadAttendanceList(); 
           break;
-        case 'salary': loadSalaryList(); break;
-        case 'approvals': loadApprovals(); break;
-        case 'contracts': loadContracts(); break;
+        case 'salary': 
+          detachAttendanceListener();
+          loadSalaryList(); 
+          break;
+        case 'approvals': 
+          detachAttendanceListener();
+          loadApprovals(); 
+          break;
+        case 'contracts': 
+          detachAttendanceListener();
+          loadContracts(); 
+          break;
         case 'schedules': 
           loadStoresForScheduleFilter(); 
           break;
-        case 'notice': loadNotice(); break;
-        case 'stores': loadStores(); break;
+        case 'notice': 
+          detachAttendanceListener();
+          loadNotice(); 
+          break;
+        case 'stores': 
+          detachAttendanceListener();
+          loadStores(); 
+          break;
       }
     }
 
@@ -4628,6 +4651,11 @@
       if (calcStartDay) calcStartDay.addEventListener('change', updateCalculationPeriodPreview);
       if (calcEndMonth) calcEndMonth.addEventListener('change', updateCalculationPeriodPreview);
       if (calcEndDay) calcEndDay.addEventListener('change', updateCalculationPeriodPreview);
+    });
+
+    // 페이지 언로드 시 실시간 리스너 해제
+    window.addEventListener('beforeunload', () => {
+      detachAttendanceListener();
     });
 
     async function saveStore() {
@@ -9084,6 +9112,18 @@
 
     let currentScheduleWeek = new Date(); // 현재 선택된 주
     let currentScheduleData = null; // 현재 스케줄 데이터
+    let attendanceListener = null; // 출퇴근 기록 실시간 리스너
+
+    /**
+     * 출퇴근 기록 실시간 리스너 해제
+     */
+    function detachAttendanceListener() {
+      if (attendanceListener) {
+        console.log('🔌 출퇴근 기록 실시간 리스너 해제');
+        attendanceListener();
+        attendanceListener = null;
+      }
+    }
 
     /**
      * 매장 선택 드롭다운 로드 (스케줄용)
@@ -9171,6 +9211,7 @@
       const displayMode = document.querySelector('input[name="scheduleDisplayMode"]:checked').value;
       
       if (!storeId) {
+        detachAttendanceListener(); // 리스너 해제
         document.getElementById('scheduleViewContainer').innerHTML = 
           '<p style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">매장을 선택하세요.</p>';
         return;
@@ -9187,10 +9228,12 @@
         const weekNum = getWeekNumber(monday);
         
         if (displayMode === 'schedule') {
+          // 스케줄표 모드로 전환 시 리스너 해제
+          detachAttendanceListener();
           // 스케줄 데이터 로드
           await loadScheduleData(storeId, year, weekNum);
         } else {
-          // 출퇴근 기록 데이터 로드
+          // 출퇴근 기록 데이터 로드 (실시간 리스너 설정)
           await loadAttendanceData(storeId, monday);
         }
         
@@ -9375,11 +9418,14 @@
      */
     async function loadAttendanceData(storeId, monday) {
       try {
+        // 기존 리스너 해제
+        detachAttendanceListener();
+        
         // 선택된 매장 이름 가져오기
         const storeDoc = await db.collection('stores').doc(storeId).get();
         const storeName = storeDoc.exists ? storeDoc.data().name : '';
         
-        console.log(`🔍 출퇴근 기록 조회: 매장ID=${storeId}, 매장명=${storeName}`);
+        console.log(`🔍 출퇴근 기록 실시간 리스너 설정: 매장ID=${storeId}, 매장명=${storeName}`);
         
         // 주간 시작일과 종료일 계산
         const days = ['월', '화', '수', '목', '금', '토', '일'];
@@ -9392,74 +9438,78 @@
         
         console.log(`📅 조회 기간: ${startDateStr} ~ ${endDateStr}`);
         
-        // attendance 컬렉션에서 해당 매장의 해당 주 출퇴근 기록 직접 조회
-        const attendanceSnapshot = await db.collection('attendance')
+        // 실시간 리스너 설정
+        attendanceListener = db.collection('attendance')
           .where('store', '==', storeName)
           .where('date', '>=', startDateStr)
           .where('date', '<=', endDateStr)
-          .get();
-        
-        console.log(`📊 조회된 출퇴근 기록: ${attendanceSnapshot.size}건`);
-        
-        // 직원별로 그룹화
-        const employeeMap = {};
-        
-        attendanceSnapshot.forEach(doc => {
-          const attendanceData = doc.data();
-          const empUid = attendanceData.uid;
-          const empName = attendanceData.employeeName || attendanceData.name || '이름없음';
-          
-          if (!employeeMap[empUid]) {
-            employeeMap[empUid] = {
-              uid: empUid,
-              name: empName,
-              schedules: {}
+          .onSnapshot((attendanceSnapshot) => {
+            console.log(`🔄 실시간 업데이트: ${attendanceSnapshot.size}건의 출퇴근 기록`);
+            
+            // 직원별로 그룹화
+            const employeeMap = {};
+            
+            attendanceSnapshot.forEach(doc => {
+              const attendanceData = doc.data();
+              const empUid = attendanceData.uid;
+              const empName = attendanceData.employeeName || attendanceData.name || '이름없음';
+              
+              if (!employeeMap[empUid]) {
+                employeeMap[empUid] = {
+                  uid: empUid,
+                  name: empName,
+                  schedules: {}
+                };
+                
+                // 모든 요일 초기화
+                days.forEach(day => {
+                  employeeMap[empUid].schedules[day] = { isWorkDay: false };
+                });
+              }
+              
+              // 날짜를 요일로 변환
+              const attendanceDate = new Date(attendanceData.date + 'T00:00:00');
+              const dayIndex = (attendanceDate.getDay() + 6) % 7; // 월요일=0, 일요일=6
+              const day = days[dayIndex];
+              
+              // 상태 판별 (정상/지각/조퇴/결근)
+              let status = 'normal';
+              
+              if (attendanceData.status === 'absent' || !attendanceData.clockIn) {
+                status = 'absent';
+              } else if (attendanceData.isLate) {
+                status = 'late';
+              } else if (attendanceData.isEarlyLeave) {
+                status = 'early';
+              }
+              
+              employeeMap[empUid].schedules[day] = {
+                startTime: attendanceData.clockIn || '',
+                endTime: attendanceData.clockOut || '',
+                hours: attendanceData.actualHours || 0,
+                isWorkDay: true,
+                status: status,
+                scheduledStart: attendanceData.scheduledStartTime || '',
+                scheduledEnd: attendanceData.scheduledEndTime || ''
+              };
+            });
+            
+            // 배열로 변환
+            const employees = Object.values(employeeMap);
+            
+            console.log(`✅ 직원 ${employees.length}명의 출퇴근 기록 실시간 업데이트 완료`);
+            
+            currentScheduleData = {
+              type: 'attendance',
+              employees: employees
             };
             
-            // 모든 요일 초기화
-            days.forEach(day => {
-              employeeMap[empUid].schedules[day] = { isWorkDay: false };
-            });
-          }
+            // 화면 자동 갱신
+            renderScheduleView();
+          }, (error) => {
+            console.error('❌ 출퇴근 기록 실시간 리스너 오류:', error);
+          });
           
-          // 날짜를 요일로 변환
-          const attendanceDate = new Date(attendanceData.date + 'T00:00:00');
-          const dayIndex = (attendanceDate.getDay() + 6) % 7; // 월요일=0, 일요일=6
-          const day = days[dayIndex];
-          
-          // 상태 판별 (정상/지각/조퇴/결근)
-          let status = 'normal';
-          
-          if (attendanceData.status === 'absent' || !attendanceData.clockIn) {
-            status = 'absent';
-          } else if (attendanceData.isLate) {
-            status = 'late';
-          } else if (attendanceData.isEarlyLeave) {
-            status = 'early';
-          }
-          
-          employeeMap[empUid].schedules[day] = {
-            startTime: attendanceData.clockIn || '',
-            endTime: attendanceData.clockOut || '',
-            hours: attendanceData.actualHours || 0,
-            isWorkDay: true,
-            status: status,
-            scheduledStart: attendanceData.scheduledStartTime || '',
-            scheduledEnd: attendanceData.scheduledEndTime || ''
-          };
-        });
-        
-        // 배열로 변환
-        const employees = Object.values(employeeMap);
-        
-        console.log(`✅ 직원 ${employees.length}명의 출퇴근 기록 로드 완료`);
-        
-        currentScheduleData = {
-          type: 'attendance',
-          employees: employees
-        };
-        
-        console.log('✅ 출퇴근 기록 로드 완료:', employees.length, '명');
       } catch (error) {
         console.error('❌ 출퇴근 기록 로드 실패:', error);
         currentScheduleData = { type: 'attendance', employees: [] };
@@ -9491,6 +9541,9 @@
       const days = ['월', '화', '수', '목', '금', '토', '일'];
       const monday = getMonday(currentScheduleWeek);
       
+      // 출퇴근 기록 vs 스케줄표 구분
+      const isAttendanceMode = currentScheduleData.type === 'attendance';
+      
       let html = '<div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow-x: auto;">';
       
       days.forEach((day, index) => {
@@ -9505,35 +9558,88 @@
             </div>
         `;
         
-        // 각 직원의 스케줄 카드
+        // 각 직원의 스케줄/출퇴근 카드
         if (currentScheduleData.employees) {
           currentScheduleData.employees.forEach(emp => {
-            const scheduleArray = emp.schedules[day]; // 이제 배열임
+            const scheduleData = emp.schedules[day];
             
-            // 배열이고 요소가 있으면 모두 표시
-            if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
-              scheduleArray.forEach(schedule => {
-                if (schedule.isWorkDay) {
-                  // 대체근무 표시
-                  const replacementIcon = schedule.isShiftReplacement ? '🔄 ' : '';
-                  const backgroundColor = schedule.isShiftReplacement ? '#fff3cd' : '#e3f2fd';
-                  const borderColor = schedule.isShiftReplacement ? '#ffc107' : '#1976d2';
-                  
-                  html += `
-                    <div style="background: ${backgroundColor}; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">${replacementIcon}👤 ${emp.name}</div>
-                      <div style="font-size: 12px; color: #1976d2; border-top: 2px solid ${borderColor}; padding-top: 4px; margin-top: 4px;">
-                        🕐 ${schedule.startTime} - ${schedule.endTime}
-                      </div>
-                      <div style="font-size: 11px; color: #555; margin-top: 2px;">
-                        ⏱️ ${schedule.hours}시간
-                      </div>
-                    </div>
-                  `;
+            if (isAttendanceMode) {
+              // 출퇴근 기록 표시 (단일 객체)
+              if (scheduleData && scheduleData.isWorkDay) {
+                // 상태별 색상 설정
+                let backgroundColor, borderColor, statusIcon, statusText;
+                switch (scheduleData.status) {
+                  case 'absent':
+                    backgroundColor = '#ffe5e5';
+                    borderColor = '#dc3545';
+                    statusIcon = '❌';
+                    statusText = '결근';
+                    break;
+                  case 'late':
+                    backgroundColor = '#fff3cd';
+                    borderColor = '#ffc107';
+                    statusIcon = '⚠️';
+                    statusText = '지각';
+                    break;
+                  case 'early':
+                    backgroundColor = '#fff3cd';
+                    borderColor = '#ffc107';
+                    statusIcon = '⚠️';
+                    statusText = '조퇴';
+                    break;
+                  default:
+                    backgroundColor = '#d4edda';
+                    borderColor = '#28a745';
+                    statusIcon = '✅';
+                    statusText = '정상';
                 }
-              });
+                
+                html += `
+                  <div style="background: ${backgroundColor}; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">${statusIcon} ${emp.name}</div>
+                    <div style="font-size: 10px; color: #666; margin-bottom: 4px;">${statusText}</div>
+                    <div style="font-size: 12px; color: #555; border-top: 2px solid ${borderColor}; padding-top: 4px; margin-top: 4px;">
+                      🕐 ${scheduleData.startTime || '-'} - ${scheduleData.endTime || '-'}
+                    </div>
+                    <div style="font-size: 11px; color: #555; margin-top: 2px;">
+                      ⏱️ ${scheduleData.hours}시간
+                    </div>
+                    ${scheduleData.scheduledStart ? `
+                    <div style="font-size: 10px; color: #999; margin-top: 4px; border-top: 1px solid #ddd; padding-top: 4px;">
+                      📋 예정: ${scheduleData.scheduledStart} - ${scheduleData.scheduledEnd}
+                    </div>
+                    ` : ''}
+                  </div>
+                `;
+              }
+            } else {
+              // 스케줄표 표시 (배열)
+              const scheduleArray = scheduleData;
+              
+              // 배열이고 요소가 있으면 모두 표시
+              if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
+                scheduleArray.forEach(schedule => {
+                  if (schedule.isWorkDay) {
+                    // 대체근무 표시
+                    const replacementIcon = schedule.isShiftReplacement ? '🔄 ' : '';
+                    const backgroundColor = schedule.isShiftReplacement ? '#fff3cd' : '#e3f2fd';
+                    const borderColor = schedule.isShiftReplacement ? '#ffc107' : '#1976d2';
+                    
+                    html += `
+                      <div style="background: ${backgroundColor}; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">${replacementIcon}👤 ${emp.name}</div>
+                        <div style="font-size: 12px; color: #1976d2; border-top: 2px solid ${borderColor}; padding-top: 4px; margin-top: 4px;">
+                          🕐 ${schedule.startTime} - ${schedule.endTime}
+                        </div>
+                        <div style="font-size: 11px; color: #555; margin-top: 2px;">
+                          ⏱️ ${schedule.hours}시간
+                        </div>
+                      </div>
+                    `;
+                  }
+                });
+              }
             }
-            // 휴무는 표시하지 않음
           });
         }
         
@@ -9585,41 +9691,60 @@
       });
       
       if (currentScheduleData.employees) {
+        const isAttendanceMode = currentScheduleData.type === 'attendance';
+        
         currentScheduleData.employees.forEach(emp => {
           days.forEach(day => {
-            const scheduleArray = emp.schedules[day]; // 이제 배열임
+            const scheduleData = emp.schedules[day];
             
-            // 배열이고 요소가 있으면 모두 처리
-            if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
-              scheduleArray.forEach(schedule => {
-                if (schedule.isWorkDay) {
-                  // 출퇴근 기록인 경우 상태에 따라 색상 변경
-                  let barColor = colorMap[emp.name];
-                  if (currentScheduleData.type === 'attendance' && schedule.status) {
-                    switch (schedule.status) {
-                      case 'late': barColor = '#FFA726'; break; // 주황색 (지각)
-                      case 'early': barColor = '#FFB74D'; break; // 연한 주황색 (조퇴)
-                      case 'absent': barColor = '#EF5350'; break; // 빨간색 (결근)
-                      default: barColor = '#66BB6A'; // 초록색 (정상)
-                    }
-                  }
-                  
-                  // 대체근무는 승인자(현재 직원)의 색상을 그대로 사용 (색상 변경 안 함)
-                  // isShiftReplacement는 표시용으로만 사용
-                  
-                  dayWorkers[day].push({
-                    name: emp.name,
-                    startTime: schedule.startTime,
-                    endTime: schedule.endTime,
-                    hours: schedule.hours,
-                    color: barColor,
-                    status: schedule.status || 'normal',
-                    scheduledStart: schedule.scheduledStart || '',
-                    scheduledEnd: schedule.scheduledEnd || '',
-                    isShiftReplacement: schedule.isShiftReplacement || false
-                  });
+            if (isAttendanceMode) {
+              // 출퇴근 기록 모드 (단일 객체)
+              if (scheduleData && scheduleData.isWorkDay) {
+                let barColor = colorMap[emp.name];
+                // 상태에 따라 색상 변경
+                switch (scheduleData.status) {
+                  case 'late': barColor = '#FFA726'; break; // 주황색 (지각)
+                  case 'early': barColor = '#FFB74D'; break; // 연한 주황색 (조퇴)
+                  case 'absent': barColor = '#EF5350'; break; // 빨간색 (결근)
+                  default: barColor = '#66BB6A'; // 초록색 (정상)
                 }
-              });
+                
+                dayWorkers[day].push({
+                  name: emp.name,
+                  startTime: scheduleData.startTime || '-',
+                  endTime: scheduleData.endTime || '-',
+                  hours: scheduleData.hours,
+                  color: barColor,
+                  status: scheduleData.status || 'normal',
+                  scheduledStart: scheduleData.scheduledStart || '',
+                  scheduledEnd: scheduleData.scheduledEnd || '',
+                  isShiftReplacement: false
+                });
+              }
+            } else {
+              // 스케줄표 모드 (배열)
+              const scheduleArray = scheduleData;
+              
+              // 배열이고 요소가 있으면 모두 처리
+              if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
+                scheduleArray.forEach(schedule => {
+                  if (schedule.isWorkDay) {
+                    const barColor = colorMap[emp.name];
+                    
+                    dayWorkers[day].push({
+                      name: emp.name,
+                      startTime: schedule.startTime,
+                      endTime: schedule.endTime,
+                      hours: schedule.hours,
+                      color: barColor,
+                      status: 'normal',
+                      scheduledStart: '',
+                      scheduledEnd: '',
+                      isShiftReplacement: schedule.isShiftReplacement || false
+                    });
+                  }
+                });
+              }
             }
           });
         });
