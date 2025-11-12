@@ -7114,7 +7114,8 @@
         // 🔥 직원 정보 업데이트 (최신 계약서 내용 반영)
         await updateEmployeeFromContract(contractData);
         
-        // 🔥 계약서 작성 완료 시 스케줄 자동 생성
+        // 🔥 계약서 작성 완료 시 스케줄 자동 생성 (contractId 추가)
+        contractData.contractId = contractId;
         await createInitialSchedule(contractData);
         
         // 서명 링크 표시
@@ -7480,6 +7481,7 @@
                 endTime: dayScheduleMap[day].endTime,
                 hours: dayScheduleMap[day].hours,
                 isShiftReplacement: false,
+                contractId: contractData.contractId || null, // 계약서 ID 추가
                 shiftRequestId: null,
                 originalRequesterId: null,
                 originalRequesterName: null,
@@ -9288,6 +9290,27 @@
             continue;
           }
           
+          // 🔑 먼저 해당 직원의 최신 계약서 ID 조회
+          let latestContractId = null;
+          try {
+            let contractSnapshot = await db.collection('contracts')
+              .where('employeeId', '==', empUid)
+              .get();
+            
+            if (!contractSnapshot.empty) {
+              // 클라이언트에서 최신순 정렬
+              const docs = contractSnapshot.docs.sort((a, b) => {
+                const aTime = a.data().createdAt ? new Date(a.data().createdAt).getTime() : 0;
+                const bTime = b.data().createdAt ? new Date(b.data().createdAt).getTime() : 0;
+                return bTime - aTime;
+              });
+              latestContractId = docs[0].id;
+              console.log(`  📄 ${empData.name} 최신 계약서 ID: ${latestContractId}`);
+            }
+          } catch (err) {
+            console.warn(`  ⚠️ ${empData.name} 계약서 조회 실패:`, err);
+          }
+          
           // 해당 직원의 해당 주 모든 스케줄 조회
           const schedulesSnapshot = await db.collection('schedules')
             .where('userId', '==', empUid)
@@ -9303,7 +9326,7 @@
             schedules[day] = []; // 배열로 변경 (여러 근무 가능)
           });
           
-          // 날짜별로 그룹화 (같은 날짜의 기본 계약서는 최신 1개만)
+          // 날짜별로 그룹화 (같은 날짜의 기본 계약서는 최신 계약서의 스케줄만)
           const schedulesByDate = {};
           
           schedulesSnapshot.forEach(doc => {
@@ -9322,13 +9345,15 @@
               schedulesByDate[date].additional.push({
                 ...scheduleData,
                 docId: doc.id,
+                contractId: scheduleData.contractId || null,
                 createdAt: scheduleData.createdAt || null
               });
             } else {
-              // 기본 근무계약서 - 나중에 최신 1개만 선택
+              // 기본 근무계약서 - 나중에 최신 계약서의 스케줄만 선택
               schedulesByDate[date].regular.push({
                 ...scheduleData,
                 docId: doc.id,
+                contractId: scheduleData.contractId || null,
                 createdAt: scheduleData.createdAt || null
               });
             }
@@ -9342,26 +9367,45 @@
             const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월=0, ..., 일=6
             const dayName = days[dayIndex];
             
-            // 기본 근무계약서: 최신 1개만 선택
+            // 기본 근무계약서: 최신 계약서 ID와 일치하는 스케줄만 선택
             if (dateSchedules.regular.length > 0) {
-              // createdAt 기준으로 정렬 (최신순)
-              const sortedRegular = dateSchedules.regular.sort((a, b) => {
-                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                return bTime - aTime; // 최신순
-              });
+              let selectedSchedule = null;
               
-              const latestRegular = sortedRegular[0];
-              schedules[dayName].push({
-                startTime: latestRegular.startTime || '',
-                endTime: latestRegular.endTime || '',
-                hours: latestRegular.hours || 0,
-                isShiftReplacement: false,
-                isWorkDay: true
-              });
+              if (latestContractId) {
+                // 최신 계약서 ID와 일치하는 스케줄 찾기
+                selectedSchedule = dateSchedules.regular.find(s => s.contractId === latestContractId);
+                
+                if (!selectedSchedule) {
+                  // contractId가 없는 스케줄이면 createdAt 기준으로 최신 1개 선택
+                  const sortedRegular = dateSchedules.regular.sort((a, b) => {
+                    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return bTime - aTime; // 최신순
+                  });
+                  selectedSchedule = sortedRegular[0];
+                }
+              } else {
+                // 계약서가 없으면 createdAt 기준으로 최신 1개 선택
+                const sortedRegular = dateSchedules.regular.sort((a, b) => {
+                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                  return bTime - aTime; // 최신순
+                });
+                selectedSchedule = sortedRegular[0];
+              }
+              
+              if (selectedSchedule) {
+                schedules[dayName].push({
+                  startTime: selectedSchedule.startTime || '',
+                  endTime: selectedSchedule.endTime || '',
+                  hours: selectedSchedule.hours || 0,
+                  isShiftReplacement: false,
+                  isWorkDay: true
+                });
+              }
               
               if (dateSchedules.regular.length > 1) {
-                console.log(`    ℹ️ ${date} (${dayName}): ${dateSchedules.regular.length}개 기본 계약서 중 최신 1개만 표시`);
+                console.log(`    ℹ️ ${date} (${dayName}): ${dateSchedules.regular.length}개 기본 스케줄 중 최신 계약서(${latestContractId}) 것만 표시`);
               }
             }
             
@@ -9385,68 +9429,24 @@
             }
           });
           
-          // 계약서에서 급여 정보 조회
+          // 계약서에서 급여 정보 조회 (latestContractId는 위에서 이미 조회됨)
           let salaryType = 'hourly';
           let salaryAmount = 0;
           
-          try {
-            // 1차 시도: employeeId + status='active'
-            let contractSnapshot = await db.collection('contracts')
-              .where('employeeId', '==', empUid)
-              .where('status', '==', 'active')
-              .limit(1)
-              .get();
-            
-            // 2차 시도: employeeId만 (status 무관, 클라이언트 정렬)
-            if (contractSnapshot.empty) {
-              contractSnapshot = await db.collection('contracts')
-                .where('employeeId', '==', empUid)
-                .get();
-              
-              // 클라이언트에서 최신순 정렬
-              if (!contractSnapshot.empty) {
-                const docs = contractSnapshot.docs.sort((a, b) => {
-                  const aTime = a.data().createdAt ? new Date(a.data().createdAt).getTime() : 0;
-                  const bTime = b.data().createdAt ? new Date(b.data().createdAt).getTime() : 0;
-                  return bTime - aTime;
-                });
-                // 최신 문서만 사용
-                contractSnapshot = { empty: false, docs: [docs[0]] };
+          if (latestContractId) {
+            try {
+              const contractDoc = await db.collection('contracts').doc(latestContractId).get();
+              if (contractDoc.exists) {
+                const contractData = contractDoc.data();
+                salaryType = contractData.salaryType || contractData.wageType || 'hourly';
+                salaryAmount = contractData.salaryAmount || contractData.wageAmount || 0;
+                console.log(`  💰 ${empData.name} 급여: ${salaryType} = ₩${salaryAmount.toLocaleString()}`);
               }
+            } catch (err) {
+              console.warn(`  ⚠️ ${empData.name} 급여 정보 조회 실패:`, err);
             }
-            
-            // 3차 시도: employeeName + employeeBirth로 조회 (폴백)
-            if (contractSnapshot.empty) {
-              contractSnapshot = await db.collection('contracts')
-                .where('employeeName', '==', empData.name)
-                .where('employeeBirth', '==', empData.birth)
-                .get();
-              
-              // 클라이언트에서 최신순 정렬
-              if (!contractSnapshot.empty) {
-                const docs = contractSnapshot.docs.sort((a, b) => {
-                  const aTime = a.data().createdAt ? new Date(a.data().createdAt).getTime() : 0;
-                  const bTime = b.data().createdAt ? new Date(b.data().createdAt).getTime() : 0;
-                  return bTime - aTime;
-                });
-                // 최신 문서만 사용
-                contractSnapshot = { empty: false, docs: [docs[0]] };
-              }
-            }
-            
-            if (!contractSnapshot.empty) {
-              const contractData = contractSnapshot.docs[0].data();
-              
-              // 실제 저장된 필드명 사용
-              salaryType = contractData.salaryType || contractData.wageType || 'hourly';
-              salaryAmount = contractData.salaryAmount || contractData.wageAmount || 0;
-              
-              console.log(`  💰 ${empData.name} 급여: ${salaryType} = ₩${salaryAmount.toLocaleString()}`);
-            } else {
-              console.log(`  ⚠️ ${empData.name} 계약서 없음 (employeeId: ${empUid}, name: ${empData.name})`);
-            }
-          } catch (err) {
-            console.warn(`  ⚠️ ${empData.name} 계약서 조회 실패:`, err);
+          } else {
+            console.log(`  ⚠️ ${empData.name} 계약서 없음`);
           }
           
           employees.push({
