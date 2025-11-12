@@ -4342,19 +4342,35 @@
       }
       
       try {
-        // 1. 해당 계약서로 생성된 스케줄 삭제
-        console.log(`🗑️ 계약서 ${contractId}의 스케줄 삭제 시작...`);
+        // 1. 해당 계약서로 생성된 기본 스케줄만 삭제 (추가계약서/대체근무 제외)
+        console.log(`🗑️ 계약서 ${contractId}의 기본 스케줄 삭제 시작...`);
         const schedulesSnapshot = await firebase.firestore().collection('schedules')
           .where('contractId', '==', contractId)
           .get();
         
         if (!schedulesSnapshot.empty) {
           const batch = firebase.firestore().batch();
+          let deleteCount = 0;
+          let skipCount = 0;
+          
           schedulesSnapshot.forEach(doc => {
-            batch.delete(doc.ref);
+            const scheduleData = doc.data();
+            // 기본 근무만 삭제 (대체근무/추가계약서는 유지)
+            if (!scheduleData.isShiftReplacement) {
+              batch.delete(doc.ref);
+              deleteCount++;
+            } else {
+              skipCount++;
+            }
           });
-          await batch.commit();
-          console.log(`✅ ${schedulesSnapshot.size}개의 스케줄 삭제 완료`);
+          
+          if (deleteCount > 0) {
+            await batch.commit();
+            console.log(`✅ ${deleteCount}개의 기본 스케줄 삭제 완료`);
+          }
+          if (skipCount > 0) {
+            console.log(`ℹ️ ${skipCount}개의 추가 근무/대체근무는 유지됨`);
+          }
         } else {
           console.log(`ℹ️ 삭제할 스케줄 없음 (contractId: ${contractId})`);
         }
