@@ -9262,13 +9262,22 @@
               .limit(1)
               .get();
             
-            // 2차 시도: employeeId만 (status 무관, 최신순)
+            // 2차 시도: employeeId만 (status 무관, 클라이언트 정렬)
             if (contractSnapshot.empty) {
               contractSnapshot = await db.collection('contracts')
                 .where('employeeId', '==', empUid)
-                .orderBy('createdAt', 'desc')
-                .limit(1)
                 .get();
+              
+              // 클라이언트에서 최신순 정렬
+              if (!contractSnapshot.empty) {
+                const docs = contractSnapshot.docs.sort((a, b) => {
+                  const aTime = a.data().createdAt ? new Date(a.data().createdAt).getTime() : 0;
+                  const bTime = b.data().createdAt ? new Date(b.data().createdAt).getTime() : 0;
+                  return bTime - aTime;
+                });
+                // 최신 문서만 사용
+                contractSnapshot = { empty: false, docs: [docs[0]] };
+              }
             }
             
             // 3차 시도: employeeName + employeeBirth로 조회 (폴백)
@@ -9276,9 +9285,18 @@
               contractSnapshot = await db.collection('contracts')
                 .where('employeeName', '==', empData.name)
                 .where('employeeBirth', '==', empData.birth)
-                .orderBy('createdAt', 'desc')
-                .limit(1)
                 .get();
+              
+              // 클라이언트에서 최신순 정렬
+              if (!contractSnapshot.empty) {
+                const docs = contractSnapshot.docs.sort((a, b) => {
+                  const aTime = a.data().createdAt ? new Date(a.data().createdAt).getTime() : 0;
+                  const bTime = b.data().createdAt ? new Date(b.data().createdAt).getTime() : 0;
+                  return bTime - aTime;
+                });
+                // 최신 문서만 사용
+                contractSnapshot = { empty: false, docs: [docs[0]] };
+              }
             }
             
             if (!contractSnapshot.empty) {
