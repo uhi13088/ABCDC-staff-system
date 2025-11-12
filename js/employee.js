@@ -854,7 +854,7 @@ async function loadSalary() {
         });
         
         latestContract = contracts[0];
-        console.log('📝 최신 계약서:', latestContract.wageType, latestContract.wageAmount);
+        console.log('📝 최신 계약서:', latestContract.salaryType || latestContract.wageType, latestContract.salaryAmount || latestContract.wageAmount);
       } else {
         console.warn('⚠️ 계약서를 찾을 수 없습니다.');
       }
@@ -883,8 +883,8 @@ async function loadSalary() {
     
     // 직원용 페이지에서 사용하는 필드명으로 매핑
     const employeeSalaryData = {
-      wageType: latestContract.wageType || '시급',
-      wageAmount: parseFloat(latestContract.wageAmount) || 0,
+      wageType: latestContract.salaryType || latestContract.wageType || '시급',
+      wageAmount: parseFloat(latestContract.salaryAmount || latestContract.wageAmount) || 0,
       totalHours: salaryData.totalWorkHours,
       baseSalary: salaryData.basePay,
       weeklyHolidayPay: salaryData.weeklyHolidayPay,
@@ -1240,7 +1240,7 @@ function renderContracts(contracts) {
           <table style="width: 100%; margin-bottom: var(--spacing-md);">
             <tr>
               <td style="padding: 8px 0; color: var(--text-secondary); width: 120px;">계약 기간</td>
-              <td style="padding: 8px 0; font-weight: 600;">${contract.contractStartDate || contract.startDate || '-'} ~ ${contract.contractEndDate || contract.endDate || '기간의 정함 없음'}</td>
+              <td style="padding: 8px 0; font-weight: 600;">${contract.contractStartDate || '-'} ~ ${contract.contractEndDate || '기간의 정함 없음'}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: var(--text-secondary);">직책/직무</td>
@@ -1248,7 +1248,7 @@ function renderContracts(contracts) {
             </tr>
             <tr>
               <td style="padding: 8px 0; color: var(--text-secondary);">급여 조건</td>
-              <td style="padding: 8px 0; font-weight: 600;">${contract.wageType || '-'} ${contract.wageAmount ? Number(contract.wageAmount).toLocaleString() + '원' : ''}</td>
+              <td style="padding: 8px 0; font-weight: 600;">${contract.salaryType || contract.wageType || '-'} ${(contract.salaryAmount || contract.wageAmount) ? Number(contract.salaryAmount || contract.wageAmount).toLocaleString() + '원' : ''}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: var(--text-secondary);">작성일</td>

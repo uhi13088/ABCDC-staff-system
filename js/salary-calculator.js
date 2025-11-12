@@ -219,7 +219,7 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     employeeUid: employee.uid,
     storeName: employee.store || contract.workStore,
     yearMonth: yearMonth,
-    wageType: contract.wageType || '시급',
+    salaryType: contract.salaryType || contract.wageType || '시급',  // 호환성 유지
     
     // 기본 정보
     hourlyWage: 0,
@@ -253,25 +253,25 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     attendanceDetails: []
   };
   
-  const wageType = contract.wageType || '시급';
-  const wageAmount = parseFloat(contract.wageAmount) || 0;
+  const salaryType = contract.salaryType || contract.wageType || '시급';  // 호환성 유지
+  const salaryAmount = parseFloat(contract.salaryAmount || contract.wageAmount) || 0;  // 호환성 유지
   
-  if (wageAmount === 0) {
+  if (salaryAmount === 0) {
     console.log('⚠️ 급여액이 0원');
     return result;
   }
   
   // 급여 유형별 처리
-  if (wageType === '시급') {
-    result.hourlyWage = wageAmount;
-  } else if (wageType === '월급') {
-    result.monthlyWage = wageAmount;
+  if (salaryType === '시급') {
+    result.hourlyWage = salaryAmount;
+  } else if (salaryType === '월급') {
+    result.monthlyWage = salaryAmount;
     // 월급제는 209시간 기준 (주 40시간 × 52주 ÷ 12개월)
-    result.hourlyWage = Math.round(wageAmount / 209);
-  } else if (wageType === '연봉') {
-    result.annualWage = wageAmount;
-    result.monthlyWage = Math.round(wageAmount / 12);
-    result.hourlyWage = Math.round(wageAmount / 12 / 209);
+    result.hourlyWage = Math.round(salaryAmount / 209);
+  } else if (salaryType === '연봉') {
+    result.annualWage = salaryAmount;
+    result.monthlyWage = Math.round(salaryAmount / 12);
+    result.hourlyWage = Math.round(salaryAmount / 12 / 209);
   }
   
   // 출퇴근 기록 분석

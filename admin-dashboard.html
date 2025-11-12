@@ -1963,7 +1963,7 @@
                 <tr>
                   <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">급여 조건</th>
                   <td style="border: 1px solid #333; padding: 10px; line-height: 1.8; text-align: left;">
-                    <div>${contract.wageType || contract.salaryType || '시급'}: ${(contract.wageAmount || contract.salaryAmount || 0).toLocaleString()}원</div>
+                    <div>${contract.salaryType || contract.salaryType || '시급'}: ${(contract.salaryAmount || contract.salaryAmount || 0).toLocaleString()}원</div>
                     <div>지급일: ${contract.paymentDay || contract.salaryPaymentDay || '매월 말일'}</div>
                     <div>지급방법: ${contract.paymentMethod || '계좌이체'}</div>
                   </td>
@@ -2981,7 +2981,7 @@
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; font-weight: 600; color: #475569;">급여 유형</td>
-                  <td style="padding: 8px 0;">${salary.wageType}</td>
+                  <td style="padding: 8px 0;">${salary.salaryType}</td>
                   <td style="padding: 8px 0; font-weight: 600; color: #475569;">발행일</td>
                   <td style="padding: 8px 0;">${today}</td>
                 </tr>
@@ -2998,7 +2998,7 @@
                 </tr>
                 <tr>
                   <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
-                    기본급 ${salary.wageType === '시급' ? `(시급 ${salary.hourlyWage.toLocaleString()}원 × ${formatHoursAndMinutes(salary.totalWorkHours)})` : ''}
+                    기본급 ${salary.salaryType === '시급' ? `(시급 ${salary.hourlyWage.toLocaleString()}원 × ${formatHoursAndMinutes(salary.totalWorkHours)})` : ''}
                   </td>
                   <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">${salary.basePay.toLocaleString()}원</td>
                 </tr>
@@ -5161,10 +5161,10 @@
           const createdDate = contract.createdAt ? new Date(contract.createdAt).toLocaleDateString('ko-KR') : '날짜 정보 없음';
           
           // 급여 타입과 금액 (실제 저장된 필드명 사용)
-          const wageType = contract.salaryType || contract.wageType || '시급';
-          const wageAmount = contract.salaryAmount || contract.wageAmount || 0;
+          const salaryType = contract.salaryType || contract.salaryType || '시급';
+          const salaryAmount = contract.salaryAmount || contract.salaryAmount || 0;
           
-          const wageAmountText = wageAmount ? parseInt(wageAmount).toLocaleString() : '0';
+          const salaryAmountText = salaryAmount ? parseInt(salaryAmount).toLocaleString() : '0';
           const contractPeriod = `${contract.contractStartDate || ''} ~ ${contract.contractEndDate || ''}`;
           const isLatest = index === 0;
           
@@ -5193,7 +5193,7 @@
               <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-md); margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--border-color);">
                 <div>
                   <p style="color: var(--text-secondary); font-size: 13px; margin: 0 0 4px 0;">급여 유형</p>
-                  <p style="font-weight: 600; margin: 0;">${wageType}: ${wageAmountText}원</p>
+                  <p style="font-weight: 600; margin: 0;">${salaryType}: ${salaryAmountText}원</p>
                 </div>
                 <div>
                   <p style="color: var(--text-secondary); font-size: 13px; margin: 0 0 4px 0;">계약 기간</p>
@@ -6446,8 +6446,8 @@
         { id: 'workStore', name: '근무 매장' },
         { id: 'startDate', name: '계약 시작일' },
         { id: 'position', name: '직책/직무' },
-        { id: 'wageType', name: '급여 형태' },
-        { id: 'wageAmount', name: '급여액' },
+        { id: 'salaryType', name: '급여 형태' },
+        { id: 'salaryAmount', name: '급여액' },
         { id: 'paymentDay', name: '급여 지급일' },
         { id: 'paymentMethod', name: '급여 지급 방법' }
       ];
@@ -6551,9 +6551,9 @@
       document.getElementById('previewWorkTime').textContent = document.getElementById('workTime').value || '_______';
       document.getElementById('previewBreakTime').textContent = document.getElementById('breakTime').value || '없음';
       
-      document.getElementById('previewWageType').textContent = document.getElementById('wageType').value || '_______';
-      const wageAmount = document.getElementById('wageAmount').value;
-      document.getElementById('previewWageAmount').textContent = wageAmount ? Number(wageAmount).toLocaleString() : '_______';
+      document.getElementById('previewWageType').textContent = document.getElementById('salaryType').value || '_______';
+      const salaryAmount = document.getElementById('salaryAmount').value;
+      document.getElementById('previewWageAmount').textContent = salaryAmount ? Number(salaryAmount).toLocaleString() : '_______';
       
       // 급여 조건 텍스트 자동 생성 (3단계)
       const paymentDayValue = document.getElementById('paymentDay').value;
@@ -6801,8 +6801,8 @@
         workDays: document.getElementById('workDays')?.value || '',
         workTime: document.getElementById('workTime')?.value || '',
         breakTime: document.getElementById('breakTime')?.value || '',
-        wageType: document.getElementById('wageType')?.value || '',
-        wageAmount: document.getElementById('wageAmount')?.value || '',
+        salaryType: document.getElementById('salaryType')?.value || '',
+        salaryAmount: document.getElementById('salaryAmount')?.value || '',
         paymentDay: document.getElementById('paymentDay')?.value || '',
         paymentMethod: document.getElementById('paymentMethod')?.value || '',
         contractContent: document.getElementById('contractContent')?.value || '',
@@ -6940,8 +6940,8 @@
         document.getElementById('startDate').value = contract.startDate;
         document.getElementById('endDate').value = contract.endDate;
         document.getElementById('position').value = contract.position;
-        document.getElementById('wageType').value = contract.wageType;
-        document.getElementById('wageAmount').value = contract.wageAmount;
+        document.getElementById('salaryType').value = contract.salaryType;
+        document.getElementById('salaryAmount').value = contract.salaryAmount;
         document.getElementById('paymentDay').value = contract.paymentDay;
         document.getElementById('paymentMethod').value = contract.paymentMethod;
         document.getElementById('contractContent').value = contract.contractContent;
@@ -7104,11 +7104,38 @@
       // 스케줄 데이터 수집 (요일별 다른 시간 지원)
       const schedules = collectScheduleData();
       
+      // employeeId validation
+      const employeeId = document.getElementById('employeeSelect')?.value || '';
+      const employeeName = document.getElementById('employeeName').value;
+      const employeeBirth = document.getElementById('employeeBirth').value;
+      
+      // employeeId가 없으면 users 컬렉션에서 찾기 시도
+      let finalEmployeeId = employeeId;
+      if (!finalEmployeeId && employeeName && employeeBirth) {
+        console.log(`⚠️ employeeId 없음. users 컬렉션에서 ${employeeName} (${employeeBirth}) 검색 중...`);
+        try {
+          const userSnapshot = await firebase.firestore().collection('users')
+            .where('name', '==', employeeName)
+            .where('birth', '==', employeeBirth)
+            .limit(1)
+            .get();
+          
+          if (!userSnapshot.empty) {
+            finalEmployeeId = userSnapshot.docs[0].id;
+            console.log(`✅ employeeId 찾음: ${finalEmployeeId}`);
+          } else {
+            console.warn(`⚠️ users 컬렉션에서 ${employeeName} (${employeeBirth}) 찾을 수 없음`);
+          }
+        } catch (error) {
+          console.error('❌ employeeId 검색 실패:', error);
+        }
+      }
+      
       const contractData = {
         id: contractId,
-        employeeId: document.getElementById('employeeSelect')?.value || '',  // 직원 UID 추가
-        employeeName: document.getElementById('employeeName').value,
-        employeeBirth: document.getElementById('employeeBirth').value,
+        employeeId: finalEmployeeId,  // 검증된 직원 UID
+        employeeName: employeeName,
+        employeeBirth: employeeBirth,
         employeeAddress: document.getElementById('employeeAddress').value,
         employeePhone: document.getElementById('employeePhone').value,
         employeePosition: document.getElementById('position').value,  // employeePosition 필드 추가
@@ -7142,8 +7169,8 @@
         breakTime: document.getElementById('breakTime').value,
         
         // ✅ 신 필드명 사용 (salaryType, salaryAmount, salaryPaymentDay)
-        salaryType: document.getElementById('wageType').value,
-        salaryAmount: document.getElementById('wageAmount').value,
+        salaryType: document.getElementById('salaryType').value,
+        salaryAmount: document.getElementById('salaryAmount').value,
         salaryPaymentDay: document.getElementById('paymentDay').value,
         
         // 매장 급여 설정
@@ -7818,8 +7845,8 @@
             <h3>4. 급여 조건</h3>
             <div class="form-row">
               <div class="form-group">
-                <label for="wageType">급여 형태 *</label>
-                <select id="wageType" required>
+                <label for="salaryType">급여 형태 *</label>
+                <select id="salaryType" required>
                   <option value="">선택하세요</option>
                   <option value="시급">시급</option>
                   <option value="월급">월급</option>
@@ -7827,8 +7854,8 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="wageAmount">급여액 *</label>
-                <input type="number" id="wageAmount" placeholder="금액 입력" required>
+                <label for="salaryAmount">급여액 *</label>
+                <input type="number" id="salaryAmount" placeholder="금액 입력" required>
               </div>
             </div>
             <div class="form-row">
@@ -9585,8 +9612,8 @@
               const contractDoc = await db.collection('contracts').doc(latestContractId).get();
               if (contractDoc.exists) {
                 const contractData = contractDoc.data();
-                salaryType = contractData.salaryType || contractData.wageType || 'hourly';
-                salaryAmount = contractData.salaryAmount || contractData.wageAmount || 0;
+                salaryType = contractData.salaryType || contractData.salaryType || 'hourly';
+                salaryAmount = contractData.salaryAmount || contractData.salaryAmount || 0;
                 console.log(`  💰 ${empData.name} 급여: ${salaryType} = ₩${salaryAmount.toLocaleString()}`);
               }
             } catch (err) {
@@ -9743,8 +9770,8 @@
                 
                 if (!contractSnapshot.empty) {
                   const contractData = contractSnapshot.docs[0].data();
-                  salaryType = contractData.salaryType || contractData.wageType || 'hourly';
-                  salaryAmount = contractData.salaryAmount || contractData.wageAmount || 0;
+                  salaryType = contractData.salaryType || contractData.salaryType || 'hourly';
+                  salaryAmount = contractData.salaryAmount || contractData.salaryAmount || 0;
                   console.log(`  💰 ${emp.name} 급여: ${salaryType} = ₩${salaryAmount.toLocaleString()}`);
                 } else {
                   console.log(`  ⚠️ ${emp.name} 계약서 없음`);
