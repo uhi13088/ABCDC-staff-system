@@ -5048,9 +5048,14 @@
                   </div>
                   <p style="color: var(--text-secondary); font-size: 13px; margin: 0;">생성일: ${createdDate}</p>
                 </div>
-                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewContractDetail('${contract.id}')">
-                  👁️ 상세보기
-                </button>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewContractDetail('${contract.id}')">
+                    👁️ 상세보기
+                  </button>
+                  <button class="btn btn-sm" style="background: var(--danger-color); color: white;" onclick="event.stopPropagation(); deleteContract('${contract.id}', '${name}', '${birth}')">
+                    🗑️ 삭제
+                  </button>
+                </div>
               </div>
               <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-md); margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--border-color);">
                 <div>
@@ -5077,6 +5082,31 @@
             ${error.message}
           </div>
         `;
+      }
+    }
+
+    // 계약서 삭제
+    async function deleteContract(contractId, employeeName, employeeBirth) {
+      // 확인 메시지
+      if (!confirm(`⚠️ 정말로 이 계약서를 삭제하시겠습니까?\n\n삭제된 계약서는 복구할 수 없습니다.\n직원용 페이지에서도 삭제됩니다.`)) {
+        return;
+      }
+      
+      try {
+        console.log('🗑️ 계약서 삭제 시작:', contractId);
+        
+        // Firestore에서 계약서 삭제
+        await firebase.firestore().collection('contracts').doc(contractId).delete();
+        
+        console.log('✅ 계약서 삭제 완료:', contractId);
+        alert('✅ 계약서가 삭제되었습니다.');
+        
+        // 계약서 목록 새로고침
+        await loadEmployeeContractsList(employeeName, employeeBirth);
+        
+      } catch (error) {
+        console.error('❌ 계약서 삭제 실패:', error);
+        alert('❌ 계약서 삭제에 실패했습니다.\n\n' + error.message);
       }
     }
 
