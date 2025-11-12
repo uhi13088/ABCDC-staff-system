@@ -131,6 +131,49 @@ function getWeekOfMonth(date) {
 }
 
 /**
+ * 주급 계산 (법원 판결 기준)
+ * @param {number} totalHours - 주 총 근무시간
+ * @param {string} salaryType - 급여 유형 ('시급', 'hourly', '월급', 'monthly', '연봉', 'annual')
+ * @param {number} salaryAmount - 급여액
+ * @param {boolean} hasWeeklyHoliday - 주휴수당 적용 여부 (기본: true)
+ * @returns {object} { basePay, weeklyHolidayPay, weeklySalary, monthlyEstimate }
+ */
+function calculateWeeklySalary(totalHours, salaryType, salaryAmount, hasWeeklyHoliday = true) {
+  let weeklySalary = 0;
+  let weeklyHolidayPay = 0;
+  let basePay = 0;
+  
+  if (salaryType === 'hourly' || salaryType === '시급') {
+    // 기본급: 시급 × 총 근무시간
+    basePay = totalHours * salaryAmount;
+    weeklySalary = basePay;
+    
+    // 주휴수당 (주 15시간 이상 근무 시)
+    // 법원 판결 기준: 주휴수당 = 시급 × (총 근무시간 ÷ 5)
+    if (hasWeeklyHoliday && totalHours >= 15) {
+      weeklyHolidayPay = salaryAmount * (totalHours / 5);
+      weeklySalary += weeklyHolidayPay;
+    }
+  } else if (salaryType === 'monthly' || salaryType === '월급') {
+    weeklySalary = salaryAmount / 4.345;
+    basePay = weeklySalary;
+  } else if (salaryType === 'annual' || salaryType === '연봉') {
+    weeklySalary = salaryAmount / 12 / 4.345;
+    basePay = weeklySalary;
+  }
+  
+  // 월 예상
+  const monthlyEstimate = weeklySalary * 4.345;
+  
+  return {
+    basePay: Math.round(basePay),
+    weeklyHolidayPay: Math.round(weeklyHolidayPay),
+    weeklySalary: Math.round(weeklySalary),
+    monthlyEstimate: Math.round(monthlyEstimate)
+  };
+}
+
+/**
  * 한 달간 직원의 급여 계산
  * @param {object} employee - 직원 정보
  * @param {object} contract - 계약서 정보

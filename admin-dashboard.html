@@ -10246,38 +10246,21 @@
             salaryText = `연봉: ₩${salaryAmount.toLocaleString()}`;
           }
           
-          // 주급 계산 (법원 판결 기준)
-          let weeklySalary = 0;
-          let weeklyHolidayPay = 0;
+          // 주급 계산 (salary-calculator.js의 calculateWeeklySalary 함수 사용)
+          const salaryResult = calculateWeeklySalary(totalHours, salaryType, salaryAmount, true);
+          const weeklySalary = salaryResult.weeklySalary;
+          const monthlyEstimate = salaryResult.monthlyEstimate;
           
+          // 디버깅 로그
           if (salaryType === 'hourly' || salaryType === '시급') {
-            // 기본급: 시급 × 총 근무시간
-            const basePay = totalHours * salaryAmount;
-            weeklySalary = basePay;
-            
-            // 주휴수당 (주 15시간 이상 근무 시)
-            // 법원 판결: 주휴수당 = 시급 × (총 근무시간 ÷ 5)
-            if (totalHours >= 15) {
-              weeklyHolidayPay = salaryAmount * (totalHours / 5);
-              weeklySalary += weeklyHolidayPay;
-              
-              console.log(`💰 ${emp.name} 주급 계산 (법원 판결 기준):`);
-              console.log(`   - 시급: ₩${salaryAmount.toLocaleString()}`);
-              console.log(`   - 총 근무시간: ${totalHours.toFixed(1)}시간`);
-              console.log(`   - 기본급: ₩${basePay.toLocaleString()}`);
-              console.log(`   - 주휴수당: ₩${salaryAmount.toLocaleString()} × (${totalHours.toFixed(1)} ÷ 5) = ₩${Math.round(weeklyHolidayPay).toLocaleString()}`);
-              console.log(`   - 주급 합계: ₩${Math.round(weeklySalary).toLocaleString()}`);
-            } else {
-              console.log(`💰 ${emp.name}: 주 15시간 미만으로 주휴수당 미지급`);
-            }
-          } else if (salaryType === 'monthly' || salaryType === '월급') {
-            weeklySalary = salaryAmount / 4.345;
-          } else if (salaryType === 'annual' || salaryType === '연봉') {
-            weeklySalary = salaryAmount / 12 / 4.345;
+            console.log(`💰 ${emp.name} 주급 계산 (salary-calculator.js 사용):`);
+            console.log(`   - 시급: ₩${salaryAmount.toLocaleString()}`);
+            console.log(`   - 총 근무시간: ${totalHours.toFixed(1)}시간`);
+            console.log(`   - 기본급: ₩${salaryResult.basePay.toLocaleString()}`);
+            console.log(`   - 주휴수당: ₩${salaryResult.weeklyHolidayPay.toLocaleString()}`);
+            console.log(`   - 주급 합계: ₩${weeklySalary.toLocaleString()}`);
+            console.log(`   - 월 예상: ₩${monthlyEstimate.toLocaleString()}`);
           }
-          
-          // 월 예상
-          const monthlyEstimate = weeklySalary * 4.345;
           
           html += `
             <div style="margin-bottom: 12px; padding: 8px; border-radius: 6px; background: var(--bg-light);">
