@@ -1062,7 +1062,10 @@
           loadStoresForFilter('employeeStoreFilter'); 
           loadEmployees(); 
           break;
-        case 'attendance': loadAttendanceList(); break;
+        case 'attendance': 
+          loadStoresForAttendanceFilter(); 
+          loadAttendanceList(); 
+          break;
         case 'salary': loadSalaryList(); break;
         case 'approvals': loadApprovals(); break;
         case 'contracts': loadContracts(); break;
@@ -2291,6 +2294,30 @@
       return status;
     }
 
+    async function loadStoresForAttendanceFilter() {
+      try {
+        const snapshot = await firebase.firestore().collection('stores').get();
+        const select = document.getElementById('attendanceStoreFilter');
+        
+        // 기존 옵션 제거 (전체 제외)
+        select.innerHTML = '<option value="">전체</option>';
+        
+        console.log('📍 근무기록 매장 필터 로드:');
+        snapshot.forEach(doc => {
+          const store = doc.data();
+          console.log(`  - 매장: "${store.name}"`);
+          const option = document.createElement('option');
+          option.value = store.name; // 매장 이름을 value로 사용
+          option.textContent = store.name;
+          select.appendChild(option);
+        });
+        
+        console.log('✅ 근무기록 매장 필터 로드 완료:', snapshot.size, '개 매장');
+      } catch (error) {
+        console.error('❌ 근무기록 매장 필터 로드 실패:', error);
+      }
+    }
+
     async function loadAttendanceList() {
       console.log('🔍 loadAttendanceList 호출됨');
       
@@ -2324,13 +2351,18 @@
         }
         
         let attendanceList = [];
+        const storeSet = new Set(); // 실제 매장명 수집
         attendanceSnapshot.forEach(doc => {
           const data = doc.data();
           console.log('📄 문서 데이터:', { id: doc.id, data });
           attendanceList.push({ id: doc.id, ...data });
+          if (data.store) {
+            storeSet.add(data.store);
+          }
         });
         
         console.log('✅ 총 근태 기록:', attendanceList.length);
+        console.log('🏪 실제 매장명 목록:', Array.from(storeSet));
         
         // 근무상태 필터를 위해 직원 정보 가져오기
         const employmentStatusFilter = document.getElementById('attendanceEmploymentStatusFilter').value;
