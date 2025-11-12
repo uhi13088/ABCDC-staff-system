@@ -9255,28 +9255,50 @@
           let salaryAmount = 0;
           
           try {
-            const contractSnapshot = await db.collection('contracts')
+            // 1차 시도: employeeId + status='active'
+            let contractSnapshot = await db.collection('contracts')
               .where('employeeId', '==', empUid)
               .where('status', '==', 'active')
               .limit(1)
               .get();
             
+            // 2차 시도: employeeId만 (status 무관, 최신순)
+            if (contractSnapshot.empty) {
+              contractSnapshot = await db.collection('contracts')
+                .where('employeeId', '==', empUid)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            }
+            
+            // 3차 시도: employeeName + employeeBirth로 조회 (폴백)
+            if (contractSnapshot.empty) {
+              contractSnapshot = await db.collection('contracts')
+                .where('employeeName', '==', empData.name)
+                .where('employeeBirth', '==', empData.birth)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            }
+            
             if (!contractSnapshot.empty) {
               const contractData = contractSnapshot.docs[0].data();
-              salaryType = contractData.salaryType || 'hourly';
+              
+              // wageType 또는 salaryType 필드 확인 (양쪽 다 지원)
+              salaryType = contractData.wageType || contractData.salaryType || 'hourly';
               
               // 급여 타입에 따라 금액 추출
-              if (salaryType === 'hourly') {
-                salaryAmount = contractData.hourlyWage || 0;
-              } else if (salaryType === 'monthly') {
-                salaryAmount = contractData.monthlySalary || 0;
-              } else if (salaryType === 'annual') {
-                salaryAmount = contractData.annualSalary || 0;
+              if (salaryType === 'hourly' || salaryType === '시급') {
+                salaryAmount = contractData.hourlyWage || contractData.wageAmount || 0;
+              } else if (salaryType === 'monthly' || salaryType === '월급') {
+                salaryAmount = contractData.monthlySalary || contractData.wageAmount || 0;
+              } else if (salaryType === 'annual' || salaryType === '연봉') {
+                salaryAmount = contractData.annualSalary || contractData.wageAmount || 0;
               }
               
               console.log(`  💰 ${empData.name} 급여: ${salaryType} = ₩${salaryAmount.toLocaleString()}`);
             } else {
-              console.log(`  ⚠️ ${empData.name} 활성 계약서 없음`);
+              console.log(`  ⚠️ ${empData.name} 계약서 없음 (employeeId: ${empUid}, name: ${empData.name})`);
             }
           } catch (err) {
             console.warn(`  ⚠️ ${empData.name} 계약서 조회 실패:`, err);
