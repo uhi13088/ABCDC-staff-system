@@ -1751,6 +1751,15 @@
       return employeeMap[contract.employeeName] || 0;
     }
 
+    // ===================================================================
+    // 계약서 상세보기 함수들 (contract-viewer.js 공통 모듈 사용)
+    // ===================================================================
+    // viewContract, showContractViewModal, closeContractViewModal 함수는
+    // js/contract-viewer.js에서 로드됩니다.
+    // 아래 주석 처리된 코드는 참고용으로 보관합니다.
+    // ===================================================================
+    
+    /*
     async function viewContract(id) {
       try {
         // Firestore에서 계약서 찾기
@@ -2025,6 +2034,12 @@
     window.printContract = function() {
       window.print();
     };
+    */
+    
+    // ===================================================================
+    // PDF 저장 기능 (관리자 페이지 전용 - contract-viewer.js에는 없음)
+    // ===================================================================
+    
     
     // PDF 저장 기능 (html2pdf 라이브러리 사용)
     window.downloadContractPDF = function(contractId) {
