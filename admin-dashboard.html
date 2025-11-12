@@ -10246,31 +10246,29 @@
             salaryText = `연봉: ₩${salaryAmount.toLocaleString()}`;
           }
           
-          // 주급 계산
+          // 주급 계산 (법원 판결 기준)
           let weeklySalary = 0;
           let weeklyHolidayPay = 0;
           
           if (salaryType === 'hourly' || salaryType === '시급') {
-            // 기본급: 총 근무시간 × 시급
+            // 기본급: 시급 × 총 근무시간
             const basePay = totalHours * salaryAmount;
             weeklySalary = basePay;
             
             // 주휴수당 (주 15시간 이상 근무 시)
-            if (totalHours >= 15 && workDays > 0) {
-              // 1일 소정근로시간 = 주 소정근로시간 / 소정근로일수
-              // 주휴수당 = 1일 소정근로시간 × 시급
-              const dailyWorkHours = totalHours / workDays;
-              weeklyHolidayPay = dailyWorkHours * salaryAmount;
+            // 법원 판결: 주휴수당 = 시급 × (총 근무시간 ÷ 5)
+            if (totalHours >= 15) {
+              weeklyHolidayPay = salaryAmount * (totalHours / 5);
               weeklySalary += weeklyHolidayPay;
               
-              console.log(`💰 ${emp.name} 주급 계산:`);
+              console.log(`💰 ${emp.name} 주급 계산 (법원 판결 기준):`);
               console.log(`   - 시급: ₩${salaryAmount.toLocaleString()}`);
-              console.log(`   - 총 근무시간: ${totalHours}시간`);
-              console.log(`   - 근무일수: ${workDays}일`);
-              console.log(`   - 일평균: ${dailyWorkHours.toFixed(1)}시간`);
+              console.log(`   - 총 근무시간: ${totalHours.toFixed(1)}시간`);
               console.log(`   - 기본급: ₩${basePay.toLocaleString()}`);
-              console.log(`   - 주휴수당: ₩${Math.round(weeklyHolidayPay).toLocaleString()}`);
+              console.log(`   - 주휴수당: ₩${salaryAmount.toLocaleString()} × (${totalHours.toFixed(1)} ÷ 5) = ₩${Math.round(weeklyHolidayPay).toLocaleString()}`);
               console.log(`   - 주급 합계: ₩${Math.round(weeklySalary).toLocaleString()}`);
+            } else {
+              console.log(`💰 ${emp.name}: 주 15시간 미만으로 주휴수당 미지급`);
             }
           } else if (salaryType === 'monthly' || salaryType === '월급') {
             weeklySalary = salaryAmount / 4.345;
