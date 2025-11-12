@@ -834,11 +834,9 @@ async function loadSalary() {
       }
     });
     
-    // 계약서에서 시급 가져오기 (Firestore contracts 컬렉션에서)
-    let hourlyWage = 10000; // 기본값
-    
+    // 계약서 정보 가져오기 (salary-calculator.js의 calculateMonthlySalary 사용)
+    let latestContract = null;
     try {
-      // 현재 사용자의 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
       const contractsSnapshot = await db.collection('contracts')
         .where('employeeId', '==', currentUser.uid)
         .get();
@@ -855,114 +853,58 @@ async function loadSalary() {
           return bTime - aTime;
         });
         
-        const latestContract = contracts[0];
-        const wageType = latestContract.wageType || '시급';
-        const wageAmount = parseFloat(latestContract.wageAmount) || 10000;
-        
-        // 급여 유형별 시급 환산
-        if (wageType === '시급') {
-          hourlyWage = wageAmount;
-        } else if (wageType === '월급') {
-          // 월급제는 209시간 기준
-          hourlyWage = Math.round(wageAmount / 209);
-        } else if (wageType === '연봉') {
-          // 연봉은 12개월, 209시간 기준
-          hourlyWage = Math.round(wageAmount / 12 / 209);
-        }
-        
-        console.log(`📝 계약서 시급: ${hourlyWage}원 (${wageType}: ${wageAmount}원)`);
+        latestContract = contracts[0];
+        console.log('📝 최신 계약서:', latestContract.wageType, latestContract.wageAmount);
       } else {
-        console.warn('⚠️ 계약서를 찾을 수 없습니다. 기본 시급 사용:', hourlyWage);
+        console.warn('⚠️ 계약서를 찾을 수 없습니다.');
       }
     } catch (error) {
       console.error('❌ 계약서 조회 오류:', error);
-      console.warn('⚠️ 기본 시급 사용:', hourlyWage);
     }
     
-    // 계약서 정보 가져오기 (급여 계산에 필요)
-    let latestContract = null;
-    try {
-      const contractsSnapshot = await db.collection('contracts')
-        .where('employeeId', '==', currentUser.uid)
-        .get();
-      
-      if (!contractsSnapshot.empty) {
-        const contracts = [];
-        contractsSnapshot.forEach(doc => {
-          contracts.push({ id: doc.id, ...doc.data() });
-        });
-        contracts.sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        });
-        
-        latestContract = contracts[0];
-      }
-    } catch (error) {
-      console.error('계약서 조회 오류:', error);
+    if (!latestContract) {
+      document.getElementById('salaryContent').innerHTML = 
+        '<div class="alert alert-warning">⚠️ 계약서가 없습니다.<br><br>관리자에게 계약서 작성을 요청하세요.</div>';
+      return;
     }
     
-    // 매장의 출퇴근 허용시간 설정 가져오기
-    let thresholds = {
-      earlyClockIn: 15,    // 기본값
-      earlyClockOut: 5,    // 기본값
-      overtime: 5          // 기본값
+    // 직원 정보 생성
+    const employee = {
+      uid: currentUser.uid,
+      name: currentUser.name || currentUser.displayName || '직원',
+      store: currentUser.store
     };
     
-    try {
-      const storeName = currentUser.store;
-      if (storeName) {
-        const storesSnapshot = await db.collection('stores')
-          .where('name', '==', storeName)
-          .limit(1)
-          .get();
-        
-        if (!storesSnapshot.empty) {
-          const storeData = storesSnapshot.docs[0].data();
-          if (storeData.attendanceThresholds) {
-            thresholds = storeData.attendanceThresholds;
-            console.log('⚙️ 매장 출퇴근 허용시간:', thresholds);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('⚠️ 매장 설정 조회 실패:', error);
-    }
+    // salary-calculator.js의 calculateMonthlySalary 함수 사용
+    console.log('💰 급여 계산 시작 (salary-calculator.js 사용)');
+    const salaryData = await calculateMonthlySalary(employee, latestContract, records, filterMonth);
     
-    // 급여 계산 (계약서 정보, 조회 월, 매장 설정 전달)
-    const salaryData = calculateSalary(records, hourlyWage, latestContract, filterMonth, thresholds);
+    console.log('✅ 급여 계산 완료:', salaryData);
     
-    // 급여 형태 정보 추가 (월급/연봉일 경우 시급 관련 항목 숨김 처리를 위해)
-    if (latestContract) {
-      salaryData.wageType = latestContract.wageType || '시급';
-      salaryData.wageAmount = parseFloat(latestContract.wageAmount) || 0;
-    } else {
-      salaryData.wageType = '시급'; // 계약서 없으면 기본값
-    }
+    // 직원용 페이지에서 사용하는 필드명으로 매핑
+    const employeeSalaryData = {
+      wageType: latestContract.wageType || '시급',
+      wageAmount: parseFloat(latestContract.wageAmount) || 0,
+      totalHours: salaryData.totalWorkHours,
+      baseSalary: salaryData.basePay,
+      weeklyHolidayPay: salaryData.weeklyHolidayPay,
+      overtimePay: salaryData.overtimePay,
+      nightPay: salaryData.nightPay,
+      holidayPay: salaryData.holidayPay,
+      severancePay: salaryData.severancePay,
+      nationalPension: salaryData.nationalPension,
+      healthInsurance: salaryData.healthInsurance,
+      longTermCare: salaryData.longTermCare,
+      employmentInsurance: salaryData.employmentInsurance,
+      incomeTax: salaryData.incomeTax,
+      totalDeduction: salaryData.totalDeductions,
+      netSalary: salaryData.netPay,
+      totalIncome: salaryData.totalPay,
+      workDays: salaryData.workDays,
+      hourlyWage: salaryData.hourlyWage
+    };
     
-    // salaries 컬렉션에서 확정된 퇴직금 정보 조회
-    try {
-      const yearMonth = filterMonth; // YYYY-MM 형식
-      const salaryDocId = `${currentUser.uid}_${yearMonth}`;
-      const salaryDoc = await db.collection('salaries').doc(salaryDocId).get();
-      
-      if (salaryDoc.exists) {
-        const salaryDocData = salaryDoc.data();
-        
-        // 확정된 퇴직금이 있는 경우에만 추가
-        if (salaryDocData.severanceConfirmed === true && salaryDocData.severancePay > 0) {
-          salaryData.severancePay = salaryDocData.severancePay;
-          salaryData.severanceConfirmedAt = salaryDocData.severanceConfirmedAt;
-          console.log('💰 확정된 퇴직금 정보:', salaryData.severancePay);
-        }
-      }
-    } catch (error) {
-      console.error('⚠️ 퇴직금 정보 조회 오류:', error);
-      // 오류가 있어도 급여 정보는 표시
-    }
-    
-    renderSalaryInfo(salaryData);
+    renderSalaryInfo(employeeSalaryData);
     
   } catch (error) {
     console.error('❌ 급여 조회 오류:', error);
@@ -972,15 +914,20 @@ async function loadSalary() {
 }
 
 /**
- * 급여 계산 로직
- * @param {Array} records - 근무 기록 배열
- * @param {number} hourlyWage - 시급
- * @param {Object} contract - 계약서 정보
- * @param {string} yearMonth - 조회 월 (YYYY-MM)
- * @param {Object} thresholds - 매장 출퇴근 허용시간 설정
- * @returns {Object} 급여 상세 정보
+ * [DEPRECATED] 급여 계산 로직 - 더 이상 사용하지 않음
+ * 
+ * ⚠️ 이 함수는 더 이상 사용되지 않습니다.
+ * 대신 salary-calculator.js의 calculateMonthlySalary() 함수를 사용합니다.
+ * 
+ * 모든 급여 계산 로직은 salary-calculator.js에서 중앙 관리됩니다:
+ * - 주휴수당 (법원 판결 기준: 시급 × 총근무시간 ÷ 5)
+ * - 연장근로수당, 야간근로수당, 휴일근로수당
+ * - 퇴직금 계산
+ * - 4대보험 공제
+ * 
+ * @deprecated - salary-calculator.js의 calculateMonthlySalary() 사용
  */
-function calculateSalary(records, hourlyWage = 10000, contract = null, yearMonth = null, thresholds = null) {
+function calculateSalary_DEPRECATED(records, hourlyWage = 10000, contract = null, yearMonth = null, thresholds = null) {
   // 기본 허용시간 설정
   if (!thresholds) {
     thresholds = {
