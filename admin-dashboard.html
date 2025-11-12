@@ -5031,21 +5031,9 @@
         contracts.forEach((contract, index) => {
           const createdDate = contract.createdAt ? new Date(contract.createdAt).toLocaleDateString('ko-KR') : '날짜 정보 없음';
           
-          // 급여 타입 확인 (salaryType 또는 wageType)
-          let wageType = contract.salaryType || contract.wageType || '시급';
-          let wageAmount = 0;
-          
-          // 급여 타입에 따라 금액 추출
-          if (wageType === 'hourly' || wageType === '시급') {
-            wageType = '시급';
-            wageAmount = contract.hourlyWage || contract.wageAmount || 0;
-          } else if (wageType === 'monthly' || wageType === '월급') {
-            wageType = '월급';
-            wageAmount = contract.monthlySalary || contract.wageAmount || 0;
-          } else if (wageType === 'annual' || wageType === '연봉') {
-            wageType = '연봉';
-            wageAmount = contract.annualSalary || contract.wageAmount || 0;
-          }
+          // 급여 타입과 금액 (실제 저장된 필드명 사용)
+          const wageType = contract.salaryType || contract.wageType || '시급';
+          const wageAmount = contract.salaryAmount || contract.wageAmount || 0;
           
           const wageAmountText = wageAmount ? parseInt(wageAmount).toLocaleString() : '0';
           const contractPeriod = `${contract.contractStartDate || ''} ~ ${contract.contractEndDate || ''}`;
@@ -9318,17 +9306,9 @@
             if (!contractSnapshot.empty) {
               const contractData = contractSnapshot.docs[0].data();
               
-              // wageType 또는 salaryType 필드 확인 (양쪽 다 지원)
-              salaryType = contractData.wageType || contractData.salaryType || 'hourly';
-              
-              // 급여 타입에 따라 금액 추출
-              if (salaryType === 'hourly' || salaryType === '시급') {
-                salaryAmount = contractData.hourlyWage || contractData.wageAmount || 0;
-              } else if (salaryType === 'monthly' || salaryType === '월급') {
-                salaryAmount = contractData.monthlySalary || contractData.wageAmount || 0;
-              } else if (salaryType === 'annual' || salaryType === '연봉') {
-                salaryAmount = contractData.annualSalary || contractData.wageAmount || 0;
-              }
+              // 실제 저장된 필드명 사용
+              salaryType = contractData.salaryType || contractData.wageType || 'hourly';
+              salaryAmount = contractData.salaryAmount || contractData.wageAmount || 0;
               
               console.log(`  💰 ${empData.name} 급여: ${salaryType} = ₩${salaryAmount.toLocaleString()}`);
             } else {
