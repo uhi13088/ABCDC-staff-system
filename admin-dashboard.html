@@ -3400,6 +3400,10 @@
         
         // 교대근무 승인 조회 (shift_requests 컬렉션)
         if (!typeFilter || typeFilter === 'shift') {
+          console.log('🔄 교대근무 승인 조회 시작...');
+          console.log('  typeFilter:', typeFilter);
+          console.log('  statusFilter:', statusFilter);
+          
           let shiftQuery = db.collection('shift_requests').where('status', '==', 'matched');
           
           // 상태 필터 적용
@@ -3411,9 +3415,13 @@
           // statusFilter가 '' (전체)이면 필터 없이 모두 조회
           
           const shiftSnapshot = await shiftQuery.get();
+          console.log(`  조회된 교대근무: ${shiftSnapshot.size}개`);
+          
           shiftSnapshot.forEach(doc => {
             const data = doc.data();
             const currentStatus = data.approvedByAdmin ? 'approved' : 'pending';
+            
+            console.log(`  - ${doc.id}: ${data.requesterName} → ${data.matchedUserName}, status: ${currentStatus}`);
             
             // 상태 필터가 없거나 일치하는 경우만 추가
             if (!statusFilter || statusFilter === currentStatus) {
@@ -3435,6 +3443,8 @@
               });
             }
           });
+          
+          console.log(`  최종 추가된 교대근무: ${approvals.filter(a => a.type === 'shift').length}개`);
         }
         
         // 기존 승인 문서 조회 (approvals 컬렉션)
@@ -10098,6 +10108,13 @@
             const height = ((endMinutes - startMinutes) / 60) * rowHeight;
             const leftPos = spacing * (workerIndex + 1) + barWidth * workerIndex;
             
+            // 교대근무 표시 스타일
+            const shiftStyle = worker.isShiftReplacement 
+              ? `border: 3px solid #FFC107; background: repeating-linear-gradient(45deg, ${worker.color}, ${worker.color} 10px, rgba(255,193,7,0.2) 10px, rgba(255,193,7,0.2) 20px);`
+              : '';
+            
+            const shiftIcon = worker.isShiftReplacement ? '🔄' : '';
+            
             html += `
               <div style="
                 position: absolute;
@@ -10110,10 +10127,16 @@
                 box-sizing: border-box;
                 transition: all 0.2s;
                 border-radius: 2px;
+                ${shiftStyle}
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
               " 
               onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
               onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
-              title="${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
+              title="${shiftIcon}${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
+                ${shiftIcon}
               </div>
             `;
           });
@@ -10131,6 +10154,21 @@
           <!-- 오른쪽 주간 요약 -->
           <div style="min-width: 220px; max-width: 220px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; height: fit-content;">
             <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">📊 주간 요약</h4>
+            
+            <!-- 범례 -->
+            <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+              <div style="font-size: 11px; font-weight: 600; margin-bottom: 8px; color: #495057;">📌 색인</div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="width: 20px; height: 20px; background: #4ECDC4; border-radius: 2px;"></div>
+                  <span style="font-size: 11px; color: #495057;">기본 근무</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="width: 20px; height: 20px; background: repeating-linear-gradient(45deg, #4ECDC4, #4ECDC4 5px, rgba(255,193,7,0.3) 5px, rgba(255,193,7,0.3) 10px); border: 2px solid #FFC107; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 10px;">🔄</div>
+                  <span style="font-size: 11px; color: #495057;">교대근무</span>
+                </div>
+              </div>
+            </div>
       `;
       
       // 직원별 주간 요약
@@ -10548,6 +10586,13 @@
             const height = ((endMinutes - startMinutes) / 60) * rowHeight;
             const leftPos = spacing * (workerIndex + 1) + barWidth * workerIndex;
             
+            // 교대근무 표시 스타일
+            const shiftStyle = worker.isShiftReplacement 
+              ? `border: 3px solid #FFC107; background: repeating-linear-gradient(45deg, ${worker.color}, ${worker.color} 10px, rgba(255,193,7,0.2) 10px, rgba(255,193,7,0.2) 20px);`
+              : '';
+            
+            const shiftIcon = worker.isShiftReplacement ? '🔄' : '';
+            
             html += `
               <div style="
                 position: absolute;
@@ -10560,10 +10605,16 @@
                 box-sizing: border-box;
                 transition: all 0.2s;
                 border-radius: 2px;
+                ${shiftStyle}
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
               " 
               onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
               onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
-              title="${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
+              title="${shiftIcon}${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
+                ${shiftIcon}
               </div>
             `;
           });
