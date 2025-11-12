@@ -1281,7 +1281,15 @@ function renderContracts(contracts) {
  * @param {string} contractId - 계약서 ID
  */
 async function viewEmployeeContract(contractId) {
-  await viewContract(contractId);
+  // contract-viewer.js의 viewContract 함수 호출
+  if (typeof window.viewContract === 'function') {
+    await window.viewContract(contractId);
+  } else if (typeof viewContract === 'function') {
+    await viewContract(contractId);
+  } else {
+    console.error('❌ viewContract 함수를 찾을 수 없습니다. contract-viewer.js가 로드되었는지 확인하세요.');
+    alert('⚠️ 계약서 상세보기 기능을 불러올 수 없습니다.');
+  }
 }
 
 /**

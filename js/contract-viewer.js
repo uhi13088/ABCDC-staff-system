@@ -9,7 +9,7 @@
  * 계약서 상세보기 모달
  * @param {string} id - 계약서 ID
  */
-async function viewContract(id) {
+window.viewContract = async function viewContract(id) {
   try {
     // Firestore에서 계약서 찾기
     const db = firebase.firestore();
@@ -54,7 +54,7 @@ async function viewContract(id) {
  * @param {string} currentId - 현재 계약서 ID
  * @param {Array} allContracts - 모든 계약서 목록
  */
-async function showContractViewModal(contract, currentId, allContracts = []) {
+window.showContractViewModal = async function showContractViewModal(contract, currentId, allContracts = []) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.style.display = 'flex';
@@ -272,10 +272,10 @@ async function showContractViewModal(contract, currentId, allContracts = []) {
 /**
  * 계약서 상세보기 모달 닫기
  */
-function closeContractViewModal() {
+window.closeContractViewModal = function closeContractViewModal() {
   const modal = document.getElementById('contractViewModal');
   if (modal) modal.remove();
-}
+};
 
 /**
  * 계약서 버전 전환
