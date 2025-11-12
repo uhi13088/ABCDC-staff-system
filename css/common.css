@@ -519,7 +519,7 @@ thead {
 
 th {
   padding: 14px 16px;
-  text-align: left;
+  text-align: center;
   font-weight: 700;
   font-size: 14px;
   color: var(--color-text);
@@ -532,6 +532,7 @@ td {
   padding: 14px 16px;
   border-bottom: var(--border-w) solid var(--color-border);
   font-size: 15px;
+  text-align: center;
 }
 
 tr:last-child td {
