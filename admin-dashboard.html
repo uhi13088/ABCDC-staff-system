@@ -5030,8 +5030,24 @@
         let html = '';
         contracts.forEach((contract, index) => {
           const createdDate = contract.createdAt ? new Date(contract.createdAt).toLocaleDateString('ko-KR') : '날짜 정보 없음';
-          const wageType = contract.wageType || '시급';
-          const wageAmount = contract.wageAmount ? parseInt(contract.wageAmount).toLocaleString() : '0';
+          
+          // 급여 타입 확인 (salaryType 또는 wageType)
+          let wageType = contract.salaryType || contract.wageType || '시급';
+          let wageAmount = 0;
+          
+          // 급여 타입에 따라 금액 추출
+          if (wageType === 'hourly' || wageType === '시급') {
+            wageType = '시급';
+            wageAmount = contract.hourlyWage || contract.wageAmount || 0;
+          } else if (wageType === 'monthly' || wageType === '월급') {
+            wageType = '월급';
+            wageAmount = contract.monthlySalary || contract.wageAmount || 0;
+          } else if (wageType === 'annual' || wageType === '연봉') {
+            wageType = '연봉';
+            wageAmount = contract.annualSalary || contract.wageAmount || 0;
+          }
+          
+          const wageAmountText = wageAmount ? parseInt(wageAmount).toLocaleString() : '0';
           const contractPeriod = `${contract.contractStartDate || ''} ~ ${contract.contractEndDate || ''}`;
           const isLatest = index === 0;
           
@@ -5060,7 +5076,7 @@
               <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-md); margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--border-color);">
                 <div>
                   <p style="color: var(--text-secondary); font-size: 13px; margin: 0 0 4px 0;">급여 유형</p>
-                  <p style="font-weight: 600; margin: 0;">${wageType}: ${wageAmount}원</p>
+                  <p style="font-weight: 600; margin: 0;">${wageType}: ${wageAmountText}원</p>
                 </div>
                 <div>
                   <p style="color: var(--text-secondary); font-size: 13px; margin: 0 0 4px 0;">계약 기간</p>
@@ -9768,17 +9784,17 @@
           const salaryType = emp.salaryType || 'hourly';
           const salaryAmount = emp.salaryAmount || 0;
           let salaryText = '';
-          if (salaryType === 'hourly') {
+          if (salaryType === 'hourly' || salaryType === '시급') {
             salaryText = `시급: ₩${salaryAmount.toLocaleString()}`;
-          } else if (salaryType === 'monthly') {
+          } else if (salaryType === 'monthly' || salaryType === '월급') {
             salaryText = `월급: ₩${salaryAmount.toLocaleString()}`;
-          } else if (salaryType === 'annual') {
+          } else if (salaryType === 'annual' || salaryType === '연봉') {
             salaryText = `연봉: ₩${salaryAmount.toLocaleString()}`;
           }
           
           // 주급 계산
           let weeklySalary = 0;
-          if (salaryType === 'hourly') {
+          if (salaryType === 'hourly' || salaryType === '시급') {
             weeklySalary = totalHours * salaryAmount;
             // 주휴수당 (주 15시간 이상)
             if (totalHours >= 15 && workDays > 0) {
@@ -9786,9 +9802,9 @@
               const weeklyHolidayPay = avgDailyHours * salaryAmount;
               weeklySalary += weeklyHolidayPay;
             }
-          } else if (salaryType === 'monthly') {
+          } else if (salaryType === 'monthly' || salaryType === '월급') {
             weeklySalary = salaryAmount / 4.345;
-          } else if (salaryType === 'annual') {
+          } else if (salaryType === 'annual' || salaryType === '연봉') {
             weeklySalary = salaryAmount / 12 / 4.345;
           }
           
