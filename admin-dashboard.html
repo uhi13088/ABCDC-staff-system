@@ -3422,8 +3422,9 @@
             });
           }
           
-          // 기존 로직: status === 'matched' 조회
-          let shiftQuery = db.collection('shift_requests').where('status', '==', 'matched');
+          // 수정된 로직: status 필터 없이 approvedByAdmin으로만 필터링
+          // (status는 'matched' → 'approved'로 변경되므로 status 조건 제거)
+          let shiftQuery = db.collection('shift_requests');
           
           // 상태 필터 적용
           if (statusFilter === 'pending') {
@@ -3431,10 +3432,10 @@
           } else if (statusFilter === 'approved') {
             shiftQuery = shiftQuery.where('approvedByAdmin', '==', true);
           }
-          // statusFilter가 '' (전체)이면 필터 없이 모두 조회
+          // statusFilter가 '' (전체)이면 approvedByAdmin 조건 없이 모두 조회
           
           const shiftSnapshot = await shiftQuery.get();
-          console.log(`  조회된 교대근무 (status='matched'): ${shiftSnapshot.size}개`);
+          console.log(`  조회된 교대근무: ${shiftSnapshot.size}개`);
           
           shiftSnapshot.forEach(doc => {
             const data = doc.data();
