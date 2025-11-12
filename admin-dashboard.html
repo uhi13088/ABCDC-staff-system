@@ -3404,6 +3404,25 @@
           console.log('  typeFilter:', typeFilter);
           console.log('  statusFilter:', statusFilter);
           
+          // 🔍 먼저 전체 shift_requests 문서 조회 (status 조건 없이)
+          console.log('  📊 shift_requests 컬렉션 전체 조회 중...');
+          const allShiftSnapshot = await db.collection('shift_requests').get();
+          console.log(`  전체 문서 수: ${allShiftSnapshot.size}개`);
+          
+          if (allShiftSnapshot.size > 0) {
+            console.log('  === 전체 shift_requests 문서 상세 ===');
+            allShiftSnapshot.forEach(doc => {
+              const data = doc.data();
+              console.log(`  📄 ${doc.id}:`);
+              console.log(`     status: "${data.status}"`);
+              console.log(`     approvedByAdmin: ${data.approvedByAdmin}`);
+              console.log(`     requesterName: ${data.requesterName}`);
+              console.log(`     matchedUserName: ${data.matchedUserName}`);
+              console.log(`     workDate: ${data.workDate}`);
+            });
+          }
+          
+          // 기존 로직: status === 'matched' 조회
           let shiftQuery = db.collection('shift_requests').where('status', '==', 'matched');
           
           // 상태 필터 적용
@@ -3415,7 +3434,7 @@
           // statusFilter가 '' (전체)이면 필터 없이 모두 조회
           
           const shiftSnapshot = await shiftQuery.get();
-          console.log(`  조회된 교대근무: ${shiftSnapshot.size}개`);
+          console.log(`  조회된 교대근무 (status='matched'): ${shiftSnapshot.size}개`);
           
           shiftSnapshot.forEach(doc => {
             const data = doc.data();
