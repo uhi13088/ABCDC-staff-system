@@ -2945,8 +2945,9 @@ async function loadEmployeeSchedule() {
     
     // 매장 전체보기 여부에 따라 쿼리 분기
     let schedulesSnapshot;
-    if (showStoreSchedule) {
-      // 매장 전체: storeId로 필터링
+    if (showStoreSchedule && currentUser.storeId) {
+      // 매장 전체: storeId로 필터링 (storeId가 있을 때만)
+      console.log(`   🏪 매장 전체 스케줄 조회: storeId = ${currentUser.storeId}`);
       schedulesSnapshot = await db.collection('schedules')
         .where('storeId', '==', currentUser.storeId)
         .where('date', '>=', mondayStr)
@@ -2954,6 +2955,7 @@ async function loadEmployeeSchedule() {
         .get();
     } else {
       // 내 근무만: userId로 필터링
+      console.log(`   👤 내 근무만 조회: userId = ${currentUser.uid}`);
       schedulesSnapshot = await db.collection('schedules')
         .where('userId', '==', currentUser.uid)
         .where('date', '>=', mondayStr)
