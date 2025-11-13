@@ -3760,6 +3760,8 @@
           showDisposalDetailModal(approvalId, approval);
         } else if (approval.type === 'resignation') {
           showResignationDetailModal(approvalId, approval);
+        } else if (approval.type === 'shift') {
+          showShiftDetailModal(approvalId, approval);
         }
         
       } catch (error) {
@@ -3833,6 +3835,10 @@
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
             ${approval.status === 'pending' ? `
+              <button onclick="editApproval('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ✏️ 수정
+              </button>
               <button onclick="approveDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인
@@ -3899,6 +3905,10 @@
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
             ${approval.status === 'pending' ? `
+              <button onclick="editApproval('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ✏️ 수정
+              </button>
               <button onclick="approveDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인
@@ -3973,6 +3983,10 @@
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
             ${approval.status === 'pending' ? `
+              <button onclick="editApproval('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ✏️ 수정
+              </button>
               <button onclick="if(confirm('⚠️ 퇴직서를 승인하면 해당 직원의 계정이 삭제됩니다.\\n\\n계속하시겠습니까?')) { approveDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove(); }" 
                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인 (계정 삭제)
@@ -3991,6 +4005,78 @@
       `;
       
       document.body.appendChild(modal);
+    }
+
+    // 교대근무 상세 모달 표시
+    function showShiftDetailModal(approvalId, approval) {
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        z-index: 10000;
+      `;
+      
+      modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+          <h3 style="margin-bottom: 20px; color: #333;">🔄 교대근무 신청 상세</h3>
+          
+          <div style="margin-bottom: 16px;">
+            <strong>신청자:</strong> ${approval.requesterName || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>대타자:</strong> ${approval.replacementName || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>날짜:</strong> ${approval.date || 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>시간:</strong> ${approval.startTime || ''} ~ ${approval.endTime || ''}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>사유:</strong><br>
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-top: 8px; white-space: pre-wrap;">
+              ${approval.reason || '사유 없음'}
+            </div>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>신청일:</strong> ${approval.createdAt ? new Date(approval.createdAt.toDate()).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+          </div>
+          <div style="margin-bottom: 16px;">
+            <strong>상태:</strong> 
+            <span style="padding: 6px 16px; border-radius: 12px; font-weight: 600; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+              ${approval.status === 'approved' ? '✅ 승인됨' : approval.status === 'rejected' ? '❌ 거부됨' : approval.status === 'matched' ? '🤝 매칭됨' : '⏳ 대기중'}
+            </span>
+          </div>
+          
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            ${approval.status === 'matched' ? `
+              <button onclick="editApproval('${approvalId}', 'shift'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ✏️ 수정
+              </button>
+              <button onclick="approveShiftRequest('${approvalId}'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ✅ 승인
+              </button>
+              <button onclick="rejectShiftRequest('${approvalId}'); this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ❌ 거부
+              </button>
+            ` : ''}
+            <button onclick="this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              닫기
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+
+    // 승인 수정 함수 (플레이스홀더)
+    function editApproval(approvalId, type) {
+      alert(`✏️ ${type} 타입의 승인 문서 수정 기능은 준비 중입니다.\n\nID: ${approvalId}`);
     }
 
     // 문서 승인
