@@ -3577,8 +3577,8 @@
             summary = `${approval.data?.requesterName} → ${approval.data?.matchedUserName} (${approval.data?.workDate} ${approval.data?.workStartTime}~${approval.data?.workEndTime})`;
           }
           
-          // 매니저는 승인/거부 버튼 표시 안 함
-          const actionButtons = !isManager && approval.status === 'pending'
+          // 매니저는 수정 버튼 표시 안 함, 관리자는 모든 상태에서 수정 가능
+          const actionButtons = !isManager
             ? `<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
                 <button class="btn btn-sm" style="background: var(--primary-color); color: white;" onclick="viewApprovalDetail('${approval.id}', '${approval.type}')">
                   📄 상세
