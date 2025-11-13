@@ -396,9 +396,9 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   result.totalWorkHours = totalWorkHours;
   
   // 기본급 계산 (급여 유형별)
-  if (wageType === '시급') {
+  if (result.salaryType === '시급') {
     result.basePay = Math.round(result.hourlyWage * totalWorkHours);
-  } else if (wageType === '월급' || wageType === '연봉') {
+  } else if (result.salaryType === '월급' || result.salaryType === '연봉') {
     // 월급/연봉제는 고정 월급
     result.basePay = result.monthlyWage;
   }

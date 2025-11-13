@@ -7126,10 +7126,8 @@
       // 스케줄 데이터 수집 (요일별 다른 시간 지원)
       const schedules = collectScheduleData();
       
-      // employeeId validation
+      // employeeId validation (employeeName, employeeBirth는 위에서 이미 선언됨)
       const employeeId = document.getElementById('employeeSelect')?.value || '';
-      const employeeName = document.getElementById('employeeName').value;
-      const employeeBirth = document.getElementById('employeeBirth').value;
       
       // employeeId가 없으면 users 컬렉션에서 찾기 시도
       let finalEmployeeId = employeeId;
