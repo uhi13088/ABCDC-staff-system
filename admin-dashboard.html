@@ -3840,20 +3840,6 @@
           ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="editApproval('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
-              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-              ✏️ 수정
-            </button>
-            ${approval.status === 'pending' ? `
-              <button onclick="approveDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✅ 승인
-              </button>
-              <button onclick="rejectDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ❌ 거부
-              </button>
-            ` : ''}
             <button onclick="this.closest('div').parentElement.parentElement.remove();" 
               style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
               닫기
@@ -3910,20 +3896,6 @@
           ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="editApproval('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
-              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-              ✏️ 수정
-            </button>
-            ${approval.status === 'pending' ? `
-              <button onclick="approveDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✅ 승인
-              </button>
-              <button onclick="rejectDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ❌ 거부
-              </button>
-            ` : ''}
             <button onclick="this.closest('div').parentElement.parentElement.remove();" 
               style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
               닫기
@@ -3988,20 +3960,6 @@
           ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="editApproval('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove();" 
-              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-              ✏️ 수정
-            </button>
-            ${approval.status === 'pending' ? `
-              <button onclick="if(confirm('⚠️ 퇴직서를 승인하면 해당 직원의 계정이 삭제됩니다.\\n\\n계속하시겠습니까?')) { approveDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove(); }" 
-                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✅ 승인 (계정 삭제)
-              </button>
-              <button onclick="rejectDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ❌ 거부
-              </button>
-            ` : ''}
             <button onclick="this.closest('div').parentElement.parentElement.remove();" 
               style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
               닫기
@@ -4055,20 +4013,6 @@
           </div>
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="editApproval('${approvalId}', 'shift'); this.closest('div').parentElement.parentElement.remove();" 
-              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-              ✏️ 수정
-            </button>
-            ${approval.status === 'matched' ? `
-              <button onclick="approveShiftRequest('${approvalId}'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✅ 승인
-              </button>
-              <button onclick="rejectShiftRequest('${approvalId}'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ❌ 거부
-              </button>
-            ` : ''}
             <button onclick="this.closest('div').parentElement.parentElement.remove();" 
               style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
               닫기
