@@ -2939,15 +2939,27 @@ async function loadEmployeeSchedule() {
     const mondayStr = monday.toISOString().split('T')[0];
     const sundayStr = sunday.toISOString().split('T')[0];
     
-    console.log(`📅 내 스케줄 조회 시작`);
+    console.log(`📅 스케줄 조회 시작 (${showStoreSchedule ? '매장 전체' : '내 근무만'})`);
     console.log(`   사용자: ${currentUser.name} (uid: ${currentUser.uid})`);
     console.log(`   기간: ${mondayStr} ~ ${sundayStr}`);
     
-    const schedulesSnapshot = await db.collection('schedules')
-      .where('userId', '==', currentUser.uid)
-      .where('date', '>=', mondayStr)
-      .where('date', '<=', sundayStr)
-      .get();
+    // 매장 전체보기 여부에 따라 쿼리 분기
+    let schedulesSnapshot;
+    if (showStoreSchedule) {
+      // 매장 전체: storeId로 필터링
+      schedulesSnapshot = await db.collection('schedules')
+        .where('storeId', '==', currentUser.storeId)
+        .where('date', '>=', mondayStr)
+        .where('date', '<=', sundayStr)
+        .get();
+    } else {
+      // 내 근무만: userId로 필터링
+      schedulesSnapshot = await db.collection('schedules')
+        .where('userId', '==', currentUser.uid)
+        .where('date', '>=', mondayStr)
+        .where('date', '<=', sundayStr)
+        .get();
+    }
     
     console.log(`   ✅ 조회 완료: ${schedulesSnapshot.size}개 스케줄 발견`);
     
@@ -2980,9 +2992,71 @@ async function loadEmployeeSchedule() {
     }
     
     const days = ['월', '화', '수', '목', '금', '토', '일'];
-    const schedules = {};
     
-    // 초기화: 각 날짜별로 빈 배열 생성
+    // 매장 전체보기일 때는 직원별로 그룹화
+    const employeesMap = {};
+    
+    if (showStoreSchedule) {
+      // 매장 전체: 직원별로 그룹화
+      schedulesSnapshot.forEach(doc => {
+        const scheduleData = doc.data();
+        const empId = scheduleData.userId;
+        const empName = scheduleData.userName || '이름없음';
+        
+        if (!employeesMap[empId]) {
+          employeesMap[empId] = {
+            uid: empId,
+            name: empName,
+            schedules: {}
+          };
+          days.forEach(day => {
+            employeesMap[empId].schedules[day] = [];
+          });
+        }
+        
+        // 날짜별로 정리
+        const scheduleDateObj = new Date(scheduleData.date + 'T00:00:00');
+        const dayOfWeek = scheduleDateObj.getDay();
+        const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const dayName = days[dayIndex];
+        
+        employeesMap[empId].schedules[dayName].push({
+          startTime: scheduleData.startTime || '',
+          endTime: scheduleData.endTime || '',
+          hours: scheduleData.hours || 0,
+          isWorkDay: true,
+          isShiftReplacement: scheduleData.isShiftReplacement || false,
+          shiftRequestId: scheduleData.shiftRequestId || null,
+          originalRequesterId: scheduleData.originalRequesterId || null,
+          originalRequesterName: scheduleData.originalRequesterName || null
+        });
+      });
+      
+      // 직원 목록을 배열로 변환
+      const employeesList = Object.values(employeesMap);
+      
+      if (employeesList.length === 0) {
+        console.warn(`   📭 이번 주 매장 스케줄이 없습니다.`);
+        document.getElementById('employeeScheduleContainer').innerHTML = 
+          '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">' +
+          '<div style="font-size: 48px; margin-bottom: 16px;">📭</div>' +
+          '<p style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">이번 주 매장 스케줄이 없습니다</p>' +
+          '</div>';
+        return;
+      }
+      
+      // 매장 전체 데이터 구조로 변환
+      currentEmployeeScheduleData = {
+        employees: employeesList,
+        type: 'schedule'
+      };
+      
+      renderEmployeeScheduleGantt();
+      return;
+    }
+    
+    // 내 근무만: 기존 로직
+    const schedules = {};
     days.forEach(day => {
       schedules[day] = [];
     });
