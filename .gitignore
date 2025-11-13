@@ -60,3 +60,4 @@ build/
 # Package manager
 package-lock.json.backup
 yarn.lock.backup
+*.backup
