@@ -305,27 +305,61 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
       </div>
   `;
   
-  // 관리자 모드에서만 주간 요약 표시
-  if (isAdmin) {
-    html += `
-      <!-- 오른쪽 주간 요약 -->
-      <div style="min-width: 220px; max-width: 220px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; height: fit-content;">
-        <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">📊 주간 요약</h4>
-        
-        <!-- 범례 -->
-        <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
-          <div style="font-size: 11px; font-weight: 600; margin-bottom: 8px; color: #495057;">📌 색인</div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <div style="width: 20px; height: 20px; background: #4ECDC4; border-radius: 2px;"></div>
-              <span style="font-size: 11px; color: #495057;">기본 근무</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <div style="width: 20px; height: 20px; background: repeating-linear-gradient(45deg, #4ECDC4, #4ECDC4 5px, rgba(255,193,7,0.3) 5px, rgba(255,193,7,0.3) 10px); border: 2px solid #FFC107; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 10px;">🔄</div>
-              <span style="font-size: 11px; color: #495057;">교대근무</span>
-            </div>
+  // 오른쪽 사이드바 (관리자: 주간 요약, 직원: 색인+근무자 목록)
+  html += `
+    <!-- 오른쪽 사이드바 -->
+    <div style="min-width: 220px; max-width: 220px; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; height: fit-content;">
+      <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">${isAdmin ? '📊 주간 요약' : '📋 근무자 정보'}</h4>
+      
+      <!-- 범례 (관리자/직원 공통) -->
+      <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+        <div style="font-size: 11px; font-weight: 600; margin-bottom: 8px; color: #495057;">📌 색인</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 20px; background: #4ECDC4; border-radius: 2px;"></div>
+            <span style="font-size: 11px; color: #495057;">기본 근무</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 20px; background: repeating-linear-gradient(45deg, #4ECDC4, #4ECDC4 5px, rgba(255,193,7,0.3) 5px, rgba(255,193,7,0.3) 10px); border: 2px solid #FFC107; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 10px;">🔄</div>
+            <span style="font-size: 11px; color: #495057;">교대근무</span>
           </div>
         </div>
+      </div>
+      
+      <!-- 근무자 목록 (관리자/직원 공통) -->
+      <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+        <div style="font-size: 11px; font-weight: 600; margin-bottom: 8px; color: #495057;">👥 근무자</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+  `;
+  
+  // 근무자 목록 표시
+  if (scheduleData.employees) {
+    scheduleData.employees.forEach(emp => {
+      const empId = emp.uid || emp.userId;
+      // 직원 모드에서 내 근무만 보기일 때 필터링
+      if (!isAdmin && showOnlyMySchedule && currentUserId && empId !== currentUserId) {
+        return;
+      }
+      
+      const color = colorMap[emp.name];
+      html += `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 16px; height: 16px; background: ${color}; border-radius: 2px;"></div>
+          <span style="font-size: 11px; color: #495057;">${emp.name}</span>
+        </div>
+      `;
+    });
+  }
+  
+  html += `
+        </div>
+      </div>
+  `;
+  
+  // 관리자 모드에서만 급여 정보 표시
+  if (isAdmin) {
+    html += `
+      <!-- 급여 정보 (관리자만) -->
     `;
     
     // 직원별 주간 요약 (관리자 모드만)
@@ -385,11 +419,12 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
         `;
       });
     }
-    
-    html += `
-      </div>
-    `;
   }
+  
+  // 사이드바 닫기
+  html += `
+    </div>
+  `;
   
   html += `
     </div>
