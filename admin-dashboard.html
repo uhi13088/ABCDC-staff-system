@@ -411,7 +411,6 @@
             <h3 style="margin: 0;">📅 근무스케줄</h3>
             <div style="display: flex; gap: 10px;">
               <button class="btn btn-primary" onclick="showScheduleSimulator()">📋 스케줄 시뮬레이터</button>
-              <button class="btn" onclick="migrateContractIds()" style="background: #ff9800; color: white;">🔧 ContractId 마이그레이션</button>
               <button class="btn" onclick="exportSchedulePDF()" style="background: #28a745; color: white;">📄 PDF 저장</button>
             </div>
           </div>
@@ -9901,19 +9900,30 @@
         detailsDiv.innerHTML += `<br>🔍 상세 매칭 분석:<br>`;
         
         for (const contract of contractsData) {
-          const contractStart = new Date(contract.startDate);
-          const contractEnd = contract.endDate ? new Date(contract.endDate) : new Date('2099-12-31');
+          // 계약 시작/종료일 (여러 필드명 대응)
+          const startDateStr = contract.startDate || contract.contractStartDate || contract.start;
+          const endDateStr = contract.endDate || contract.contractEndDate || contract.end;
           
-          detailsDiv.innerHTML += `<br>📋 ${contract.employeeName} (계약: ${contract.startDate} ~ ${contract.endDate || '무기한'})<br>`;
-          detailsDiv.innerHTML += `  - employeeId: ${contract.employeeId}<br>`;
+          if (!startDateStr) {
+            detailsDiv.innerHTML += `<br>⚠️ ${contract.employeeName}: 계약 시작일 없음, 스킵<br>`;
+            continue;
+          }
           
-          const matchingSchedules = backupSchedules.filter(sch => {
+          const contractStart = new Date(startDateStr);
+          const contractEnd = endDateStr ? new Date(endDateStr) : new Date('2099-12-31');
+          
+          detailsDiv.innerHTML += `<br>📋 ${contract.employeeName} (${startDateStr} ~ ${endDateStr || '무기한'})<br>`;
+          
+          // 유효한 백업 스케줄만 필터링
+          const validBackups = backupSchedules.filter(sch => sch.userId && sch.date);
+          
+          const matchingSchedules = validBackups.filter(sch => {
             if (sch.userId !== contract.employeeId) return false;
             const schDate = new Date(sch.date);
             return schDate >= contractStart && schDate <= contractEnd;
           });
           
-          detailsDiv.innerHTML += `  - 매칭된 스케줄: ${matchingSchedules.length}개<br>`;
+          detailsDiv.innerHTML += `  - 매칭: ${matchingSchedules.length}개<br>`;
           
           if (matchingSchedules.length > 0) {
             for (const schedule of matchingSchedules) {
@@ -9927,11 +9937,10 @@
           }
         }
         
-        // 백업 스케줄 상세 정보
-        detailsDiv.innerHTML += `<br>📦 백업 스케줄 상세:<br>`;
-        backupSchedules.forEach((sch, idx) => {
-          detailsDiv.innerHTML += `  ${idx+1}. userId: ${sch.userId}, date: ${sch.date}<br>`;
-        });
+        // 백업 스케줄 유효성 체크
+        const validBackups = backupSchedules.filter(sch => sch.userId && sch.date);
+        const invalidBackups = backupSchedules.filter(sch => !sch.userId || !sch.date);
+        detailsDiv.innerHTML += `<br>📦 백업 스케줄: 유효 ${validBackups.length}개, 손상 ${invalidBackups.length}개<br>`;
         
         // 5. 복구 실행
         if (restoredCount > 0) {
