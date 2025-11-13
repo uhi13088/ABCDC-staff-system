@@ -2945,11 +2945,10 @@ async function loadEmployeeSchedule() {
     
     // 매장 전체보기 여부에 따라 쿼리 분기
     let schedulesSnapshot;
-    if (showStoreSchedule && currentUser.storeId) {
-      // 매장 전체: storeId로 필터링 (storeId가 있을 때만)
-      console.log(`   🏪 매장 전체 스케줄 조회: storeId = ${currentUser.storeId}`);
+    if (showStoreSchedule) {
+      // 매장 전체: 날짜 범위만으로 조회 (모든 직원)
+      console.log(`   🏪 매장 전체 스케줄 조회 (날짜 기준)`);
       schedulesSnapshot = await db.collection('schedules')
-        .where('storeId', '==', currentUser.storeId)
         .where('date', '>=', mondayStr)
         .where('date', '<=', sundayStr)
         .get();
