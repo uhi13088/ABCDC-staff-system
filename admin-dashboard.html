@@ -4256,31 +4256,38 @@
     async function revertShiftApproval(shiftId, shiftData) {
       try {
         console.log('🔄 교대근무 승인 취소 시작:', shiftId);
+        console.log('데이터:', shiftData);
         
-        // 1. 대타자 스케줄 삭제
+        // 1. 대타자 스케줄 삭제 (isShiftReplacement 플래그로 찾기)
         const replacementSchedules = await db.collection('schedules')
-          .where('userId', '==', shiftData.replacementId)
-          .where('date', '==', shiftData.date)
+          .where('userId', '==', shiftData.matchedUserId)
+          .where('date', '==', shiftData.workDate)
           .where('shiftRequestId', '==', shiftId)
           .get();
         
         const batch = db.batch();
         replacementSchedules.forEach(doc => {
+          console.log(`🗑️ 대타자(${shiftData.matchedUserName}) 스케줄 삭제:`, doc.id);
           batch.delete(doc.ref);
         });
         
         // 2. 원래 직원 스케줄 복구
+        const [startHour, startMin] = shiftData.workStartTime.split(':').map(Number);
+        const [endHour, endMin] = shiftData.workEndTime.split(':').map(Number);
+        const hours = (endHour * 60 + endMin - (startHour * 60 + startMin)) / 60;
+        
         const newScheduleRef = db.collection('schedules').doc();
         batch.set(newScheduleRef, {
           userId: shiftData.requesterId,
           userName: shiftData.requesterName,
-          storeId: shiftData.storeId,
-          date: shiftData.date,
-          startTime: shiftData.startTime,
-          endTime: shiftData.endTime,
-          hours: calculateHours(shiftData.startTime, shiftData.endTime),
+          store: shiftData.store,
+          date: shiftData.workDate,
+          startTime: shiftData.workStartTime,
+          endTime: shiftData.workEndTime,
+          hours: hours,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        console.log(`➕ 신청자(${shiftData.requesterName}) 스케줄 복구`);
         
         await batch.commit();
         console.log('✅ 교대근무 승인 취소 완료');
