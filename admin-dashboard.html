@@ -9917,10 +9917,9 @@
           // 유효한 백업 스케줄만 필터링
           const validBackups = backupSchedules.filter(sch => sch.userId && sch.date);
           
+          // userId만 매칭 (날짜 조건 제거 - 계약일 전후 모두 복구)
           const matchingSchedules = validBackups.filter(sch => {
-            if (sch.userId !== contract.employeeId) return false;
-            const schDate = new Date(sch.date);
-            return schDate >= contractStart && schDate <= contractEnd;
+            return sch.userId === contract.employeeId;
           });
           
           detailsDiv.innerHTML += `  - 매칭: ${matchingSchedules.length}개<br>`;
