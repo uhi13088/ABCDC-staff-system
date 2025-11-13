@@ -9898,9 +9898,14 @@
         let restoredCount = 0;
         const batch = db.batch();
         
+        detailsDiv.innerHTML += `<br>🔍 상세 매칭 분석:<br>`;
+        
         for (const contract of contractsData) {
           const contractStart = new Date(contract.startDate);
           const contractEnd = contract.endDate ? new Date(contract.endDate) : new Date('2099-12-31');
+          
+          detailsDiv.innerHTML += `<br>📋 ${contract.employeeName} (계약: ${contract.startDate} ~ ${contract.endDate || '무기한'})<br>`;
+          detailsDiv.innerHTML += `  - employeeId: ${contract.employeeId}<br>`;
           
           const matchingSchedules = backupSchedules.filter(sch => {
             if (sch.userId !== contract.employeeId) return false;
@@ -9908,9 +9913,9 @@
             return schDate >= contractStart && schDate <= contractEnd;
           });
           
+          detailsDiv.innerHTML += `  - 매칭된 스케줄: ${matchingSchedules.length}개<br>`;
+          
           if (matchingSchedules.length > 0) {
-            detailsDiv.innerHTML += `📝 ${contract.employeeName}: ${matchingSchedules.length}개 복구<br>`;
-            
             for (const schedule of matchingSchedules) {
               const newDocRef = db.collection('schedules').doc();
               batch.set(newDocRef, {
@@ -9921,6 +9926,12 @@
             }
           }
         }
+        
+        // 백업 스케줄 상세 정보
+        detailsDiv.innerHTML += `<br>📦 백업 스케줄 상세:<br>`;
+        backupSchedules.forEach((sch, idx) => {
+          detailsDiv.innerHTML += `  ${idx+1}. userId: ${sch.userId}, date: ${sch.date}<br>`;
+        });
         
         // 5. 복구 실행
         if (restoredCount > 0) {
