@@ -2833,6 +2833,8 @@ async function loadEmployeeEditHistory(attendanceId) {
 // ===================================================================
 
 let currentEmployeeWeek = new Date();
+let showStoreSchedule = false; // 기본값: 내 근무만 보기 (false), 매장 전체보기 (true)
+let currentEmployeeScheduleData = null; // 현재 스케줄 데이터 캐시
 
 /**
  * 주차 변경
@@ -2840,6 +2842,25 @@ let currentEmployeeWeek = new Date();
 function changeEmployeeWeek(offset) {
   currentEmployeeWeek.setDate(currentEmployeeWeek.getDate() + (offset * 7));
   loadEmployeeSchedule();
+}
+
+/**
+ * 토글 스위치: 내 근무만 보기 / 매장 전체 스케줄
+ * OFF (unchecked) = 내 근무만 보기 (기본)
+ * ON (checked) = 매장 전체보기
+ */
+function toggleEmployeeScheduleView() {
+  const toggle = document.getElementById('showStoreScheduleToggle');
+  showStoreSchedule = toggle.checked;
+  console.log(`🔄 토글 전환: showStoreSchedule = ${showStoreSchedule} (${showStoreSchedule ? '매장 전체' : '내 근무만'})`);
+  
+  // 스케줄 다시 렌더링 (기존 데이터 사용)
+  if (currentEmployeeScheduleData) {
+    renderEmployeeScheduleGantt();
+  } else {
+    // 데이터가 없으면 다시 로드
+    loadEmployeeSchedule();
+  }
 }
 
 /**
@@ -3083,9 +3104,54 @@ async function loadEmployeeSchedule() {
 }
 
 /**
- * 내 스케줄 렌더링 (간단한 주간 뷰)
+ * 간트차트 렌더링 (모듈 사용)
+ */
+function renderEmployeeScheduleGantt() {
+  if (!currentEmployeeScheduleData) {
+    console.warn('⚠️ 스케줄 데이터가 없습니다.');
+    return;
+  }
+  
+  const container = document.getElementById('employeeScheduleContainer');
+  const monday = getEmployeeMonday(currentEmployeeWeek);
+  
+  // schedule-viewer.js 모듈의 간트차트 렌더링 함수 사용
+  // showStoreSchedule = false → 내 근무만 보기 (showOnlyMySchedule = true)
+  // showStoreSchedule = true → 매장 전체보기 (showOnlyMySchedule = false)
+  const html = renderScheduleGanttChart(currentEmployeeScheduleData, monday, {
+    isAdmin: false,
+    showOnlyMySchedule: !showStoreSchedule, // 반전된 로직
+    currentUserId: currentUser ? currentUser.uid : null
+  });
+  
+  container.innerHTML = html;
+}
+
+/**
+ * 내 스케줄 렌더링 (간단한 주간 뷰) - [DEPRECATED: 간트차트로 통합]
  */
 function renderEmployeeSchedule(schedules, monday) {
+  // 스케줄 데이터를 모듈 형식으로 변환
+  const scheduleData = {
+    employees: [{
+      name: currentUser ? currentUser.name : '나',
+      uid: currentUser ? currentUser.uid : null, // 관리자 페이지와 동일하게 uid 사용
+      schedules: schedules
+    }],
+    type: 'schedule'
+  };
+  
+  // 캐시 저장
+  currentEmployeeScheduleData = scheduleData;
+  
+  // 간트차트 렌더링
+  renderEmployeeScheduleGantt();
+}
+
+/**
+ * 기존 카드형 렌더링 (백업용, 미사용)
+ */
+function renderEmployeeScheduleCard(schedules, monday) {
   const container = document.getElementById('employeeScheduleContainer');
   const days = ['월', '화', '수', '목', '금', '토', '일'];
   

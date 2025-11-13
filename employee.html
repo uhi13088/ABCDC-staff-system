@@ -309,6 +309,15 @@
         text-align: center;
       }
     }
+    
+    /* 토글 스위치 스타일 */
+    #showStoreScheduleToggle:checked + span {
+      background-color: var(--primary-color);
+    }
+    
+    #showStoreScheduleToggle:checked + span + span {
+      transform: translateX(26px);
+    }
   </style>
 </head>
 <body>
@@ -470,7 +479,15 @@
         <div class="card">
           <div class="card-header">
             <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>내 스케줄</h3>
-            <button class="btn btn-secondary btn-sm" onclick="showStoreScheduleModal()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg>매장 스케줄표</button>
+            <!-- 토글 스위치: 매장 전체보기 -->
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 14px; font-weight: 500;">매장 전체보기</span>
+              <label style="position: relative; display: inline-block; width: 50px; height: 24px; cursor: pointer;">
+                <input type="checkbox" id="showStoreScheduleToggle" onchange="toggleEmployeeScheduleView()" style="opacity: 0; width: 0; height: 0;">
+                <span style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 24px; transition: 0.3s;"></span>
+                <span style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.3s; transform: translateX(0);"></span>
+              </label>
+            </div>
           </div>
           
           <div class="card-body">
@@ -1194,6 +1211,8 @@
   <script src="js/salary-calculator.js"></script>
   <!-- 계약서 상세보기 공통 모듈 (관리자/직원 페이지 공용) -->
   <script src="js/contract-viewer.js"></script>
+  <!-- 스케줄 뷰어 공통 모듈 (관리자/직원 페이지 공용, 간트차트 전용) -->
+  <script src="js/schedule-viewer.js"></script>
   <script>
     // 동적으로 버전이 포함된 스크립트 로드
     document.write('<script src="js/employee.js?v=' + VERSION + '"><\/script>');

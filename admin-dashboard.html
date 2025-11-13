@@ -409,6 +409,11 @@
         <div class="card">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <h3 style="margin: 0;">📅 근무스케줄</h3>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn btn-primary" onclick="showScheduleSimulator()">📋 스케줄 시뮬레이터</button>
+              <button class="btn" onclick="migrateContractIds()" style="background: #ff9800; color: white;">🔧 ContractId 마이그레이션</button>
+              <button class="btn" onclick="exportSchedulePDF()" style="background: #28a745; color: white;">📄 PDF 저장</button>
+            </div>
           </div>
           
           <div class="card-body">
@@ -437,34 +442,13 @@
                     </label>
                   </div>
                 </div>
-                
-                <!-- 뷰 타입 -->
-                <div>
-                  <label style="display: block; margin-bottom: 4px; font-weight: 600;">뷰 타입</label>
-                  <div style="display: flex; gap: 10px; align-items: center; height: 38px;">
-                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                      <input type="radio" name="scheduleViewType" value="card" checked onchange="renderScheduleView()">
-                      <span>카드형</span>
-                    </label>
-                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                      <input type="radio" name="scheduleViewType" value="gantt" onchange="renderScheduleView()">
-                      <span>간트차트형</span>
-                    </label>
-                  </div>
-                </div>
               </div>
               
               <!-- 주차 네비게이션 -->
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
                 <button class="btn" onclick="changeWeek(-1)" style="background: #6c757d; color: white;">◀ 이전 주</button>
                 <div style="font-weight: 600; font-size: 16px;" id="scheduleWeekDisplay">2025년 1월 1주차 (1/6 ~ 1/12)</div>
                 <button class="btn" onclick="changeWeek(1)" style="background: #6c757d; color: white;">다음 주 ▶</button>
-              </div>
-              
-              <!-- 액션 버튼 -->
-              <div style="display: flex; gap: 10px;">
-                <button class="btn btn-primary" onclick="showScheduleSimulator()">📋 스케줄 시뮬레이터</button>
-                <button class="btn" onclick="exportSchedulePDF()" style="background: #28a745; color: white;">📄 PDF 저장</button>
               </div>
             </div>
             
@@ -807,6 +791,25 @@
           </div>
         </div>
         
+        <!-- 스케줄 복구 기능 -->
+        <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: var(--spacing-md); margin-top: var(--spacing-md);">
+          <label style="font-weight: 700; font-size: 15px; margin-bottom: var(--spacing-sm);">🔄 스케줄 데이터 복구</label>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--spacing-md);">
+            백업된 스케줄 데이터를 복구하고 계약서 정보를 연결합니다.
+          </p>
+          
+          <button type="button" class="btn" style="background: var(--primary-color); color: white; width: 100%;" onclick="restoreSchedulesFromBackup()">
+            🔄 백업에서 스케줄 복구
+          </button>
+          
+          <div id="restoreProgress" style="display: none; margin-top: var(--spacing-md); padding: var(--spacing-md); background: var(--bg-light); border-radius: var(--border-radius);">
+            <div style="font-size: 13px; color: var(--text-secondary);">
+              <div id="restoreStatus">복구 중...</div>
+              <div id="restoreDetails" style="margin-top: 8px; font-size: 12px;"></div>
+            </div>
+          </div>
+        </div>
+        
         <div class="form-group">
           <label>대표 서명 이미지</label>
           <div style="margin-bottom: 10px;">
@@ -875,6 +878,9 @@
   
   <!-- Contract Viewer (공통 모듈 - 관리자/직원 페이지 공용) -->
   <script src="js/contract-viewer.js"></script>
+  
+  <!-- Schedule Viewer (공통 모듈 - 관리자/직원 페이지 공용, 간트차트 전용) -->
+  <script src="js/schedule-viewer.js"></script>
 
   <script>
     // ===========================================
@@ -9386,7 +9392,10 @@
         
         console.log(`📅 조회 기간: ${mondayStr} ~ ${sundayStr}`);
         
-        // 🧹 구 스케줄 자동 삭제 (contractId 없는 기본 스케줄)
+        // 🧹 구 스케줄 자동 삭제 (contractId 없는 기본 스케줄) - 비활성화
+        // ⚠️ 주의: 이 로직은 contractId가 없는 스케줄을 삭제하므로 비활성화함
+        // contractId 마이그레이션 완료 후 활성화 필요
+        /*
         try {
           console.log('🧹 구 스케줄 자동 삭제 시작...');
           
@@ -9419,6 +9428,8 @@
           console.warn('⚠️ 구 스케줄 삭제 실패:', cleanupError);
           // 삭제 실패해도 스케줄 로드는 계속 진행
         }
+        */
+        console.log('ℹ️ 구 스케줄 자동 삭제 기능 비활성화됨 (contractId 마이그레이션 대기 중)');
         
         // 해당 매장의 모든 직원 조회 (퇴사자 제외)
         const employeesSnapshot = await db.collection('users')
@@ -9827,6 +9838,107 @@
     }
 
     /**
+     * 백업에서 스케줄 복구
+     */
+    async function restoreSchedulesFromBackup() {
+      const progressDiv = document.getElementById('restoreProgress');
+      const statusDiv = document.getElementById('restoreStatus');
+      const detailsDiv = document.getElementById('restoreDetails');
+      
+      progressDiv.style.display = 'block';
+      statusDiv.textContent = '📊 데이터 분석 중...';
+      detailsDiv.innerHTML = '';
+      
+      try {
+        // 1. 근무 중인 직원 가져오기
+        const usersSnapshot = await db.collection('users')
+          .where('role', '==', 'employee')
+          .get();
+        
+        const activeEmployees = usersSnapshot.docs
+          .map(doc => ({ uid: doc.id, ...doc.data() }))
+          .filter(user => user.status !== 'resigned');
+        
+        detailsDiv.innerHTML += `✅ 근무 중인 직원 ${activeEmployees.length}명 발견<br>`;
+        
+        // 2. 각 직원의 최신 계약서 가져오기
+        const contractsData = [];
+        for (const employee of activeEmployees) {
+          const empContracts = await db.collection('contracts')
+            .where('employeeId', '==', employee.uid)
+            .get();
+          
+          if (!empContracts.empty) {
+            const contracts = empContracts.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })).sort((a, b) => {
+              const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+              const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+              return dateB - dateA;
+            });
+            
+            contractsData.push(contracts[0]);
+          }
+        }
+        
+        detailsDiv.innerHTML += `✅ 최신 계약서 ${contractsData.length}개 선택됨<br>`;
+        
+        // 3. 백업 스케줄 가져오기
+        const backupSnapshot = await db.collection('schedules_backup').get();
+        const backupSchedules = backupSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        detailsDiv.innerHTML += `✅ 백업 스케줄 ${backupSchedules.length}개 발견<br><br>`;
+        statusDiv.textContent = '🔄 복구 중...';
+        
+        // 4. 복구 대상 필터링 및 복구
+        let restoredCount = 0;
+        const batch = db.batch();
+        
+        for (const contract of contractsData) {
+          const contractStart = new Date(contract.startDate);
+          const contractEnd = contract.endDate ? new Date(contract.endDate) : new Date('2099-12-31');
+          
+          const matchingSchedules = backupSchedules.filter(sch => {
+            if (sch.userId !== contract.employeeId) return false;
+            const schDate = new Date(sch.date);
+            return schDate >= contractStart && schDate <= contractEnd;
+          });
+          
+          if (matchingSchedules.length > 0) {
+            detailsDiv.innerHTML += `📝 ${contract.employeeName}: ${matchingSchedules.length}개 복구<br>`;
+            
+            for (const schedule of matchingSchedules) {
+              const newDocRef = db.collection('schedules').doc();
+              batch.set(newDocRef, {
+                ...schedule,
+                contractId: contract.id
+              });
+              restoredCount++;
+            }
+          }
+        }
+        
+        // 5. 복구 실행
+        if (restoredCount > 0) {
+          await batch.commit();
+          statusDiv.innerHTML = `✅ 복구 완료!`;
+          detailsDiv.innerHTML += `<br><strong>총 ${restoredCount}개의 스케줄이 복구되었습니다.</strong>`;
+        } else {
+          statusDiv.innerHTML = `⚠️ 복구할 스케줄이 없습니다.`;
+        }
+        
+      } catch (error) {
+        console.error('❌ 복구 실패:', error);
+        statusDiv.innerHTML = `❌ 복구 실패`;
+        detailsDiv.innerHTML += `<br><span style="color: #dc3545;">오류: ${error.message}</span>`;
+      }
+    }
+
+    /**
      * 스케줄 뷰 렌더링
      */
     function renderScheduleView() {
@@ -9834,13 +9946,14 @@
         return;
       }
       
-      const viewType = document.querySelector('input[name="scheduleViewType"]:checked').value;
-      
-      if (viewType === 'card') {
-        renderCardView();
-      } else {
-        renderGanttView();
-      }
+      // 간트차트 전용으로 변경 (모듈 사용)
+      const container = document.getElementById('scheduleViewContainer');
+      const html = renderScheduleGanttChart(currentScheduleData, currentScheduleWeek, {
+        isAdmin: true,
+        showOnlyMySchedule: false,
+        currentUserId: null
+      });
+      container.innerHTML = html;
     }
 
     /**
