@@ -3834,11 +3834,11 @@
           ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button onclick="editApproval('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              ✏️ 수정
+            </button>
             ${approval.status === 'pending' ? `
-              <button onclick="editApproval('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✏️ 수정
-              </button>
               <button onclick="approveDocument('${approvalId}', 'purchase'); this.closest('div').parentElement.parentElement.remove();" 
                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인
@@ -3904,11 +3904,11 @@
           ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button onclick="editApproval('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              ✏️ 수정
+            </button>
             ${approval.status === 'pending' ? `
-              <button onclick="editApproval('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✏️ 수정
-              </button>
               <button onclick="approveDocument('${approvalId}', 'disposal'); this.closest('div').parentElement.parentElement.remove();" 
                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인
@@ -3982,11 +3982,11 @@
           ` : ''}
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button onclick="editApproval('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              ✏️ 수정
+            </button>
             ${approval.status === 'pending' ? `
-              <button onclick="editApproval('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✏️ 수정
-              </button>
               <button onclick="if(confirm('⚠️ 퇴직서를 승인하면 해당 직원의 계정이 삭제됩니다.\\n\\n계속하시겠습니까?')) { approveDocument('${approvalId}', 'resignation'); this.closest('div').parentElement.parentElement.remove(); }" 
                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인 (계정 삭제)
@@ -4049,11 +4049,11 @@
           </div>
           
           <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button onclick="editApproval('${approvalId}', 'shift'); this.closest('div').parentElement.parentElement.remove();" 
+              style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              ✏️ 수정
+            </button>
             ${approval.status === 'matched' ? `
-              <button onclick="editApproval('${approvalId}', 'shift'); this.closest('div').parentElement.parentElement.remove();" 
-                style="flex: 1; padding: 12px; background: #ffc107; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                ✏️ 수정
-              </button>
               <button onclick="approveShiftRequest('${approvalId}'); this.closest('div').parentElement.parentElement.remove();" 
                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                 ✅ 승인
@@ -4074,9 +4074,154 @@
       document.body.appendChild(modal);
     }
 
-    // 승인 수정 함수 (플레이스홀더)
-    function editApproval(approvalId, type) {
-      alert(`✏️ ${type} 타입의 승인 문서 수정 기능은 준비 중입니다.\n\nID: ${approvalId}`);
+    // 승인 수정 함수
+    async function editApproval(approvalId, type) {
+      try {
+        let docRef, docData;
+        
+        // 타입에 따라 다른 컬렉션 참조
+        if (type === 'shift') {
+          docRef = db.collection('shift_requests').doc(approvalId);
+        } else {
+          docRef = db.collection('approvals').doc(approvalId);
+        }
+        
+        const doc = await docRef.get();
+        if (!doc.exists) {
+          alert('❌ 문서를 찾을 수 없습니다.');
+          return;
+        }
+        
+        docData = doc.data();
+        const currentStatus = docData.status;
+        
+        // 상태 수정 선택
+        const newStatus = prompt(
+          `현재 상태: ${currentStatus === 'approved' ? '승인됨' : currentStatus === 'rejected' ? '거부됨' : currentStatus === 'matched' ? '매칭됨' : '대기중'}\n\n` +
+          `새로운 상태를 입력하세요:\n` +
+          `1. approved (승인)\n` +
+          `2. rejected (거부)\n` +
+          `3. pending (대기중)\n` +
+          `${type === 'shift' ? '4. matched (매칭됨)\n' : ''}`,
+          currentStatus
+        );
+        
+        if (!newStatus) return;
+        
+        const validStatuses = type === 'shift' 
+          ? ['approved', 'rejected', 'pending', 'matched']
+          : ['approved', 'rejected', 'pending'];
+        
+        if (!validStatuses.includes(newStatus)) {
+          alert('❌ 올바른 상태를 입력해주세요.');
+          return;
+        }
+        
+        // 승인→거부 전환 시 특별 처리
+        if (currentStatus === 'approved' && newStatus === 'rejected') {
+          if (!confirm('⚠️ 승인된 문서를 거부로 변경하시겠습니까?\n\n이미 처리된 내용이 취소됩니다.')) {
+            return;
+          }
+          
+          // 교대근무: 승인→거부 시 스케줄 복구
+          if (type === 'shift') {
+            await revertShiftApproval(approvalId, docData);
+          }
+          
+          // 퇴직서: 승인→거부 시 직원 복구
+          if (type === 'resignation') {
+            await revertResignationApproval(approvalId, docData);
+          }
+        }
+        
+        // 상태 업데이트
+        await docRef.update({
+          status: newStatus,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastEditedBy: sessionStorage.getItem('admin_name')
+        });
+        
+        alert('✅ 상태가 변경되었습니다.');
+        loadApprovals(); // 목록 새로고침
+        
+      } catch (error) {
+        console.error('❌ 수정 실패:', error);
+        alert('❌ 수정 실패: ' + error.message);
+      }
+    }
+    
+    // 교대근무 승인 취소 (스케줄 복구)
+    async function revertShiftApproval(shiftId, shiftData) {
+      try {
+        console.log('🔄 교대근무 승인 취소 시작:', shiftId);
+        
+        // 1. 대타자 스케줄 삭제
+        const replacementSchedules = await db.collection('schedules')
+          .where('userId', '==', shiftData.replacementId)
+          .where('date', '==', shiftData.date)
+          .where('shiftRequestId', '==', shiftId)
+          .get();
+        
+        const batch = db.batch();
+        replacementSchedules.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        
+        // 2. 원래 직원 스케줄 복구
+        const newScheduleRef = db.collection('schedules').doc();
+        batch.set(newScheduleRef, {
+          userId: shiftData.requesterId,
+          userName: shiftData.requesterName,
+          storeId: shiftData.storeId,
+          date: shiftData.date,
+          startTime: shiftData.startTime,
+          endTime: shiftData.endTime,
+          hours: calculateHours(shiftData.startTime, shiftData.endTime),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        await batch.commit();
+        console.log('✅ 교대근무 승인 취소 완료');
+        
+      } catch (error) {
+        console.error('❌ 교대근무 복구 실패:', error);
+        throw error;
+      }
+    }
+    
+    // 퇴직서 승인 취소 (직원 복구)
+    async function revertResignationApproval(approvalId, resignationData) {
+      try {
+        console.log('🔄 퇴직서 승인 취소 시작:', approvalId);
+        
+        const employeeUid = resignationData.applicantUid;
+        if (!employeeUid) {
+          throw new Error('직원 UID를 찾을 수 없습니다.');
+        }
+        
+        // 직원 상태를 'active'로 복구
+        await db.collection('users').doc(employeeUid).update({
+          status: 'active',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ 퇴직서 승인 취소 완료 - 직원 복구됨');
+        alert('✅ 직원이 복구되었습니다.\n계약서는 수동으로 확인해주세요.');
+        
+      } catch (error) {
+        console.error('❌ 퇴직 복구 실패:', error);
+        throw error;
+      }
+    }
+    
+    // 시간 계산 헬퍼
+    function calculateHours(startTime, endTime) {
+      if (!startTime || !endTime) return 0;
+      const [startH, startM] = startTime.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      return ((endMinutes - startMinutes) / 60).toFixed(1);
     }
 
     // 문서 승인
