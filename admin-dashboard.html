@@ -3583,16 +3583,15 @@
                 <button class="btn btn-sm" style="background: var(--primary-color); color: white;" onclick="viewApprovalDetail('${approval.id}', '${approval.type}')">
                   📄 상세
                 </button>
-                <button class="btn btn-sm" style="background: var(--success-color, #28a745); color: white;" onclick="approveDocument('${approval.id}', '${approval.type}')">
-                  ✅ 승인
-                </button>
-                <button class="btn btn-sm" style="background: var(--danger-color, #dc3545); color: white;" onclick="rejectDocument('${approval.id}', '${approval.type}')">
-                  ❌ 거부
+                <button class="btn btn-sm" style="background: #ffc107; color: #000;" onclick="showEditApprovalModal('${approval.id}', '${approval.type}')">
+                  ✏️ 수정
                 </button>
               </div>`
-            : `<button class="btn btn-sm" style="background: var(--text-secondary); color: white;" onclick="viewApprovalDetail('${approval.id}', '${approval.type}')">
-                📄 상세보기
-              </button>`;
+            : `<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-sm" style="background: var(--text-secondary); color: white;" onclick="viewApprovalDetail('${approval.id}', '${approval.type}')">
+                  📄 상세
+                </button>
+              </div>`;
           
           return `
             <tr>
@@ -3742,25 +3741,32 @@
     }
 
     // 승인 문서 상세보기
-    async function viewApprovalDetail(approvalId) {
+    async function viewApprovalDetail(approvalId, type) {
       try {
-        const doc = await db.collection('approvals').doc(approvalId).get();
+        let doc, approval;
+        
+        // 교대근무는 shift_requests 컬렉션
+        if (type === 'shift') {
+          doc = await db.collection('shift_requests').doc(approvalId).get();
+        } else {
+          doc = await db.collection('approvals').doc(approvalId).get();
+        }
         
         if (!doc.exists) {
           alert('❌ 문서를 찾을 수 없습니다.');
           return;
         }
         
-        const approval = doc.data();
+        approval = doc.data();
         
         // 타입에 따라 다른 모달 표시
-        if (approval.type === 'purchase') {
+        if (type === 'purchase') {
           showPurchaseDetailModal(approvalId, approval);
-        } else if (approval.type === 'disposal') {
+        } else if (type === 'disposal') {
           showDisposalDetailModal(approvalId, approval);
-        } else if (approval.type === 'resignation') {
+        } else if (type === 'resignation') {
           showResignationDetailModal(approvalId, approval);
-        } else if (approval.type === 'shift') {
+        } else if (type === 'shift') {
           showShiftDetailModal(approvalId, approval);
         }
         
@@ -4074,7 +4080,159 @@
       document.body.appendChild(modal);
     }
 
-    // 승인 수정 함수
+    // 수정 모달 표시
+    async function showEditApprovalModal(approvalId, type) {
+      try {
+        let doc, approval;
+        
+        // 교대근무는 shift_requests 컬렉션
+        if (type === 'shift') {
+          doc = await db.collection('shift_requests').doc(approvalId).get();
+        } else {
+          doc = await db.collection('approvals').doc(approvalId).get();
+        }
+        
+        if (!doc.exists) {
+          alert('❌ 문서를 찾을 수 없습니다.');
+          return;
+        }
+        
+        approval = doc.data();
+        
+        // 수정 모달 생성
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+          z-index: 10000;
+        `;
+        
+        const typeNames = {
+          'purchase': '구매 신청서',
+          'disposal': '폐기 신청서',
+          'resignation': '퇴직서',
+          'shift': '교대근무'
+        };
+        
+        modal.innerHTML = `
+          <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%;">
+            <h3 style="margin-bottom: 20px; color: #333;">✏️ ${typeNames[type]} 수정</h3>
+            
+            <div style="margin-bottom: 16px;">
+              <strong>현재 상태:</strong> 
+              <span style="padding: 6px 16px; border-radius: 12px; font-weight: 600; background: ${approval.status === 'approved' ? '#d4edda' : approval.status === 'rejected' ? '#f8d7da' : '#fff3cd'}; color: ${approval.status === 'approved' ? '#155724' : approval.status === 'rejected' ? '#721c24' : '#856404'};">
+                ${approval.status === 'approved' ? '✅ 승인됨' : approval.status === 'rejected' ? '❌ 거부됨' : approval.status === 'matched' ? '🤝 매칭됨' : '⏳ 대기중'}
+              </span>
+            </div>
+            
+            <p style="margin: 16px 0; color: #666; font-size: 14px;">
+              ${approval.status === 'approved' && (type === 'shift' || type === 'resignation') 
+                ? '⚠️ 승인→거부 변경 시 이전 상태로 복구됩니다.' 
+                : '상태를 변경하시겠습니까?'}
+            </p>
+            
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+              ${approval.status !== 'approved' ? `
+                <button onclick="editApprovalStatus('${approvalId}', '${type}', 'approved'); this.closest('div').parentElement.parentElement.remove();" 
+                  style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                  ✅ 승인으로 변경
+                </button>
+              ` : ''}
+              ${approval.status !== 'rejected' ? `
+                <button onclick="editApprovalStatus('${approvalId}', '${type}', 'rejected'); this.closest('div').parentElement.parentElement.remove();" 
+                  style="flex: 1; padding: 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                  ❌ 거부로 변경
+                </button>
+              ` : ''}
+              <button onclick="this.closest('div').parentElement.parentElement.remove();" 
+                style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                닫기
+              </button>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+      } catch (error) {
+        console.error('❌ 모달 표시 실패:', error);
+        alert('❌ 모달을 불러오는데 실패했습니다.');
+      }
+    }
+    
+    // 승인 상태 변경
+    async function editApprovalStatus(approvalId, type, newStatus) {
+      try {
+        let docRef, docData;
+        
+        // 교대근무는 shift_requests 컬렉션
+        if (type === 'shift') {
+          docRef = db.collection('shift_requests').doc(approvalId);
+        } else {
+          docRef = db.collection('approvals').doc(approvalId);
+        }
+        
+        const doc = await docRef.get();
+        if (!doc.exists) {
+          alert('❌ 문서를 찾을 수 없습니다.');
+          return;
+        }
+        
+        docData = doc.data();
+        const currentStatus = docData.status;
+        
+        // 승인→거부 전환 시 특별 처리
+        if (currentStatus === 'approved' && newStatus === 'rejected') {
+          if (!confirm('⚠️ 승인된 문서를 거부로 변경하시겠습니까?\n\n이미 처리된 내용이 취소됩니다.')) {
+            return;
+          }
+          
+          // 교대근무: 승인→거부 시 스케줄 복구
+          if (type === 'shift') {
+            await revertShiftApproval(approvalId, docData);
+          }
+          
+          // 퇴직서: 승인→거부 시 직원 복구
+          if (type === 'resignation') {
+            await revertResignationApproval(approvalId, docData);
+          }
+        }
+        
+        // 거부→승인 전환 시 해당 타입의 승인 처리 실행
+        if (currentStatus === 'rejected' && newStatus === 'approved') {
+          if (type === 'shift') {
+            await approveShiftRequest(approvalId);
+            return; // approveShiftRequest 내부에서 상태 업데이트
+          } else if (type === 'resignation') {
+            await approveResignation(approvalId);
+            return;
+          } else {
+            // 구매/폐기는 상태만 변경
+            await docRef.update({
+              status: newStatus,
+              approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              approvedBy: sessionStorage.getItem('admin_name')
+            });
+          }
+        } else {
+          // 일반 상태 업데이트
+          await docRef.update({
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastEditedBy: sessionStorage.getItem('admin_name')
+          });
+        }
+        
+        alert('✅ 상태가 변경되었습니다.');
+        loadApprovals(); // 목록 새로고침
+        
+      } catch (error) {
+        console.error('❌ 수정 실패:', error);
+        alert('❌ 수정 실패: ' + error.message);
+      }
+    }
+
+    // 승인 수정 함수 (레거시 - 사용 안 함)
     async function editApproval(approvalId, type) {
       try {
         let docRef, docData;
