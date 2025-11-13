@@ -421,20 +421,18 @@ async function generatePDF(element, contractId) {
   await new Promise(resolve => setTimeout(resolve, 500));
   
   const opt = {
-    margin: [5, 5, 5, 5], // 상하좌우 0.5cm (5mm) - 여백 최소화
+    margin: 10, // 상하좌우 1cm (10mm)
     filename: fileName,
     image: { 
       type: 'jpeg', 
       quality: 0.98 
     },
     html2canvas: { 
-      scale: 1.5, // 2배에서 1.5배로 축소 - 확대 방지
+      scale: 2,
       useCORS: false,
       logging: true,
       letterRendering: true,
-      imageTimeout: 0,
-      width: 700, // 명시적 너비 지정
-      windowWidth: 700 // 렌더링 너비 고정
+      imageTimeout: 0
     },
     jsPDF: { 
       unit: 'mm', 
