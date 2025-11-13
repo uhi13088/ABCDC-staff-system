@@ -175,7 +175,7 @@ window.showContractViewModal = async function showContractViewModal(contract, cu
       </div>
       
       <!-- A4 계약서 본문 -->
-      <div id="contractPrintArea" style="width: 190mm; margin: 0 auto; background: white; padding: 40px;">
+      <div id="contractPrintArea" style="width: 160mm; margin: 0 auto; background: white; padding: 40px;">
         
         <!-- 계약서 제목 -->
         <h1 style="text-align: center; font-size: 32px; font-weight: 700; letter-spacing: 12px; margin: 0 0 30px 0;">근 로 계 약 서</h1>
