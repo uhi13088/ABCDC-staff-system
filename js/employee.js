@@ -2854,13 +2854,8 @@ function toggleEmployeeScheduleView() {
   showStoreSchedule = toggle.checked;
   console.log(`🔄 토글 전환: showStoreSchedule = ${showStoreSchedule} (${showStoreSchedule ? '매장 전체' : '내 근무만'})`);
   
-  // 스케줄 다시 렌더링 (기존 데이터 사용)
-  if (currentEmployeeScheduleData) {
-    renderEmployeeScheduleGantt();
-  } else {
-    // 데이터가 없으면 다시 로드
-    loadEmployeeSchedule();
-  }
+  // 토글 전환 시 무조건 다시 로드 (캐시 사용 안 함)
+  loadEmployeeSchedule();
 }
 
 /**
