@@ -8487,9 +8487,12 @@
           💡 수정 내용은 해당 직원에게 알림됩니다.
         </p>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeAdminEditAttendanceModal()">취소</button>
-        <button class="btn btn-primary" onclick="submitAdminAttendanceEdit()">수정 완료</button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between;">
+        <button class="btn" style="background: var(--danger-color); color: white;" onclick="deleteAdminAttendance()">🗑️ 삭제</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" onclick="closeAdminEditAttendanceModal()">취소</button>
+          <button class="btn btn-primary" onclick="submitAdminAttendanceEdit()">수정 완료</button>
+        </div>
       </div>
     </div>
   </div>
@@ -8873,6 +8876,71 @@
       currentAdminEditAttendanceId = null;
       currentAdminEditEmployeeUid = null;
       currentAdminEditEmployeeName = null;
+    }
+
+    /**
+     * 관리자 근무기록 삭제
+     */
+    async function deleteAdminAttendance() {
+      if (!currentAdminEditAttendanceId) return;
+      
+      if (!confirm('⚠️ 이 근무기록을 삭제하시겠습니까?\n\n삭제된 기록은 복구할 수 없습니다.')) {
+        return;
+      }
+      
+      try {
+        // 삭제 사유 입력받기
+        const deleteReason = prompt('🗑️ 삭제 사유를 입력해주세요:\n(직원에게 알림으로 전달됩니다)');
+        
+        if (!deleteReason || deleteReason.trim() === '') {
+          alert('⚠️ 삭제 사유를 입력해주세요.');
+          return;
+        }
+        
+        // 기존 데이터 조회
+        const attendanceDoc = await firebase.firestore().collection('attendance').doc(currentAdminEditAttendanceId).get();
+        if (!attendanceDoc.exists) {
+          alert('❌ 근무 기록을 찾을 수 없습니다.');
+          return;
+        }
+        
+        const attendanceData = attendanceDoc.data();
+        
+        // 현재 관리자 정보
+        const adminUid = sessionStorage.getItem('admin_uid');
+        const adminName = sessionStorage.getItem('admin_name');
+        
+        // 알림 생성
+        await firebase.firestore().collection('notifications').add({
+          type: 'attendance_deleted',
+          recipientUid: currentAdminEditEmployeeUid,
+          recipientName: currentAdminEditEmployeeName,
+          title: '근무기록 삭제 알림',
+          message: `관리자(${adminName})가 ${attendanceData.date} 근무기록을 삭제했습니다.\n\n사유: ${deleteReason.trim()}`,
+          relatedId: currentAdminEditAttendanceId,
+          date: attendanceData.date,
+          clockIn: attendanceData.clockIn || '',
+          clockOut: attendanceData.clockOut || '',
+          reason: deleteReason.trim(),
+          adminUid: adminUid,
+          adminName: adminName,
+          isRead: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // 근무기록 삭제
+        await firebase.firestore().collection('attendance').doc(currentAdminEditAttendanceId).delete();
+        
+        alert('✅ 근무기록이 삭제되었습니다.');
+        closeAdminEditAttendanceModal();
+        
+        // 근무기록 다시 로드
+        loadAttendance();
+        
+      } catch (error) {
+        console.error('❌ 근무기록 삭제 실패:', error);
+        alert('❌ 근무기록 삭제 실패: ' + error.message);
+      }
     }
 
     /**
