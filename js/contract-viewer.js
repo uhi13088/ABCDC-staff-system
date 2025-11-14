@@ -353,16 +353,26 @@ async function generatePDF(element, contractId) {
   // 서명 데이터 가져오기 (Firestore에서 직접 로드)
   let signedContract = null;
   
+  console.log('🔍 PDF 생성 - 서명 데이터 조회 시작');
+  console.log('  - contract.id:', contract.id);
+  console.log('  - signedContractsCache 존재?', typeof signedContractsCache !== 'undefined');
+  console.log('  - signedContractsCache 길이:', typeof signedContractsCache !== 'undefined' ? signedContractsCache?.length : 0);
+  
   // 1. signedContractsCache가 있으면 사용 (admin에서 미리 로드한 경우)
   if (typeof signedContractsCache !== 'undefined' && signedContractsCache.length > 0) {
     signedContract = signedContractsCache.find(sc => sc.id === contract.id);
+    console.log('  ✅ Cache에서 찾음:', !!signedContract);
   } else {
     // 2. 없으면 Firestore에서 직접 로드 (employee 페이지)
+    console.log('  🔄 Firestore에서 직접 조회');
     try {
       const db = firebase.firestore();
       const signedDoc = await db.collection('signedContracts').doc(contract.id).get();
       if (signedDoc.exists) {
         signedContract = { id: signedDoc.id, ...signedDoc.data() };
+        console.log('  ✅ Firestore에서 찾음:', signedContract);
+      } else {
+        console.log('  ❌ Firestore에 서명 없음');
       }
     } catch (error) {
       console.warn('⚠️ 서명 정보 조회 실패:', error);
@@ -370,6 +380,11 @@ async function generatePDF(element, contractId) {
   }
   
   // 서명이 있으면 다시 그려넣기
+  console.log('🔍 서명 주입 조건 체크:', {
+    signedContract: !!signedContract,
+    hasSignature: !!signedContract?.signature
+  });
+  
   if (signedContract && signedContract.signature) {
     // 기존 서명 제거
     element.querySelectorAll('.avoid-page-break').forEach(div => {
