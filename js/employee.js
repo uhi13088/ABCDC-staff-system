@@ -1055,12 +1055,6 @@ function renderSalaryInfo(data) {
           <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.incomeTax)}</td>
         </tr>
         ` : ''}
-        ${data.severancePay && data.severancePay > 0 ? `
-        <tr style="background: #fffbeb; border-top: 2px solid var(--border-color);">
-          <td style="color: #92400e;">퇴직금 (확정)</td>
-          <td style="text-align: right; font-weight: 700; color: #b45309;">+${formatCurrency(data.severancePay)}</td>
-        </tr>
-        ` : ''}
         <tr style="background: var(--bg-light); border-top: 2px solid var(--primary-color);">
           <td><strong>실수령액</strong></td>
           <td style="text-align: right; font-weight: 700; font-size: 18px; color: var(--primary-color);">${formatCurrency(data.netSalary)}</td>

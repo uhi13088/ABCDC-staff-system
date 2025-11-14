@@ -487,25 +487,30 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   // 총 지급액 (공제 전)
   result.totalPay = result.basePay + result.totalAllowances;
   
-  // 4대보험 공제 계산
-  const insuranceType = contract.insurance?.type || 'none';
+  // 4대보험 공제 계산 (계약서 개별 체크박스 기준)
+  const insurance = contract.insurance || {};
   
-  if (insuranceType === 'all') {
-    // 전체 적용 - 근로자 부담분만 계산
-    result.nationalPension = Math.round(result.totalPay * 0.045); // 4.5% (근로자 부담)
-    result.healthInsurance = Math.round(result.totalPay * 0.03545); // 3.545% (근로자 부담)
-    result.longTermCare = Math.round(result.healthInsurance * 0.1295 * 0.5); // 건강보험의 12.95%의 50% (근로자 부담)
-    result.employmentInsurance = Math.round(result.totalPay * 0.009); // 0.9% (근로자 부담)
-    result.incomeTax = Math.round(result.totalPay * 0.033); // 3.3% (근로자 전액 부담)
-  } else if (insuranceType === 'employment_only') {
-    // 고용·산재보험만 - 근로자 부담분만 계산
-    result.employmentInsurance = Math.round(result.totalPay * 0.009); // 0.9% (근로자 부담)
-    result.incomeTax = Math.round(result.totalPay * 0.033); // 3.3% (근로자 전액 부담)
-  } else if (insuranceType === 'freelancer') {
-    // 프리랜서 - 소득세만 (근로자 전액 부담)
-    result.incomeTax = Math.round(result.totalPay * 0.033); // 3.3%
+  // 국민연금 (4.5% 근로자 부담)
+  if (insurance.pension) {
+    result.nationalPension = Math.round(result.totalPay * 0.045);
   }
-  // 'none'인 경우 공제 없음
+  
+  // 건강보험 (3.545% 근로자 부담)
+  if (insurance.health) {
+    result.healthInsurance = Math.round(result.totalPay * 0.03545);
+    // 장기요양보험 (건강보험의 12.95%의 50% 근로자 부담)
+    result.longTermCare = Math.round(result.healthInsurance * 0.1295 * 0.5);
+  }
+  
+  // 고용보험 (0.9% 근로자 부담)
+  if (insurance.employment) {
+    result.employmentInsurance = Math.round(result.totalPay * 0.009);
+  }
+  
+  // 소득세 (3.3% 근로자 전액 부담) - 어떤 보험이든 하나라도 있으면 적용
+  if (insurance.pension || insurance.health || insurance.employment || insurance.workComp) {
+    result.incomeTax = Math.round(result.totalPay * 0.033);
+  }
   
   result.totalDeductions = result.nationalPension + result.healthInsurance + 
                            result.longTermCare + result.employmentInsurance + result.incomeTax;

@@ -2398,36 +2398,40 @@
         document.getElementById('salaryDetailTotalHours').textContent = formatHoursAndMinutes(salary.totalWorkHours);
         document.getElementById('salaryDetailBasePay').textContent = salary.basePay.toLocaleString() + '원';
         
-        // 연장근로수당
-        if (salary.overtimePay > 0) {
+        // 계약서 기준 조건부 표시
+        const contractInfo = salary.contractInfo || {};
+        const allowances = contract.allowances || {};
+        
+        // 연장근로수당 (계약서 체크 여부)
+        if (allowances.overtime) {
           document.getElementById('salaryDetailOvertimeRow').style.display = '';
           document.getElementById('salaryDetailOvertimeHours').textContent = formatHoursAndMinutes(salary.overtimeHours || 0);
-          document.getElementById('salaryDetailOvertimePay').textContent = '+' + salary.overtimePay.toLocaleString() + '원';
+          document.getElementById('salaryDetailOvertimePay').textContent = '+' + (salary.overtimePay || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailOvertimeRow').style.display = 'none';
         }
         
-        // 야간근로수당
-        if (salary.nightPay > 0) {
+        // 야간근로수당 (계약서 체크 여부)
+        if (allowances.night) {
           document.getElementById('salaryDetailNightRow').style.display = '';
           document.getElementById('salaryDetailNightHours').textContent = formatHoursAndMinutes(salary.nightHours || 0);
-          document.getElementById('salaryDetailNightPay').textContent = '+' + salary.nightPay.toLocaleString() + '원';
+          document.getElementById('salaryDetailNightPay').textContent = '+' + (salary.nightPay || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailNightRow').style.display = 'none';
         }
         
-        // 휴일근로수당
-        if (salary.holidayPay > 0) {
+        // 휴일근로수당 (계약서 체크 여부)
+        if (allowances.holiday) {
           document.getElementById('salaryDetailHolidayRow').style.display = '';
-          document.getElementById('salaryDetailHolidayPay').textContent = '+' + salary.holidayPay.toLocaleString() + '원';
+          document.getElementById('salaryDetailHolidayPay').textContent = '+' + (salary.holidayPay || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailHolidayRow').style.display = 'none';
         }
         
-        // 주휴수당
-        if (salary.weeklyHolidayPay > 0) {
+        // 주휴수당 (계약서 기준 주 15시간 이상)
+        if (contractInfo.isWeeklyHolidayEligible) {
           document.getElementById('salaryDetailWeeklyRow').style.display = '';
-          document.getElementById('salaryDetailWeeklyPay').textContent = '+' + salary.weeklyHolidayPay.toLocaleString() + '원';
+          document.getElementById('salaryDetailWeeklyPay').textContent = '+' + (salary.weeklyHolidayPay || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailWeeklyRow').style.display = 'none';
         }
@@ -2447,38 +2451,38 @@
         
         document.getElementById('salaryDetailTotalPay').textContent = salary.totalPay.toLocaleString() + '원';
         
-        // 공제 항목
-        if (salary.nationalPension > 0) {
+        // 공제 항목 (계약서 체크 여부)
+        if (contractInfo.hasPension) {
           document.getElementById('salaryDetailPensionRow').style.display = '';
-          document.getElementById('salaryDetailPension').textContent = '-' + salary.nationalPension.toLocaleString() + '원';
+          document.getElementById('salaryDetailPension').textContent = '-' + (salary.nationalPension || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailPensionRow').style.display = 'none';
         }
         
-        if (salary.healthInsurance > 0) {
+        if (contractInfo.hasHealthInsurance) {
           document.getElementById('salaryDetailHealthRow').style.display = '';
-          document.getElementById('salaryDetailHealth').textContent = '-' + salary.healthInsurance.toLocaleString() + '원';
+          document.getElementById('salaryDetailHealth').textContent = '-' + (salary.healthInsurance || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailHealthRow').style.display = 'none';
         }
         
-        if (salary.longTermCare > 0) {
+        if (contractInfo.hasHealthInsurance && salary.longTermCare > 0) {
           document.getElementById('salaryDetailLongTermRow').style.display = '';
           document.getElementById('salaryDetailLongTerm').textContent = '-' + salary.longTermCare.toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailLongTermRow').style.display = 'none';
         }
         
-        if (salary.employmentInsurance > 0) {
+        if (contractInfo.hasEmploymentInsurance) {
           document.getElementById('salaryDetailEmploymentRow').style.display = '';
-          document.getElementById('salaryDetailEmployment').textContent = '-' + salary.employmentInsurance.toLocaleString() + '원';
+          document.getElementById('salaryDetailEmployment').textContent = '-' + (salary.employmentInsurance || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailEmploymentRow').style.display = 'none';
         }
         
-        if (salary.incomeTax > 0) {
+        if (contractInfo.has4Insurance) {
           document.getElementById('salaryDetailTaxRow').style.display = '';
-          document.getElementById('salaryDetailTax').textContent = '-' + salary.incomeTax.toLocaleString() + '원';
+          document.getElementById('salaryDetailTax').textContent = '-' + (salary.incomeTax || 0).toLocaleString() + '원';
         } else {
           document.getElementById('salaryDetailTaxRow').style.display = 'none';
         }
