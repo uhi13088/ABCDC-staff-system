@@ -444,9 +444,9 @@ async function generatePDF(element, contractId) {
   loadingDiv.innerHTML = '<p style="margin: 0; font-size: 16px; font-weight: 600;">📄 PDF 생성 중...</p><p style="margin-top: 8px; font-size: 14px; color: #666;">서명 이미지 처리 중...</p>';
   document.body.appendChild(loadingDiv);
   
-  // PDF 생성 전 padding 최소화 (완전 제거하면 레이아웃 깨짐)
+  // PDF 생성 전 padding 제거
   const originalPadding = element.style.padding;
-  element.style.padding = '10px';
+  element.style.padding = '0';
   
   // 500ms 대기
   await new Promise(resolve => setTimeout(resolve, 500));
