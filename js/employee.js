@@ -884,6 +884,11 @@ async function loadSalary() {
     console.log('✅ 급여 계산 완료:', salaryData);
     
     // 직원용 페이지에서 사용하는 필드명으로 매핑
+    // salary-calculator.js의 contractInfo 사용
+    const contractInfo = salaryData.contractInfo || {};
+    
+    console.log('📋 계약서 기준 조건:', contractInfo);
+    
     const employeeSalaryData = {
       wageType: latestContract.salaryType || latestContract.wageType || '시급',
       wageAmount: parseFloat(latestContract.salaryAmount || latestContract.wageAmount) || 0,
@@ -904,7 +909,13 @@ async function loadSalary() {
       totalIncome: salaryData.totalPay,
       workDays: salaryData.workDays,
       hourlyWage: salaryData.hourlyWage,
-      hasRealtimeCalculation: hasRealtimeCalculation
+      hasRealtimeCalculation: hasRealtimeCalculation,
+      // 계약서 기준 조건 (salary-calculator.js에서 전달)
+      has4Insurance: contractInfo.has4Insurance || false,
+      hasPension: contractInfo.hasPension || false,
+      hasHealthInsurance: contractInfo.hasHealthInsurance || false,
+      hasEmploymentInsurance: contractInfo.hasEmploymentInsurance || false,
+      isWeeklyHolidayEligible: contractInfo.isWeeklyHolidayEligible || false
     };
     
     renderSalaryInfo(employeeSalaryData);
@@ -951,7 +962,7 @@ function renderSalaryInfo(data) {
         <div style="font-size: 28px; font-weight: 700; color: var(--text-primary);">${formatCurrency(data.baseSalary)}</div>
       </div>
       
-      ${isHourly ? `
+      ${isHourly && data.isWeeklyHolidayEligible ? `
       <div class="card" style="text-align: center;">
         <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: var(--spacing-xs);">주휴수당</div>
         <div style="font-size: 28px; font-weight: 700; color: var(--success-color);">${formatCurrency(data.weeklyHolidayPay || 0)}</div>
@@ -1003,36 +1014,36 @@ function renderSalaryInfo(data) {
           <td style="text-align: right; font-weight: 700; color: var(--danger-color);">-${formatCurrency(data.deductedAmount)}</td>
         </tr>
         ` : ''}
-        ${isHourly && data.weeklyHolidayPay && data.weeklyHolidayPay > 0 ? `
+        ${isHourly && data.isWeeklyHolidayEligible && data.weeklyHolidayPay > 0 ? `
         <tr>
           <td>주휴수당</td>
           <td style="text-align: right; font-weight: 600; color: var(--success-color);">+${formatCurrency(data.weeklyHolidayPay)}</td>
         </tr>
         ` : ''}
-        ${(data.nationalPension > 0 || data.healthInsurance > 0 || data.longTermCare > 0 || data.employmentInsurance > 0 || data.incomeTax > 0) ? `
+        ${data.has4Insurance ? `
         <tr style="border-top: 2px solid var(--border-color);">
           <td colspan="2" style="background: #fef3c7; padding: 8px; font-weight: 600;">📊 4대보험 공제 (근로자 부담분)</td>
         </tr>
         ` : ''}
-        ${data.nationalPension && data.nationalPension > 0 ? `
+        ${data.hasPension && data.nationalPension > 0 ? `
         <tr>
           <td style="padding-left: 20px;">국민연금 (4.5%)</td>
           <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.nationalPension)}</td>
         </tr>
         ` : ''}
-        ${data.healthInsurance && data.healthInsurance > 0 ? `
+        ${data.hasHealthInsurance && data.healthInsurance > 0 ? `
         <tr>
           <td style="padding-left: 20px;">건강보험 (3.545%)</td>
           <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.healthInsurance)}</td>
         </tr>
         ` : ''}
-        ${data.longTermCare && data.longTermCare > 0 ? `
+        ${data.hasHealthInsurance && data.longTermCare > 0 ? `
         <tr>
           <td style="padding-left: 20px;">장기요양 (12.95%)</td>
           <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.longTermCare)}</td>
         </tr>
         ` : ''}
-        ${data.employmentInsurance && data.employmentInsurance > 0 ? `
+        ${data.hasEmploymentInsurance && data.employmentInsurance > 0 ? `
         <tr>
           <td style="padding-left: 20px;">고용보험 (0.9%)</td>
           <td style="text-align: right; font-weight: 600; color: var(--danger-color);">-${formatCurrency(data.employmentInsurance)}</td>

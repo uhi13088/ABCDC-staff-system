@@ -427,9 +427,13 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     console.log(`💰 휴일근로수당: ${totalHolidayHours.toFixed(2)}시간 × ${result.hourlyWage}원 × 1.5 = ${result.holidayPay.toLocaleString()}원`);
   }
   
-  // 주휴수당 - 주 15시간 이상 근무한 주에 대해서만 (단, 결근이 없는 주만)
+  // 주휴수당 - 계약서 기준 주 15시간 이상 근무 시 적용
   // 법원 판결 기준: 주휴수당 = 시급 × (주 근무시간 ÷ 5)
-  if (contract.allowances?.weeklyHoliday) {
+  // 계약서의 weeklyHours 또는 allowances.weeklyHoliday 체크
+  const contractWeeklyHours = parseFloat(contract.weeklyHours || 0);
+  const isWeeklyHolidayEligible = contractWeeklyHours >= 15 || contract.allowances?.weeklyHoliday;
+  
+  if (salaryType === '시급' && isWeeklyHolidayEligible) {
     let weeklyHolidayHours = 0;
     Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
       // 결근이 있는 주는 주휴수당 제외
@@ -449,6 +453,8 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     });
     result.weeklyHolidayPay = Math.round(result.hourlyWage * weeklyHolidayHours);
     console.log(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}시간 × ${result.hourlyWage.toLocaleString()}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
+  } else {
+    console.log(`⚠️ 주휴수당 미적용 - 사유: ${salaryType !== '시급' ? '시급제 아님' : `주 ${contractWeeklyHours}시간 (15시간 미만)`}`);
   }
   
   // 퇴직금 계산 (1년 이상 근속, 주 15시간 이상 근무)
@@ -506,6 +512,18 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   
   // 실지급액
   result.netPay = result.totalPay - result.totalDeductions;
+  
+  // 계약서 기준 정보 추가 (렌더링 시 조건부 표시용)
+  const insurance = contract.insurance || {};
+  result.contractInfo = {
+    weeklyHours: contractWeeklyHours,
+    isWeeklyHolidayEligible: isWeeklyHolidayEligible,
+    has4Insurance: insurance.pension || insurance.health || insurance.employment || insurance.workComp,
+    hasPension: insurance.pension || false,
+    hasHealthInsurance: insurance.health || false,
+    hasEmploymentInsurance: insurance.employment || false,
+    hasWorkCompInsurance: insurance.workComp || false
+  };
   
   console.log('✅ 급여 계산 완료:', result);
   return result;
