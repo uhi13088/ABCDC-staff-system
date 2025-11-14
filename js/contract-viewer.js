@@ -183,7 +183,7 @@ window.showContractViewModal = async function showContractViewModal(contract, cu
       </div>
       
       <!-- A4 계약서 본문 -->
-      <div id="contractPrintArea" style="width: 160mm; margin: 0 auto; background: white; padding: 40px;">
+      <div id="contractPrintArea" style="width: 160mm; margin: 0 auto; background: white; padding: 20px;">
         
         <!-- 계약서 제목 -->
         <h1 style="text-align: center; font-size: 32px; font-weight: 700; letter-spacing: 12px; margin: 0 0 30px 0;">근 로 계 약 서</h1>
@@ -444,9 +444,9 @@ async function generatePDF(element, contractId) {
   loadingDiv.innerHTML = '<p style="margin: 0; font-size: 16px; font-weight: 600;">📄 PDF 생성 중...</p><p style="margin-top: 8px; font-size: 14px; color: #666;">서명 이미지 처리 중...</p>';
   document.body.appendChild(loadingDiv);
   
-  // PDF 생성 전 padding 제거
+  // PDF 생성 전 padding 최소화 (완전 제거하면 레이아웃 깨짐)
   const originalPadding = element.style.padding;
-  element.style.padding = '0';
+  element.style.padding = '10px';
   
   // 500ms 대기
   await new Promise(resolve => setTimeout(resolve, 500));
