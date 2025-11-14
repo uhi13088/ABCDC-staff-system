@@ -194,10 +194,10 @@ window.showContractViewModal = async function showContractViewModal(contract, cu
         </p>
         
         <!-- 계약 내용 테이블 -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 13px;">
+        <table class="contract-table">
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; width: 25%; text-align: center;">근로자 정보</th>
-            <td style="border: 1px solid #333; padding: 10px; line-height: 1.8; text-align: left;">
+            <th>근로자 정보</th>
+            <td>
               <div>성명: ${contract.employeeName}</div>
               <div>주민등록번호: ${contract.employeeBirth}</div>
               <div>주소: ${contract.employeeAddress}</div>
@@ -205,8 +205,8 @@ window.showContractViewModal = async function showContractViewModal(contract, cu
             </td>
           </tr>
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">사용자 정보</th>
-            <td style="border: 1px solid #333; padding: 10px; line-height: 1.8; text-align: left;">
+            <th>사용자 정보</th>
+            <td>
               <div>회사명: ${contract.companyName}</div>
               <div>대표자: ${contract.companyCEO || '-'}</div>
               <div>사업자등록번호: ${contract.companyBusinessNumber || '-'}</div>
@@ -215,36 +215,36 @@ window.showContractViewModal = async function showContractViewModal(contract, cu
             </td>
           </tr>
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">계약 기간</th>
-            <td style="border: 1px solid #333; padding: 10px; text-align: left;">${contract.contractStartDate || contract.startDate || '-'} ~ ${contract.contractEndDate || contract.endDate || '-'}</td>
+            <th>계약 기간</th>
+            <td>${contract.contractStartDate || contract.startDate || '-'} ~ ${contract.contractEndDate || contract.endDate || '-'}</td>
           </tr>
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">근무 장소</th>
-            <td style="border: 1px solid #333; padding: 10px; text-align: left;">${contract.workStore || contract.workPlace || '-'}</td>
+            <th>근무 장소</th>
+            <td>${contract.workStore || contract.workPlace || '-'}</td>
           </tr>
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">업무 내용</th>
-            <td style="border: 1px solid #333; padding: 10px; text-align: left;">${contract.position || contract.employeePosition || '-'}</td>
+            <th>업무 내용</th>
+            <td>${contract.position || contract.employeePosition || '-'}</td>
           </tr>
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">근무 일시</th>
-            <td style="border: 1px solid #333; padding: 10px; line-height: 1.8; text-align: left;">
+            <th>근무 일시</th>
+            <td>
               <div>근무일: ${contract.workDays || contract.schedule?.days || '-'}</div>
               <div>근무시간: ${contract.workTime || contract.schedule?.time || '-'}</div>
               <div>휴게시간: ${contract.breakTime || contract.schedule?.breakTime || '근로기준법 준수'}</div>
             </td>
           </tr>
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">급여 조건</th>
-            <td style="border: 1px solid #333; padding: 10px; line-height: 1.8; text-align: left;">
+            <th>급여 조건</th>
+            <td>
               <div>${contract.salaryType || contract.wageType || '시급'}: ${(contract.salaryAmount || contract.wageAmount || 0).toLocaleString()}원</div>
               <div>지급일: ${contract.paymentDay || contract.salaryPaymentDay || '매월 말일'}</div>
               <div>지급방법: ${contract.paymentMethod || '계좌이체'}</div>
             </td>
           </tr>
           <tr>
-            <th style="border: 1px solid #333; padding: 10px; background: #f5f5f5; font-weight: 600; text-align: center;">기타 내용</th>
-            <td style="border: 1px solid #333; padding: 10px; line-height: 1.8; text-align: left;">
+            <th>기타 내용</th>
+            <td>
               ${contract.insurance ? `
                 ${contract.insurance.pension ? '<div>• 국민연금 가입</div>' : ''}
                 ${contract.insurance.health ? '<div>• 건강보험 가입</div>' : ''}
