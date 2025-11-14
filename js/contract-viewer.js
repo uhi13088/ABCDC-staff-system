@@ -60,19 +60,27 @@ window.showContractViewModal = async function showContractViewModal(contract, cu
   modal.style.display = 'flex';
   modal.id = 'contractViewModal';
   
-  // 서명 정보 확인
-  // admin-dashboard.html에서는 signedContractsCache 변수 사용
-  // employee.html에서는 localStorage 직접 사용
-  let signedContracts = [];
-  if (typeof signedContractsCache !== 'undefined') {
-    signedContracts = signedContractsCache;
-  } else {
-    const signedContractsStr = localStorage.getItem('signedContracts');
-    signedContracts = signedContractsStr ? JSON.parse(signedContractsStr) : [];
-  }
+  // 서명 정보 확인 (Firestore에서 직접 로드)
+  let signedContract = null;
+  let isSigned = false;
   
-  const signedContract = signedContracts.find(sc => sc.id === contract.id);
-  const isSigned = !!signedContract;
+  // 1. signedContractsCache가 있으면 사용 (admin에서 미리 로드한 경우)
+  if (typeof signedContractsCache !== 'undefined' && signedContractsCache.length > 0) {
+    signedContract = signedContractsCache.find(sc => sc.id === contract.id);
+    isSigned = !!signedContract;
+  } else {
+    // 2. 없으면 Firestore에서 직접 로드 (employee 페이지)
+    try {
+      const db = firebase.firestore();
+      const signedDoc = await db.collection('signedContracts').doc(contract.id).get();
+      if (signedDoc.exists) {
+        signedContract = { id: signedDoc.id, ...signedDoc.data() };
+        isSigned = true;
+      }
+    } catch (error) {
+      console.warn('⚠️ 서명 정보 조회 실패:', error);
+    }
+  }
   
   // 계약서 선택 드롭다운 생성 (여러 계약서가 있을 경우)
   let contractSelectorHtml = '';
@@ -342,16 +350,24 @@ async function generatePDF(element, contractId) {
   
   const fileName = `근로계약서_${contract.employeeName}_${new Date().toISOString().split('T')[0]}.pdf`;
   
-  // 서명 데이터 가져오기
-  let signedContracts = [];
-  if (typeof signedContractsCache !== 'undefined') {
-    signedContracts = signedContractsCache;
-  } else {
-    const signedContractsStr = localStorage.getItem('signedContracts');
-    signedContracts = signedContractsStr ? JSON.parse(signedContractsStr) : [];
-  }
+  // 서명 데이터 가져오기 (Firestore에서 직접 로드)
+  let signedContract = null;
   
-  const signedContract = signedContracts.find(sc => sc.id === contract.id);
+  // 1. signedContractsCache가 있으면 사용 (admin에서 미리 로드한 경우)
+  if (typeof signedContractsCache !== 'undefined' && signedContractsCache.length > 0) {
+    signedContract = signedContractsCache.find(sc => sc.id === contract.id);
+  } else {
+    // 2. 없으면 Firestore에서 직접 로드 (employee 페이지)
+    try {
+      const db = firebase.firestore();
+      const signedDoc = await db.collection('signedContracts').doc(contract.id).get();
+      if (signedDoc.exists) {
+        signedContract = { id: signedDoc.id, ...signedDoc.data() };
+      }
+    } catch (error) {
+      console.warn('⚠️ 서명 정보 조회 실패:', error);
+    }
+  }
   
   // 서명이 있으면 다시 그려넣기
   if (signedContract && signedContract.signature) {
