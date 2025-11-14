@@ -825,11 +825,13 @@ async function loadSalary() {
     }
     
     // 퇴근 기록 없는 경우 현재 시간으로 처리
+    let hasRealtimeCalculation = false;
     records.forEach(record => {
       if (!record.clockOut) {
         const now = new Date();
         record.clockOut = now.toTimeString().substring(0, 5); // "HH:MM" 형식
         record.isRealtime = true; // 실시간 계산 표시용
+        hasRealtimeCalculation = true;
         console.log(`⏰ 퇴근 기록 없음 - 현재 시간(${record.clockOut})까지 계산`);
       }
     });
@@ -901,7 +903,8 @@ async function loadSalary() {
       netSalary: salaryData.netPay,
       totalIncome: salaryData.totalPay,
       workDays: salaryData.workDays,
-      hourlyWage: salaryData.hourlyWage
+      hourlyWage: salaryData.hourlyWage,
+      hasRealtimeCalculation: hasRealtimeCalculation
     };
     
     renderSalaryInfo(employeeSalaryData);
@@ -975,8 +978,8 @@ function renderSalaryInfo(data) {
           <td style="text-align: right; font-weight: 600;">${data.workDays || 0}일</td>
         </tr>
         <tr>
-          <td>총 근무시간</td>
-          <td style="text-align: right; font-weight: 600;">${formatHoursAndMinutes(data.totalMinutes || 0)}</td>
+          <td>총 근무시간 ${data.hasRealtimeCalculation ? '<span style="color: #f59e0b; font-size: 12px;">⏰ 실시간</span>' : ''}</td>
+          <td style="text-align: right; font-weight: 600;">${(data.totalHours || 0).toFixed(1)}시간</td>
         </tr>
         <tr>
           <td>시급</td>
@@ -1006,9 +1009,11 @@ function renderSalaryInfo(data) {
           <td style="text-align: right; font-weight: 600; color: var(--success-color);">+${formatCurrency(data.weeklyHolidayPay)}</td>
         </tr>
         ` : ''}
+        ${(data.nationalPension > 0 || data.healthInsurance > 0 || data.longTermCare > 0 || data.employmentInsurance > 0 || data.incomeTax > 0) ? `
         <tr style="border-top: 2px solid var(--border-color);">
           <td colspan="2" style="background: #fef3c7; padding: 8px; font-weight: 600;">📊 4대보험 공제 (근로자 부담분)</td>
         </tr>
+        ` : ''}
         ${data.nationalPension && data.nationalPension > 0 ? `
         <tr>
           <td style="padding-left: 20px;">국민연금 (4.5%)</td>
