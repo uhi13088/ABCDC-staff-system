@@ -2373,7 +2373,7 @@
         const endDate = `${year}-${month}-${new Date(year, month, 0).getDate()}`;
         
         const attendancesSnapshot = await firebase.firestore().collection('attendance')
-          .where('userId', '==', employeeUid)
+          .where('uid', '==', employeeUid)
           .where('date', '>=', startDate)
           .where('date', '<=', endDate)
           .get();
