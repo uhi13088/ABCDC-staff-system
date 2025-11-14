@@ -5150,6 +5150,20 @@
                   <p style="font-weight: 600; margin: 0; font-size: 13px;">${contractPeriod}</p>
                 </div>
               </div>
+              
+              <!-- 수당 및 보험 배지 -->
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--border-color);">
+                ${contract.allowances?.overtime ? '<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 4px 8px;">연장근로수당</span>' : ''}
+                ${contract.allowances?.night ? '<span class="badge" style="background: #6366f1; color: white; font-size: 11px; padding: 4px 8px;">야간근로수당</span>' : ''}
+                ${contract.allowances?.holiday ? '<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 4px 8px;">휴일근로수당</span>' : ''}
+                ${(contract.allowances?.weeklyHoliday || parseFloat(contract.weeklyHours || 0) >= 15) ? '<span class="badge" style="background: #8b5cf6; color: white; font-size: 11px; padding: 4px 8px;">주휴수당</span>' : ''}
+                ${contract.insurance?.pension && contract.insurance?.health && contract.insurance?.employment && contract.insurance?.workComp ? '<span class="badge" style="background: #3b82f6; color: white; font-size: 11px; padding: 4px 8px;">4대보험 전체</span>' : ''}
+                ${contract.insurance?.pension && !(contract.insurance?.health && contract.insurance?.employment && contract.insurance?.workComp) ? '<span class="badge" style="background: #3b82f6; color: white; font-size: 11px; padding: 4px 8px;">국민연금</span>' : ''}
+                ${contract.insurance?.health && !(contract.insurance?.pension && contract.insurance?.employment && contract.insurance?.workComp) ? '<span class="badge" style="background: #3b82f6; color: white; font-size: 11px; padding: 4px 8px;">건강보험</span>' : ''}
+                ${contract.insurance?.employment && !(contract.insurance?.pension && contract.insurance?.health && contract.insurance?.workComp) ? '<span class="badge" style="background: #3b82f6; color: white; font-size: 11px; padding: 4px 8px;">고용보험</span>' : ''}
+                ${contract.insurance?.workComp && !(contract.insurance?.pension && contract.insurance?.health && contract.insurance?.employment) ? '<span class="badge" style="background: #3b82f6; color: white; font-size: 11px; padding: 4px 8px;">산재보험</span>' : ''}
+                ${(contract.insurance?.severancePay || parseFloat(contract.weeklyHours || 0) >= 15) ? '<span class="badge" style="background: #ec4899; color: white; font-size: 11px; padding: 4px 8px;">퇴직금</span>' : ''}
+              </div>
             </div>
           `;
         });
