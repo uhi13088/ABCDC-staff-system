@@ -873,11 +873,21 @@
   <!-- Salary Calculator (before main script) -->
   <script src="js/salary-calculator.js"></script>
   
+  <!-- PDF Generator (전역 PDF 생성 모듈) -->
+  <script src="js/pdf-generator.js"></script>
+  
   <!-- Contract Viewer (공통 모듈 - 관리자/직원 페이지 공용) -->
   <script src="js/contract-viewer.js"></script>
   
   <!-- Schedule Viewer (공통 모듈 - 관리자/직원 페이지 공용, 간트차트 전용) -->
   <script src="js/schedule-viewer.js"></script>
+  
+  <!-- PDF 다운로드 함수 오버라이드 (pdf-generator.js 사용) -->
+  <script>
+    window.downloadContractPDF = function(contractId) {
+      window.generateContractPDF(contractId, { pageType: 'admin' });
+    };
+  </script>
 
   <script>
     // ===========================================
