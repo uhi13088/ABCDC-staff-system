@@ -1814,11 +1814,7 @@
       if (modal) modal.remove();
     }
     
-    // 계약서 버전 전환 함수
-    window.switchContractVersion = function(contractId) {
-      closeContractViewModal();
-      viewContract(contractId);
-    };
+    // 계약서 버전 전환 함수는 js/contract-viewer.js 공통 모듈 사용
     
     // 인쇄 기능
     window.printContract = function() {
