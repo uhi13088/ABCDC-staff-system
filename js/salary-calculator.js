@@ -519,7 +519,6 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   result.netPay = result.totalPay - result.totalDeductions;
   
   // 계약서 기준 정보 추가 (렌더링 시 조건부 표시용)
-  const insurance = contract.insurance || {};
   result.contractInfo = {
     weeklyHours: contractWeeklyHours,
     isWeeklyHolidayEligible: isWeeklyHolidayEligible,
