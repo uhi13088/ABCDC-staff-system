@@ -2892,7 +2892,79 @@ function getEmployeeWeekNumber(date) {
 /**
  * 내 스케줄 로드
  */
+/**
+ * 직원 스케줄 로드 (리팩토링 버전 - schedule-viewer.js 모듈 사용)
+ */
 async function loadEmployeeSchedule() {
+  if (!currentUser) return;
+  
+  const monday = getEmployeeMonday(currentEmployeeWeek);
+  const year = monday.getFullYear();
+  const weekNum = getEmployeeWeekNumber(monday);
+  
+  // 주차 표시 업데이트
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  document.getElementById('employeeWeekDisplay').textContent = 
+    `${year}년 ${weekNum}주차 (${monday.getMonth()+1}/${monday.getDate()} ~ ${sunday.getMonth()+1}/${sunday.getDate()})`;
+  
+  try {
+    const mondayStr = monday.toISOString().split('T')[0];
+    const sundayStr = sunday.toISOString().split('T')[0];
+    
+    const showStoreSchedule = document.getElementById('showStoreScheduleToggle')?.checked || false;
+    
+    console.log(`📅 스케줄 조회 시작 (${showStoreSchedule ? '매장 전체' : '내 근무만'})`);
+    console.log(`   사용자: ${currentUser.name} (uid: ${currentUser.uid})`);
+    console.log(`   기간: ${mondayStr} ~ ${sundayStr}`);
+    
+    // 🆕 리팩토링: schedule-viewer.js의 loadScheduleData() 사용
+    const data = await window.loadScheduleData(db, {
+      type: 'employee',
+      userId: currentUser.uid,
+      userName: currentUser.name,
+      storeName: showStoreSchedule ? currentUser.store : null,
+      startDate: mondayStr,
+      endDate: sundayStr
+    });
+    
+    // 데이터 구조 검증
+    if (!data || data.type !== 'schedule' || !Array.isArray(data.employees)) {
+      throw new Error('Invalid data structure from loadScheduleData');
+    }
+    
+    currentEmployeeScheduleData = data;
+    
+    // 스케줄이 없을 때 안내 메시지
+    const hasSchedules = data.employees.some(emp => 
+      Object.values(emp.schedules).some(daySchedules => daySchedules.length > 0)
+    );
+    
+    if (!hasSchedules) {
+      console.warn(`   📭 이번 주 스케줄이 없습니다.`);
+      document.getElementById('employeeScheduleContainer').innerHTML = 
+        '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">' +
+        '<div style="font-size: 48px; margin-bottom: 16px;">📭</div>' +
+        '<p style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">이번 주 스케줄이 없습니다</p>' +
+        '<p style="font-size: 14px;">관리자가 스케줄을 등록하면 여기에 표시됩니다.</p>' +
+        '</div>';
+      return;
+    }
+    
+    renderEmployeeScheduleGantt();
+    
+  } catch (error) {
+    console.error('❌ 스케줄 로드 실패:', error);
+    document.getElementById('employeeScheduleContainer').innerHTML = 
+      '<p style="text-align: center; padding: 40px; color: var(--text-secondary);">스케줄을 불러오는데 실패했습니다.</p>';
+  }
+}
+
+/**
+ * 직원 스케줄 로드 (기존 버전 - 백업용)
+ * ⚠️ 리팩토링 완료 후 삭제 예정
+ */
+async function loadEmployeeSchedule_OLD() {
   if (!currentUser) return;
   
   const monday = getEmployeeMonday(currentEmployeeWeek);
