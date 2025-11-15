@@ -9608,21 +9608,34 @@
               }
               
               if (selectedSchedule) {
-                // 계약서의 breakTime 정보 파싱
+                // 계약서의 breakTime 정보 파싱 (문자열 형식: "1시간 0분 (17:00~18:00)")
                 let breakTime = null;
-                if (latestContract && latestContract.breakTimeData) {
-                  const btd = latestContract.breakTimeData;
-                  const breakHour = parseInt(btd.hour || 0);
-                  const breakMinute = parseInt(btd.minute || 0);
-                  const breakMinutes = breakHour * 60 + breakMinute;
+                if (latestContract && latestContract.breakTime) {
+                  const breakTimeStr = latestContract.breakTime;
+                  console.log(`       🔍 breakTime 원본: "${breakTimeStr}"`);
                   
-                  if (breakMinutes > 0 && btd.startHour && btd.startMinute && btd.endHour && btd.endMinute) {
-                    breakTime = {
-                      start: `${String(btd.startHour).padStart(2, '0')}:${String(btd.startMinute).padStart(2, '0')}`,
-                      end: `${String(btd.endHour).padStart(2, '0')}:${String(btd.endMinute).padStart(2, '0')}`,
-                      minutes: breakMinutes
-                    };
-                    console.log(`       ℹ️ 휴게시간: ${breakTime.start}-${breakTime.end} (${breakMinutes}분)`);
+                  // 정규식으로 시간 추출: "X시간 Y분 (HH:MM~HH:MM)"
+                  const timeMatch = breakTimeStr.match(/(\d+)시간\s*(\d+)분\s*\((\d+):(\d+)~(\d+):(\d+)\)/);
+                  
+                  if (timeMatch) {
+                    const breakHour = parseInt(timeMatch[1]);
+                    const breakMinute = parseInt(timeMatch[2]);
+                    const breakStartH = timeMatch[3];
+                    const breakStartM = timeMatch[4];
+                    const breakEndH = timeMatch[5];
+                    const breakEndM = timeMatch[6];
+                    const breakMinutes = breakHour * 60 + breakMinute;
+                    
+                    if (breakMinutes > 0) {
+                      breakTime = {
+                        start: `${breakStartH}:${breakStartM}`,
+                        end: `${breakEndH}:${breakEndM}`,
+                        minutes: breakMinutes
+                      };
+                      console.log(`       ✅ 휴게시간 파싱 성공: ${breakTime.start}-${breakTime.end} (${breakMinutes}분)`);
+                    }
+                  } else {
+                    console.log(`       ⚠️ breakTime 파싱 실패: "${breakTimeStr}"`);
                   }
                 }
                 
@@ -9642,20 +9655,28 @@
             
             // 추가 근무계약서 (대체근무): 모두 표시
             dateSchedules.additional.forEach(addSchedule => {
-              // 대체근무도 계약서 breakTime 적용
+              // 대체근무도 계약서 breakTime 적용 (문자열 파싱)
               let breakTime = null;
-              if (latestContract && latestContract.breakTimeData) {
-                const btd = latestContract.breakTimeData;
-                const breakHour = parseInt(btd.hour || 0);
-                const breakMinute = parseInt(btd.minute || 0);
-                const breakMinutes = breakHour * 60 + breakMinute;
+              if (latestContract && latestContract.breakTime) {
+                const breakTimeStr = latestContract.breakTime;
+                const timeMatch = breakTimeStr.match(/(\d+)시간\s*(\d+)분\s*\((\d+):(\d+)~(\d+):(\d+)\)/);
                 
-                if (breakMinutes > 0 && btd.startHour && btd.startMinute && btd.endHour && btd.endMinute) {
-                  breakTime = {
-                    start: `${String(btd.startHour).padStart(2, '0')}:${String(btd.startMinute).padStart(2, '0')}`,
-                    end: `${String(btd.endHour).padStart(2, '0')}:${String(btd.endMinute).padStart(2, '0')}`,
-                    minutes: breakMinutes
-                  };
+                if (timeMatch) {
+                  const breakHour = parseInt(timeMatch[1]);
+                  const breakMinute = parseInt(timeMatch[2]);
+                  const breakStartH = timeMatch[3];
+                  const breakStartM = timeMatch[4];
+                  const breakEndH = timeMatch[5];
+                  const breakEndM = timeMatch[6];
+                  const breakMinutes = breakHour * 60 + breakMinute;
+                  
+                  if (breakMinutes > 0) {
+                    breakTime = {
+                      start: `${breakStartH}:${breakStartM}`,
+                      end: `${breakEndH}:${breakEndM}`,
+                      minutes: breakMinutes
+                    };
+                  }
                 }
               }
               
