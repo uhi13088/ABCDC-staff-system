@@ -3967,6 +3967,40 @@
             const [endHour, endMin] = endTime.split(':').map(Number);
             const hours = (endHour * 60 + endMin - (startHour * 60 + startMin)) / 60;
             
+            // 대타자의 계약서에서 breakTime 가져오기
+            let breakTimeObj = null;
+            try {
+              const matchedUserContracts = await db.collection('contracts')
+                .where('employeeId', '==', shiftData.matchedUserId)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+              
+              if (!matchedUserContracts.empty) {
+                const matchedContract = matchedUserContracts.docs[0].data();
+                if (matchedContract.breakTime) {
+                  const breakTimeStr = matchedContract.breakTime;
+                  const timeMatch = breakTimeStr.match(/(\d+)시간\s*(\d+)분\s*\((\d+):(\d+)~(\d+):(\d+)\)/);
+                  
+                  if (timeMatch) {
+                    const breakHour = parseInt(timeMatch[1]);
+                    const breakMinute = parseInt(timeMatch[2]);
+                    const breakMinutes = breakHour * 60 + breakMinute;
+                    
+                    if (breakMinutes > 0) {
+                      breakTimeObj = {
+                        start: `${timeMatch[3]}:${timeMatch[4]}`,
+                        end: `${timeMatch[5]}:${timeMatch[6]}`,
+                        minutes: breakMinutes
+                      };
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('⚠️ 대타자 계약서 조회 실패:', err);
+            }
+            
             // 새 근무 문서 생성
             const newSchedule = {
               userId: shiftData.matchedUserId,
@@ -3976,6 +4010,7 @@
               startTime: startTime,
               endTime: endTime,
               hours: hours,
+              breakTime: breakTimeObj, // 🆕 대타자의 휴게시간 추가
               isShiftReplacement: true, // 대체근무 표시
               shiftRequestId: approvalId,
               originalRequesterId: shiftData.requesterId,
@@ -7532,6 +7567,32 @@
               
               // 새 스케줄 문서 생성
               const scheduleRef = firebase.firestore().collection('schedules').doc();
+              
+              // breakTime 파싱 (계약서에서)
+              let breakTimeObj = null;
+              if (contractData.breakTime) {
+                const breakTimeStr = contractData.breakTime;
+                const timeMatch = breakTimeStr.match(/(\d+)시간\s*(\d+)분\s*\((\d+):(\d+)~(\d+):(\d+)\)/);
+                
+                if (timeMatch) {
+                  const breakHour = parseInt(timeMatch[1]);
+                  const breakMinute = parseInt(timeMatch[2]);
+                  const breakStartH = timeMatch[3];
+                  const breakStartM = timeMatch[4];
+                  const breakEndH = timeMatch[5];
+                  const breakEndM = timeMatch[6];
+                  const breakMinutes = breakHour * 60 + breakMinute;
+                  
+                  if (breakMinutes > 0) {
+                    breakTimeObj = {
+                      start: `${breakStartH}:${breakStartM}`,
+                      end: `${breakEndH}:${breakEndM}`,
+                      minutes: breakMinutes
+                    };
+                  }
+                }
+              }
+              
               const scheduleData = {
                 userId: employeeId,
                 userName: contractData.employeeName,
@@ -7540,6 +7601,7 @@
                 startTime: dayScheduleMap[day].startTime,
                 endTime: dayScheduleMap[day].endTime,
                 hours: dayScheduleMap[day].hours,
+                breakTime: breakTimeObj, // 🆕 휴게시간 추가
                 isShiftReplacement: false,
                 contractId: contractData.contractId || null, // 계약서 ID 추가
                 shiftRequestId: null,
@@ -9608,42 +9670,18 @@
               }
               
               if (selectedSchedule) {
-                // 계약서의 breakTime 정보 파싱 (문자열 형식: "1시간 0분 (17:00~18:00)")
-                let breakTime = null;
-                if (latestContract && latestContract.breakTime) {
-                  const breakTimeStr = latestContract.breakTime;
-                  console.log(`       🔍 breakTime 원본: "${breakTimeStr}"`);
-                  
-                  // 정규식으로 시간 추출: "X시간 Y분 (HH:MM~HH:MM)"
-                  const timeMatch = breakTimeStr.match(/(\d+)시간\s*(\d+)분\s*\((\d+):(\d+)~(\d+):(\d+)\)/);
-                  
-                  if (timeMatch) {
-                    const breakHour = parseInt(timeMatch[1]);
-                    const breakMinute = parseInt(timeMatch[2]);
-                    const breakStartH = timeMatch[3];
-                    const breakStartM = timeMatch[4];
-                    const breakEndH = timeMatch[5];
-                    const breakEndM = timeMatch[6];
-                    const breakMinutes = breakHour * 60 + breakMinute;
-                    
-                    if (breakMinutes > 0) {
-                      breakTime = {
-                        start: `${breakStartH}:${breakStartM}`,
-                        end: `${breakEndH}:${breakEndM}`,
-                        minutes: breakMinutes
-                      };
-                      console.log(`       ✅ 휴게시간 파싱 성공: ${breakTime.start}-${breakTime.end} (${breakMinutes}분)`);
-                    }
-                  } else {
-                    console.log(`       ⚠️ breakTime 파싱 실패: "${breakTimeStr}"`);
-                  }
+                // 스케줄 문서의 breakTime 필드 사용 (새로 생성된 스케줄은 여기 포함됨)
+                const breakTime = selectedSchedule.breakTime || null;
+                
+                if (breakTime) {
+                  console.log(`       ✅ 휴게시간: ${breakTime.start}-${breakTime.end} (${breakTime.minutes}분)`);
                 }
                 
                 schedules[dayName].push({
                   startTime: selectedSchedule.startTime || '',
                   endTime: selectedSchedule.endTime || '',
                   hours: selectedSchedule.hours || 0,
-                  breakTime: breakTime, // 휴게시간 정보 추가
+                  breakTime: breakTime, // 스케줄 문서의 breakTime 그대로 사용
                   isShiftReplacement: false,
                   isWorkDay: true
                 });
@@ -9655,39 +9693,22 @@
             
             // 추가 근무계약서 (대체근무): 모두 표시
             dateSchedules.additional.forEach(addSchedule => {
-              // 대체근무도 계약서 breakTime 적용 (문자열 파싱)
-              let breakTime = null;
-              if (latestContract && latestContract.breakTime) {
-                const breakTimeStr = latestContract.breakTime;
-                const timeMatch = breakTimeStr.match(/(\d+)시간\s*(\d+)분\s*\((\d+):(\d+)~(\d+):(\d+)\)/);
-                
-                if (timeMatch) {
-                  const breakHour = parseInt(timeMatch[1]);
-                  const breakMinute = parseInt(timeMatch[2]);
-                  const breakStartH = timeMatch[3];
-                  const breakStartM = timeMatch[4];
-                  const breakEndH = timeMatch[5];
-                  const breakEndM = timeMatch[6];
-                  const breakMinutes = breakHour * 60 + breakMinute;
-                  
-                  if (breakMinutes > 0) {
-                    breakTime = {
-                      start: `${breakStartH}:${breakStartM}`,
-                      end: `${breakEndH}:${breakEndM}`,
-                      minutes: breakMinutes
-                    };
-                  }
-                }
+              // 스케줄 문서의 breakTime 필드 사용 (대타 생성 시 이미 저장됨)
+              const breakTime = addSchedule.breakTime || null;
+              
+              if (breakTime) {
+                console.log(`       ✅ [대타] 휴게시간: ${breakTime.start}-${breakTime.end} (${breakTime.minutes}분)`);
               }
               
               schedules[dayName].push({
                 startTime: addSchedule.startTime || '',
                 endTime: addSchedule.endTime || '',
                 hours: addSchedule.hours || 0,
-                breakTime: breakTime, // 휴게시간 정보 추가
+                breakTime: breakTime, // 스케줄 문서의 breakTime 그대로 사용
                 isShiftReplacement: true,
                 isWorkDay: true
               });
+              console.log(`       ✅ [대타] ${dayName} 스케줄 추가됨: ${addSchedule.startTime}-${addSchedule.endTime}${breakTime ? ` (휴게 ${breakTime.minutes}분)` : ''}`);
             });
           });
           
