@@ -794,14 +794,9 @@ async function loadEmployeeSchedulesForWeek(db, userId, userName, startDate, end
       if (dateSchedules[dateStr].regular.length > 0) {
         let selectedSchedule = null;
         
-        console.log(`  📆 ${dateStr} (${dayName}): 정규 스케줄 ${dateSchedules[dateStr].regular.length}개 발견`);
-        console.log(`     최신 계약서 ID: ${latestContractId || '없음'}`);
-        
         if (latestContractId) {
           // 최신 계약서 ID와 일치하는 스케줄 찾기
           selectedSchedule = dateSchedules[dateStr].regular.find(s => s.contractId === latestContractId);
-          
-          console.log(`     최신 계약서 매칭: ${selectedSchedule ? 'O' : 'X'}`);
           
           if (!selectedSchedule) {
             // contractId 없으면 createdAt 기준 최신 선택
@@ -811,7 +806,6 @@ async function loadEmployeeSchedulesForWeek(db, userId, userName, startDate, end
               return bTime - aTime;
             });
             selectedSchedule = sorted[0];
-            console.log(`     ⚠️ contractId 없어서 createdAt 기준 최신 선택`);
           }
         } else {
           // 계약서 없으면 createdAt 기준 최신 선택
@@ -821,7 +815,6 @@ async function loadEmployeeSchedulesForWeek(db, userId, userName, startDate, end
             return bTime - aTime;
           });
           selectedSchedule = sorted[0];
-          console.log(`     ⚠️ 계약서 없어서 createdAt 기준 최신 선택`);
         }
         
         if (selectedSchedule) {
