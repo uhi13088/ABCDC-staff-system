@@ -135,6 +135,7 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
                 console.log(`🔍 [${emp.name}] ${day} 스케줄:`, {
                   startTime: schedule.startTime,
                   endTime: schedule.endTime,
+                  hours: schedule.hours,
                   breakTime: schedule.breakTime,
                   hasBreakTime: !!schedule.breakTime
                 });
@@ -277,9 +278,22 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
         
         const shiftIcon = worker.isShiftReplacement ? '🔄' : '';
         
+        // 총 근무시간 계산 (startTime ~ endTime)
+        const [startH, startM] = worker.startTime.split(':').map(Number);
+        const [endH, endM] = worker.endTime.split(':').map(Number);
+        const startMinutesTotal = startH * 60 + startM;
+        let endMinutesTotal = endH * 60 + endM;
+        
+        // 자정 넘어가는 경우 처리
+        if (endMinutesTotal < startMinutesTotal) {
+          endMinutesTotal += 24 * 60;
+        }
+        
+        const totalWorkHours = (endMinutesTotal - startMinutesTotal) / 60;
+        
         // 휴게시간 파싱 (breakTime: { start: "12:00", end: "13:00", minutes: 60 })
         let breakTimeInfo = '';
-        let actualWorkHours = worker.hours;
+        let actualWorkHours = totalWorkHours;
         
         if (worker.breakTime) {
           const breakStart = worker.breakTime.start;
@@ -287,7 +301,7 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
           const breakMinutes = worker.breakTime.minutes || 0;
           
           if (breakMinutes > 0) {
-            actualWorkHours = worker.hours - (breakMinutes / 60);
+            actualWorkHours = totalWorkHours - (breakMinutes / 60);
             breakTimeInfo = ` (휴게 ${Math.floor(breakMinutes / 60)}h${breakMinutes % 60 > 0 ? ` ${breakMinutes % 60}m` : ''})`;
           }
         }
@@ -428,9 +442,21 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
           if (scheduleArray && Array.isArray(scheduleArray) && scheduleArray.length > 0) {
             scheduleArray.forEach(schedule => {
               if (schedule.isWorkDay) {
-                totalHours += parseFloat(schedule.hours);
+                // startTime, endTime으로 총 근무시간 계산
+                const [startH, startM] = schedule.startTime.split(':').map(Number);
+                const [endH, endM] = schedule.endTime.split(':').map(Number);
+                const startMinutesTotal = startH * 60 + startM;
+                let endMinutesTotal = endH * 60 + endM;
                 
-                // 휴게시간 제외
+                // 자정 넘어가는 경우 처리
+                if (endMinutesTotal < startMinutesTotal) {
+                  endMinutesTotal += 24 * 60;
+                }
+                
+                const scheduleHours = (endMinutesTotal - startMinutesTotal) / 60;
+                totalHours += scheduleHours;
+                
+                // 휴게시간 합산
                 if (schedule.breakTime && schedule.breakTime.minutes) {
                   totalBreakMinutes += schedule.breakTime.minutes;
                 }
