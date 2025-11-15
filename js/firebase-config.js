@@ -44,13 +44,14 @@ try {
   
   console.log('✅ Firebase 초기화 성공');
   
-  // Firestore 설정
+  // Firestore 설정 (한 번만 호출, merge 옵션 사용)
   db.settings({
-    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED,
+    merge: true
   });
   
-  // 오프라인 지속성 활성화
-  db.enablePersistence()
+  // 오프라인 지속성 활성화 (구식 API지만 호환성 유지)
+  db.enablePersistence({ synchronizeTabs: true })
     .then(() => {
       console.log('✅ Firestore 오프라인 지속성 활성화');
     })
