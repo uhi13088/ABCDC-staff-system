@@ -9423,7 +9423,7 @@
           // 스케줄표 모드로 전환 시 리스너 해제
           detachAttendanceListener();
           // 스케줄 데이터 로드
-          await loadScheduleData(storeId, year, weekNum);
+          await loadScheduleDataWrapper(storeId, year, weekNum);
         } else {
           // 출퇴근 기록 데이터 로드 (실시간 리스너 설정)
           await loadAttendanceData(storeId, monday);
@@ -9443,7 +9443,7 @@
     /**
      * 스케줄 데이터 로드 (리팩토링 버전 - schedule-viewer.js 모듈 사용)
      */
-    async function loadScheduleData(storeId, year, weekNum) {
+    async function loadScheduleDataWrapper(storeId, year, weekNum) {
       try {
         console.log(`🔍 스케줄 조회: 매장ID=${storeId}, 주차=${year}-${weekNum}`);
         
