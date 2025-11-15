@@ -271,7 +271,38 @@ firebase deploy
 
 ## 📝 주요 업데이트
 
-### 최신 업데이트 (2025-11-13)
+### 최신 업데이트 (2025-11-15)
+
+**🔧 스케줄 데이터 로딩 리팩토링 완료 🎉**
+- ✅ **schedule-viewer.js 공통 데이터 로딩 함수 추가**: 관리자/직원 페이지 통합
+  - `window.loadScheduleData()`: 스케줄 데이터 로딩 통합 함수
+  - `loadStoreSchedules()`: 매장 전체 스케줄 로딩
+  - `loadEmployeeSchedules()`: 개인/매장 전체 스케줄 로딩
+  - `loadEmployeeSchedulesForWeek()`: 주간 스케줄 가공 (중복 제거)
+  - `getContractCached()`: 계약서 캐싱 (5분 TTL)
+- ✅ **admin-dashboard.html 리팩토링**: `loadScheduleDataWrapper()` 사용
+  - 기존 `loadScheduleData()` → `loadScheduleData_OLD()` 백업
+  - 337줄 → 47줄로 축소 (86% 코드 감소)
+- ✅ **employee.js 리팩토링**: 공통 모듈 사용
+  - 기존 `loadEmployeeSchedule()` → `loadEmployeeSchedule_OLD()` 백업
+  - 297줄 중복 코드 제거
+- ✅ **계약서 캐싱 시스템**: Firestore 읽기 최적화 (5분 캐시)
+- ✅ **최신 계약서 기준 필터링**: 중복 스케줄 자동 제거
+- ✅ **breakTime 지원**: 휴게시간 투명 막대 표시 및 실근무시간 계산
+
+**🐛 버그 수정**
+- ✅ 재귀 호출 버그 수정: 함수명 충돌 (`loadScheduleDataWrapper` 변경)
+- ✅ `undefined` 반환 문제 해결
+- ✅ 스케줄 필터링 로직 검증 완료
+
+**📊 휴게시간(breakTime) 표시 시스템 🎉**
+- ✅ **breakTime 객체 저장**: `{start, end, minutes}` 구조로 Firestore 저장
+- ✅ **투명 막대 표시**: 간트차트에서 휴게시간을 투명 막대로 시각화
+- ✅ **실근무시간 계산**: 총 근무시간 - 휴게시간 = 실근무시간
+- ✅ **주간 요약 정확도**: 휴게시간 반영한 실제 근무시간 표시
+- ✅ **z-index 최적화**: 호버 시에도 휴게시간 막대 가시성 유지
+
+### 이전 업데이트 (2025-11-13)
 
 **📊 스케줄 뷰어 모듈화 완료 🎉**
 - ✅ **schedule-viewer.js 공통 모듈 생성**: 간트차트 스케줄 표시 로직 통합
@@ -288,10 +319,12 @@ firebase deploy
 **모듈 구조**:
 ```
 js/schedule-viewer.js (공통 모듈)
-└── window.renderScheduleGanttChart(scheduleData, weekDate, options)
-    ├── isAdmin: 관리자 모드 (급여 정보 표시)
-    ├── showOnlyMySchedule: 내 근무만 필터링
-    └── currentUserId: 현재 사용자 ID
+├── window.renderScheduleGanttChart() - 간트차트 렌더링
+├── window.loadScheduleData() - 스케줄 데이터 로딩
+├── loadStoreSchedules() - 매장 전체 로딩
+├── loadEmployeeSchedules() - 개인/매장 로딩
+├── loadEmployeeSchedulesForWeek() - 주간 스케줄 가공
+└── getContractCached() - 계약서 캐싱
 
 admin-dashboard.html → schedule-viewer.js 로드
 employee.js         → schedule-viewer.js 로드
