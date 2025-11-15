@@ -9670,11 +9670,22 @@
               }
               
               if (selectedSchedule) {
+                // 🔍 DEBUG: 선택된 스케줄의 전체 데이터 확인
+                console.log(`       🔍 [DEBUG] selectedSchedule 원본 데이터:`, {
+                  startTime: selectedSchedule.startTime,
+                  endTime: selectedSchedule.endTime,
+                  breakTime: selectedSchedule.breakTime,
+                  hasBreakTime: !!selectedSchedule.breakTime,
+                  allKeys: Object.keys(selectedSchedule)
+                });
+                
                 // 스케줄 문서의 breakTime 필드 사용 (새로 생성된 스케줄은 여기 포함됨)
                 const breakTime = selectedSchedule.breakTime || null;
                 
                 if (breakTime) {
                   console.log(`       ✅ 휴게시간: ${breakTime.start}-${breakTime.end} (${breakTime.minutes}분)`);
+                } else {
+                  console.log(`       ⚠️ breakTime 없음`);
                 }
                 
                 schedules[dayName].push({

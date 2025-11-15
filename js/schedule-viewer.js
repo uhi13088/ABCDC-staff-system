@@ -131,6 +131,14 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
               if (schedule.isWorkDay) {
                 const barColor = colorMap[emp.name];
                 
+                // 🔍 DEBUG: breakTime 데이터 확인
+                console.log(`🔍 [${emp.name}] ${day} 스케줄:`, {
+                  startTime: schedule.startTime,
+                  endTime: schedule.endTime,
+                  breakTime: schedule.breakTime,
+                  hasBreakTime: !!schedule.breakTime
+                });
+                
                 dayWorkers[day].push({
                   name: emp.name,
                   startTime: schedule.startTime,
