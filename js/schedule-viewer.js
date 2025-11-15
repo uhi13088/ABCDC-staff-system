@@ -278,9 +278,7 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
         
         const shiftIcon = worker.isShiftReplacement ? '🔄' : '';
         
-        // 총 근무시간 계산 (startTime ~ endTime)
-        const [startH, startM] = worker.startTime.split(':').map(Number);
-        const [endH, endM] = worker.endTime.split(':').map(Number);
+        // 총 근무시간 계산 (startTime ~ endTime) - 이미 선언된 startH, endH 사용
         const startMinutesTotal = startH * 60 + startM;
         let endMinutesTotal = endH * 60 + endM;
         
