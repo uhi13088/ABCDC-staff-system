@@ -9491,6 +9491,8 @@
               latestContract = docs[0].data(); // 계약서 데이터 전체 저장 (breakTimeData 포함)
               console.log(`  ✅ ${empData.name} 최신 계약서 ID: ${latestContractId}`);
               console.log(`     employeeId: ${latestContract.employeeId}, employeeName: ${latestContract.employeeName}`);
+              console.log(`     🔍 breakTimeData 확인:`, latestContract.breakTimeData);
+              console.log(`     🔍 breakTime 필드:`, latestContract.breakTime);
             } else {
               console.log(`  ❌ ${empData.name}: 계약서 없음`);
               console.log(`     확인 사항: contracts 컬렉션에 해당 직원의 계약서가 있는지 Firebase 콘솔에서 확인하세요.`);
