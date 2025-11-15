@@ -9440,7 +9440,51 @@
     /**
      * 스케줄 데이터 로드 (새 구조: 날짜별 개별 문서)
      */
+    /**
+     * 스케줄 데이터 로드 (리팩토링 버전 - schedule-viewer.js 모듈 사용)
+     */
     async function loadScheduleData(storeId, year, weekNum) {
+      try {
+        console.log(`🔍 스케줄 조회: 매장ID=${storeId}, 주차=${year}-${weekNum}`);
+        
+        // 해당 주의 월요일과 일요일 날짜 계산
+        const monday = getMonday(currentScheduleWeek);
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
+        
+        const mondayStr = monday.toISOString().split('T')[0];
+        const sundayStr = sunday.toISOString().split('T')[0];
+        
+        console.log(`📅 조회 기간: ${mondayStr} ~ ${sundayStr}`);
+        
+        // 🆕 리팩토링: schedule-viewer.js의 loadScheduleData() 사용
+        const data = await window.loadScheduleData(db, {
+          type: 'store',
+          storeId: storeId,
+          startDate: mondayStr,
+          endDate: sundayStr
+        });
+        
+        // 데이터 구조 검증
+        if (!data || data.type !== 'schedule' || !Array.isArray(data.employees)) {
+          throw new Error('Invalid data structure from loadScheduleData');
+        }
+        
+        currentScheduleData = data;
+        console.log('✅ 스케줄 데이터 로드 완료:', data.employees.length, '명');
+        
+      } catch (error) {
+        console.error('❌ 스케줄 데이터 로드 실패:', error);
+        // 오류 시 빈 데이터
+        currentScheduleData = { type: 'schedule', employees: [] };
+      }
+    }
+
+    /**
+     * 스케줄 데이터 로드 (기존 버전 - 백업용)
+     * ⚠️ 리팩토링 완료 후 삭제 예정
+     */
+    async function loadScheduleData_OLD(storeId, year, weekNum) {
       try {
         // 선택된 매장 이름 가져오기
         const storeDoc = await db.collection('stores').doc(storeId).get();
