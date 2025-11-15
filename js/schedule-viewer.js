@@ -341,6 +341,7 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
               border-radius: 2px;
               border: 1px dashed ${worker.color};
               pointer-events: none;
+              z-index: 10;
             "></div>
           `;
         }
