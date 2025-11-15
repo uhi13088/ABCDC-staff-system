@@ -9616,10 +9616,11 @@
                   
                   if (breakMinutes > 0 && btd.startHour && btd.startMinute && btd.endHour && btd.endMinute) {
                     breakTime = {
-                      start: `${btd.startHour.padStart(2, '0')}:${btd.startMinute.padStart(2, '0')}`,
-                      end: `${btd.endHour.padStart(2, '0')}:${btd.endMinute.padStart(2, '0')}`,
+                      start: `${String(btd.startHour).padStart(2, '0')}:${String(btd.startMinute).padStart(2, '0')}`,
+                      end: `${String(btd.endHour).padStart(2, '0')}:${String(btd.endMinute).padStart(2, '0')}`,
                       minutes: breakMinutes
                     };
+                    console.log(`       ℹ️ 휴게시간: ${breakTime.start}-${breakTime.end} (${breakMinutes}분)`);
                   }
                 }
                 
@@ -9649,8 +9650,8 @@
                 
                 if (breakMinutes > 0 && btd.startHour && btd.startMinute && btd.endHour && btd.endMinute) {
                   breakTime = {
-                    start: `${btd.startHour.padStart(2, '0')}:${btd.startMinute.padStart(2, '0')}`,
-                    end: `${btd.endHour.padStart(2, '0')}:${btd.endMinute.padStart(2, '0')}`,
+                    start: `${String(btd.startHour).padStart(2, '0')}:${String(btd.startMinute).padStart(2, '0')}`,
+                    end: `${String(btd.endHour).padStart(2, '0')}:${String(btd.endMinute).padStart(2, '0')}`,
                     minutes: breakMinutes
                   };
                 }
