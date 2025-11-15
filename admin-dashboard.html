@@ -9479,6 +9479,7 @@
               console.log(`     2차 조회 결과: ${contractSnapshot.size}개`);
             }
             
+            let latestContract = null;
             if (!contractSnapshot.empty) {
               // 클라이언트에서 최신순 정렬
               const docs = contractSnapshot.docs.sort((a, b) => {
@@ -9487,9 +9488,9 @@
                 return bTime - aTime;
               });
               latestContractId = docs[0].id;
-              const contractData = docs[0].data();
+              latestContract = docs[0].data(); // 계약서 데이터 전체 저장 (breakTimeData 포함)
               console.log(`  ✅ ${empData.name} 최신 계약서 ID: ${latestContractId}`);
-              console.log(`     employeeId: ${contractData.employeeId}, employeeName: ${contractData.employeeName}`);
+              console.log(`     employeeId: ${latestContract.employeeId}, employeeName: ${latestContract.employeeName}`);
             } else {
               console.log(`  ❌ ${empData.name}: 계약서 없음`);
               console.log(`     확인 사항: contracts 컬렉션에 해당 직원의 계약서가 있는지 Firebase 콘솔에서 확인하세요.`);
@@ -9499,7 +9500,7 @@
           }
           
           // 계약서가 없으면 스케줄 표시하지 않음
-          if (!latestContractId) {
+          if (!latestContractId || !latestContract) {
             continue;
           }
           
@@ -9605,14 +9606,32 @@
               }
               
               if (selectedSchedule) {
+                // 계약서의 breakTime 정보 파싱
+                let breakTime = null;
+                if (latestContract && latestContract.breakTimeData) {
+                  const btd = latestContract.breakTimeData;
+                  const breakHour = parseInt(btd.hour || 0);
+                  const breakMinute = parseInt(btd.minute || 0);
+                  const breakMinutes = breakHour * 60 + breakMinute;
+                  
+                  if (breakMinutes > 0 && btd.startHour && btd.startMinute && btd.endHour && btd.endMinute) {
+                    breakTime = {
+                      start: `${btd.startHour.padStart(2, '0')}:${btd.startMinute.padStart(2, '0')}`,
+                      end: `${btd.endHour.padStart(2, '0')}:${btd.endMinute.padStart(2, '0')}`,
+                      minutes: breakMinutes
+                    };
+                  }
+                }
+                
                 schedules[dayName].push({
                   startTime: selectedSchedule.startTime || '',
                   endTime: selectedSchedule.endTime || '',
                   hours: selectedSchedule.hours || 0,
+                  breakTime: breakTime, // 휴게시간 정보 추가
                   isShiftReplacement: false,
                   isWorkDay: true
                 });
-                console.log(`       ✅ ${dayName} 스케줄 추가됨: ${selectedSchedule.startTime}-${selectedSchedule.endTime}`);
+                console.log(`       ✅ ${dayName} 스케줄 추가됨: ${selectedSchedule.startTime}-${selectedSchedule.endTime}${breakTime ? ` (휴게 ${breakTime.minutes}분)` : ''}`);
               } else {
                 console.log(`       ❌ ${dayName} 선택된 스케줄 없음`);
               }
@@ -9620,10 +9639,28 @@
             
             // 추가 근무계약서 (대체근무): 모두 표시
             dateSchedules.additional.forEach(addSchedule => {
+              // 대체근무도 계약서 breakTime 적용
+              let breakTime = null;
+              if (latestContract && latestContract.breakTimeData) {
+                const btd = latestContract.breakTimeData;
+                const breakHour = parseInt(btd.hour || 0);
+                const breakMinute = parseInt(btd.minute || 0);
+                const breakMinutes = breakHour * 60 + breakMinute;
+                
+                if (breakMinutes > 0 && btd.startHour && btd.startMinute && btd.endHour && btd.endMinute) {
+                  breakTime = {
+                    start: `${btd.startHour.padStart(2, '0')}:${btd.startMinute.padStart(2, '0')}`,
+                    end: `${btd.endHour.padStart(2, '0')}:${btd.endMinute.padStart(2, '0')}`,
+                    minutes: breakMinutes
+                  };
+                }
+              }
+              
               schedules[dayName].push({
                 startTime: addSchedule.startTime || '',
                 endTime: addSchedule.endTime || '',
                 hours: addSchedule.hours || 0,
+                breakTime: breakTime, // 휴게시간 정보 추가
                 isShiftReplacement: true,
                 isWorkDay: true
               });

@@ -136,6 +136,7 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
                   startTime: schedule.startTime,
                   endTime: schedule.endTime,
                   hours: schedule.hours,
+                  breakTime: schedule.breakTime || null, // 휴게시간 정보 추가
                   color: barColor,
                   status: 'normal',
                   scheduledStart: '',
@@ -268,6 +269,21 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
         
         const shiftIcon = worker.isShiftReplacement ? '🔄' : '';
         
+        // 휴게시간 파싱 (breakTime: { start: "12:00", end: "13:00", minutes: 60 })
+        let breakTimeInfo = '';
+        let actualWorkHours = worker.hours;
+        
+        if (worker.breakTime) {
+          const breakStart = worker.breakTime.start;
+          const breakEnd = worker.breakTime.end;
+          const breakMinutes = worker.breakTime.minutes || 0;
+          
+          if (breakMinutes > 0) {
+            actualWorkHours = worker.hours - (breakMinutes / 60);
+            breakTimeInfo = ` (휴게 ${Math.floor(breakMinutes / 60)}h${breakMinutes % 60 > 0 ? ` ${breakMinutes % 60}m` : ''})`;
+          }
+        }
+        
         html += `
           <div style="
             position: absolute;
@@ -288,10 +304,38 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
           " 
           onmouseover="this.style.opacity='1'; this.style.zIndex='5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
           onmouseout="this.style.opacity='0.9'; this.style.zIndex='1'; this.style.boxShadow='none';"
-          title="${shiftIcon}${worker.name}: ${worker.startTime}-${worker.endTime} (${worker.hours}h)">
+          title="${shiftIcon}${worker.name}: ${worker.startTime}-${worker.endTime}${breakTimeInfo} (실근무 ${actualWorkHours.toFixed(1)}h)">
             ${shiftIcon}
           </div>
         `;
+        
+        // 휴게시간 투명 막대 표시
+        if (worker.breakTime && worker.breakTime.start && worker.breakTime.end) {
+          const [breakStartH, breakStartM] = worker.breakTime.start.split(':').map(Number);
+          const [breakEndH, breakEndM] = worker.breakTime.end.split(':').map(Number);
+          
+          const breakStartMinutes = (breakStartH - startHour) * 60 + breakStartM;
+          const breakEndMinutes = (breakEndH - startHour) * 60 + breakEndM;
+          
+          const breakTopPos = (breakStartMinutes / 60) * rowHeight;
+          const breakHeight = ((breakEndMinutes - breakStartMinutes) / 60) * rowHeight;
+          
+          html += `
+            <div style="
+              position: absolute;
+              left: ${leftPos}%;
+              top: ${breakTopPos}px;
+              width: ${barWidth}%;
+              height: ${breakHeight}px;
+              background: white;
+              opacity: 0.7;
+              box-sizing: border-box;
+              border-radius: 2px;
+              border: 1px dashed ${worker.color};
+              pointer-events: none;
+            "></div>
+          `;
+        }
       });
     }
     
@@ -366,6 +410,7 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
     if (scheduleData.employees) {
       scheduleData.employees.forEach(emp => {
         let totalHours = 0;
+        let totalBreakMinutes = 0;
         let workDays = 0;
         days.forEach(day => {
           const scheduleArray = emp.schedules[day]; // 배열임
@@ -375,6 +420,11 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
             scheduleArray.forEach(schedule => {
               if (schedule.isWorkDay) {
                 totalHours += parseFloat(schedule.hours);
+                
+                // 휴게시간 제외
+                if (schedule.breakTime && schedule.breakTime.minutes) {
+                  totalBreakMinutes += schedule.breakTime.minutes;
+                }
               }
             });
             // 해당 날짜에 근무가 하나라도 있으면 근무일 수 증가
@@ -383,6 +433,9 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
             }
           }
         });
+        
+        // 실근무시간 = 총 근무시간 - 휴게시간
+        const actualWorkHours = totalHours - (totalBreakMinutes / 60);
         
         const color = colorMap[emp.name];
         
@@ -398,10 +451,18 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
           salaryText = `연봉: ₩${salaryAmount.toLocaleString()}`;
         }
         
-        // 주급 계산 (salary-calculator.js의 calculateWeeklySalary 함수 사용)
-        const salaryResult = calculateWeeklySalary(totalHours, salaryType, salaryAmount, true);
+        // 주급 계산 (실근무시간 기준으로 계산)
+        const salaryResult = calculateWeeklySalary(actualWorkHours, salaryType, salaryAmount, true);
         const weeklySalary = salaryResult.weeklySalary;
         const monthlyEstimate = salaryResult.monthlyEstimate;
+        
+        // 휴게시간 표시
+        const breakHours = Math.floor(totalBreakMinutes / 60);
+        const breakMinutes = totalBreakMinutes % 60;
+        let breakTimeText = '';
+        if (totalBreakMinutes > 0) {
+          breakTimeText = ` (휴게 ${breakHours}h${breakMinutes > 0 ? ` ${breakMinutes}m` : ''})`;
+        }
         
         html += `
           <div style="margin-bottom: 12px; padding: 8px; border-radius: 6px; background: var(--bg-light);">
@@ -411,7 +472,8 @@ window.renderScheduleGanttChart = function(scheduleData, weekDate, options = {})
             </div>
             <div style="font-size: 11px; color: var(--text-secondary); margin-left: 22px;">
               ${salaryText ? `<div>${salaryText}</div>` : ''}
-              <div>⏱️ ${totalHours.toFixed(1)}시간</div>
+              <div>⏱️ ${totalHours.toFixed(1)}시간${breakTimeText}</div>
+              <div style="color: #666; font-size: 10px;">└ 실근무: ${actualWorkHours.toFixed(1)}시간</div>
               <div style="color: var(--primary-color); font-weight: 600;">💰 ₩${Math.round(weeklySalary).toLocaleString()} (주급)</div>
               <div style="font-size: 10px; color: var(--text-secondary);">📅 월 예상: ₩${Math.round(monthlyEstimate).toLocaleString()}</div>
             </div>
