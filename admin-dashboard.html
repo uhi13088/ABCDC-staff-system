@@ -9458,6 +9458,12 @@
         console.log(`📅 조회 기간: ${mondayStr} ~ ${sundayStr}`);
         
         // 🆕 리팩토링: schedule-viewer.js의 loadScheduleData() 사용
+        // 모듈 함수 존재 확인
+        if (typeof window.loadScheduleData !== 'function') {
+          throw new Error('window.loadScheduleData is not defined. schedule-viewer.js may not be loaded.');
+        }
+        
+        console.log('🔧 window.loadScheduleData 호출 시작');
         const data = await window.loadScheduleData(db, {
           type: 'store',
           storeId: storeId,
@@ -9465,8 +9471,11 @@
           endDate: sundayStr
         });
         
+        console.log('🔧 window.loadScheduleData 반환값:', data);
+        
         // 데이터 구조 검증
         if (!data || data.type !== 'schedule' || !Array.isArray(data.employees)) {
+          console.error('🔧 Invalid data structure:', data);
           throw new Error('Invalid data structure from loadScheduleData');
         }
         
