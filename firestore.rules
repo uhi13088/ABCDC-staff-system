@@ -8,6 +8,12 @@ service cloud.firestore {
     // 더미 데이터 없음, 실제 Firestore 기반
     // ===================================================================
     
+    // 관리자 체크 헬퍼 함수 (role 또는 userType 필드 모두 체크)
+    function isAdmin() {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return userData.role == 'admin' || userData.userType == 'admin';
+    }
+    
     // users 컬렉션: 본인 데이터 읽기/쓰기, 관리자는 모든 직원 정보 읽기
     match /users/{userId} {
       // 본인 데이터 읽기: 인증된 사용자는 자신의 문서를 읽을 수 있음
@@ -16,7 +22,7 @@ service cloud.firestore {
       // 다른 사용자 데이터 읽기: 관리자만 가능
       allow read: if request.auth != null && 
                      request.auth.uid != userId && 
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                     isAdmin();
       
       // 본인 데이터 쓰기: 본인만 가능
       allow write: if request.auth != null && request.auth.uid == userId;
@@ -37,11 +43,11 @@ service cloud.firestore {
       // 수정: 본인의 출퇴근 기록이거나 관리자
       allow update: if request.auth != null && 
                        (resource.data.uid == request.auth.uid || 
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                        isAdmin());
       
       // 삭제: 관리자만 가능
       allow delete: if request.auth != null && 
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                       isAdmin();
     }
     
     // contracts 컬렉션: 계약서
@@ -53,7 +59,7 @@ service cloud.firestore {
       
       // 쓰기: 관리자만 가능
       allow write: if request.auth != null && 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                      isAdmin();
     }
     
     // savedContracts 컬렉션: 임시 저장된 계약서 (작성 중)
@@ -81,7 +87,7 @@ service cloud.firestore {
       
       // 수정/삭제: 관리자만
       allow update, delete: if request.auth != null && 
-                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                               isAdmin();
     }
     
     // employee_docs 컬렉션: 직원 서류 (통장사본, 보건증)
@@ -89,12 +95,12 @@ service cloud.firestore {
       // 읽기: 본인의 서류이거나 관리자
       allow read: if request.auth != null && 
                      (docId == request.auth.uid || 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                      isAdmin());
       
       // 쓰기: 본인의 서류이거나 관리자
       allow write: if request.auth != null && 
                       (docId == request.auth.uid || 
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                       isAdmin());
     }
     
     // notices 컬렉션: 공지사항
@@ -104,7 +110,7 @@ service cloud.firestore {
       
       // 쓰기: 관리자만
       allow write: if request.auth != null && 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                      isAdmin();
     }
     
     // stores 컬렉션: 매장 정보
@@ -114,7 +120,7 @@ service cloud.firestore {
       
       // 쓰기: 관리자만
       allow write: if request.auth != null && 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                      isAdmin();
     }
     
     // companies 컬렉션: 회사 정보 (사업자 정보)
@@ -124,7 +130,7 @@ service cloud.firestore {
       
       // 쓰기: 관리자만
       allow write: if request.auth != null && 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                      isAdmin();
     }
     
     // savedContracts 컬렉션: 임시 저장된 계약서 (작성 중)
@@ -152,7 +158,7 @@ service cloud.firestore {
       
       // 수정/삭제: 관리자만 가능
       allow update, delete: if request.auth != null && 
-                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                               isAdmin();
     }
     
     // approvals 컬렉션: 문서 승인 (구매/폐기/퇴직서)
@@ -160,7 +166,7 @@ service cloud.firestore {
       // 읽기: 본인이 신청한 문서이거나 관리자
       allow read: if request.auth != null && 
                      (resource.data.applicantUid == request.auth.uid || 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                      isAdmin());
       
       // 생성: 인증된 사용자가 본인 UID로 신청
       allow create: if request.auth != null && 
@@ -168,7 +174,7 @@ service cloud.firestore {
       
       // 수정/삭제: 관리자만 가능
       allow update, delete: if request.auth != null && 
-                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                               isAdmin();
     }
     
     // salaries 컬렉션: 급여 정보
@@ -176,11 +182,11 @@ service cloud.firestore {
       // 읽기: 본인의 급여이거나 관리자
       allow read: if request.auth != null && 
                      (resource.data.employeeUid == request.auth.uid || 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                      isAdmin());
       
       // 생성/수정/삭제: 관리자만 가능
       allow create, update, delete: if request.auth != null && 
-                                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                                       isAdmin();
     }
     
     // time_change_reports 컬렉션: 근무시간 수정 이력
@@ -196,7 +202,7 @@ service cloud.firestore {
       
       // 삭제: 관리자만 가능
       allow delete: if request.auth != null && 
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                       isAdmin();
     }
     
     // shift_requests 컬렉션: 교대근무 신청
@@ -211,12 +217,12 @@ service cloud.firestore {
       // 수정: 같은 매장 직원(대타 승인) 또는 관리자(최종 승인)
       allow update: if request.auth != null && 
                        (resource.data.store == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.store || 
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                        isAdmin());
       
       // 삭제: 본인이 신청한 것이거나 관리자
       allow delete: if request.auth != null && 
                        (resource.data.requesterId == request.auth.uid || 
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                        isAdmin());
     }
     
     // schedules 컬렉션: 근무 스케줄
@@ -226,31 +232,31 @@ service cloud.firestore {
       
       // 생성/수정/삭제: 관리자만 가능 (교대근무 승인 시 자동 변경 포함)
       allow write: if request.auth != null && 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                      isAdmin();
     }
     
     // schedules_backup 컬렉션: 마이그레이션 백업 (임시)
     match /schedules_backup/{scheduleId} {
       allow read, write: if request.auth != null && 
-                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                            isAdmin();
     }
     
     // schedules_new 컬렉션: 마이그레이션 변환 결과 (임시)
     match /schedules_new/{scheduleId} {
       allow read, write: if request.auth != null && 
-                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                            isAdmin();
     }
     
     // schedules_old 컬렉션: 마이그레이션 이전 데이터 보관 (임시)
     match /schedules_old/{scheduleId} {
       allow read, write: if request.auth != null && 
-                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                            isAdmin();
     }
     
     // 기타 모든 컬렉션: 관리자만 접근
     match /{document=**} {
       allow read, write: if request.auth != null && 
-                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+                            isAdmin();
     }
   }
 }
