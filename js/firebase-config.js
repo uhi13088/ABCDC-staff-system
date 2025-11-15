@@ -39,29 +39,14 @@ try {
   
   // Firebase 서비스 초기화
   auth = firebase.auth();
+  
+  // Firestore 초기화 (최신 API 사용)
   db = firebase.firestore();
-  // storage = firebase.storage(); // Storage SDK 미사용
   
   console.log('✅ Firebase 초기화 성공');
   
-  // Firestore 설정 (한 번만 호출, merge 옵션 사용)
-  db.settings({
-    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED,
-    merge: true
-  });
-  
-  // 오프라인 지속성 활성화 (구식 API지만 호환성 유지)
-  db.enablePersistence({ synchronizeTabs: true })
-    .then(() => {
-      console.log('✅ Firestore 오프라인 지속성 활성화');
-    })
-    .catch((err) => {
-      if (err.code === 'failed-precondition') {
-        console.warn('⚠️ 여러 탭이 열려있어 오프라인 지속성을 활성화할 수 없습니다.');
-      } else if (err.code === 'unimplemented') {
-        console.warn('⚠️ 브라우저가 오프라인 지속성을 지원하지 않습니다.');
-      }
-    });
+  // Firestore 캐시 설정 사용하지 않음 (기본값 사용)
+  // 최신 SDK에서는 자동으로 오프라인 지속성이 활성화됨
   
 } catch (error) {
   console.error('❌ Firebase 초기화 실패:', error);
