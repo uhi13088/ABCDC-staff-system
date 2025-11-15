@@ -539,3 +539,378 @@ function getScheduleMonday(date) {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.setDate(diff));
 }
+
+// ===================================================================
+// 스케줄 데이터 로딩 함수 (관리자 + 직원 공통)
+// ===================================================================
+
+/**
+ * 계약서 캐시 (성능 최적화)
+ */
+const contractCache = new Map(); // Map<userId, { data, timestamp }>
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5분
+
+/**
+ * 캐시 초기화 (계약서 수정 후 호출)
+ */
+window.clearScheduleCache = function() {
+  contractCache.clear();
+  console.log('📦 스케줄 캐시 초기화됨');
+};
+
+/**
+ * 스케줄 데이터 로딩 (통합 함수)
+ * @param {firebase.firestore.Firestore} db - Firestore 인스턴스
+ * @param {Object} options - 로딩 옵션
+ *   - type: 'store' | 'employee' (매장 전체 또는 개인)
+ *   - storeId: 매장 ID (type='store'일 때 필수)
+ *   - storeName: 매장 이름 (type='employee'일 때 선택)
+ *   - userId: 사용자 UID (type='employee'일 때 필수)
+ *   - userName: 사용자 이름
+ *   - startDate: 시작 날짜 (YYYY-MM-DD)
+ *   - endDate: 종료 날짜 (YYYY-MM-DD)
+ * @returns {Promise<Object>} { type: 'schedule', employees: [...] }
+ */
+window.loadScheduleData = async function(db, options) {
+  const startTime = Date.now();
+  console.log('🔍 [loadScheduleData] 시작:', options);
+  
+  try {
+    if (options.type === 'store') {
+      // 매장 전체 스케줄 (관리자용)
+      const result = await loadStoreSchedules(db, options);
+      console.log('📊 [loadScheduleData] 결과:', result.employees.length, '명');
+      console.log('⏱️ [loadScheduleData] 소요시간:', Date.now() - startTime, 'ms');
+      return result;
+      
+    } else if (options.type === 'employee') {
+      // 개인 스케줄 (직원용)
+      const result = await loadEmployeeSchedules(db, options);
+      console.log('📊 [loadScheduleData] 결과:', result.employees.length, '명');
+      console.log('⏱️ [loadScheduleData] 소요시간:', Date.now() - startTime, 'ms');
+      return result;
+      
+    } else {
+      throw new Error(`Unknown type: ${options.type}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ [loadScheduleData] 실패:', error);
+    throw error;
+  }
+};
+
+/**
+ * 매장 전체 스케줄 로드 (내부 함수)
+ * @private
+ */
+async function loadStoreSchedules(db, options) {
+  const { storeId, startDate, endDate } = options;
+  
+  console.log(`📅 매장 스케줄 조회: storeId=${storeId}, ${startDate} ~ ${endDate}`);
+  
+  // 1. 매장 정보 조회
+  const storeDoc = await db.collection('stores').doc(storeId).get();
+  if (!storeDoc.exists) {
+    throw new Error(`매장을 찾을 수 없습니다: ${storeId}`);
+  }
+  const storeName = storeDoc.data().name;
+  
+  // 2. 해당 매장 직원 조회
+  const employeesSnapshot = await db.collection('users')
+    .where('store', '==', storeName)
+    .where('userType', '==', 'employee')
+    .get();
+  
+  console.log(`👥 "${storeName}" 매장 직원: ${employeesSnapshot.size}명`);
+  
+  // 3. 각 직원의 스케줄 및 계약서 조회
+  const employees = [];
+  
+  for (const empDoc of employeesSnapshot.docs) {
+    const empUid = empDoc.id;
+    const empData = empDoc.data();
+    
+    // 계약서 조회 (캐시 사용)
+    const contract = await getContractCached(db, empUid, empData.name, empData.birth);
+    
+    // 스케줄 조회
+    const schedules = await loadEmployeeSchedulesForWeek(
+      db,
+      empUid,
+      empData.name,
+      startDate,
+      endDate,
+      contract
+    );
+    
+    employees.push({
+      uid: empUid,
+      name: empData.name || '이름없음',
+      schedules: schedules,
+      salaryType: contract ? (contract.salaryType || 'hourly') : 'hourly',
+      salaryAmount: contract ? (contract.salaryAmount || 0) : 0
+    });
+  }
+  
+  return {
+    type: 'schedule',
+    employees: employees
+  };
+}
+
+/**
+ * 개인 스케줄 로드 (내부 함수)
+ * @private
+ */
+async function loadEmployeeSchedules(db, options) {
+  const { userId, userName, startDate, endDate, storeName } = options;
+  
+  console.log(`📅 개인 스케줄 조회: userId=${userId}, ${startDate} ~ ${endDate}`);
+  
+  // storeName이 있으면 매장 전체, 없으면 내 스케줄만
+  if (storeName) {
+    // 매장 전체 스케줄 조회 (직원 페이지 "매장 전체 보기")
+    const employeesSnapshot = await db.collection('users')
+      .where('store', '==', storeName)
+      .where('userType', '==', 'employee')
+      .get();
+    
+    console.log(`👥 "${storeName}" 매장 직원: ${employeesSnapshot.size}명`);
+    
+    const employees = [];
+    
+    for (const empDoc of employeesSnapshot.docs) {
+      const empUid = empDoc.id;
+      const empData = empDoc.data();
+      
+      const contract = await getContractCached(db, empUid, empData.name, empData.birth);
+      
+      const schedules = await loadEmployeeSchedulesForWeek(
+        db,
+        empUid,
+        empData.name,
+        startDate,
+        endDate,
+        contract
+      );
+      
+      employees.push({
+        uid: empUid,
+        name: empData.name || '이름없음',
+        schedules: schedules,
+        salaryType: contract ? (contract.salaryType || 'hourly') : 'hourly',
+        salaryAmount: contract ? (contract.salaryAmount || 0) : 0
+      });
+    }
+    
+    return {
+      type: 'schedule',
+      employees: employees
+    };
+    
+  } else {
+    // 내 스케줄만 조회
+    const contract = await getContractCached(db, userId, userName);
+    
+    const schedules = await loadEmployeeSchedulesForWeek(
+      db,
+      userId,
+      userName,
+      startDate,
+      endDate,
+      contract
+    );
+    
+    return {
+      type: 'schedule',
+      employees: [{
+        uid: userId,
+        name: userName,
+        schedules: schedules,
+        salaryType: contract ? (contract.salaryType || 'hourly') : 'hourly',
+        salaryAmount: contract ? (contract.salaryAmount || 0) : 0
+      }]
+    };
+  }
+}
+
+/**
+ * 직원의 주간 스케줄 조회 및 가공 (핵심 로직)
+ * @private
+ */
+async function loadEmployeeSchedulesForWeek(db, userId, userName, startDate, endDate, contract) {
+  const days = ['월', '화', '수', '목', '금', '토', '일'];
+  const schedules = {};
+  days.forEach(day => {
+    schedules[day] = [];
+  });
+  
+  try {
+    // Firestore에서 해당 기간의 스케줄 조회
+    const schedulesSnapshot = await db.collection('schedules')
+      .where('userId', '==', userId)
+      .where('date', '>=', startDate)
+      .where('date', '<=', endDate)
+      .get();
+    
+    console.log(`  📅 ${userName}: ${schedulesSnapshot.size}개 근무 조회됨`);
+    
+    if (schedulesSnapshot.size === 0) {
+      return schedules; // 빈 스케줄 반환
+    }
+    
+    // 날짜별 스케줄 그룹화
+    const dateSchedules = {};
+    
+    schedulesSnapshot.forEach(doc => {
+      const data = doc.data();
+      const date = data.date;
+      
+      if (!dateSchedules[date]) {
+        dateSchedules[date] = {
+          regular: [],    // 기본 근무
+          additional: []  // 대타 근무
+        };
+      }
+      
+      if (data.isShiftReplacement) {
+        dateSchedules[date].additional.push(data);
+      } else {
+        dateSchedules[date].regular.push(data);
+      }
+    });
+    
+    const latestContractId = contract ? contract.contractId : null;
+    
+    // 각 날짜를 요일로 변환하여 정리
+    Object.keys(dateSchedules).forEach(dateStr => {
+      const date = new Date(dateStr + 'T00:00:00');
+      const dayOfWeek = date.getDay();
+      const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const dayName = days[dayIndex];
+      
+      // 1. 정규 스케줄 처리 (최신 계약서 기준 1개만)
+      if (dateSchedules[dateStr].regular.length > 0) {
+        let selectedSchedule = null;
+        
+        if (latestContractId) {
+          // 최신 계약서 ID와 일치하는 스케줄 찾기
+          selectedSchedule = dateSchedules[dateStr].regular.find(s => s.contractId === latestContractId);
+          
+          if (!selectedSchedule) {
+            // contractId 없으면 createdAt 기준 최신 선택
+            const sorted = dateSchedules[dateStr].regular.sort((a, b) => {
+              const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return bTime - aTime;
+            });
+            selectedSchedule = sorted[0];
+          }
+        } else {
+          // 계약서 없으면 createdAt 기준 최신 선택
+          const sorted = dateSchedules[dateStr].regular.sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+          });
+          selectedSchedule = sorted[0];
+        }
+        
+        if (selectedSchedule) {
+          schedules[dayName].push({
+            startTime: selectedSchedule.startTime || '',
+            endTime: selectedSchedule.endTime || '',
+            hours: selectedSchedule.hours || 0,
+            breakTime: selectedSchedule.breakTime || null,
+            isShiftReplacement: false,
+            isWorkDay: true
+          });
+        }
+      }
+      
+      // 2. 대타 스케줄 처리 (모두 표시)
+      dateSchedules[dateStr].additional.forEach(addSchedule => {
+        schedules[dayName].push({
+          startTime: addSchedule.startTime || '',
+          endTime: addSchedule.endTime || '',
+          hours: addSchedule.hours || 0,
+          breakTime: addSchedule.breakTime || null,
+          isShiftReplacement: true,
+          isWorkDay: true
+        });
+      });
+    });
+    
+    return schedules;
+    
+  } catch (error) {
+    console.error(`  ❌ ${userName} 스케줄 조회 실패:`, error);
+    return schedules;
+  }
+}
+
+/**
+ * 계약서 조회 (캐싱 포함)
+ * @private
+ */
+async function getContractCached(db, userId, userName = null, birth = null) {
+  // 캐시 확인
+  const cached = contractCache.get(userId);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_EXPIRY) {
+    console.log(`  📦 [캐시] ${userName || userId} 계약서`);
+    return cached.data;
+  }
+  
+  try {
+    console.log(`  🔍 ${userName || userId} 계약서 조회 중...`);
+    
+    // 1차: employeeId로 조회
+    let contractsSnapshot = await db.collection('contracts')
+      .where('employeeId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+    
+    console.log(`     1차 조회 (employeeId): ${contractsSnapshot.size}개`);
+    
+    // 2차: name + birth로 조회
+    if (contractsSnapshot.empty && userName && birth) {
+      console.log(`     2차 조회 시도 (name: "${userName}", birth: "${birth}")`);
+      
+      contractsSnapshot = await db.collection('contracts')
+        .where('employeeName', '==', userName)
+        .where('employeeBirth', '==', birth)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+      
+      console.log(`     2차 조회 결과: ${contractsSnapshot.size}개`);
+    }
+    
+    // 계약서 데이터
+    let contractData = null;
+    if (!contractsSnapshot.empty) {
+      const contractDoc = contractsSnapshot.docs[0];
+      contractData = {
+        contractId: contractDoc.id,
+        ...contractDoc.data()
+      };
+      console.log(`  ✅ ${userName || userId} 최신 계약서 ID: ${contractDoc.id}`);
+    } else {
+      console.log(`  ❌ ${userName || userId}: 계약서 없음`);
+    }
+    
+    // 캐시 저장
+    contractCache.set(userId, {
+      data: contractData,
+      timestamp: Date.now()
+    });
+    
+    return contractData;
+    
+  } catch (error) {
+    console.error(`  ❌ 계약서 조회 실패:`, error);
+    return null;
+  }
+}
