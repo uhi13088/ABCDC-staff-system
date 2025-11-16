@@ -954,10 +954,18 @@
       
       // ⚠️ companyId 확인 (없으면 에러)
       if (!myCompanyId) {
-        console.error('❌ companyId를 가져올 수 없습니다!');
-        alert('⚠️ 회사 정보를 불러올 수 없습니다. 다시 로그인해주세요.');
+        console.error('❌❌❌ myCompanyId가 null입니다!');
+        console.error('userData:', currentUser);
+        alert('⚠️ 회사 정보를 불러올 수 없습니다.\n\n사용자 데이터에 companyId가 없습니다.\n관리자에게 문의하세요.');
+        
+        // 🔥 강제로 로그아웃
+        sessionStorage.clear();
+        firebase.auth().signOut();
+        window.location.href = 'admin-login.html';
         return;
       }
+      
+      console.log('✅✅✅ companyId 확인 완료:', myCompanyId);
       
       // 역할 체크 및 UI 제한
       const userRole = sessionStorage.getItem('admin_role');
@@ -4729,14 +4737,22 @@
       tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">매장 정보를 불러오는 중...</td></tr>';
       
       try {
+        console.log('🔍 loadStores 시작');
+        console.log('  - myCompanyId:', myCompanyId);
+        console.log('  - currentUser:', currentUser);
+        
         // 🔒 companyId 조건 추가 (필수!)
         let query = firebase.firestore().collection('stores');
         if (myCompanyId) {
           query = query.where('companyId', '==', myCompanyId);
+          console.log('  ✅ companyId 필터 적용:', myCompanyId);
+        } else {
+          console.error('  ❌❌❌ myCompanyId가 null입니다! 모든 회사 매장이 조회됩니다!');
         }
         
         // Firestore에서 매장 정보 로드
         const storesSnapshot = await query.get();
+        console.log('  📊 조회된 매장 수:', storesSnapshot.size);
         
         let stores = [];
         storesSnapshot.forEach(doc => {
