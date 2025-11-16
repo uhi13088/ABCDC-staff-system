@@ -229,6 +229,13 @@
                 <input type="month" id="salaryMonth">
               </div>
               <div class="filter-group">
+                <label>매장</label>
+                <select id="salaryStoreFilter">
+                  <option value="">전체</option>
+                  <!-- 매장 목록은 loadStoresForSalaryFilter()에서 동적으로 로드됩니다 -->
+                </select>
+              </div>
+              <div class="filter-group">
                 <label>근무상태</label>
                 <select id="salaryEmploymentStatusFilter">
                   <option value="">전체</option>
@@ -1149,6 +1156,7 @@
           break;
         case 'salary': 
           detachAttendanceListener();
+          loadStoresForSalaryFilter(); 
           loadSalaryList(); 
           break;
         case 'approvals': 
@@ -1247,17 +1255,31 @@
       let todayAttendanceCount = 0;
       try {
         const today = new Date().toISOString().split('T')[0];
-        let attendanceQuery = db.collection('attendance')
-          .where('date', '==', today);
         
-        // 🔒 companyId 조건 추가
-        if (myCompanyId) {
-          attendanceQuery = attendanceQuery.where('companyId', '==', myCompanyId);
+        // 🔒 매장별 격리: 회사 전체가 아닌 각 매장의 출근 수 합산
+        if (!myCompanyId) {
+          console.warn('⚠️ companyId 없음');
+          return;
         }
         
-        const attendanceSnapshot = await attendanceQuery.get();
-        todayAttendanceCount = attendanceSnapshot.size;
-        console.log(`📈 오늘 출근: ${todayAttendanceCount}명`);
+        // 1. 내 회사의 모든 매장 조회
+        const storesSnapshot = await db.collection('stores')
+          .where('companyId', '==', myCompanyId)
+          .get();
+        
+        // 2. 각 매장별 출근 수 조회 후 합산
+        let totalCount = 0;
+        for (const storeDoc of storesSnapshot.docs) {
+          const storeId = storeDoc.id;
+          const attendanceSnapshot = await db.collection('attendance')
+            .where('storeId', '==', storeId)
+            .where('date', '==', today)
+            .get();
+          totalCount += attendanceSnapshot.size;
+        }
+        
+        todayAttendanceCount = totalCount;
+        console.log(`📈 오늘 출근: ${todayAttendanceCount}명 (${storesSnapshot.size}개 매장)`);
       } catch (error) {
         console.warn('⚠️ 출근 수 조회 실패:', error);
       }
@@ -1806,8 +1828,14 @@
         console.log(`🔄 퇴사 처리 시작: ${employeeName}`);
         
         // 1. Firestore에서 직원 UID 찾기
+        // 🔒 회사 내 직원만 조회 (멀티테넌트 격리)
+        if (!myCompanyId) {
+          throw new Error('회사 정보가 없습니다.');
+        }
+        
         const usersSnapshot = await firebase.firestore()
           .collection('users')
+          .where('companyId', '==', myCompanyId)
           .where('name', '==', employeeName)
           .where('role', 'in', ['staff', 'store_manager', 'manager'])
           .get();
@@ -2040,6 +2068,35 @@
         console.error('❌ 근무기록 매장 필터 로드 실패:', error);
       }
     }
+    
+    async function loadStoresForSalaryFilter() {
+      try {
+        // 🔒 companyId 조건 추가 (필수!)
+        let query = firebase.firestore().collection('stores');
+        if (myCompanyId) {
+          query = query.where('companyId', '==', myCompanyId);
+        }
+        const snapshot = await query.get();
+        const select = document.getElementById('salaryStoreFilter');
+        
+        // 기존 옵션 제거 (전체 제외)
+        select.innerHTML = '<option value="">전체</option>';
+        
+        console.log('📍 급여 매장 필터 로드:');
+        snapshot.forEach(doc => {
+          const store = doc.data();
+          console.log(`  - 매장: "${store.name}"`);
+          const option = document.createElement('option');
+          option.value = store.name; // 매장 이름을 value로 사용
+          option.textContent = store.name;
+          select.appendChild(option);
+        });
+        
+        console.log('✅ 급여 매장 필터 로드 완료:', snapshot.size, '개 매장');
+      } catch (error) {
+        console.error('❌ 급여 매장 필터 로드 실패:', error);
+      }
+    }
 
     async function loadAttendanceList() {
       console.log('🔍 loadAttendanceList 호출됨');
@@ -2055,13 +2112,20 @@
       try {
         console.log('🔍 Firestore 쿼리 시작: attendance 컬렉션');
         
-        // 🔒 companyId 조건 추가 (필수!)
-        let query = firebase.firestore().collection('attendance');
-        if (myCompanyId) {
-          query = query.where('companyId', '==', myCompanyId);
+        // 🔒 매장별 격리: UI에서 선택한 매장 기준 (기본: 내 매장)
+        const selectedStoreId = document.getElementById('attendanceStoreFilter')?.value;
+        const targetStoreId = selectedStoreId || currentUser.storeId;
+        
+        if (!targetStoreId) {
+          console.warn('⚠️ storeId 없음');
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger);">매장 정보가 없습니다.</td></tr>';
+          return;
         }
         
         // Firestore에서 근태 데이터 가져오기
+        let query = firebase.firestore().collection('attendance')
+          .where('storeId', '==', targetStoreId);
+        
         const attendanceSnapshot = await query
           .orderBy('date', 'desc')
           .limit(100)
@@ -2098,7 +2162,13 @@
         let employeeStatusMap = {};
         
         // 필터 여부와 관계없이 직원 정보 가져오기 (이름 + 상태)
-        const usersSnapshot = await firebase.firestore().collection('users').get();
+        // 🔒 회사 내 직원만 조회 (멀티테넌트 격리)
+        let usersQuery = firebase.firestore().collection('users');
+        if (myCompanyId) {
+          usersQuery = usersQuery.where('companyId', '==', myCompanyId);
+        }
+        
+        const usersSnapshot = await usersQuery.get();
         let employeeNamesMap = {};
         usersSnapshot.forEach(doc => {
           const user = doc.data();
@@ -2215,12 +2285,20 @@
         // 근무상태 필터
         const employmentStatusFilter = document.getElementById('salaryEmploymentStatusFilter').value;
         
+        // 🔒 매장 필터 (멀티테넌트 격리)
+        const selectedStore = document.getElementById('salaryStoreFilter').value;
+        
         // 🔒 companyId 조건 추가 (필수!)
         let query = firebase.firestore().collection('users')
-          .where('role', 'in', ['staff', 'store_manager', 'manager']);
+          .where('role', 'in', ['staff', 'store_manager', 'manager'])
+          .where('companyId', '==', myCompanyId);
         
-        if (myCompanyId) {
-          query = query.where('companyId', '==', myCompanyId);
+        // 매장 필터 적용
+        if (selectedStore) {
+          query = query.where('store', '==', selectedStore);
+          console.log(`🏪 매장 필터 적용: ${selectedStore}`);
+        } else {
+          console.log('🏪 전체 매장 조회');
         }
         
         // 모든 직원 가져오기
@@ -2381,11 +2459,12 @@
         // Firestore에서 확정된 급여 정보 가져오기
         const confirmedSalaries = {};
         let salariesQuery = firebase.firestore().collection('salaries')
-          .where('yearMonth', '==', yearMonth);
+          .where('yearMonth', '==', yearMonth)
+          .where('companyId', '==', myCompanyId);
         
-        // 🔒 companyId 조건 추가
-        if (myCompanyId) {
-          salariesQuery = salariesQuery.where('companyId', '==', myCompanyId);
+        // 🔒 매장 필터 적용 (선택 시)
+        if (selectedStore) {
+          salariesQuery = salariesQuery.where('storeName', '==', selectedStore);
         }
         
         const salariesSnapshot = await salariesQuery.get();
@@ -2984,6 +3063,14 @@
       try {
         console.log('💰 급여 확정 시작:', { employeeUid, yearMonth, netPay });
         
+        // 🔒 직원 정보 조회 (companyId, storeId 가져오기)
+        const employeeDoc = await firebase.firestore().collection('users').doc(employeeUid).get();
+        if (!employeeDoc.exists) {
+          alert('⚠️ 직원 정보를 찾을 수 없습니다.');
+          return;
+        }
+        const employeeData = employeeDoc.data();
+        
         // salaries 컬렉션에 저장 (확정 상태)
         const salaryDoc = {
           employeeUid,
@@ -2992,6 +3079,10 @@
           netPay,
           status: 'confirmed',
           paid: false,
+          // 🔒 멀티테넌트 필드 추가
+          companyId: employeeData.companyId,
+          storeId: employeeData.storeId,
+          storeName: employeeData.store,
           confirmedAt: firebase.firestore.FieldValue.serverTimestamp(),
           confirmedBy: firebase.auth().currentUser?.uid || 'unknown'
         };
@@ -3000,6 +3091,7 @@
         const existingSnapshot = await firebase.firestore().collection('salaries')
           .where('employeeUid', '==', employeeUid)
           .where('yearMonth', '==', yearMonth)
+          .where('companyId', '==', myCompanyId)
           .limit(1)
           .get();
         

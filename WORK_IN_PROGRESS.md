@@ -1,14 +1,31 @@
-# 🚧 작업 진행 중 - Firestore 권한 문제 해결
+# 🚧 작업 진행 중 - 급여 탭 멀티테넌트 정리
 
 **날짜**: 2025-01-16  
 **버전**: v3.1.7  
-**상태**: ⚠️ 진행 중
+**상태**: ✅ 완료 (A안 구현)
 
 ---
 
 ## 📊 현재 상황
 
-### ✅ 해결 완료된 문제
+### ✅ 최근 완료 작업 (2025-01-16)
+
+**급여 탭 멀티테넌트 정리 (A안 - 실시간 계산 + 매장 필터)**
+- ✅ 급여 탭에 매장 선택 필터 추가
+- ✅ `loadStoresForSalaryFilter()` 함수 추가
+- ✅ `switchTab('salary')` 시 매장 필터 자동 로드
+- ✅ `loadSalaryList()` 쿼리 수정: companyId + 선택적 storeId 필터
+- ✅ `confirmSalary()` 저장 시 companyId, storeId, storeName 자동 추가
+- ✅ salaries 조회 쿼리에 매장 필터 적용
+- ✅ salary-calculator.js 로직은 그대로 유지 (변경 없음)
+
+**특징**:
+- 기본값: 전체 매장 조회 (관리자는 회사 전체 볼 수 있음)
+- 매장 선택 시: 해당 매장 직원만 조회
+- 실시간 계산: 매번 attendance에서 조회하여 계산
+- B안(Cloud Functions 급여 마감)은 Phase 2로 연기
+
+### ✅ 이전 해결 문제
 
 1. **Firebase Auth 초기화 타이밍 이슈**
    - **문제**: `currentUser`가 undefined 상태에서 `showMainScreen()` 실행
@@ -39,9 +56,21 @@
 
 ---
 
-## ⚠️ 남은 문제
+## ⚠️ 남은 작업
 
-### 1. Firestore 복합 인덱스 생성 대기
+### 1. Phase 1 - 멀티테넌트 안정화 (계속)
+
+**남은 쿼리 수정**: 69개 → 65개로 감소
+- admin-dashboard.html: 22개 남음
+- js/employee.js: 20개
+- 기타 JS: 23개
+
+**우선순위**:
+1. admin-dashboard.html 나머지 쿼리 (승인 관리, 매장 관리 등)
+2. js/employee.js (직원 포털)
+3. 기타 컴포넌트
+
+### 2. Firestore 복합 인덱스 생성 대기
 - **상태**: Firebase Console에서 인덱스 생성 필요
 - **영향 받는 쿼리**:
   - attendance 컬렉션: `companyId + date` 인덱스
