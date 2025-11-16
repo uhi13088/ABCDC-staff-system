@@ -914,15 +914,26 @@
       // 🔒 현재 사용자의 companyId 가져오기 (전역 변수에 저장)
       try {
         const uid = firebase.auth().currentUser?.uid;
+        console.log('🔍 현재 UID:', uid);
+        
         if (uid) {
           const userDoc = await firebase.firestore().collection('users').doc(uid).get();
+          console.log('🔍 userDoc.exists:', userDoc.exists);
+          
           if (userDoc.exists) {
-            myCompanyId = userDoc.data().companyId;
+            const userData = userDoc.data();
+            console.log('🔍 userData:', userData);
+            myCompanyId = userData.companyId;
             console.log(`🔒 내 회사 ID: ${myCompanyId}`);
+          } else {
+            console.error('❌ users 문서가 존재하지 않습니다!');
           }
+        } else {
+          console.error('❌ 현재 사용자 UID를 가져올 수 없습니다!');
         }
       } catch (error) {
         console.error('❌ companyId 가져오기 실패:', error);
+        console.error('에러 상세:', error.message);
       }
       
       // ⚠️ companyId 확인 (없으면 에러)
