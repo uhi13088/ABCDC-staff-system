@@ -12421,14 +12421,13 @@
   </div>
 
   <!-- 회사 정보 수정 모달 -->
-  <div id="companyEditModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h2 style="margin: 0; font-size: 24px; color: var(--primary-color);">🏢 회사 정보 수정</h2>
-        <button onclick="closeCompanyEditModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+  <div id="companyEditModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 style="margin: 0;">🏢 회사 정보 수정</h2>
+        <button class="modal-close" onclick="closeCompanyEditModal()">✕</button>
       </div>
-      
-      <div style="display: grid; gap: 16px;">
+      <div class="modal-body">
         <div class="form-group">
           <label>회사명 <span style="color: var(--danger-color);">*</span></label>
           <input type="text" id="editCompanyName" placeholder="회사명" />
@@ -12454,8 +12453,7 @@
           <code id="displayCompanyId" style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 14px;"></code>
         </div>
       </div>
-      
-      <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+      <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeCompanyEditModal()">취소</button>
         <button class="btn btn-primary" onclick="saveCompanyInfo()">저장</button>
       </div>
