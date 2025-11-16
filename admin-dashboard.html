@@ -4623,6 +4623,7 @@
           for (const store of defaultStores) {
             const docRef = await firebase.firestore().collection('stores').add({
               ...store,
+              companyId: myCompanyId,  // 🔒 중요: companyId 추가
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             stores.push({ id: docRef.id, ...store });

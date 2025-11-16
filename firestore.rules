@@ -4,10 +4,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ===================================================================
-    // 멀티테넌트 Firestore Security Rules v3.1.5
+    // 멀티테넌트 Firestore Security Rules v3.1.7
     // ABCDC Staff System - Multi-tenant SaaS
     // 순환참조 제거 + 보안 강화 + 관리자 회원가입 지원 + 쿼리 레벨 권한 수정
-    // v3.1.5: 빈 컬렉션 조회 허용 (admin/manager는 resource 없이 권한 체크)
+    // v3.1.7: stores 생성 시 companyId 자동 추가 완료
     // ===================================================================
     
     // ============ Helper Functions ============
@@ -145,9 +145,16 @@ service cloud.firestore {
       );
     }
     
-    // stores: 매장 정보
+    // ⭐ v3.1.6: stores 컬렉션 (쿼리/문서 권한 분리)
     match /stores/{storeId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): admin/manager는 빈 컬렉션도 조회 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        (currentUserExists() && currentUser().data.role in ["admin", "manager", "store_manager"])
+      );
+      
+      // 개별 문서 읽기 (get): 같은 회사만
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
         (currentUserExists() && isSameCompany(resource))  // 🔒 자기 회사만
       );
@@ -323,9 +330,16 @@ service cloud.firestore {
       );
     }
     
-    // approvals: 문서 승인
+    // ⭐ v3.1.6: approvals 컬렉션 (쿼리/문서 권한 분리)
     match /approvals/{approvalId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): admin/manager는 빈 컬렉션도 조회 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        (currentUserExists() && currentUser().data.role in ["admin", "manager", "store_manager"])
+      );
+      
+      // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
         (currentUserExists() && isSameCompany(resource) &&
          (resource.data.applicantUid == request.auth.uid || currentRole() == "admin"))
@@ -342,9 +356,16 @@ service cloud.firestore {
       );
     }
     
-    // shift_requests: 교대근무 신청
+    // ⭐ v3.1.6: shift_requests 컬렉션 (쿼리/문서 권한 분리)
     match /shift_requests/{requestId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): admin/manager는 빈 컬렉션도 조회 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        (currentUserExists() && currentUser().data.role in ["admin", "manager", "store_manager"])
+      );
+      
+      // 개별 문서 읽기 (get): 같은 회사의 admin/manager만
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
