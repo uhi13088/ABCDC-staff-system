@@ -4076,7 +4076,9 @@
         console.log('데이터:', shiftData);
         
         // 1. 대타자 스케줄 삭제 (isShiftReplacement 플래그로 찾기)
+        // 🔒 companyId 조건 추가 (필수!)
         const replacementSchedules = await db.collection('schedules')
+          .where('companyId', '==', myCompanyId)
           .where('userId', '==', shiftData.matchedUserId)
           .where('date', '==', shiftData.workDate)
           .where('shiftRequestId', '==', shiftId)
@@ -4169,7 +4171,9 @@
           // 1. 원래 직원(A)의 해당 날짜 해당 근무 문서 삭제
           try {
             // 신청자의 해당 날짜, 해당 시간대 근무 문서 찾기
+            // 🔒 companyId 조건 추가 (필수!)
             const originalScheduleQuery = await db.collection('schedules')
+              .where('companyId', '==', myCompanyId)
               .where('userId', '==', shiftData.requesterId)
               .where('date', '==', shiftData.workDate)
               .where('startTime', '==', shiftData.workStartTime)
@@ -4618,7 +4622,9 @@
       try {
         // 1. 해당 계약서로 생성된 기본 스케줄만 삭제 (추가계약서/대체근무 제외)
         console.log(`🗑️ 계약서 ${contractId}의 기본 스케줄 삭제 시작...`);
+        // 🔒 companyId 조건 추가 (필수!)
         const schedulesSnapshot = await firebase.firestore().collection('schedules')
+          .where('companyId', '==', myCompanyId)
           .where('contractId', '==', contractId)
           .get();
         
@@ -5076,7 +5082,9 @@
             console.log(`🔄 매장명 변경: ${oldStoreName} → ${name}`);
             
             // users 컬렉션에서 해당 매장 직원 업데이트
+            // 🔒 companyId 조건 추가 (필수!)
             const usersSnapshot = await firebase.firestore().collection('users')
+              .where('companyId', '==', myCompanyId)
               .where('store', '==', oldStoreName)
               .get();
             
@@ -5282,6 +5290,8 @@
           console.log('✅ 공지사항 수정 완료:', noticeId);
         } else {
           // 추가 - Firestore 신규 생성
+          // 🔒 companyId 조건 추가 (필수!)
+          noticeData.companyId = myCompanyId;
           noticeData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
           const docRef = await firebase.firestore().collection('notices').add(noticeData);
           console.log('✅ 공지사항 추가 완료:', docRef.id);
@@ -5684,7 +5694,9 @@
         employeeSelect.innerHTML = '<option value="">직원을 선택하세요</option>';
         
         // Firestore에서 직원 목록 가져오기 (users 컬렉션, role in [staff, store_manager, manager], resigned 제외)
+        // 🔒 companyId 조건 추가 (필수!)
         firebase.firestore().collection('users')
+          .where('companyId', '==', myCompanyId)
           .where('role', 'in', ['staff', 'store_manager', 'manager'])
           .get()
           .then(snapshot => {
@@ -5722,7 +5734,9 @@
         storeSelect.innerHTML = '<option value="">매장을 선택하세요</option>';
         
         // Firestore에서 매장 목록 가져오기
+        // 🔒 companyId 조건 추가 (필수!)
         firebase.firestore().collection('stores')
+          .where('companyId', '==', myCompanyId)
           .get()
           .then(snapshot => {
             if (!snapshot.empty) {
@@ -5899,7 +5913,9 @@
       
       try {
         // Firestore에서 매장 정보 조회
+        // 🔒 companyId 조건 추가 (필수!)
         const snapshot = await db.collection('stores')
+          .where('companyId', '==', myCompanyId)
           .where('name', '==', storeName)
           .limit(1)
           .get();
@@ -7361,7 +7377,10 @@
       console.log('🔗 서명 링크 생성:', signLink);
       
       // Firestore에서 stores 가져오기
-      const storesSnapshot = await firebase.firestore().collection('stores').get();
+      // 🔒 companyId 조건 추가 (필수!)
+      const storesSnapshot = await firebase.firestore().collection('stores')
+        .where('companyId', '==', myCompanyId)
+        .get();
       const stores = [];
       storesSnapshot.forEach(doc => {
         stores.push({ id: doc.id, ...doc.data() });
@@ -7380,7 +7399,9 @@
       if (!finalEmployeeId && employeeName && employeeBirth) {
         console.log(`⚠️ employeeId 없음. users 컬렉션에서 ${employeeName} (${employeeBirth}) 검색 중...`);
         try {
+          // 🔒 companyId 조건 추가 (필수!)
           const userSnapshot = await firebase.firestore().collection('users')
+            .where('companyId', '==', myCompanyId)
             .where('name', '==', employeeName)
             .where('birth', '==', employeeBirth)
             .limit(1)
@@ -7526,7 +7547,9 @@
         console.log('🔄 전체 직원 동기화 시작...');
         
         // 모든 직원 조회
+        // 🔒 companyId 조건 추가 (필수!)
         const usersSnapshot = await db.collection('users')
+          .where('companyId', '==', myCompanyId)
           .where('role', '==', 'employee')
           .get();
         
@@ -7641,7 +7664,9 @@
         const sundayStr = sunday.toISOString().split('T')[0];
         
         // 해당 주에 이미 스케줄이 있는지 확인 (새 구조: 날짜 범위 쿼리)
+        // 🔒 companyId 조건 추가 (필수!)
         const existingSchedules = await db.collection('schedules')
+          .where('companyId', '==', myCompanyId)
           .where('userId', '==', employeeId)
           .where('date', '>=', mondayStr)
           .where('date', '<=', sundayStr)
@@ -9825,7 +9850,9 @@
         console.log('ℹ️ 구 스케줄 자동 삭제 기능 비활성화됨 (contractId 마이그레이션 대기 중)');
         
         // 해당 매장의 모든 직원 조회 (퇴사자 제외)
+        // 🔒 companyId 조건 추가 (필수!)
         const employeesSnapshot = await db.collection('users')
+          .where('companyId', '==', myCompanyId)
           .where('role', '==', 'employee')
           .where('store', '==', storeName)
           .get();
@@ -9896,7 +9923,9 @@
           }
           
           // 해당 직원의 해당 주 모든 스케줄 조회
+          // 🔒 companyId 조건 추가 (필수!)
           const schedulesSnapshot = await db.collection('schedules')
+            .where('companyId', '==', myCompanyId)
             .where('userId', '==', empUid)
             .where('date', '>=', mondayStr)
             .where('date', '<=', sundayStr)
@@ -10126,7 +10155,9 @@
         console.log(`📅 조회 기간: ${startDateStr} ~ ${endDateStr}`);
         
         // 실시간 리스너 설정
+        // 🔒 companyId 조건 추가 (필수!)
         attendanceListener = db.collection('attendance')
+          .where('companyId', '==', myCompanyId)
           .where('store', '==', storeName)
           .where('date', '>=', startDateStr)
           .where('date', '<=', endDateStr)
@@ -10200,7 +10231,9 @@
               
               try {
                 // 1차 시도: employeeId + status='active'
+                // 🔒 companyId 조건 추가 (필수!)
                 let contractSnapshot = await db.collection('contracts')
+                  .where('companyId', '==', myCompanyId)
                   .where('employeeId', '==', emp.uid)
                   .where('status', '==', 'active')
                   .limit(1)
@@ -10208,7 +10241,9 @@
                 
                 // 2차 시도: employeeId만 (status 무관, 클라이언트 정렬)
                 if (contractSnapshot.empty) {
+                  // 🔒 companyId 조건 추가 (필수!)
                   contractSnapshot = await db.collection('contracts')
+                    .where('companyId', '==', myCompanyId)
                     .where('employeeId', '==', emp.uid)
                     .get();
                   
@@ -12014,7 +12049,9 @@
           
           // 3. employeeName + employeeBirth로 users에서 직원 찾기
           try {
+            // 🔒 companyId 조건 추가 (필수!)
             const usersSnapshot = await db.collection('users')
+              .where('companyId', '==', myCompanyId)
               .where('name', '==', contractData.employeeName)
               .where('birth', '==', contractData.employeeBirth)
               .where('role', '==', 'employee')

@@ -285,6 +285,7 @@ async function showClockIn() {
   try {
     // 오늘 스케줄 조회
     const schedulesSnapshot = await db.collection('schedules')
+      .where('companyId', '==', currentUser.companyId)
       .where('userId', '==', currentUser.uid)
       .where('date', '==', dateStr)
       .get();
@@ -369,7 +370,9 @@ async function recordAttendance(type, unscheduledReason = null) {
     console.log('🕐 출퇴근 기록:', { type, uid: currentUser.uid, name: currentUser.name, dateStr, timeStr, unscheduledReason });
     
     // 오늘 기록 확인 (관리자 페이지와 통일: userId 사용)
+    // 🔒 companyId 조건 추가 (필수!)
     const todayDocRef = db.collection('attendance')
+      .where('companyId', '==', currentUser.companyId)
       .where('userId', '==', currentUser.uid)
       .where('date', '==', dateStr);
     
@@ -391,6 +394,9 @@ async function recordAttendance(type, unscheduledReason = null) {
         uid: currentUser.uid,     // 하위 호환성 유지
         name: currentUser.name,
         store: currentUser.store,
+        // 🔒 멀티테넌트 필드 추가
+        companyId: currentUser.companyId,
+        storeId: currentUser.storeId,
         date: dateStr,
         clockIn: timeStr,
         clockOut: null,
@@ -616,6 +622,7 @@ async function updateCurrentStatus() {
     
     // Firestore에서 오늘 기록 확인
     const todayDocRef = db.collection('attendance')
+      .where('companyId', '==', currentUser.companyId)
       .where('userId', '==', currentUser.uid)
       .where('date', '==', dateStr);
     
@@ -724,6 +731,7 @@ async function loadAttendance() {
     console.log('📊 근무내역 조회:', { uid: currentUser.uid, filterMonth });
     
     const snapshot = await db.collection('attendance')
+      .where('companyId', '==', currentUser.companyId)
       .where('userId', '==', currentUser.uid)
       .where('date', '>=', startDate)
       .where('date', '<=', endDate)
@@ -809,6 +817,7 @@ async function loadSalary() {
     console.log('💰 급여 조회:', { uid: currentUser.uid, filterMonth });
     
     const snapshot = await db.collection('attendance')
+      .where('companyId', '==', currentUser.companyId)
       .where('userId', '==', currentUser.uid)
       .where('date', '>=', startDate)
       .where('date', '<=', endDate)
@@ -1324,6 +1333,7 @@ async function loadNotices() {
   try {
     // Firestore에서 공지사항 조회 (최신순)
     const snapshot = await db.collection('notices')
+      .where('companyId', '==', currentUser.companyId)
       .orderBy('createdAt', 'desc')
       .limit(10)
       .get();
@@ -1985,11 +1995,13 @@ async function loadMyApprovals() {
   try {
     // 문서 승인 (구매/폐기/퇴직서) 조회
     const approvalsSnapshot = await db.collection('approvals')
+      .where('companyId', '==', currentUser.companyId)
       .where('applicantUid', '==', currentUser.uid)
       .get();
     
     // 교대근무 신청 조회
     const shiftRequestsSnapshot = await db.collection('shift_requests')
+      .where('companyId', '==', currentUser.companyId)
       .where('requesterId', '==', currentUser.uid)
       .get();
     
@@ -2229,6 +2241,8 @@ async function submitPurchaseRequest() {
       applicantUid: currentUser.uid,
       applicantName: currentUser.name,
       applicantEmail: currentUser.email,
+      companyId: currentUser.companyId,
+      storeId: currentUser.storeId,
       status: 'pending',
       data: {
         items: items
@@ -2285,6 +2299,8 @@ async function submitDisposalRequest() {
       applicantUid: currentUser.uid,
       applicantName: currentUser.name,
       applicantEmail: currentUser.email,
+      companyId: currentUser.companyId,
+      storeId: currentUser.storeId,
       status: 'pending',
       data: {
         category: category,
@@ -2455,6 +2471,8 @@ async function submitResignationRequest() {
       applicantUid: currentUser.uid,
       applicantName: currentUser.name,
       applicantEmail: currentUser.email,
+      companyId: currentUser.companyId,
+      storeId: currentUser.storeId,
       status: 'pending',
       data: {
         name: name,
@@ -3023,16 +3041,19 @@ async function loadEmployeeSchedule_OLD() {
     // 매장 전체보기 여부에 따라 쿼리 분기
     let schedulesSnapshot;
     if (showStoreSchedule) {
-      // 매장 전체: 날짜 범위만으로 조회 (모든 직원)
-      console.log(`   🏪 매장 전체 스케줄 조회 (날짜 기준)`);
+      // 매장 전체: storeId + 날짜 범위로 조회 (내 매장 직원만)
+      console.log(`   🏪 매장 전체 스케줄 조회 (storeId + 날짜)`);
       schedulesSnapshot = await db.collection('schedules')
+        .where('companyId', '==', currentUser.companyId)
+        .where('storeId', '==', currentUser.storeId)
         .where('date', '>=', mondayStr)
         .where('date', '<=', sundayStr)
         .get();
     } else {
-      // 내 근무만: userId로 필터링
+      // 내 근무만: companyId + userId로 필터링
       console.log(`   👤 내 근무만 조회: userId = ${currentUser.uid}`);
       schedulesSnapshot = await db.collection('schedules')
+        .where('companyId', '==', currentUser.companyId)
         .where('userId', '==', currentUser.uid)
         .where('date', '>=', mondayStr)
         .where('date', '<=', sundayStr)
@@ -3054,6 +3075,7 @@ async function loadEmployeeSchedule_OLD() {
       
       // 전체 스케줄 중 내 이름으로 검색 (디버깅용)
       const allSchedules = await db.collection('schedules')
+        .where('companyId', '==', currentUser.companyId)
         .where('userName', '==', currentUser.name)
         .where('date', '>=', mondayStr)
         .where('date', '<=', sundayStr)
@@ -3406,6 +3428,7 @@ async function checkPendingAbsentReasons() {
   try {
     // 결근 기록 중 사유가 없는 것 찾기
     const snapshot = await db.collection('attendance')
+      .where('companyId', '==', currentUser.companyId)
       .where('userId', '==', currentUser.uid)
       .where('status', '==', 'absent')
       .get();
@@ -3648,6 +3671,7 @@ async function loadMyScheduleForDate() {
     
     // 해당 날짜의 모든 스케줄 조회
     const schedulesSnapshot = await db.collection('schedules')
+      .where('companyId', '==', currentUser.companyId)
       .where('userId', '==', currentUser.uid)
       .where('date', '==', selectedDate)
       .get();
@@ -3927,7 +3951,8 @@ async function loadStoreSchedule() {
     
     // 같은 매장의 모든 직원 스케줄 조회
     const scheduleQuery = await db.collection('schedules')
-      .where('store', '==', currentUser.store)
+      .where('companyId', '==', currentUser.companyId)
+      .where('storeId', '==', currentUser.storeId)
       .where('date', '>=', formatDate(monday))
       .where('date', '<=', formatDate(sunday))
       .get();
@@ -3947,6 +3972,7 @@ async function loadStoreSchedule() {
       
       // 모든 스케줄 문서 확인 (디버깅용)
       const allSchedules = await db.collection('schedules')
+        .where('companyId', '==', currentUser.companyId)
         .where('date', '>=', formatDate(monday))
         .where('date', '<=', formatDate(sunday))
         .get();
@@ -4418,6 +4444,7 @@ async function getStoreThresholds(storeName) {
   
   try {
     const storeSnapshot = await db.collection('stores')
+      .where('companyId', '==', currentUser.companyId)
       .where('name', '==', storeName)
       .limit(1)
       .get();

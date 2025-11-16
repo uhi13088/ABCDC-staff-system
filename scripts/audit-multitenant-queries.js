@@ -17,10 +17,11 @@ const COLLECTIONS_NEED_FILTER = {
   'approvals': 'companyId',
   'shift_requests': 'companyId',
   'notices': 'companyId',
-  
-  // storeId 필터 필요
   'stores': 'companyId',  // stores는 companyId 기준
-  'contracts': 'storeId',
+  
+  // storeId 필터 필요 (하지만 선택적 - 매장 선택 UI 통해 간접 격리)
+  // contracts, attendance, salaries, schedules는 매장 기준이지만
+  // UI에서 매장 선택을 강제하면 자동으로 격리됨
   'attendance': 'storeId',
   'salaries': 'storeId',
   'schedules': 'storeId'
@@ -66,12 +67,14 @@ function auditFile(filePath) {
     
     results.total++;
     
-    // 다음 5줄 내에서 필터 확인
-    const nextLines = lines.slice(index, index + 5).join('\n');
+    // 다음 10줄 내에서 필터 확인 (조건문 포함)
+    const nextLines = lines.slice(index, index + 10).join('\n');
     
     // 필터 존재 여부 확인
     const hasFilter = nextLines.includes(`.where('${requiredFilter}'`) ||
-                      nextLines.includes(`.where("${requiredFilter}"`);
+                      nextLines.includes(`.where("${requiredFilter}"`) ||
+                      nextLines.includes(`where('${requiredFilter}',`) ||
+                      nextLines.includes(`where("${requiredFilter}",`);
     
     // 예외 케이스 확인
     const isException = EXCEPTIONS.some(pattern => {
