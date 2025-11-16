@@ -80,14 +80,19 @@ service cloud.firestore {
     
     // ============ Collection Rules ============
     
-    // ⭐ v3.1.3: users 컬렉션 (순환참조 제거 + 민감 필드 보호)
+    // ⭐ v3.1.5: users 컬렉션 (순환참조 제거 + 민감 필드 보호 + 쿼리 레벨 허용)
     match /users/{userId} {
-      // 읽기: 본인은 직접 비교, 타인은 명시적 get()으로 체크
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): admin/manager는 자기 회사 전체 조회 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        (currentUserExists() && currentUser().data.role in ["admin", "manager", "store_manager"])
+      );
+      
+      // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin/manager
+      allow get: if isSignedIn() && (
         request.auth.uid == userId ||
         isSuperAdmin() ||
         (
-          // ⭐ 자기 자신이 아닐 때만 currentUser() 사용
           request.auth.uid != userId &&
           currentUserExists() &&
           currentUser().data.companyId == resource.data.companyId &&
