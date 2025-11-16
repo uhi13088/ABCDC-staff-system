@@ -29,15 +29,31 @@ let currentTab = 'dashboard';
  * 인증 상태 확인 및 초기화
  */
 function checkAuthStatus() {
-  const savedAuth = sessionStorage.getItem('admin_authenticated');
-  if (savedAuth === 'true') {
-    isAuthenticated = true;
-    showMainScreen();
-  } else {
-    // 인증되지 않은 경우 로그인 페이지로 리다이렉트
-    alert('⚠️ 로그인이 필요합니다.');
-    window.location.href = 'admin-login.html';
-  }
+  // 🔥 Firebase Auth 상태 감지 (비동기 초기화 완료 후 실행)
+  firebase.auth().onAuthStateChanged((user) => {
+    console.log('🔍 Firebase Auth 상태 변경:', user ? user.uid : 'null');
+    
+    if (user) {
+      // Firebase Auth에 사용자가 있음
+      const savedAuth = sessionStorage.getItem('admin_authenticated');
+      if (savedAuth === 'true') {
+        isAuthenticated = true;
+        console.log('✅ 인증 확인 완료, showMainScreen 호출');
+        showMainScreen();
+      } else {
+        // sessionStorage에 없으면 로그아웃 처리
+        console.warn('⚠️ sessionStorage에 인증 정보 없음');
+        firebase.auth().signOut();
+        window.location.href = 'admin-login.html';
+      }
+    } else {
+      // Firebase Auth에 사용자가 없음
+      console.log('❌ Firebase Auth 사용자 없음');
+      sessionStorage.removeItem('admin_authenticated');
+      alert('⚠️ 로그인이 필요합니다.');
+      window.location.href = 'admin-login.html';
+    }
+  });
 }
 
 /**
