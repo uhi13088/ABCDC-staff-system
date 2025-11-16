@@ -90,10 +90,16 @@ class ScheduleDataLoader {
       const storeData = storeDoc.data();
 
       // 2. 해당 매장 직원 조회
-      const employeesSnapshot = await this.db.collection('users')
+      let usersQuery = this.db.collection('users')
         .where('store', '==', storeData.name)
-        .where('role', 'in', ['staff', 'store_manager', 'manager'])
-        .get();
+        .where('role', 'in', ['staff', 'store_manager', 'manager']);
+      
+      // companyId 필터 추가 (멀티테넌트)
+      if (storeData.companyId) {
+        usersQuery = usersQuery.where('companyId', '==', storeData.companyId);
+      }
+      
+      const employeesSnapshot = await usersQuery.get();
 
       console.log(`👥 "${storeData.name}" 매장 직원: ${employeesSnapshot.size}명`);
 
@@ -182,9 +188,10 @@ class ScheduleDataLoader {
    * @param {string} userId - 사용자 UID
    * @param {string} userName - 사용자 이름 (옵션)
    * @param {string} birth - 생년월일 (옵션)
+   * @param {string} companyId - 회사 ID (옵션, 멀티테넌트)
    * @returns {Promise<Object|null>} 계약서 데이터
    */
-  async getContract(userId, userName = null, birth = null) {
+  async getContract(userId, userName = null, birth = null, companyId = null) {
     // 캐시 확인
     const cached = this.contractCache.get(userId);
     if (cached && (Date.now() - cached.timestamp) < this.cacheExpiry) {

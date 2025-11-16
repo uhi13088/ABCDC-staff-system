@@ -197,10 +197,16 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   try {
     const storeName = employee.store || contract.workStore;
     if (storeName) {
-      const storesSnapshot = await firebase.firestore().collection('stores')
-        .where('name', '==', storeName)
-        .limit(1)
-        .get();
+      let storeQuery = firebase.firestore().collection('stores')
+        .where('name', '==', storeName);
+      
+      // companyId 필터 추가 (employee.companyId 또는 contract.companyId 사용)
+      const companyId = employee.companyId || contract.companyId;
+      if (companyId) {
+        storeQuery = storeQuery.where('companyId', '==', companyId);
+      }
+      
+      const storesSnapshot = await storeQuery.limit(1).get();
       
       if (!storesSnapshot.empty) {
         const storeData = storesSnapshot.docs[0].data();

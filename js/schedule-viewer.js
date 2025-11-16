@@ -617,10 +617,17 @@ async function loadStoreSchedules(db, options) {
   const storeName = storeDoc.data().name;
   
   // 2. 해당 매장 직원 조회
-  const employeesSnapshot = await db.collection('users')
+  const storeData = storeDoc.data();
+  let usersQuery = db.collection('users')
     .where('store', '==', storeName)
-    .where('role', 'in', ['staff', 'store_manager', 'manager'])
-    .get();
+    .where('role', 'in', ['staff', 'store_manager', 'manager']);
+  
+  // companyId 필터 추가 (멀티테넌트)
+  if (storeData.companyId) {
+    usersQuery = usersQuery.where('companyId', '==', storeData.companyId);
+  }
+  
+  const employeesSnapshot = await usersQuery.get();
   
   console.log(`👥 "${storeName}" 매장 직원: ${employeesSnapshot.size}명`);
   
@@ -664,17 +671,23 @@ async function loadStoreSchedules(db, options) {
  * @private
  */
 async function loadEmployeeSchedules(db, options) {
-  const { userId, userName, startDate, endDate, storeName } = options;
+  const { userId, userName, startDate, endDate, storeName, companyId } = options;
   
   console.log(`📅 개인 스케줄 조회: userId=${userId}, ${startDate} ~ ${endDate}`);
   
   // storeName이 있으면 매장 전체, 없으면 내 스케줄만
   if (storeName) {
     // 매장 전체 스케줄 조회 (직원 페이지 "매장 전체 보기")
-    const employeesSnapshot = await db.collection('users')
+    let usersQuery = db.collection('users')
       .where('store', '==', storeName)
-      .where('role', 'in', ['staff', 'store_manager', 'manager'])
-      .get();
+      .where('role', 'in', ['staff', 'store_manager', 'manager']);
+    
+    // companyId 필터 추가 (멀티테넌트)
+    if (companyId) {
+      usersQuery = usersQuery.where('companyId', '==', companyId);
+    }
+    
+    const employeesSnapshot = await usersQuery.get();
     
     console.log(`👥 "${storeName}" 매장 직원: ${employeesSnapshot.size}명`);
     

@@ -213,10 +213,15 @@ async function injectSignatures(element, contract, signedContract, pageType) {
   // 매장별 대표 서명 가져오기
   let ceoSignature = '';
   try {
-    const storeSnapshot = await firebase.firestore().collection('stores')
-      .where('name', '==', contract.workStore)
-      .limit(1)
-      .get();
+    let storeQuery = firebase.firestore().collection('stores')
+      .where('name', '==', contract.workStore);
+    
+    // currentUser가 있으면 companyId 필터 추가 (멀티테넌트)
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.companyId) {
+      storeQuery = storeQuery.where('companyId', '==', currentUser.companyId);
+    }
+    
+    const storeSnapshot = await storeQuery.limit(1).get();
     if (!storeSnapshot.empty) {
       const storeData = storeSnapshot.docs[0].data();
       ceoSignature = storeData.ceoSignature || '';

@@ -116,10 +116,15 @@ window.showContractViewModal = async function showContractViewModal(contract, cu
     let ceoSignature = '';
     try {
       const db = firebase.firestore();
-      const storeSnapshot = await db.collection('stores')
-        .where('name', '==', contract.workStore)
-        .limit(1)
-        .get();
+      let storeQuery = db.collection('stores')
+        .where('name', '==', contract.workStore);
+      
+      // currentUser가 있으면 companyId 필터 추가 (멀티테넌트)
+      if (typeof currentUser !== 'undefined' && currentUser && currentUser.companyId) {
+        storeQuery = storeQuery.where('companyId', '==', currentUser.companyId);
+      }
+      
+      const storeSnapshot = await storeQuery.limit(1).get();
       if (!storeSnapshot.empty) {
         const storeData = storeSnapshot.docs[0].data();
         ceoSignature = storeData.ceoSignature || '';
@@ -397,10 +402,15 @@ async function generatePDF(element, contractId) {
     let ceoSignature = '';
     try {
       const db = firebase.firestore();
-      const storeSnapshot = await db.collection('stores')
-        .where('name', '==', contract.workStore)
-        .limit(1)
-        .get();
+      let storeQuery = db.collection('stores')
+        .where('name', '==', contract.workStore);
+      
+      // currentUser가 있으면 companyId 필터 추가 (멀티테넌트)
+      if (typeof currentUser !== 'undefined' && currentUser && currentUser.companyId) {
+        storeQuery = storeQuery.where('companyId', '==', currentUser.companyId);
+      }
+      
+      const storeSnapshot = await storeQuery.limit(1).get();
       if (!storeSnapshot.empty) {
         const storeData = storeSnapshot.docs[0].data();
         ceoSignature = storeData.ceoSignature || '';
