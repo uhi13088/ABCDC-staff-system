@@ -1122,7 +1122,7 @@
       // Firestore users 컬렉션에서 재직 직원 수 가져오기 (resigned 제외)
       try {
         const snapshot = await db.collection('users')
-          .where('userType', '==', 'employee')
+          .where('role', 'in', ['staff', 'store_manager', 'manager'])
           .get();
         
         // resigned 상태 제외하고 카운트
@@ -1234,10 +1234,10 @@
       
       try {
         console.log('📋 직원 목록 로드 시작...');
-        console.log('📍 컬렉션: users, 조건: userType == employee');
+        console.log('📍 컬렉션: users, 조건: role in [staff, store_manager, manager]');
         
         // Firestore users 컬렉션에서 직원 데이터 가져오기
-        let query = db.collection('users').where('userType', '==', 'employee');
+        let query = db.collection('users').where('role', 'in', ['staff', 'store_manager', 'manager']);
         
         // 상태 필터 적용
         if (statusFilter) {
@@ -1258,7 +1258,7 @@
         console.log(`📊 전체 users 컬렉션: ${allUsersSnapshot.size}개 문서`);
         allUsersSnapshot.forEach(doc => {
           const data = doc.data();
-          console.log(`  - ${doc.id}: ${data.name} (userType: ${data.userType || 'undefined'})`);
+          console.log(`  - ${doc.id}: ${data.displayName} (role: ${data.role || 'undefined'})`);
         });
         
         if (usersSnapshot.empty) {
@@ -1718,7 +1718,7 @@
         const usersSnapshot = await firebase.firestore()
           .collection('users')
           .where('name', '==', employeeName)
-          .where('userType', '==', 'employee')
+          .where('role', 'in', ['staff', 'store_manager', 'manager'])
           .get();
         
         if (usersSnapshot.empty) {
@@ -2115,7 +2115,7 @@
         
         // 모든 직원 가져오기
         const employeesSnapshot = await firebase.firestore().collection('users')
-          .where('userType', '==', 'employee')
+          .where('role', 'in', ['staff', 'store_manager', 'manager'])
           .get();
         
         if (employeesSnapshot.empty) {
@@ -2911,7 +2911,7 @@
       try {
         // Firestore에서 관리자/매니저 조회
         const snapshot = await db.collection('users')
-          .where('userType', '==', 'admin')
+          .where('role', '==', 'admin')
           .get();
         
         if (snapshot.empty) {
@@ -5414,9 +5414,9 @@
       if (employeeSelect) {
         employeeSelect.innerHTML = '<option value="">직원을 선택하세요</option>';
         
-        // Firestore에서 직원 목록 가져오기 (users 컬렉션, userType === 'employee', resigned 제외)
+        // Firestore에서 직원 목록 가져오기 (users 컬렉션, role in [staff, store_manager, manager], resigned 제외)
         firebase.firestore().collection('users')
-          .where('userType', '==', 'employee')
+          .where('role', 'in', ['staff', 'store_manager', 'manager'])
           .get()
           .then(snapshot => {
             if (!snapshot.empty) {

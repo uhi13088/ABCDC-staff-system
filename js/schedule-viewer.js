@@ -619,7 +619,7 @@ async function loadStoreSchedules(db, options) {
   // 2. 해당 매장 직원 조회
   const employeesSnapshot = await db.collection('users')
     .where('store', '==', storeName)
-    .where('userType', '==', 'employee')
+    .where('role', 'in', ['staff', 'store_manager', 'manager'])
     .get();
   
   console.log(`👥 "${storeName}" 매장 직원: ${employeesSnapshot.size}명`);
@@ -673,7 +673,7 @@ async function loadEmployeeSchedules(db, options) {
     // 매장 전체 스케줄 조회 (직원 페이지 "매장 전체 보기")
     const employeesSnapshot = await db.collection('users')
       .where('store', '==', storeName)
-      .where('userType', '==', 'employee')
+      .where('role', 'in', ['staff', 'store_manager', 'manager'])
       .get();
     
     console.log(`👥 "${storeName}" 매장 직원: ${employeesSnapshot.size}명`);

@@ -92,7 +92,7 @@ class ScheduleDataLoader {
       // 2. 해당 매장 직원 조회
       const employeesSnapshot = await this.db.collection('users')
         .where('store', '==', storeData.name)
-        .where('userType', '==', 'employee')
+        .where('role', 'in', ['staff', 'store_manager', 'manager'])
         .get();
 
       console.log(`👥 "${storeData.name}" 매장 직원: ${employeesSnapshot.size}명`);
