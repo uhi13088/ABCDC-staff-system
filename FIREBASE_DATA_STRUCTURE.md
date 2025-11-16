@@ -151,13 +151,15 @@ contracts/{contractId}
   contractType: "정규직 근로계약서",
   workStore: "부천시청점",
   position: "바리스타",
-  startDate: "2025-02-01",
-  endDate: "2026-01-31",              // 또는 null (무기한)
+  contractStartDate: "2025-02-01",    // 신규 표준 필드명
+  contractEndDate: "2026-01-31",      // 신규 표준 필드명 (또는 null)
+  startDate: "2025-02-01",            // 구버전 호환용
+  endDate: "2026-01-31",              // 구버전 호환용
   
   // 근무 조건
-  workDays: "월, 화, 수, 목, 금",
+  workDays: ["월", "화", "수", "목", "금"],  // 배열 형태로 저장
   workTime: "09:00 ~ 18:00",
-  breakTime: "12:00 ~ 13:00 (1시간)",
+  breakTime: "12:00 ~ 13:00 (1시간)",  // 문자열로 저장
   
   // 근무 스케줄 (배열)
   schedules: [
@@ -167,15 +169,34 @@ contracts/{contractId}
       startHour: "09",
       startMinute: "00",
       endHour: "18",
-      endMinute: "00"
+      endMinute: "00",
+      breakTime: {                    // 신규: 휴게시간 객체
+        start: "12:00",
+        end: "13:00",
+        minutes: 60
+      }
     }
   ],
   
-  // 급여 조건
-  wageType: "시급",
-  wageAmount: "10500",
-  paymentDay: "매월 25일",
+  // 급여 조건 (표준 필드명)
+  salaryType: "시급",                  // 신규 표준 필드명
+  salaryAmount: 10500,                 // 신규 표준 필드명 (숫자)
+  wageType: "시급",                    // 구버전 호환용
+  wageAmount: "10500",                 // 구버전 호환용 (문자열)
+  salaryPaymentDay: "매월 25일",       // 신규 표준 필드명
+  paymentDay: "매월 25일",             // 구버전 호환용
   paymentMethod: "계좌이체",
+  
+  // 수당 설정 (신규 추가)
+  allowances: {
+    weeklyHoliday: true,              // 주휴수당
+    overtime: true,                   // 연장근로수당
+    night: true,                      // 야간근로수당
+    holiday: true                     // 휴일근로수당
+  },
+  
+  // 4대보험 (신규 추가)
+  insurance: "all",                   // all/employment_only/freelancer/none
   
   // 상태
   status: "pending",                  // pending, signed, expired
@@ -195,7 +216,8 @@ contracts/{contractId}
 **인덱스:**
 - `employeeId` (단일 필드)
 - `status` (단일 필드)
-- `employeeId + createdAt` (복합 인덱스, 최신순 정렬)
+- `employeeId + createdAt DESC` (복합 인덱스, 최신순 정렬) ✅ 생성 완료
+- `employeeName + createdAt DESC` (복합 인덱스, fallback 조회용)
 
 ---
 
@@ -243,13 +265,64 @@ attendance/{attendanceId}
 ```
 
 **인덱스:**
-- `employeeId + date` (복합 인덱스)
+- `userId + date` (복합 인덱스)
 - `date` (단일 필드)
 - `store + date` (복합 인덱스)
 
 ---
 
-### 6. **employee_documents** (직원 서류)
+### 6. **schedules** (근무 스케줄) **신규 추가**
+
+```javascript
+schedules/{scheduleId}
+{
+  id: "auto_generated_id",           // 자동 생성 ID
+  
+  // 직원 정보
+  userId: "firebase_uid",             // 직원 UID
+  userName: "홍길동",                 // 직원 이름
+  
+  // 날짜 및 시간
+  date: "2025-11-16",                // 근무 날짜 (YYYY-MM-DD)
+  startTime: "09:00",                // 시작 시간
+  endTime: "18:00",                  // 종료 시간
+  hours: 8,                          // 총 근무 시간
+  
+  // 휴게시간 (객체)
+  breakTime: {
+    start: "12:00",                  // 휴게 시작
+    end: "13:00",                    // 휴게 종료
+    minutes: 60                      // 휴게시간 (분)
+  },
+  
+  // 상태
+  isWorkDay: true,                   // 근무 여부
+  isShiftReplacement: false,         // 대타근무 여부
+  
+  // 계약서 추적
+  contractId: "C1738123456789",      // 연결된 계약서 ID
+  
+  // 생성 정보
+  createdAt: Timestamp,
+  updatedAt: Timestamp
+}
+```
+
+**인덱스:**
+- `userId + date` (복합 인덱스)
+- `date` (단일 필드)
+- `contractId` (단일 필드)
+
+**⚠️ 중요 변경사항:**
+- ❌ **주차 단위 구조 삭제**: `{userId}_{year}-{weekNum}` 형식 사용 안 함
+- ✅ **일별 문서**: 각 근무일마다 별도 문서 생성
+- ✅ **breakTime 객체**: 휴게시간을 구조화된 객체로 저장
+- ✅ **대타근무 지원**: `isShiftReplacement` 필드로 교대근무 추적
+- ✅ **계약서 연동**: `contractId`로 최신 계약서 필터링
+
+---
+
+### 7. **employee_documents** (직원 서류)
 
 ```javascript
 employee_documents/{employeeId}
@@ -292,7 +365,7 @@ employee_documents/{employeeId}
 
 ---
 
-### 7. **salaries** (급여 정보)
+### 8. **salaries** (급여 정보)
 
 ```javascript
 salaries/{salaryId}
@@ -345,7 +418,7 @@ salaries/{salaryId}
 
 ---
 
-### 8. **notices** (공지사항)
+### 9. **notices** (공지사항)
 
 ```javascript
 notices/{noticeId}
@@ -376,7 +449,7 @@ notices/{noticeId}
 
 ---
 
-### 9. **system_logs** (시스템 로그)
+### 10. **system_logs** (시스템 로그)
 
 ```javascript
 system_logs/{logId}
@@ -440,12 +513,20 @@ Firestore Console에서 수동으로 생성해야 할 복합 인덱스:
 
 1. `users`: `status` + `role`
 2. `users`: `status` + `store`
-3. `contracts`: `employeeId` + `createdAt` (내림차순)
-4. `attendance`: `employeeId` + `date`
-5. `attendance`: `store` + `date`
-6. `salaries`: `employeeId` + `year` + `month`
+3. `contracts`: `employeeId` + `createdAt DESC` ✅ 생성 완료
+4. `contracts`: `employeeName` + `createdAt DESC` (fallback 조회용)
+5. `attendance`: `userId` + `date`
+6. `attendance`: `store` + `date`
+7. `schedules`: `userId` + `date` (신규 추가)
+8. `salaries`: `employeeId` + `year` + `month`
+
+**⚠️ 참고:**
+- 단일 필드 인덱스는 Firestore가 자동 생성
+- 복합 인덱스는 에러 메시지의 링크로 생성 가능
+- `firestore.indexes.json`에 정의되어 있음
 
 ---
 
 **작성일**: 2025-01-29  
-**버전**: 1.0
+**최종 업데이트**: 2025-11-16  
+**버전**: 2.0

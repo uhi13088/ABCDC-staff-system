@@ -42,16 +42,24 @@ index.html (메인 랜딩)
 ### CSS (1개)
 - **css/common.css** - 공통 스타일 (브라운/베이지 테마)
 
-### JavaScript (9개)
+### JavaScript (13개)
 - **js/firebase-config.js** - Firebase 초기화 설정
-- **js/admin.js** - 관리자 페이지 로직
+- **js/firebase-init.js** - Firebase 초기화 (admin-dashboard 전용)
 - **js/employee.js** - 직원 페이지 로직
-- **js/contract.js** - 계약서 작성 로직
 - **js/contract-sign.js** - 계약서 서명 로직
+- **js/contract-viewer.js** - 계약서 상세보기 공통 모듈
+- **js/schedule-viewer.js** - 스케줄 간트차트 렌더링 및 데이터 로딩 공통 모듈
+- **js/salary-calculator.js** - 급여 계산 로직 모듈
+- **js/pdf-generator.js** - PDF 생성 모듈
+- **js/field-constants.js** - 필드 상수 정의
 - **js/auth.js** - 인증 관리
-- **js/api.js** - API 통신 (Google Apps Script 연동 예정)
+- **js/api.js** - API 통신
 - **js/config.js** - 설정 파일
 - **js/utils.js** - 유틸리티 함수
+
+**❌ 삭제된 파일:**
+- ~~js/admin.js~~ - admin-dashboard.html에 통합됨
+- ~~js/contract.js~~ - admin-dashboard.html에 통합됨
 
 ### 문서 (4개)
 - **README.md** - 프로젝트 전체 문서
@@ -99,10 +107,13 @@ index.html (메인 랜딩)
 - **attendance**: 근태 기록
 - **salaries**: 급여 정보
 
-### 현재 데이터 저장 방식 (⚠️ 일관성 없음)
-- ✅ **직원 정보**: Firestore (올바름)
-- ❌ **계약서**: localStorage (Firestore로 이동 필요)
-- ❌ **매장 정보**: localStorage (Firestore로 이동 필요)
+### 현재 데이터 저장 방식 (✅ 100% Firestore)
+- ✅ **직원 정보**: Firestore
+- ✅ **계약서**: Firestore (완료)
+- ✅ **매장 정보**: Firestore (완료)
+- ✅ **스케줄**: Firestore (일별 문서 구조)
+- ✅ **출퇴근**: Firestore
+- ✅ **급여**: Firestore
 
 ## 🎨 디자인 시스템
 
@@ -116,7 +127,7 @@ index.html (메인 랜딩)
 --text-secondary: #9b8a76;     /* 보조 텍스트 */
 ```
 
-## ✅ 점검 완료 사항 (2025-01-30)
+## ✅ 점검 완료 사항 (2025-11-16)
 
 1. ✅ 불필요한 파일 삭제 (admin-index.html 등 5개)
 2. ✅ 핵심 파일 7개로 정리
@@ -125,32 +136,36 @@ index.html (메인 랜딩)
 5. ✅ CSS/JS 파일 경로 정상 확인
 6. ✅ HTTP 응답: 모든 페이지 200 OK
 
-## ⚠️ 알려진 문제 (사장님 확인)
+## ✅ 해결된 문제들
 
-### 1. 스크립트 방식 불일치
-- **admin-dashboard.html**: Firebase SDK를 HTML 내부에 직접 포함
-- **employee.html**: 외부 JS 파일 참조 (js/employee.js)
-- **문제**: 일관성 없음
-- **해결**: 모든 페이지를 외부 JS 참조 방식으로 통일 필요 (나중에 리팩토링)
+### 1. 데이터 저장 전략 통일 ✅
+- ✅ **100% Firestore 기반**으로 완료
+- ✅ localStorage 완전 제거
+- ✅ 모든 데이터 Firestore 저장
 
-### 2. 데이터 저장 전략 혼재
-- **localStorage**: 계약서, 매장 정보 (❌ 삭제 위험, 공유 불가)
-- **Firestore**: 직원 정보 (✅ 올바름)
-- **문제**: 일관성 없음, 데이터 손실 위험
-- **해결**: 모든 데이터를 Firestore로 이동 필요
+### 2. 모듈화 완료 ✅
+- ✅ **contract-viewer.js**: 계약서 상세보기 공통 모듈
+- ✅ **schedule-viewer.js**: 스케줄 렌더링 및 데이터 로딩 공통 모듈
+- ✅ **salary-calculator.js**: 급여 계산 로직 모듈화
+- ✅ 코드 중복 최소화 (634줄 제거)
 
-### 3. 중복 컬렉션
-- **users**와 **employees** 컬렉션이 중복
-- **해결**: 하나로 통합 필요
+### 3. 스케줄 시스템 개선 ✅
+- ✅ **breakTime 객체**: `{start, end, minutes}` 구조로 저장
+- ✅ **일별 스케줄 구조**: 주차 단위 → 일별 문서로 변경
+- ✅ **대타근무 시스템**: isShiftReplacement 필드 추가
+- ✅ **최신 계약서 추적**: contractId 필드 추가
 
 ## 🎯 향후 작업 계획 (사장님 확인)
 
-### Phase 1: 웹 개발 완료 (현재)
+### Phase 1: 웹 개발 완료 ✅
 - [x] Firebase 연동
 - [x] 로그인/가입 기능
-- [ ] 실제 출퇴근 기능 구현
-- [ ] 근태/급여 관리 기능 구현
-- [ ] 데이터 저장 전략 통일 (localStorage → Firestore)
+- [x] 출퇴근 기능 구현
+- [x] 근태/급여 관리 기능 구현
+- [x] 데이터 저장 전략 통일 (100% Firestore)
+- [x] 스케줄 관리 시스템
+- [x] 교대근무 신청 시스템
+- [x] 자동 결근 생성 시스템 (Cloud Functions)
 
 ### Phase 2: Google Sheets 연동 (웹 완료 후)
 - [ ] Google Apps Script 백엔드 작성
@@ -179,6 +194,6 @@ index.html (메인 랜딩)
 
 ---
 
-**마지막 업데이트**: 2025-01-30  
+**마지막 업데이트**: 2025-11-16  
 **작성자**: AI Assistant  
-**상태**: 점검 완료, 정리 완료
+**상태**: 점검 완료, 리팩토링 완료, 모듈화 완료

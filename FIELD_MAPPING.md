@@ -95,42 +95,53 @@ contract.contractContent || contract.contractBody || ''
 ---
 
 ### 3. schedules 컬렉션 (근무 스케줄)
-**문서 ID 형식:** `{userId}_{year}-{weekNum}`
-예: `V6ODL21346fDl3DllMAzZw0Icov2_2025-47`
+**문서 ID 형식:** 자동 생성 ID (일별 문서)
 
 **실제 Firestore 필드:**
-- `월`, `화`, `수`, `목`, `금`, `토`, `일` - 요일별 객체
-  - `startTime` - 시작 시간 (예: "09:00")
-  - `endTime` - 종료 시간 (예: "18:00")
-  - `hours` - 근무 시간 (예: 8)
-  - `isWorkDay` - 근무 여부 (true/false)
+- `userId` - 직원 UID
+- `date` - 날짜 (YYYY-MM-DD)
+- `startTime` - 시작 시간 (예: "09:00")
+- `endTime` - 종료 시간 (예: "18:00")
+- `hours` - 근무 시간 (예: 8)
+- `breakTime` - 휴게시간 객체 (**신규 추가**)
+  - `breakTime.start` - 휴게 시작 시간 (예: "12:00")
+  - `breakTime.end` - 휴게 종료 시간 (예: "13:00")
+  - `breakTime.minutes` - 휴게시간 (분) (예: 60)
+- `isWorkDay` - 근무 여부 (true/false)
+- `isShiftReplacement` - 대타근무 여부 (**신규 추가**)
+- `contractId` - 계약서 ID (최신 계약서 추적) (**신규 추가**)
 - `createdAt` - 생성일
-- `updatedAt` - 수정일
 
 **코드에서 사용:**
 ```javascript
-const scheduleDocId = `${empUid}_${year}-${weekNum}`;
-const scheduleDoc = await db.collection('schedules').doc(scheduleDocId).get();
+// 일별 스케줄 조회
+const schedulesSnapshot = await db.collection('schedules')
+  .where('userId', '==', userId)
+  .where('date', '>=', startDate)
+  .where('date', '<=', endDate)
+  .get();
 
-if (scheduleDoc.exists) {
-  const scheduleData = scheduleDoc.data();
-  days.forEach(day => {
-    if (scheduleData[day]) {
-      const daySchedule = scheduleData[day];
-      schedules[day] = {
-        startTime: daySchedule.startTime || '',
-        endTime: daySchedule.endTime || '',
-        hours: daySchedule.hours || 0,
-        isWorkDay: daySchedule.isWorkDay !== false
-      };
-    }
-  });
-}
+schedulesSnapshot.forEach(doc => {
+  const scheduleData = doc.data();
+  
+  // breakTime 객체 사용
+  if (scheduleData.breakTime) {
+    const actualWorkHours = scheduleData.hours - (scheduleData.breakTime.minutes / 60);
+  }
+  
+  // 대타근무 확인
+  if (scheduleData.isShiftReplacement) {
+    console.log('대타근무');
+  }
+});
 ```
 
-**⚠️ 중요:** 
-- 스케줄 데이터가 없으면 간트차트에 막대가 표시되지 않음
-- 계약서 작성 시 자동으로 스케줄 생성되어야 함
+**⚠️ 중요 변경사항:** 
+- ❌ **주차 단위 구조 삭제됨** (`{userId}_{year}-{weekNum}`)
+- ✅ **일별 문서 구조로 변경됨**
+- ✅ `breakTime` 객체 추가
+- ✅ `isShiftReplacement` 필드 추가 (교대근무 지원)
+- ✅ `contractId` 필드 추가 (최신 계약서 필터링)
 
 ---
 
