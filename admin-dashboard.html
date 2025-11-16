@@ -4823,26 +4823,7 @@
           stores.push({ id: doc.id, ...doc.data() });
         });
         
-        // 기본 매장이 없으면 Firestore에 추가
-        if (stores.length === 0) {
-          console.log('📋 기본 매장 생성 중...');
-          const defaultStores = [
-            { name: '맛남살롱 부천시청점', address: '경기도 부천시 원미구', phone: '032-123-4567', ceo: '홍길동', businessNumber: '123-45-67890', salaryPaymentDay: 5 },
-            { name: '맛남살롱 상동점', address: '경기도 부천시 상동', phone: '032-123-4568', ceo: '홍길동', businessNumber: '123-45-67890', salaryPaymentDay: 5 },
-            { name: '맛남살롱 부천역사점', address: '경기도 부천시 부천역 인근', phone: '032-123-4569', ceo: '홍길동', businessNumber: '123-45-67890', salaryPaymentDay: 5 }
-          ];
-          
-          for (const store of defaultStores) {
-            const docRef = await firebase.firestore().collection('stores').add({
-              ...store,
-              companyId: myCompanyId,  // 🔒 중요: companyId 추가
-              createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            stores.push({ id: docRef.id, ...store });
-          }
-          console.log('✅ 기본 매장 3개 생성 완료');
-        }
-        
+        // 매장이 없으면 안내 메시지 표시
         if (stores.length === 0) {
           tbody.innerHTML = `
             <tr>
