@@ -605,3 +605,256 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
     });
   }
 });
+
+// ===================================================================
+// ⭐ v3.1: 멀티테넌트 초대 코드 시스템
+// ===================================================================
+
+/**
+ * 초대 코드 검증 (v3.1)
+ * 호출: employee-register.html
+ * 
+ * 기능:
+ * - 초대 코드 유효성 확인
+ * - 회사 및 매장 정보 반환 (1:1 매칭)
+ * - 사용 횟수 확인
+ */
+exports.verifyInviteCode = functions.https.onCall(async (data, context) => {
+  const { inviteCode } = data;
+  
+  console.log(`🔍 초대 코드 검증 시작: ${inviteCode}`);
+  
+  // 입력 검증
+  if (!inviteCode || typeof inviteCode !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', '초대 코드를 입력하세요.');
+  }
+  
+  try {
+    const db = admin.firestore();
+    
+    // 초대 코드 문서 조회 (code 필드로 검색)
+    const inviteSnapshot = await db.collection('company_invites')
+      .where('code', '==', inviteCode)
+      .limit(1)
+      .get();
+    
+    if (inviteSnapshot.empty) {
+      throw new functions.https.HttpsError('not-found', '유효하지 않은 초대 코드입니다.');
+    }
+    
+    const inviteDoc = inviteSnapshot.docs[0];
+    const inviteData = inviteDoc.data();
+    
+    console.log(`✅ 초대 코드 문서 찾음: ${inviteDoc.id}`);
+    
+    // 상태 확인
+    if (inviteData.status !== 'active') {
+      throw new functions.https.HttpsError('failed-precondition', '사용할 수 없는 초대 코드입니다.');
+    }
+    
+    // 사용 횟수 확인
+    if (inviteData.usedCount >= inviteData.maxUses) {
+      throw new functions.https.HttpsError('resource-exhausted', '초대 코드 사용 횟수를 초과했습니다.');
+    }
+    
+    // 만료일 확인
+    if (inviteData.expiresAt && inviteData.expiresAt.toDate() < new Date()) {
+      throw new functions.https.HttpsError('deadline-exceeded', '만료된 초대 코드입니다.');
+    }
+    
+    // 회사 정보 조회
+    const companyDoc = await db.collection('companies')
+      .doc(inviteData.companyId)
+      .get();
+    
+    if (!companyDoc.exists) {
+      throw new functions.https.HttpsError('not-found', '회사 정보를 찾을 수 없습니다.');
+    }
+    
+    // ⭐ v3.1: 매장 정보 조회 (1개만)
+    const storeDoc = await db.collection('stores')
+      .doc(inviteData.storeId)
+      .get();
+    
+    if (!storeDoc.exists) {
+      throw new functions.https.HttpsError('not-found', '매장 정보를 찾을 수 없습니다.');
+    }
+    
+    const storeData = storeDoc.data();
+    
+    console.log(`✅ 검증 성공: ${inviteData.companyId} / ${storeData.name}`);
+    
+    // ⭐ v3.1: 단순화된 응답
+    return {
+      ok: true,
+      companyId: inviteData.companyId,
+      companyName: companyDoc.data().name,
+      storeId: inviteData.storeId,
+      storeName: storeData.name,
+      role: inviteData.role || 'staff'
+    };
+    
+  } catch (error) {
+    console.error('❌ 초대 코드 검증 실패:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', '초대 코드 검증 중 오류가 발생했습니다.');
+  }
+});
+
+/**
+ * 초대 코드 사용 기록
+ * 호출: employee-register.html (가입 완료 후)
+ * 
+ * 기능:
+ * - 초대 코드 사용 횟수 증가
+ * - 가입 성공 후 호출
+ */
+exports.recordInviteUse = functions.https.onCall(async (data, context) => {
+  const { inviteCode, userId } = data;
+  
+  console.log(`📝 초대 코드 사용 기록: ${inviteCode} / ${userId}`);
+  
+  // 인증 확인
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', '인증이 필요합니다.');
+  }
+  
+  // 본인 UID인지 확인
+  if (context.auth.uid !== userId) {
+    throw new functions.https.HttpsError('permission-denied', '본인의 가입만 기록할 수 있습니다.');
+  }
+  
+  try {
+    const db = admin.firestore();
+    
+    // 초대 코드 문서 조회
+    const inviteSnapshot = await db.collection('company_invites')
+      .where('code', '==', inviteCode)
+      .limit(1)
+      .get();
+    
+    if (inviteSnapshot.empty) {
+      throw new functions.https.HttpsError('not-found', '초대 코드를 찾을 수 없습니다.');
+    }
+    
+    const inviteDoc = inviteSnapshot.docs[0];
+    
+    // 사용 횟수 증가
+    await inviteDoc.ref.update({
+      usedCount: admin.firestore.FieldValue.increment(1),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`✅ 초대 코드 사용 기록 완료`);
+    
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ 초대 코드 사용 기록 실패:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', '초대 코드 사용 기록 실패');
+  }
+});
+
+/**
+ * ⭐ v3.1: 초대 코드 생성 (1:1 매칭 + 초대 링크)
+ * 호출: admin-dashboard.html (관리자 페이지)
+ * 
+ * 기능:
+ * - 초대 코드 생성 (회사 + 매장 + 역할 고정)
+ * - 초대 링크 자동 생성
+ * - 클립보드 복사용 URL 반환
+ */
+exports.createInviteCode = functions.https.onCall(async (data, context) => {
+  // 인증 확인
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', '인증이 필요합니다.');
+  }
+  
+  console.log(`🎫 초대 코드 생성 요청: ${context.auth.uid}`);
+  
+  try {
+    const db = admin.firestore();
+    
+    // Admin 권한 확인
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    
+    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+      throw new functions.https.HttpsError('permission-denied', '관리자 권한이 필요합니다.');
+    }
+    
+    // ⭐ v3.1: 단순화된 파라미터
+    const { 
+      companyId, 
+      storeId,
+      storeName,
+      role,
+      maxUses, 
+      expiresAt 
+    } = data;
+    
+    // 필수 파라미터 검증
+    if (!companyId || !storeId || !role) {
+      throw new functions.https.HttpsError(
+        'invalid-argument', 
+        'companyId, storeId, role은 필수입니다.'
+      );
+    }
+    
+    // 초대 코드 생성 (회사명 약어 + 연도 + 역할 + 랜덤)
+    const prefix = companyId.replace('company_', '').toUpperCase();
+    const year = new Date().getFullYear();
+    const roleCode = role.toUpperCase();
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+    
+    const code = `${prefix}${year}-${roleCode}-${random}`;
+    
+    // ⭐ v3.1: 초대 링크 생성
+    // TODO: 실제 도메인으로 변경 필요
+    const baseUrl = 'https://abcdc-staff-system.web.app';
+    const inviteUrl = `${baseUrl}/employee-register.html?code=${code}`;
+    
+    console.log(`🎫 생성된 초대 코드: ${code}`);
+    
+    // Firestore에 초대 코드 저장
+    const inviteRef = db.collection('company_invites').doc();
+    await inviteRef.set({
+      code,
+      companyId,
+      storeId,
+      storeName: storeName || '',
+      role,
+      inviteUrl,
+      maxUses: maxUses || 50,
+      usedCount: 0,
+      status: 'active',
+      createdBy: context.auth.uid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`✅ 초대 코드 저장 완료: ${inviteRef.id}`);
+    
+    return { 
+      ok: true, 
+      code,
+      inviteUrl
+    };
+  } catch (error) {
+    console.error('❌ 초대 코드 생성 실패:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', '초대 코드 생성 실패');
+  }
+});
