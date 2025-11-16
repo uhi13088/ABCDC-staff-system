@@ -375,10 +375,22 @@
         }
       } catch (error) {
         console.error('로그인 오류:', error);
-        if (error.code === 'auth/user-not-found') errorEl.textContent = '등록되지 않은 이메일입니다.';
-        else if (error.code === 'auth/wrong-password') errorEl.textContent = '비밀번호가 올바르지 않습니다.';
-        else if (error.code === 'auth/invalid-email') errorEl.textContent = '이메일 형식이 올바르지 않습니다.';
-        else errorEl.textContent = '로그인 중 오류가 발생했습니다.';
+        
+        // 친절한 오류 메시지
+        if (error.code === 'auth/user-not-found') {
+          errorEl.textContent = '❌ 등록되지 않은 이메일입니다.\n아직 회원가입을 하지 않으셨다면 관리자 가입을 진행해주세요.';
+        } else if (error.code === 'auth/invalid-login-credentials') {
+          errorEl.textContent = '❌ 이메일 또는 비밀번호가 일치하지 않습니다.\n아직 회원가입을 하지 않으셨다면 관리자 가입을 진행해주세요.';
+        } else if (error.code === 'auth/wrong-password') {
+          errorEl.textContent = '❌ 비밀번호가 올바르지 않습니다.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorEl.textContent = '❌ 이메일 형식이 올바르지 않습니다.';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorEl.textContent = '❌ 로그인 시도가 너무 많습니다.\n잠시 후 다시 시도해주세요.';
+        } else {
+          errorEl.textContent = '❌ 로그인 중 오류가 발생했습니다.\n이메일과 비밀번호를 확인해주세요.';
+        }
+        
         errorEl.style.display = 'block';
         document.getElementById('adminPassword').value = '';
       }
