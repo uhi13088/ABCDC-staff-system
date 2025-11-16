@@ -378,10 +378,12 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
       if (attendanceQuery.empty) {
         const newAbsentRef = db.collection('attendance').doc();
         
+        // 🔥 멀티테넌트: storeId 기준으로 관리 (contracts에서 가져오기)
         const absentRecord = {
+          storeId: worker.storeId || null,  // 매장 ID 추가
           uid: worker.employeeId,
           name: worker.employeeName,
-          store: worker.workStore,
+          store: worker.workStore,  // 호환성: 매장명 문자열
           date: yesterdayStr,
           status: 'absent',
           clockIn: null,
@@ -542,10 +544,12 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
       if (attendanceQuery.empty) {
         const newAbsentRef = db.collection('attendance').doc();
         
+        // 🔥 멀티테넌트: storeId 기준으로 관리 (contracts에서 가져오기)
         const absentRecord = {
+          storeId: worker.storeId || null,  // 매장 ID 추가
           uid: worker.employeeId,
           name: worker.employeeName,
-          store: worker.workStore,
+          store: worker.workStore,  // 호환성: 매장명 문자열
           date: targetDate,
           status: 'absent',
           clockIn: null,
