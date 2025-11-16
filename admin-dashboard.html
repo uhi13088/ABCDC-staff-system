@@ -5301,6 +5301,7 @@
           }
         } else {
           // 추가 - Firestore 신규 생성
+          storeData.companyId = myCompanyId;  // 🔒 companyId 필수!
           storeData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
           const docRef = await firebase.firestore().collection('stores').add(storeData);
           console.log('✅ 매장 추가 완료:', docRef.id);
