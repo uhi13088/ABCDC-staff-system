@@ -23,6 +23,9 @@
         맛남살롱 근무관리
       </h1>
       <div style="display: flex; align-items: center; gap: 16px;">
+        <button class="btn btn-info" onclick="showCompanyEditModal()" style="padding: 8px 16px; font-size: 14px;">
+          🏢 회사 정보
+        </button>
         <span class="admin-badge">관리자</span>
         <button class="btn btn-secondary" onclick="logout()">로그아웃</button>
       </div>
@@ -1020,6 +1023,67 @@
       // 승인 관리 탭의 승인/거부 버튼은 동적으로 생성되므로 loadApprovals에서 처리
       
       console.log('✅ 매니저 권한 제한 적용 완료');
+    }
+    
+    // 회사 정보 수정 모달
+    async function showCompanyEditModal() {
+      if (!myCompanyId) {
+        alert('회사 정보를 불러올 수 없습니다.');
+        return;
+      }
+      
+      try {
+        const companyDoc = await firebase.firestore().collection('companies').doc(myCompanyId).get();
+        
+        if (companyDoc.exists) {
+          const company = companyDoc.data();
+          document.getElementById('editCompanyName').value = company.companyName || '';
+          document.getElementById('editCompanyBusinessNumber').value = company.businessNumber || '';
+          document.getElementById('editCompanyPhone').value = company.phone || '';
+          document.getElementById('editCompanyAddress').value = company.address || '';
+          document.getElementById('displayCompanyId').textContent = myCompanyId;
+        } else {
+          alert('회사 정보를 찾을 수 없습니다.');
+          return;
+        }
+        
+        document.getElementById('companyEditModal').style.display = 'flex';
+      } catch (error) {
+        console.error('회사 정보 로드 실패:', error);
+        alert('회사 정보를 불러오는데 실패했습니다.');
+      }
+    }
+    
+    function closeCompanyEditModal() {
+      document.getElementById('companyEditModal').style.display = 'none';
+    }
+    
+    async function saveCompanyInfo() {
+      const companyName = document.getElementById('editCompanyName').value.trim();
+      const businessNumber = document.getElementById('editCompanyBusinessNumber').value.trim();
+      const phone = document.getElementById('editCompanyPhone').value.trim();
+      const address = document.getElementById('editCompanyAddress').value.trim();
+      
+      if (!companyName) {
+        alert('회사명은 필수입니다.');
+        return;
+      }
+      
+      try {
+        await firebase.firestore().collection('companies').doc(myCompanyId).update({
+          companyName: companyName,
+          businessNumber: businessNumber,
+          phone: phone,
+          address: address,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert('✅ 회사 정보가 수정되었습니다.');
+        closeCompanyEditModal();
+      } catch (error) {
+        console.error('회사 정보 수정 실패:', error);
+        alert('회사 정보 수정에 실패했습니다.');
+      }
     }
     
     // signedContracts Firestore 캐시 로드
@@ -12370,6 +12434,48 @@
           <button class="btn btn-primary" onclick="savePersonSettings()">저장</button>
         </div>
         
+      </div>
+    </div>
+  </div>
+
+  <!-- 회사 정보 수정 모달 -->
+  <div id="companyEditModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h2 style="margin: 0; font-size: 24px; color: var(--primary-color);">🏢 회사 정보 수정</h2>
+        <button onclick="closeCompanyEditModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+      </div>
+      
+      <div style="display: grid; gap: 16px;">
+        <div class="form-group">
+          <label>회사명 <span style="color: var(--danger-color);">*</span></label>
+          <input type="text" id="editCompanyName" placeholder="회사명" />
+        </div>
+        
+        <div class="form-group">
+          <label>사업자등록번호</label>
+          <input type="text" id="editCompanyBusinessNumber" placeholder="123-45-67890" />
+        </div>
+        
+        <div class="form-group">
+          <label>회사 전화번호</label>
+          <input type="tel" id="editCompanyPhone" placeholder="02-1234-5678" />
+        </div>
+        
+        <div class="form-group">
+          <label>회사 주소</label>
+          <input type="text" id="editCompanyAddress" placeholder="주소" />
+        </div>
+        
+        <div style="background: var(--bg-color); padding: 16px; border-radius: 8px; margin-top: 8px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 14px; color: var(--text-secondary);">회사 ID (변경 불가)</h4>
+          <code id="displayCompanyId" style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 14px;"></code>
+        </div>
+      </div>
+      
+      <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeCompanyEditModal()">취소</button>
+        <button class="btn btn-primary" onclick="saveCompanyInfo()">저장</button>
       </div>
     </div>
   </div>

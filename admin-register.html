@@ -301,6 +301,17 @@
         <input type="tel" id="phone" name="phone" required placeholder="010-1234-5678" autocomplete="off">
       </div>
 
+      <div class="form-group">
+        <label for="birth">주민등록번호 <span class="required">*</span></label>
+        <input type="text" id="birth" name="birth" required placeholder="YYMMDD (예: 901225)" maxlength="6" autocomplete="off">
+        <div class="help-text">생년월일 6자리만 입력하세요 (예: 901225)</div>
+      </div>
+
+      <div class="form-group">
+        <label for="address">주소 <span class="required">*</span></label>
+        <input type="text" id="address" name="address" required placeholder="경기도 부천시..." autocomplete="off">
+      </div>
+
       <!-- 회사정보 섹션 -->
       <div class="section-title">🏢 회사정보</div>
 
@@ -385,13 +396,21 @@
       const password = document.getElementById('password').value;
       const passwordConfirm = document.getElementById('passwordConfirm').value;
       const phone = document.getElementById('phone').value.trim();
+      const birth = document.getElementById('birth').value.trim();
+      const address = document.getElementById('address').value.trim();
       const companyName = document.getElementById('companyName').value.trim();
       const businessNumber = document.getElementById('businessNumber').value.trim();
       const companyPhone = document.getElementById('companyPhone').value.trim();
 
       // 유효성 검사
-      if (!displayName || !email || !password || !phone || !companyName) {
+      if (!displayName || !email || !password || !phone || !birth || !address || !companyName) {
         showError('필수 항목을 모두 입력해주세요.');
+        return;
+      }
+      
+      // 주민번호 유효성 검사
+      if (birth.length !== 6 || isNaN(birth)) {
+        showError('주민등록번호는 6자리 숫자여야 합니다.');
         return;
       }
 
@@ -434,11 +453,16 @@
         await db.collection('users').doc(user.uid).set({
           uid: user.uid,
           email: email,
+          name: displayName,
           displayName: displayName,
           phone: phone,
+          birth: birth,  // 주민번호
+          address: address,  // 주소
           role: 'admin',
           companyId: companyId,
+          companyName: companyName,
           storeId: null,  // 관리자는 특정 지점에 속하지 않음
+          store: null,
           status: 'active',
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
