@@ -895,11 +895,35 @@
     // Firebase 인증 및 전체 관리자 기능
     // ===========================================
 
-    // 🔥 추가 계약서 작성 모드 전역 변수
+    // 🔥 전역 변수
     let isAdditionalContractMode = false;
+    let myCompanyId = null;  // 🔒 현재 로그인한 관리자의 companyId
+    
+    // 🔒 보안: companyId 조건이 포함된 쿼리 헬퍼
+    function getCompanyQuery(collectionName) {
+      let query = firebase.firestore().collection(collectionName);
+      if (myCompanyId) {
+        query = query.where('companyId', '==', myCompanyId);
+      }
+      return query;
+    }
 
     async function showMainScreen() {
       document.getElementById('mainScreen').classList.remove('hidden');
+      
+      // 🔒 현재 사용자의 companyId 가져오기 (전역 변수에 저장)
+      try {
+        const uid = firebase.auth().currentUser?.uid;
+        if (uid) {
+          const userDoc = await firebase.firestore().collection('users').doc(uid).get();
+          if (userDoc.exists) {
+            myCompanyId = userDoc.data().companyId;
+            console.log(`🔒 내 회사 ID: ${myCompanyId}`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ companyId 가져오기 실패:', error);
+      }
       
       // 역할 체크 및 UI 제한
       const userRole = sessionStorage.getItem('admin_role');
@@ -959,12 +983,29 @@
     // signedContracts Firestore 캐시 로드
     async function loadSignedContractsCache() {
       try {
-        const snapshot = await firebase.firestore().collection('signedContracts').get();
+        // 🔒 companyId가 없으면 먼저 가져오기
+        if (!myCompanyId) {
+          const uid = firebase.auth().currentUser?.uid;
+          if (uid) {
+            const userDoc = await firebase.firestore().collection('users').doc(uid).get();
+            if (userDoc.exists) {
+              myCompanyId = userDoc.data().companyId;
+            }
+          }
+        }
+        
+        // 🔒 자기 회사 계약서만 조회
+        let query = firebase.firestore().collection('signedContracts');
+        if (myCompanyId) {
+          query = query.where('companyId', '==', myCompanyId);
+        }
+        
+        const snapshot = await query.get();
         signedContractsCache = [];
         snapshot.forEach(doc => {
           signedContractsCache.push({ id: doc.id, ...doc.data() });
         });
-        console.log(`✅ ${signedContractsCache.length}개 서명된 계약서 캐시 로드 완료`);
+        console.log(`✅ ${signedContractsCache.length}개 서명된 계약서 캐시 로드 완료 (companyId: ${myCompanyId})`);
       } catch (error) {
         console.error('❌ signedContracts 로드 실패:', error);
         signedContractsCache = [];
@@ -1121,9 +1162,15 @@
       
       // Firestore users 컬렉션에서 재직 직원 수 가져오기 (resigned 제외)
       try {
-        const snapshot = await db.collection('users')
-          .where('role', 'in', ['staff', 'store_manager', 'manager'])
-          .get();
+        let query = db.collection('users')
+          .where('role', 'in', ['staff', 'store_manager', 'manager']);
+        
+        // 🔒 companyId 조건 추가
+        if (myCompanyId) {
+          query = query.where('companyId', '==', myCompanyId);
+        }
+        
+        const snapshot = await query.get();
         
         // resigned 상태 제외하고 카운트
         let activeCount = 0;

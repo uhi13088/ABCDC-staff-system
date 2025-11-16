@@ -144,7 +144,7 @@ service cloud.firestore {
     match /stores/{storeId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        (currentUserExists() && isSameCompany(resource))  // 🔒 자기 회사만
       );
       
       allow create: if isSignedIn() && (
@@ -201,7 +201,7 @@ service cloud.firestore {
     match /attendance/{attendanceId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
       
       allow create: if isSignedIn() && (
@@ -227,7 +227,7 @@ service cloud.firestore {
     match /schedules/{scheduleId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
       
       allow write: if isSignedIn() && (
@@ -240,7 +240,7 @@ service cloud.firestore {
     match /contracts/{contractId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
       
       allow write: if isSignedIn() && (
@@ -273,7 +273,7 @@ service cloud.firestore {
     match /signedContracts/{contractId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
       
       // ⭐ 생성: 본인 계약서만 서명 가능 OR admin이 생성
@@ -293,7 +293,8 @@ service cloud.firestore {
     match /salaries/{salaryId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        (currentUserExists() && isSameCompany(resource) &&
+         (resource.data.employeeId == request.auth.uid || currentRole() == "admin"))
       );
       
       allow create, update, delete: if isSignedIn() && (
@@ -308,7 +309,7 @@ service cloud.firestore {
     match /notices/{noticeId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
       
       allow write: if isSignedIn() && (
@@ -321,7 +322,8 @@ service cloud.firestore {
     match /approvals/{approvalId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        (currentUserExists() && isSameCompany(resource) &&
+         (resource.data.applicantUid == request.auth.uid || currentRole() == "admin"))
       );
       
       allow create: if isSignedIn() && 
@@ -339,7 +341,7 @@ service cloud.firestore {
     match /shift_requests/{requestId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
       
       allow create: if isSignedIn() && 
@@ -364,7 +366,7 @@ service cloud.firestore {
     match /time_change_reports/{reportId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // ⭐ v3.1.5: 쿼리 레벨 허용
+        isCompanyAdminOrManager()  // 🔒 자기 회사만
       );
       
       allow create: if isSignedIn() &&
