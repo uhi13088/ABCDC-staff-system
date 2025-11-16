@@ -24,6 +24,7 @@ const db = firebase.firestore();
 // 전역 상태 변수
 let isAuthenticated = false;
 let currentTab = 'dashboard';
+let isLoggingOut = false; // 🔥 로그아웃 플래그 추가
 
 /**
  * 인증 상태 확인 및 초기화
@@ -50,7 +51,11 @@ function checkAuthStatus() {
       // Firebase Auth에 사용자가 없음
       console.log('❌ Firebase Auth 사용자 없음');
       sessionStorage.removeItem('admin_authenticated');
-      alert('⚠️ 로그인이 필요합니다.');
+      
+      // 🔥 의도적인 로그아웃이 아닐 때만 알림 표시
+      if (!isLoggingOut) {
+        alert('⚠️ 로그인이 필요합니다.');
+      }
       window.location.href = 'admin-login.html';
     }
   });
@@ -62,6 +67,9 @@ function checkAuthStatus() {
 async function logout() {
   if (confirm('로그아웃 하시겠습니까?')) {
     try {
+      // 🔥 로그아웃 플래그 설정 (onAuthStateChanged에서 알림 안 뜨도록)
+      isLoggingOut = true;
+      
       await auth.signOut();
       sessionStorage.removeItem('admin_authenticated');
       isAuthenticated = false;
@@ -70,6 +78,7 @@ async function logout() {
     } catch (error) {
       console.error('로그아웃 실패:', error);
       alert('❌ 로그아웃 실패: ' + error.message);
+      isLoggingOut = false; // 실패 시 플래그 리셋
     }
   }
 }
