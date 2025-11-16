@@ -4,6 +4,14 @@
 
 ## ⚡ 최신 업데이트 (2025-01-16)
 
+**🔥 Firestore Rules v3.1.7 - 권한 문제 해결 진행 중**
+- ✅ **Firebase Auth 초기화 수정**: `onAuthStateChanged()` 패턴 적용으로 타이밍 이슈 해결
+- ✅ **전역 companyId 관리**: 로그인 시 사용자의 companyId 전역 변수로 저장
+- ✅ **모든 쿼리에 companyId 필터 추가**: 15개 이상의 쿼리 함수 수정
+- ✅ **Firestore Rules 쿼리/문서 권한 분리**: `allow list`와 `allow get` 분리로 빈 컬렉션 조회 허용
+  - users, approvals, shift_requests, stores 컬렉션 적용 완료
+- ⚠️ **남은 작업**: Firestore 복합 인덱스 생성 대기 중 (2-5분 소요)
+
 **🎉 멀티테넌트 전환 완료 - v3.1.3**
 - ✅ **완전한 멀티테넌트 구조**: Company (회사) → Store (지점) 2단계 계층
 - ✅ **초대코드 시스템**: 1:1 매핑 (코드당 회사/지점/역할 지정)
@@ -13,7 +21,7 @@
 - ✅ **기존 데이터 초기화**: 101개 문서 삭제 후 새로 시작
 
 **📚 문서**:
-- [Firestore Rules v3.1.3 변경사항](firestore-rules-v3.1.3-changes.md)
+- [Firestore Rules v3.1.7 변경사항](firestore-rules-v3.1.3-changes.md)
 - [배포 가이드](DEPLOYMENT_GUIDE.md)
 
 ## 🚀 주요 기능
