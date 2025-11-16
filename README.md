@@ -20,9 +20,12 @@
 - ✅ **민감 필드 보호**: companyId, role, storeId 직원 본인 수정 불가
 - ✅ **기존 데이터 초기화**: 101개 문서 삭제 후 새로 시작
 
-**📚 문서**:
-- [Firestore Rules v3.1.7 변경사항](firestore-rules-v3.1.3-changes.md)
-- [배포 가이드](DEPLOYMENT_GUIDE.md)
+**📚 핵심 문서** (5개):
+- [프로젝트 현황](PROJECT_STATUS.md) - 전체 진행 상황 요약 ⭐
+- [현재 작업 상황](WORK_IN_PROGRESS.md) - v3.1.7 작업 진행 중
+- [배포 가이드](DEPLOYMENT_GUIDE.md) - Firebase 배포 절차
+- [멀티테넌트 설계](MULTITENANT_DESIGN_V3.md) - 상세 시스템 아키텍처
+- [아카이브 문서](docs/archive/) - 참고용 문서 (15개)
 
 ## 🚀 주요 기능
 
