@@ -4,13 +4,17 @@
 
 ## ⚡ 최신 업데이트 (2025-01-16)
 
-**🔥 Firestore Rules v3.1.7 - 권한 문제 해결 진행 중**
-- ✅ **Firebase Auth 초기화 수정**: `onAuthStateChanged()` 패턴 적용으로 타이밍 이슈 해결
-- ✅ **전역 companyId 관리**: 로그인 시 사용자의 companyId 전역 변수로 저장
-- ✅ **모든 쿼리에 companyId 필터 추가**: 15개 이상의 쿼리 함수 수정
-- ✅ **Firestore Rules 쿼리/문서 권한 분리**: `allow list`와 `allow get` 분리로 빈 컬렉션 조회 허용
-  - users, approvals, shift_requests, stores 컬렉션 적용 완료
-- ⚠️ **남은 작업**: Firestore 복합 인덱스 생성 대기 중 (2-5분 소요)
+**🎉 Phase 1 - 멀티테넌트 안정화 완료! (95%)**
+- ✅ **전체 쿼리 멀티테넌트 수정 완료**: 56개 쿼리 수정
+  - admin-dashboard.html: 26개
+  - js/employee.js: 19개
+  - 기타 JS 파일: 7개
+  - Cloud Functions: 4개
+- ✅ **급여 탭 멀티테넌트 정리**: 매장 필터 추가, 실시간 계산 유지
+- ✅ **Cloud Functions 수정**: 결근 생성 시 companyId/storeId 자동 추가
+- ✅ **회사 생성 스크립트**: `scripts/create-company.js` 개발 완료
+- ✅ **데이터 격리 원칙 확립**: Company-level vs Store-level 컬렉션 분류
+- ⏳ **남은 작업**: Functions 배포 + 회사 2호 생성 + 베타 테스트 (40분)
 
 **🎉 멀티테넌트 전환 완료 - v3.1.3**
 - ✅ **완전한 멀티테넌트 구조**: Company (회사) → Store (지점) 2단계 계층
