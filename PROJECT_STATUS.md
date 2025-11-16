@@ -74,6 +74,42 @@
 
 ---
 
+## ✅ 최근 완료된 작업 (v3.1.7) - 멀티테넌트 안정화
+
+### Phase 1 - 멀티테넌트 안정화 ✅ (95% 완료)
+
+**완료 항목**:
+1. ✅ **급여 탭 멀티테넌트 정리** (A안 - 매장 필터)
+   - 급여 탭에 매장 선택 필터 추가
+   - 실시간 계산 유지 (salary-calculator.js 변경 없음)
+   - companyId + storeId 필터 적용
+   - B안 (Cloud Functions 급여 마감)은 Phase 2로 연기
+
+2. ✅ **모든 쿼리 멀티테넌트 수정 완료** (56개)
+   - admin-dashboard.html: 26개 ✅
+   - js/employee.js: 19개 ✅
+   - js/contract-viewer.js: 2개 ✅
+   - js/pdf-generator.js: 1개 ✅
+   - js/salary-calculator.js: 1개 ✅
+   - js/schedule-data-loader.js: 1개 ✅
+   - js/schedule-viewer.js: 2개 ✅
+   - functions/index.js: 4개 ✅
+
+3. ✅ **Cloud Functions 멀티테넌트 수정**
+   - createAbsentRecords: companyId 필터 추가
+   - createAbsentRecordsForDate: companyId 필터 추가
+   - attendance 생성 시 companyId, storeId, userId 자동 추가
+
+4. ✅ **회사 생성 스크립트 개발**
+   - scripts/create-company.js 완성
+   - 대화형 CLI 인터페이스
+   - companies, stores, company_invites 자동 생성
+
+**남은 작업**:
+- [ ] Functions 배포 (firebase deploy --only functions)
+- [ ] 테스트용 회사 2호 생성 (create-company.js)
+- [ ] Phase 1 내부 베타 테스트 (2개 회사 데이터 격리 확인)
+
 ## 🚧 현재 진행 중인 작업 (v3.1.7)
 
 ### 해결 완료된 문제 ✅
