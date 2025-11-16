@@ -228,13 +228,19 @@ webapp/
 
 ## 📝 변경 이력
 
-### v3.1.7 (2025-01-16) - 권한 문제 해결 완료 ✅
+### v3.1.7 (2025-01-16) - 멀티테넌트 안정화 진행 중 ✅
 - ✅ Firebase Auth 초기화 수정 (`onAuthStateChanged()`)
 - ✅ 전역 companyId 관리 (`myCompanyId`)
 - ✅ 모든 쿼리에 companyId 필터 추가
 - ✅ Firestore Rules 쿼리/문서 권한 분리 (`allow list` / `allow get`)
 - ✅ Firestore 복합 인덱스 생성 완료
-- ⏳ 전체 기능 테스트 진행 중
+- ✅ **급여 탭 멀티테넌트 정리 (A안 - 매장 필터)** ⭐
+  - 급여 탭에 매장 선택 필터 추가
+  - 실시간 계산 (attendance 기반)
+  - companyId + storeId 필터 적용
+  - salary-calculator.js 로직 유지
+  - B안 (Cloud Functions 급여 마감)은 Phase 2로 연기
+- ⏳ 나머지 쿼리 수정 진행 중 (65개 남음)
 
 ### 스케줄 마이그레이션 (2025-11-09 완료) ✅
 - ✅ schedules 컬렉션 구조 변경 (주차별 → 날짜별)
