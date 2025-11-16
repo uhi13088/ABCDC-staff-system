@@ -8787,7 +8787,7 @@
         
         // 기본 정보
         document.getElementById('adminDetailName').textContent = admin.name || '-';
-        document.getElementById('adminDetailRole').textContent = admin.userType === 'admin' ? '관리자' : (admin.userType === 'manager' ? '매니저' : '-');
+        document.getElementById('adminDetailRole').textContent = admin.role === 'admin' ? '관리자' : (admin.role === 'manager' ? '매니저' : '-');
         document.getElementById('adminDetailEmail').textContent = admin.email || '-';
         document.getElementById('adminDetailPhone').textContent = admin.phone || '-';
         document.getElementById('adminDetailBirth').textContent = admin.birth || '-';
@@ -8802,7 +8802,7 @@
         
         // 권한 정보
         const permissionsDiv = document.getElementById('adminDetailPermissions');
-        if (admin.userType === 'admin') {
+        if (admin.role === 'admin') {
           permissionsDiv.innerHTML = `
             <div style="color: var(--success-color); font-weight: 600; margin-bottom: 8px;">✅ 전체 권한</div>
             <ul style="margin-left: 20px; font-size: 14px; color: var(--text-secondary);">
@@ -8814,7 +8814,7 @@
               <li>모든 데이터 조회 및 편집</li>
             </ul>
           `;
-        } else if (admin.userType === 'manager') {
+        } else if (admin.role === 'manager') {
           permissionsDiv.innerHTML = `
             <div style="color: var(--warning-color); font-weight: 600; margin-bottom: 8px;">👀 읽기 전용 권한</div>
             <ul style="margin-left: 20px; font-size: 14px; color: var(--text-secondary);">
