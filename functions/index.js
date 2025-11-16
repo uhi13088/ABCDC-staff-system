@@ -369,19 +369,27 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
     
     for (const worker of workersYesterday) {
       // 해당 직원의 어제 attendance 기록 확인
-      const attendanceQuery = await db.collection('attendance')
+      let attendanceQuery = db.collection('attendance')
         .where('uid', '==', worker.employeeId)
-        .where('date', '==', yesterdayStr)
-        .get();
+        .where('date', '==', yesterdayStr);
+      
+      // companyId 필터 추가 (멀티테넌트)
+      if (worker.companyId) {
+        attendanceQuery = attendanceQuery.where('companyId', '==', worker.companyId);
+      }
+      
+      const attendanceSnapshot = await attendanceQuery.get();
       
       // attendance 기록이 없으면 결근 기록 생성
-      if (attendanceQuery.empty) {
+      if (attendanceSnapshot.empty) {
         const newAbsentRef = db.collection('attendance').doc();
         
-        // 🔥 멀티테넌트: storeId 기준으로 관리 (contracts에서 가져오기)
+        // 🔥 멀티테넌트: companyId + storeId 기준으로 관리 (contracts에서 가져오기)
         const absentRecord = {
+          companyId: worker.companyId || null,  // 회사 ID 추가
           storeId: worker.storeId || null,  // 매장 ID 추가
           uid: worker.employeeId,
+          userId: worker.employeeId,  // 일관성: userId 필드 추가
           name: worker.employeeName,
           store: worker.workStore,  // 호환성: 매장명 문자열
           date: yesterdayStr,
@@ -535,19 +543,27 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
     
     for (const worker of workersOnDate) {
       // 해당 직원의 attendance 기록 확인
-      const attendanceQuery = await db.collection('attendance')
+      let attendanceQuery = db.collection('attendance')
         .where('uid', '==', worker.employeeId)
-        .where('date', '==', targetDate)
-        .get();
+        .where('date', '==', targetDate);
+      
+      // companyId 필터 추가 (멀티테넌트)
+      if (worker.companyId) {
+        attendanceQuery = attendanceQuery.where('companyId', '==', worker.companyId);
+      }
+      
+      const attendanceSnapshot = await attendanceQuery.get();
       
       // attendance 기록이 없으면 결근 기록 생성
-      if (attendanceQuery.empty) {
+      if (attendanceSnapshot.empty) {
         const newAbsentRef = db.collection('attendance').doc();
         
-        // 🔥 멀티테넌트: storeId 기준으로 관리 (contracts에서 가져오기)
+        // 🔥 멀티테넌트: companyId + storeId 기준으로 관리 (contracts에서 가져오기)
         const absentRecord = {
+          companyId: worker.companyId || null,  // 회사 ID 추가
           storeId: worker.storeId || null,  // 매장 ID 추가
           uid: worker.employeeId,
+          userId: worker.employeeId,  // 일관성: userId 필드 추가
           name: worker.employeeName,
           store: worker.workStore,  // 호환성: 매장명 문자열
           date: targetDate,
