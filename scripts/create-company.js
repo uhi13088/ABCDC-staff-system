@@ -71,6 +71,13 @@ async function main() {
     
     const ownerName = await question('대표자명: ');
     const ownerEmail = await question('대표자 이메일: ');
+    const ownerPassword = await question('대표자 비밀번호 (6자 이상): ');
+    
+    if (!ownerEmail || !ownerPassword || ownerPassword.length < 6) {
+      console.error('❌ 이메일과 비밀번호(6자 이상)는 필수입니다.');
+      process.exit(1);
+    }
+    
     const businessNumber = await question('사업자등록번호 (선택): ');
     const phone = await question('연락처 (선택): ');
     const address = await question('주소 (선택): ');
@@ -174,13 +181,82 @@ async function main() {
     console.log(`   ✅ Manager 초대 코드: ${managerCode}`);
     console.log(`   📎 초대 링크: https://abcdc-staff-system.web.app/employee-register.html?code=${managerCode}`);
     
-    // 9. 완료
+    // 9. 관리자 계정 생성 (Firebase Auth + Firestore users)
+    console.log('\n📝 5/5: 관리자 계정 생성...');
+    
+    try {
+      // Firebase Auth 계정 생성
+      const userRecord = await admin.auth().createUser({
+        email: ownerEmail,
+        password: ownerPassword,
+        displayName: ownerName,
+        emailVerified: false
+      });
+      
+      console.log(`   ✅ Auth 계정 생성: ${userRecord.uid}`);
+      
+      // Firestore users 문서 생성
+      await db.collection('users').doc(userRecord.uid).set({
+        email: ownerEmail,
+        name: ownerName,
+        displayName: ownerName,
+        role: 'admin',  // 🔥 관리자 권한
+        companyId: companyId,  // 🔥 회사 ID
+        storeId: null,  // 관리자는 특정 매장 없음
+        store: null,
+        phone: phone || '',
+        address: address || '',
+        status: 'active',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: 'system',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log(`   ✅ Firestore users 문서 생성 완료`);
+      console.log(`   📧 로그인 정보:`);
+      console.log(`      - 이메일: ${ownerEmail}`);
+      console.log(`      - 비밀번호: ${ownerPassword}`);
+      
+    } catch (authError) {
+      if (authError.code === 'auth/email-already-exists') {
+        console.error(`   ⚠️ 이메일이 이미 존재합니다. Firestore 문서만 업데이트합니다.`);
+        
+        // 기존 사용자 찾기
+        const existingUser = await admin.auth().getUserByEmail(ownerEmail);
+        
+        // Firestore users 문서 업데이트
+        await db.collection('users').doc(existingUser.uid).set({
+          email: ownerEmail,
+          name: ownerName,
+          displayName: ownerName,
+          role: 'admin',
+          companyId: companyId,
+          storeId: null,
+          store: null,
+          phone: phone || '',
+          address: address || '',
+          status: 'active',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        console.log(`   ✅ 기존 계정에 회사 정보 업데이트: ${existingUser.uid}`);
+      } else {
+        throw authError;
+      }
+    }
+    
+    // 10. 완료
     console.log('\n✅ 새 회사 생성 완료!\n');
     console.log('=== 생성된 정보 ===');
     console.log(`회사 ID: ${companyId}`);
     console.log(`매장 ID: ${storeId}`);
-    console.log(`Staff 초대 코드: ${staffCode}`);
-    console.log(`Manager 초대 코드: ${managerCode}`);
+    console.log(`\n관리자 로그인 정보:`);
+    console.log(`  이메일: ${ownerEmail}`);
+    console.log(`  비밀번호: ${ownerPassword}`);
+    console.log(`  권한: admin`);
+    console.log(`\n초대 코드:`);
+    console.log(`  Staff: ${staffCode}`);
+    console.log(`  Manager: ${managerCode}`);
     console.log('');
     
   } catch (error) {
