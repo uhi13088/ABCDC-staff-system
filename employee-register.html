@@ -112,6 +112,11 @@
       outline: none;
     }
 
+    input:disabled, select:disabled {
+      background: #F1F5F9;
+      cursor: not-allowed;
+    }
+
     .btn {
       width: 100%;
       padding: 14px;
@@ -135,6 +140,14 @@
       background: var(--text-secondary);
       cursor: not-allowed;
       opacity: 0.6;
+    }
+
+    .btn-secondary {
+      background: var(--text-secondary);
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
     }
 
     .error {
@@ -164,6 +177,21 @@
     }
 
     .success.show {
+      display: block;
+    }
+
+    .info {
+      background: #DBEAFE;
+      color: #1E40AF;
+      padding: 12px 16px;
+      border-radius: var(--border-radius);
+      margin-bottom: 20px;
+      font-size: 14px;
+      border: 1px solid #BFDBFE;
+      display: none;
+    }
+
+    .info.show {
       display: block;
     }
 
@@ -210,6 +238,69 @@
       padding-bottom: var(--spacing-xs);
       border-bottom: 2px solid var(--border-color);
     }
+
+    .invite-section {
+      background: #F8FAFC;
+      padding: 20px;
+      border-radius: var(--border-radius);
+      border: 2px dashed var(--border-color);
+      margin-bottom: 24px;
+    }
+
+    .invite-section.verified {
+      border-color: var(--success-color);
+      background: #F0FDF4;
+    }
+
+    .input-with-button {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-with-button input {
+      flex: 1;
+    }
+
+    .input-with-button .btn {
+      width: auto;
+      padding: 14px 24px;
+      margin-top: 0;
+      white-space: nowrap;
+    }
+
+    .company-info {
+      display: none;
+      margin-top: 16px;
+      padding: 16px;
+      background: var(--bg-white);
+      border-radius: 8px;
+      border: 1px solid #A7F3D0;
+    }
+
+    .company-info.show {
+      display: block;
+    }
+
+    .company-info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .company-info-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .company-info-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .company-info-value {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -224,14 +315,43 @@
       </svg>
     </div>
     <h1>맛남살롱</h1>
-    <p class="subtitle">직원 가입</p>
+    <p class="subtitle">직원 가입 (v3.1 Multi-tenant)</p>
 
     <div id="error" class="error"></div>
     <div id="success" class="success"></div>
+    <div id="info" class="info"></div>
 
-    <form id="registerForm" autocomplete="off">
+    <!-- v3.1: 초대 코드 입력 섹션 (최상단) -->
+    <div class="invite-section" id="inviteSection">
+      <label for="inviteCode">초대 코드 <span class="required">*</span></label>
+      <div class="help-text" style="margin-bottom: 12px;">회사에서 발급받은 초대 코드를 입력해주세요</div>
+      
+      <div class="input-with-button">
+        <input type="text" id="inviteCode" placeholder="ABC2025-STAFF-XXX" required>
+        <button type="button" id="verifyCodeBtn" class="btn">코드 확인</button>
+      </div>
+
+      <!-- 코드 확인 후 회사/매장 정보 표시 -->
+      <div class="company-info" id="companyInfo">
+        <div class="company-info-row">
+          <span class="company-info-label">회사:</span>
+          <span class="company-info-value" id="companyName">-</span>
+        </div>
+        <div class="company-info-row">
+          <span class="company-info-label">배정 매장:</span>
+          <span class="company-info-value" id="storeName">-</span>
+        </div>
+        <div class="company-info-row">
+          <span class="company-info-label">직책:</span>
+          <span class="company-info-value" id="roleDisplay">-</span>
+        </div>
+      </div>
+    </div>
+
+    <form id="registerForm" autocomplete="off" style="display:none;">
       <input type="text" style="display:none" aria-hidden="true">
       <input type="password" style="display:none" aria-hidden="true">
+      
       <!-- 기본 정보 -->
       <div class="section-title">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
@@ -263,7 +383,7 @@
         <input type="text" id="address" placeholder="경기도 부천시 원미구" required>
       </div>
 
-      <!-- 근무 정보 -->
+      <!-- 근무 정보 (v3.1: 초대 코드에서 자동 할당됨) -->
       <div class="section-title">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
           <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
@@ -272,11 +392,11 @@
         근무 정보
       </div>
       
+      <!-- v3.1: 매장 정보 읽기 전용 표시 -->
       <div class="form-group">
-        <label for="store">근무 매장 <span class="required">*</span></label>
-        <select id="store" required>
-          <option value="">선택하세요</option>
-        </select>
+        <label for="storeDisplay">근무 매장</label>
+        <input type="text" id="storeDisplay" disabled>
+        <div class="help-text">초대 코드로 자동 배정된 매장입니다</div>
       </div>
 
       <div class="form-group">
@@ -327,7 +447,7 @@
         <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
         <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
       </svg>
-      가입 처리 중...
+      처리 중...
     </div>
     <style>
       @keyframes spin {
@@ -337,7 +457,7 @@
     </style>
 
     <div class="login-link">
-      이미 계정이 있으신가요? <a href="index.html">메인으로 돌아가기</a>
+      이미 계정이 있으신가요? <a href="employee-login.html">로그인</a> | <a href="index.html">메인으로</a>
     </div>
   </div>
 
@@ -345,6 +465,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
 
   <script>
     // Firebase 설정
@@ -362,48 +483,38 @@
     const app = firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const functions = firebase.functions();
 
     console.log('✅ Firebase 초기화 완료');
 
+    // v3.1: 전역 변수 (초대 코드 검증 결과 저장)
+    let verifiedInviteData = null;
+
     // 요소 가져오기
+    const inviteSection = document.getElementById('inviteSection');
+    const inviteCodeInput = document.getElementById('inviteCode');
+    const verifyCodeBtn = document.getElementById('verifyCodeBtn');
+    const companyInfo = document.getElementById('companyInfo');
+    const companyNameEl = document.getElementById('companyName');
+    const storeNameEl = document.getElementById('storeName');
+    const roleDisplayEl = document.getElementById('roleDisplay');
+    
     const registerForm = document.getElementById('registerForm');
     const registerBtn = document.getElementById('registerBtn');
     const loading = document.getElementById('loading');
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
+    const infoDiv = document.getElementById('info');
 
-    // 매장 목록 로드 (Firestore에서)
-    async function loadStores() {
-      const storeSelect = document.getElementById('store');
-      
-      try {
-        const snapshot = await db.collection('stores').orderBy('name').get();
-        
-        if (snapshot.empty) {
-          console.log('⚠️ 매장 정보가 없습니다.');
-          storeSelect.innerHTML = '<option value="">매장 정보가 없습니다</option>';
-          return;
-        }
-        
-        storeSelect.innerHTML = '<option value="">선택하세요</option>';
-        snapshot.forEach(doc => {
-          const store = doc.data();
-          storeSelect.innerHTML += `<option value="${store.name}">${store.name}</option>`;
-        });
-        
-        console.log(`✅ 매장 ${snapshot.size}개 로드 완료`);
-      } catch (error) {
-        console.error('❌ 매장 로드 실패:', error);
-        storeSelect.innerHTML = '<option value="">매장 로드 실패</option>';
-      }
-    }
+    const storeDisplay = document.getElementById('storeDisplay');
 
-    // 페이지 로드 시 매장 목록 로드 (DOM이 준비된 후)
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadStores);
-    } else {
-      // DOM이 이미 로드된 경우 즉시 실행
-      loadStores();
+    // v3.1: URL 파라미터에서 초대 코드 자동 채우기
+    const urlParams = new URLSearchParams(window.location.search);
+    const codeFromUrl = urlParams.get('code');
+    if (codeFromUrl) {
+      inviteCodeInput.value = codeFromUrl.trim();
+      showInfo('URL에서 초대 코드를 자동으로 입력했습니다. "코드 확인" 버튼을 눌러주세요.');
+      console.log('✅ URL 파라미터에서 초대 코드 자동 입력:', codeFromUrl);
     }
 
     // 에러 표시
@@ -411,6 +522,7 @@
       errorDiv.textContent = msg;
       errorDiv.classList.add('show');
       successDiv.classList.remove('show');
+      infoDiv.classList.remove('show');
     }
 
     // 성공 표시
@@ -418,13 +530,98 @@
       successDiv.textContent = msg;
       successDiv.classList.add('show');
       errorDiv.classList.remove('show');
+      infoDiv.classList.remove('show');
+    }
+
+    // 정보 표시
+    function showInfo(msg) {
+      infoDiv.textContent = msg;
+      infoDiv.classList.add('show');
+      errorDiv.classList.remove('show');
+      successDiv.classList.remove('show');
     }
 
     // 메시지 숨김
     function hideMessages() {
       errorDiv.classList.remove('show');
       successDiv.classList.remove('show');
+      infoDiv.classList.remove('show');
     }
+
+    // v3.1: 역할 한글 변환
+    function getRoleDisplayName(role) {
+      const roleMap = {
+        'staff': '일반 직원',
+        'step': '스탭',
+        'store_manager': '매장 매니저',
+        'manager': '관리자',
+        'admin': '최고 관리자'
+      };
+      return roleMap[role] || role;
+    }
+
+    // v3.1: 초대 코드 확인 (Cloud Functions 호출)
+    verifyCodeBtn.addEventListener('click', async () => {
+      const code = inviteCodeInput.value.trim();
+      
+      if (!code) {
+        showError('⚠️ 초대 코드를 입력해주세요.');
+        return;
+      }
+
+      hideMessages();
+      verifyCodeBtn.disabled = true;
+      loading.classList.add('show');
+
+      try {
+        console.log('📞 Cloud Functions 호출: verifyInviteCode');
+        
+        const verifyInviteCode = functions.httpsCallable('verifyInviteCode');
+        const result = await verifyInviteCode({ inviteCode: code });
+
+        console.log('✅ 초대 코드 검증 성공:', result.data);
+
+        if (result.data.ok) {
+          verifiedInviteData = result.data;
+          
+          // UI 업데이트
+          inviteSection.classList.add('verified');
+          companyInfo.classList.add('show');
+          companyNameEl.textContent = result.data.companyName;
+          storeNameEl.textContent = result.data.storeName;
+          roleDisplayEl.textContent = getRoleDisplayName(result.data.role);
+          
+          // 회원가입 폼 표시
+          registerForm.style.display = 'block';
+          storeDisplay.value = result.data.storeName;
+          
+          // 초대 코드 입력 비활성화
+          inviteCodeInput.disabled = true;
+          verifyCodeBtn.disabled = true;
+          
+          showSuccess('✅ 초대 코드가 확인되었습니다! 아래 정보를 입력해주세요.');
+        } else {
+          showError('❌ ' + (result.data.error || '초대 코드 검증 실패'));
+          verifyCodeBtn.disabled = false;
+        }
+        
+      } catch (error) {
+        console.error('❌ 초대 코드 검증 오류:', error);
+        
+        let errorMsg = '초대 코드 확인 중 오류가 발생했습니다.';
+        
+        if (error.code === 'functions/not-found') {
+          errorMsg = '⚠️ Cloud Functions가 배포되지 않았습니다. functions/index.js를 배포해주세요.';
+        } else if (error.message) {
+          errorMsg = '❌ ' + error.message;
+        }
+        
+        showError(errorMsg);
+        verifyCodeBtn.disabled = false;
+      } finally {
+        loading.classList.remove('show');
+      }
+    });
 
     // 주민등록번호 자동 포맷팅
     document.getElementById('birth').addEventListener('input', function(e) {
@@ -452,22 +649,27 @@
       return true;
     }
 
-    // 가입 폼 제출
+    // v3.1: 가입 폼 제출
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
+      // v3.1: 초대 코드 검증 확인
+      if (!verifiedInviteData) {
+        showError('⚠️ 초대 코드를 먼저 확인해주세요.');
+        return;
+      }
+
       const name = document.getElementById('name').value.trim();
       const birth = document.getElementById('birth').value.trim();
       const phone = document.getElementById('phone').value.trim();
       const address = document.getElementById('address').value.trim();
-      const store = document.getElementById('store').value;
       const position = document.getElementById('position').value;
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const passwordConfirm = document.getElementById('passwordConfirm').value;
       
       // 유효성 검사
-      if (!name || !birth || !phone || !address || !store || !position || !email || !password) {
+      if (!name || !birth || !phone || !address || !position || !email || !password) {
         showError('⚠️ 모든 필수 항목을 입력해주세요.');
         return;
       }
@@ -492,7 +694,7 @@
       loading.classList.add('show');
       
       try {
-        console.log('📝 직원 가입 시작:', email);
+        console.log('📝 직원 가입 시작 (v3.1 Multi-tenant):', email);
         
         // 1. Firebase Authentication에 사용자 생성
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
@@ -500,7 +702,7 @@
         
         console.log('✅ Auth 사용자 생성 완료:', user.uid);
         
-        // 2. Firestore에 직원 정보 저장
+        // 2. v3.1: Firestore에 직원 정보 저장 (companyId, storeId 포함)
         const employeeData = {
           uid: user.uid,
           email: email,
@@ -508,11 +710,18 @@
           birth: birth,
           phone: phone,
           address: address,
-          store: store,
+          
+          // v3.1: Multi-tenant 필드
+          companyId: verifiedInviteData.companyId,
+          storeId: verifiedInviteData.storeId,
+          store: verifiedInviteData.storeName,  // 하위호환성 유지
+          
           position: position,
+          role: verifiedInviteData.role,  // 초대 코드에서 가져온 역할
+          inviteCode: inviteCodeInput.value.trim(),  // 사용한 초대 코드 저장
+          
           userType: 'employee',
-          role: 'employee',  // Firestore 보안 규칙용
-          status: 'pending',  // 승인 대기 상태로 변경
+          status: 'pending',  // 승인 대기 상태
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -524,6 +733,18 @@
         await db.collection('employees').doc(user.uid).set(employeeData);
         
         console.log('✅ Firestore에 직원 정보 저장 완료 (승인 대기)');
+        
+        // 3. v3.1: 초대 코드 사용 기록 (recordInviteUse Cloud Function 호출)
+        try {
+          const recordInviteUse = functions.httpsCallable('recordInviteUse');
+          await recordInviteUse({
+            inviteCode: inviteCodeInput.value.trim(),
+            userId: user.uid
+          });
+          console.log('✅ 초대 코드 사용 기록 완료');
+        } catch (recordError) {
+          console.warn('⚠️ 초대 코드 사용 기록 실패 (무시하고 진행):', recordError);
+        }
         
         showSuccess('✅ 가입 신청이 완료되었습니다!\n관리자 승인 후 로그인이 가능합니다.\n잠시 후 로그인 페이지로 이동합니다.');
         
@@ -539,6 +760,8 @@
         
         if (error.code === 'auth/email-already-in-use') {
           errorMsg = '⚠️ 이미 사용 중인 이메일입니다.';
+          // 팝업 알림 추가
+          alert('⚠️ 이미 사용 중인 이메일입니다.\n\n다른 이메일 주소를 사용해주세요.');
         } else if (error.code === 'auth/invalid-email') {
           errorMsg = '⚠️ 올바른 이메일 주소를 입력하세요.';
         } else if (error.code === 'auth/weak-password') {

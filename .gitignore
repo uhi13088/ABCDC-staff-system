@@ -61,3 +61,11 @@ build/
 package-lock.json.backup
 yarn.lock.backup
 *.backup
+
+# Service Account Key (민감 정보)
+serviceAccountKey.json
+
+# 테스트 스크립트
+check-admin-data.js
+setup-initial-data.js
+test-*.js

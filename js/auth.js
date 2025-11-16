@@ -47,6 +47,7 @@ function isLoggedIn() {
 function logout() {
   removeFromSession(CONFIG.STORAGE_KEYS.USER_INFO);
   removeFromSession(CONFIG.STORAGE_KEYS.CURRENT_ROLE);
+  clearTenantContext();  // v3.1: Clear tenant context on logout
   debugLog('로그아웃 완료');
 }
 
@@ -224,6 +225,69 @@ function getCurrentUserName() {
 function getCurrentUserStore() {
   const userInfo = getUserInfo();
   return userInfo ? userInfo.store : null;
+}
+
+// ===================================================================
+// Multi-tenant Context Management (v3.1)
+// ===================================================================
+
+/**
+ * 테넌트 컨텍스트 설정
+ * @param {string} companyId - 회사 ID
+ * @param {string} storeId - 매장 ID  
+ * @param {string} role - 직원 역할
+ */
+function setTenantContext(companyId, storeId, role) {
+  if (!companyId || !storeId || !role) {
+    console.error('[미검증] 테넌트 컨텍스트 필수 정보 누락');
+    return false;
+  }
+  
+  const tenantContext = {
+    companyId: companyId,
+    storeId: storeId,
+    role: role,
+    setAt: new Date().toISOString()
+  };
+  
+  saveToSession(CONFIG.STORAGE_KEYS.TENANT_CONTEXT, tenantContext);
+  debugLog('테넌트 컨텍스트 설정:', tenantContext);
+  
+  return true;
+}
+
+/**
+ * 테넌트 컨텍스트 가져오기
+ * @returns {Object|null} { companyId, storeId, role, setAt }
+ */
+function getTenantContext() {
+  return getFromSession(CONFIG.STORAGE_KEYS.TENANT_CONTEXT);
+}
+
+/**
+ * 현재 회사 ID 가져오기
+ * @returns {string|null}
+ */
+function getCurrentCompanyId() {
+  const context = getTenantContext();
+  return context ? context.companyId : null;
+}
+
+/**
+ * 현재 매장 ID 가져오기
+ * @returns {string|null}
+ */
+function getCurrentStoreId() {
+  const context = getTenantContext();
+  return context ? context.storeId : null;
+}
+
+/**
+ * 테넌트 컨텍스트 초기화 (로그아웃 시)
+ */
+function clearTenantContext() {
+  removeFromSession(CONFIG.STORAGE_KEYS.TENANT_CONTEXT);
+  debugLog('테넌트 컨텍스트 초기화');
 }
 
 /**

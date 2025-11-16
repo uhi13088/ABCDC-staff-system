@@ -80,7 +80,8 @@ const CONFIG = {
   STORAGE_KEYS: {
     USER_INFO: 'matnamsalon_user',
     CURRENT_ROLE: 'matnamsalon_role',
-    LAST_LOGIN: 'matnamsalon_last_login'
+    LAST_LOGIN: 'matnamsalon_last_login',
+    TENANT_CONTEXT: 'matnamsalon_tenant_context'  // v3.1: Multi-tenant context
   },
   
   // 날짜 형식
