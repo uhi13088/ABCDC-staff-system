@@ -4770,6 +4770,7 @@
             <td>${store.businessNumber || '-'}</td>
             <td><span style="color: var(--primary-color); font-weight: 600;">매월 ${store.salaryPaymentDay || '-'}일</span></td>
             <td>
+              <button class="btn btn-sm btn-info" onclick="viewStoreDetail('${store.id}')">📋 상세</button>
               <button class="btn btn-sm btn-secondary" onclick="showEditStoreModal('${store.id}')">✏️ 수정</button>
             </td>
           </tr>
@@ -4955,6 +4956,89 @@
 
     function closeStoreModal() {
       document.getElementById('storeModal').style.display = 'none';
+    }
+
+    // 매장 상세 정보 모달
+    async function viewStoreDetail(storeId) {
+      try {
+        const storeDoc = await firebase.firestore().collection('stores').doc(storeId).get();
+        
+        if (!storeDoc.exists) {
+          alert('매장을 찾을 수 없습니다.');
+          return;
+        }
+        
+        const store = storeDoc.data();
+        
+        // 모달 내용 생성
+        const modalContent = `
+          <div style="background: white; padding: 32px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--primary-color);">
+              <h2 style="margin: 0; color: var(--primary-color); font-size: 24px;">
+                🏪 매장 상세 정보
+              </h2>
+              <button onclick="closeStoreDetailModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+            </div>
+            
+            <div style="display: grid; gap: 16px;">
+              <!-- 기본 정보 -->
+              <div style="background: var(--bg-color); padding: 16px; border-radius: 8px;">
+                <h3 style="margin: 0 0 12px 0; color: var(--primary-color); font-size: 16px;">📌 기본 정보</h3>
+                <div style="display: grid; gap: 8px; font-size: 14px;">
+                  <div><strong>매장 코드:</strong> <code style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${storeId}</code></div>
+                  <div><strong>매장명:</strong> ${store.name || '-'}</div>
+                  <div><strong>주소:</strong> ${store.address || '-'}</div>
+                  <div><strong>전화번호:</strong> ${store.phone || '-'}</div>
+                  <div><strong>대표자:</strong> ${store.ceo || '-'}</div>
+                  <div><strong>사업자번호:</strong> ${store.businessNumber || '-'}</div>
+                </div>
+              </div>
+              
+              <!-- 운영 정보 -->
+              <div style="background: var(--bg-color); padding: 16px; border-radius: 8px;">
+                <h3 style="margin: 0 0 12px 0; color: var(--primary-color); font-size: 16px;">⏰ 운영 정보</h3>
+                <div style="display: grid; gap: 8px; font-size: 14px;">
+                  <div><strong>영업시간:</strong> ${store.businessHours ? `${store.businessHours.open} ~ ${store.businessHours.close}` : '-'}</div>
+                  <div><strong>급여 지급일:</strong> <span style="color: var(--primary-color); font-weight: 600;">매월 ${store.salaryPaymentDay || '-'}일</span></div>
+                </div>
+              </div>
+              
+              <!-- 시스템 정보 -->
+              <div style="background: var(--bg-color); padding: 16px; border-radius: 8px;">
+                <h3 style="margin: 0 0 12px 0; color: var(--primary-color); font-size: 16px;">🔒 시스템 정보</h3>
+                <div style="display: grid; gap: 8px; font-size: 14px;">
+                  <div><strong>회사 코드:</strong> <code style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${store.companyId || '-'}</code></div>
+                  <div><strong>생성일:</strong> ${store.createdAt ? new Date(store.createdAt.toDate()).toLocaleString('ko-KR') : '-'}</div>
+                  <div><strong>수정일:</strong> ${store.updatedAt ? new Date(store.updatedAt.toDate()).toLocaleString('ko-KR') : '-'}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div style="margin-top: 24px; text-align: right;">
+              <button onclick="closeStoreDetailModal()" class="btn btn-secondary">닫기</button>
+            </div>
+          </div>
+        `;
+        
+        // 모달 생성
+        const modal = document.createElement('div');
+        modal.id = 'storeDetailModal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10000;';
+        modal.innerHTML = modalContent;
+        
+        document.body.appendChild(modal);
+        
+      } catch (error) {
+        console.error('❌ 매장 상세 정보 로드 실패:', error);
+        alert('매장 정보를 불러오는데 실패했습니다.');
+      }
+    }
+
+    function closeStoreDetailModal() {
+      const modal = document.getElementById('storeDetailModal');
+      if (modal) {
+        modal.remove();
+      }
     }
 
     // 사용자 지정 계산 기간 토글
