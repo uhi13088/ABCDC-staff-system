@@ -905,6 +905,7 @@
     // 🔥 전역 변수
     let isAdditionalContractMode = false;
     let myCompanyId = null;  // 🔒 현재 로그인한 관리자의 companyId
+    let currentUser = null;  // 🔒 현재 로그인한 관리자 정보 (전체)
     
     // 🔒 보안: companyId 조건이 포함된 쿼리 헬퍼
     function getCompanyQuery(collectionName) {
@@ -930,8 +931,16 @@
           if (userDoc.exists) {
             const userData = userDoc.data();
             console.log('🔍 userData:', userData);
+            
+            // 🔒 전역 변수에 저장
+            currentUser = {
+              uid: uid,
+              ...userData
+            };
             myCompanyId = userData.companyId;
+            
             console.log(`🔒 내 회사 ID: ${myCompanyId}`);
+            console.log(`🔒 내 매장 ID: ${userData.storeId}`);
           } else {
             console.error('❌ users 문서가 존재하지 않습니다!');
           }
@@ -1271,10 +1280,16 @@
         let totalCount = 0;
         for (const storeDoc of storesSnapshot.docs) {
           const storeId = storeDoc.id;
-          const attendanceSnapshot = await db.collection('attendance')
+          let attendanceQuery = db.collection('attendance')
             .where('storeId', '==', storeId)
-            .where('date', '==', today)
-            .get();
+            .where('date', '==', today);
+          
+          // 🔒 companyId 필터 추가 (멀티테넌트)
+          if (myCompanyId) {
+            attendanceQuery = attendanceQuery.where('companyId', '==', myCompanyId);
+          }
+          
+          const attendanceSnapshot = await attendanceQuery.get();
           totalCount += attendanceSnapshot.size;
         }
         
@@ -2114,7 +2129,7 @@
         
         // 🔒 매장별 격리: UI에서 선택한 매장 기준 (기본: 내 매장)
         const selectedStoreId = document.getElementById('attendanceStoreFilter')?.value;
-        const targetStoreId = selectedStoreId || currentUser.storeId;
+        const targetStoreId = selectedStoreId || (currentUser ? currentUser.storeId : null);
         
         if (!targetStoreId) {
           console.warn('⚠️ storeId 없음');
@@ -2125,6 +2140,11 @@
         // Firestore에서 근태 데이터 가져오기
         let query = firebase.firestore().collection('attendance')
           .where('storeId', '==', targetStoreId);
+        
+        // 🔒 companyId 필터 추가 (멀티테넌트)
+        if (myCompanyId) {
+          query = query.where('companyId', '==', myCompanyId);
+        }
         
         const attendanceSnapshot = await query
           .orderBy('date', 'desc')
