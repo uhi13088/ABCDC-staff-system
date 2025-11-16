@@ -271,34 +271,34 @@
       <p>회원가입 처리 중...</p>
     </div>
 
-    <form id="register-form">
+    <form id="register-form" autocomplete="off">
       <!-- 개인정보 섹션 -->
       <div class="section-title">👤 개인정보</div>
 
       <div class="form-group">
         <label for="displayName">이름 <span class="required">*</span></label>
-        <input type="text" id="displayName" name="displayName" required placeholder="홍길동">
+        <input type="text" id="displayName" name="displayName" required placeholder="홍길동" autocomplete="off">
       </div>
 
       <div class="form-group">
         <label for="email">이메일 <span class="required">*</span></label>
-        <input type="email" id="email" name="email" required placeholder="admin@company.com">
+        <input type="email" id="email" name="email" required placeholder="admin@company.com" autocomplete="off">
         <div class="help-text">로그인 시 사용할 이메일 주소입니다</div>
       </div>
 
       <div class="form-group">
         <label for="password">비밀번호 <span class="required">*</span></label>
-        <input type="password" id="password" name="password" required placeholder="6자 이상" minlength="6">
+        <input type="password" id="password" name="password" required placeholder="6자 이상" minlength="6" autocomplete="new-password">
       </div>
 
       <div class="form-group">
         <label for="passwordConfirm">비밀번호 확인 <span class="required">*</span></label>
-        <input type="password" id="passwordConfirm" name="passwordConfirm" required placeholder="비밀번호 재입력">
+        <input type="password" id="passwordConfirm" name="passwordConfirm" required placeholder="비밀번호 재입력" autocomplete="new-password">
       </div>
 
       <div class="form-group">
         <label for="phone">전화번호 <span class="required">*</span></label>
-        <input type="tel" id="phone" name="phone" required placeholder="010-1234-5678">
+        <input type="tel" id="phone" name="phone" required placeholder="010-1234-5678" autocomplete="off">
       </div>
 
       <!-- 회사정보 섹션 -->
@@ -306,19 +306,19 @@
 
       <div class="form-group">
         <label for="companyName">회사명 <span class="required">*</span></label>
-        <input type="text" id="companyName" name="companyName" required placeholder="ABC 디저트 센터">
+        <input type="text" id="companyName" name="companyName" required placeholder="ABC 디저트 센터" autocomplete="off">
         <div class="help-text">운영하시는 회사/브랜드명을 입력하세요</div>
       </div>
 
       <div class="form-group">
         <label for="businessNumber">사업자등록번호 <span class="optional">(선택)</span></label>
-        <input type="text" id="businessNumber" name="businessNumber" placeholder="123-45-67890">
+        <input type="text" id="businessNumber" name="businessNumber" placeholder="123-45-67890" autocomplete="off">
         <div class="help-text">나중에 입력하셔도 됩니다</div>
       </div>
 
       <div class="form-group">
         <label for="companyPhone">회사 전화번호 <span class="optional">(선택)</span></label>
-        <input type="tel" id="companyPhone" name="companyPhone" placeholder="02-1234-5678">
+        <input type="tel" id="companyPhone" name="companyPhone" placeholder="02-1234-5678" autocomplete="off">
       </div>
 
       <button type="submit" class="btn" id="submit-btn">회원가입</button>
