@@ -925,6 +925,13 @@
         console.error('❌ companyId 가져오기 실패:', error);
       }
       
+      // ⚠️ companyId 확인 (없으면 에러)
+      if (!myCompanyId) {
+        console.error('❌ companyId를 가져올 수 없습니다!');
+        alert('⚠️ 회사 정보를 불러올 수 없습니다. 다시 로그인해주세요.');
+        return;
+      }
+      
       // 역할 체크 및 UI 제한
       const userRole = sessionStorage.getItem('admin_role');
       if (userRole === 'manager') {
@@ -935,7 +942,7 @@
       await loadSignedContractsCache();
       // localStorage contracts 자동 마이그레이션
       await migrateLocalStorageContracts();
-      loadDashboard();
+      await loadDashboard();  // 🔥 await 추가!
       switchTab('employees');
     }
     
@@ -1190,7 +1197,12 @@
       
       // Firestore에서 계약서 수 카운트
       try {
-        const contractsSnapshot = await firebase.firestore().collection('contracts').get();
+        // 🔒 companyId 조건 추가 (필수!)
+        let contractsQuery = firebase.firestore().collection('contracts');
+        if (myCompanyId) {
+          contractsQuery = contractsQuery.where('companyId', '==', myCompanyId);
+        }
+        const contractsSnapshot = await contractsQuery.get();
         const employeeMap = new Map();
         const unsignedEmployeeMap = new Map(); // 미서명 계약서 직원별 카운트
         
@@ -1224,9 +1236,15 @@
       let todayAttendanceCount = 0;
       try {
         const today = new Date().toISOString().split('T')[0];
-        const attendanceSnapshot = await db.collection('attendance')
-          .where('date', '==', today)
-          .get();
+        let attendanceQuery = db.collection('attendance')
+          .where('date', '==', today);
+        
+        // 🔒 companyId 조건 추가
+        if (myCompanyId) {
+          attendanceQuery = attendanceQuery.where('companyId', '==', myCompanyId);
+        }
+        
+        const attendanceSnapshot = await attendanceQuery.get();
         todayAttendanceCount = attendanceSnapshot.size;
         console.log(`📈 오늘 출근: ${todayAttendanceCount}명`);
       } catch (error) {
