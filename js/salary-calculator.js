@@ -382,9 +382,15 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     }
     
     // 주차별 근무시간 누적 (주휴수당 계산용)
+    // 🔒 하루 최대 8시간만 주휴수당 계산에 포함 (법정 근로시간 기준)
     const date = new Date(att.date);
     const weekKey = getWeekOfMonth(date);
-    weeklyWorkHours[weekKey] = (weeklyWorkHours[weekKey] || 0) + workHours;
+    const weeklyHoursForDay = Math.min(workHours, 8); // 하루 최대 8시간
+    weeklyWorkHours[weekKey] = (weeklyWorkHours[weekKey] || 0) + weeklyHoursForDay;
+    
+    if (workHours > 8) {
+      console.log(`⚠️ ${att.date}: 근무시간 ${workHours.toFixed(2)}시간 → 주휴수당 계산용 ${weeklyHoursForDay}시간 (8시간 초과분 제외)`);
+    }
     
     result.attendanceDetails.push({
       date: att.date,
