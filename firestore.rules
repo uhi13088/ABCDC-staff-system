@@ -256,7 +256,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && resource.data.employeeId == request.auth.uid)  // ⭐ staff는 자기 계약서만
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 계약서만 (employeeId 또는 userId)
       );
       
       allow write: if isSignedIn() && (
@@ -289,8 +289,7 @@ service cloud.firestore {
     match /signedContracts/{contractId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && resource.data.employeeId == request.auth.uid)  // ⭐ staff는 자기 서명 계약서만
+        (currentUserExists() && isSameCompany(resource))  // ⭐ 같은 회사 직원 모두 조회 가능 (staff가 contracts에서 필터링 후 signedContracts 확인)
       );
       
       // ⭐ 생성: 본인 계약서만 서명 가능 OR admin이 생성
