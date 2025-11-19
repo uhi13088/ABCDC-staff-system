@@ -610,8 +610,21 @@
         
         let errorMsg = '초대 코드 확인 중 오류가 발생했습니다.';
         
+        // ✅ v3.2: 상세한 에러 메시지 처리
         if (error.code === 'functions/not-found') {
           errorMsg = '⚠️ Cloud Functions가 배포되지 않았습니다. functions/index.js를 배포해주세요.';
+        } else if (error.code === 'functions/unauthenticated') {
+          errorMsg = '❌ 인증이 필요합니다. 페이지를 새로고침 해주세요.';
+        } else if (error.code === 'functions/invalid-argument') {
+          errorMsg = '⚠️ 초대 코드를 입력해주세요.';
+        } else if (error.code === 'not-found') {
+          errorMsg = '❌ 유효하지 않은 초대 코드입니다.';
+        } else if (error.code === 'failed-precondition') {
+          errorMsg = '❌ 사용할 수 없는 초대 코드입니다. 관리자에게 새로운 코드를 요청하세요.';
+        } else if (error.code === 'resource-exhausted') {
+          errorMsg = '❌ 초대 코드 사용 횟수를 초과했습니다. 관리자에게 새로운 코드를 요청하세요.';
+        } else if (error.code === 'deadline-exceeded') {
+          errorMsg = '❌ 만료된 초대 코드입니다. 관리자에게 새로운 코드를 요청하세요.';
         } else if (error.message) {
           errorMsg = '❌ ' + error.message;
         }

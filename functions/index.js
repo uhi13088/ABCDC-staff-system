@@ -803,11 +803,21 @@ exports.createInviteCode = functions.https.onCall(async (data, context) => {
   try {
     const db = admin.firestore();
     
-    // Admin 권한 확인
+    // 🔒 사용자 권한 확인 (admin 또는 store_manager)
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
     
-    if (!userDoc.exists || userDoc.data().role !== 'admin') {
-      throw new functions.https.HttpsError('permission-denied', '관리자 권한이 필요합니다.');
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
+    }
+    
+    const userData = userDoc.data();
+    const userRole = userData.role;
+    const userCompanyId = userData.companyId;
+    const userStoreId = userData.storeId;
+    
+    // admin 또는 store_manager만 초대 코드 생성 가능
+    if (!['admin', 'store_manager'].includes(userRole)) {
+      throw new functions.https.HttpsError('permission-denied', '관리자 또는 점장 권한이 필요합니다.');
     }
     
     // ⭐ v3.1: 단순화된 파라미터
@@ -826,6 +836,16 @@ exports.createInviteCode = functions.https.onCall(async (data, context) => {
         'invalid-argument', 
         'companyId, storeId, role은 필수입니다.'
       );
+    }
+    
+    // 🔒 회사 일치 확인 (admin과 store_manager 공통)
+    if (userCompanyId !== companyId) {
+      throw new functions.https.HttpsError('permission-denied', '다른 회사의 초대 코드는 생성할 수 없습니다.');
+    }
+    
+    // 🔒 store_manager는 자기 매장만 초대 코드 생성 가능
+    if (userRole === 'store_manager' && userStoreId !== storeId) {
+      throw new functions.https.HttpsError('permission-denied', '점장은 자신의 매장에만 초대 코드를 생성할 수 있습니다.');
     }
     
     // 초대 코드 생성 (회사명 약어 + 연도 + 역할 + 랜덤)
