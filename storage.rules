@@ -1,0 +1,34 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ===================================================================
+    // Firebase Storage Rules v1.0
+    // ABCDC Staff System - Multi-tenant SaaS
+    // ===================================================================
+    
+    // Company logos (로고 이미지)
+    match /company-logos/{companyId}/{fileName} {
+      // 읽기: 모든 사람 허용 (public)
+      allow read: if true;
+      
+      // 쓰기: 인증된 사용자 중 해당 회사의 admin 또는 super_admin만 허용
+      allow write: if request.auth != null && (
+        // Super Admin: 모든 회사 로고 업로드 가능
+        exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "super_admin"
+      ) || (
+        // Admin: 자기 회사 로고만 업로드 가능
+        exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        get(/databases/(default)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
+        get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin"
+      );
+    }
+    
+    // 기타 모든 파일: 기본적으로 거부
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
