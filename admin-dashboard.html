@@ -75,6 +75,7 @@
         <button class="tab" data-tab="notice" onclick="switchTab('notice')">공지사항</button>
         <button class="tab" data-tab="stores" onclick="switchTab('stores')">매장 관리</button>
         <button class="tab" data-tab="invites" onclick="switchTab('invites')">초대 코드</button>
+        <button class="tab" id="tabPlatformBtn" data-tab="platform" onclick="switchTab('platform')" style="display: none;">🌐 플랫폼 대시보드</button>
         <button class="tab" data-tab="settings" onclick="switchTab('settings')">시스템 설정</button>
       </div>
 
@@ -478,7 +479,7 @@
         <div class="card">
           <div class="card-header">
             <h3>🏪 매장 관리</h3>
-            <button class="btn btn-primary" onclick="showAddStoreModal()">+ 매장 추가</button>
+            <button class="btn btn-primary" id="addStoreBtn" onclick="showAddStoreModal()">+ 매장 추가</button>
           </div>
           <div class="card-body">
             <table>
@@ -532,6 +533,45 @@
               <tbody id="invitesTableBody">
                 <tr>
                   <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <p style="margin-bottom: 16px;">로딩 중...</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="tabPlatform" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>🌐 플랫폼 대시보드</h3>
+            <p style="margin: 0; font-size: 14px; color: var(--text-secondary); font-weight: normal;">
+              전체 회사 현황 (Super Admin 전용)
+            </p>
+          </div>
+          <div class="card-body">
+            <div style="background: var(--info-bg); border: 1px solid var(--info-border); border-radius: var(--radius-md); padding: var(--spacing-md); margin-bottom: var(--spacing-lg);">
+              <p style="margin: 0; font-size: 14px; color: var(--text-secondary);">
+                ℹ️ 이 페이지는 <strong>super_admin</strong> 권한에서만 접근 가능합니다.<br>
+                회사별 집계 데이터만 표시하며, 개인정보(이름, 이메일, 급여 등)는 표시하지 않습니다.
+              </p>
+            </div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>회사 ID</th>
+                  <th>회사명</th>
+                  <th>매장 수</th>
+                  <th>활성 직원 수</th>
+                  <th>최근 7일 출석 수</th>
+                  <th>생성일</th>
+                </tr>
+              </thead>
+              <tbody id="platformTableBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                     <p style="margin-bottom: 16px;">로딩 중...</p>
                   </td>
                 </tr>
@@ -1022,8 +1062,28 @@
       // 🎨 회사 브랜딩 정보 로드
       await loadCompanyBranding();
       
-      // 역할 체크 및 UI 제한
-      const userRole = sessionStorage.getItem('admin_role');
+      // ✅ v3.2: 역할 체크 및 UI 제한
+      const userRole = currentUser?.role || sessionStorage.getItem('admin_role');
+      console.log('🔐 사용자 역할:', userRole);
+      
+      // 🚫 staff: 관리자 대시보드 진입 불가
+      if (userRole === 'staff') {
+        alert('⚠️ 직원 계정은 관리자 페이지에 접근할 수 없습니다.\n직원 포털로 이동합니다.');
+        window.location.href = 'employee.html';
+        return;
+      }
+      
+      // 🌐 super_admin: 플랫폼 대시보드 탭 표시
+      if (userRole === 'super_admin') {
+        document.getElementById('tabPlatformBtn').style.display = 'inline-block';
+      }
+      
+      // 🔒 store_manager: 제한된 메뉴만 표시
+      if (userRole === 'store_manager') {
+        applyStoreManagerRestrictions();
+      }
+      
+      // manager: 기존 제한 적용 (deprecated, 호환성 유지)
       if (userRole === 'manager') {
         applyManagerRestrictions();
       }
@@ -1126,6 +1186,41 @@
       // 승인 관리 탭의 승인/거부 버튼은 동적으로 생성되므로 loadApprovals에서 처리
       
       console.log('✅ 매니저 권한 제한 적용 완료');
+    }
+    
+    // ✅ v3.2: store_manager 권한 제한
+    function applyStoreManagerRestrictions() {
+      console.log('🔒 점장 권한 제한 적용 중...');
+      
+      // 관리자 배지 변경
+      const adminBadge = document.querySelector('.admin-badge');
+      if (adminBadge) {
+        adminBadge.textContent = '점장';
+        adminBadge.style.background = 'var(--info-color)';
+      }
+      
+      // 🚫 숨길 탭 목록
+      const hiddenTabs = [
+        'settings'  // 시스템 설정 탭
+      ];
+      
+      hiddenTabs.forEach(tabName => {
+        const tabBtn = document.querySelector(`[data-tab="${tabName}"]`);
+        if (tabBtn) {
+          tabBtn.style.display = 'none';
+        }
+      });
+      
+      // 🚫 매장 추가 버튼 숨김
+      const addStoreBtn = document.getElementById('addStoreBtn');
+      if (addStoreBtn) {
+        addStoreBtn.style.display = 'none';
+      }
+      
+      // ℹ️ 매장 관리는 표시하되, loadStores()에서 자기 매장만 필터링
+      // ℹ️ 초대 코드는 표시하되, createInviteCode Function에서 자기 매장만 제한
+      
+      console.log('✅ 점장 권한 제한 적용 완료');
     }
     
     // 회사 정보 수정 모달
@@ -1427,6 +1522,103 @@
       }
     }
     
+    // ✅ v3.2: 플랫폼 대시보드 로드 (super_admin 전용)
+    async function loadPlatformDashboard() {
+      const tbody = document.getElementById('platformTableBody');
+      if (!tbody) return;
+      
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">회사 정보를 불러오는 중...</td></tr>';
+      
+      try {
+        // 🔒 super_admin 권한 확인
+        if (currentUser?.role !== 'super_admin') {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger-color);">⚠️ super_admin 권한이 필요합니다.</td></tr>';
+          return;
+        }
+        
+        // 모든 회사 조회
+        const companiesSnapshot = await firebase.firestore().collection('companies')
+          .orderBy('createdAt', 'desc')
+          .get();
+        
+        if (companiesSnapshot.empty) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">등록된 회사가 없습니다.</td></tr>';
+          return;
+        }
+        
+        const companies = [];
+        
+        // 각 회사별 집계 데이터 계산
+        for (const companyDoc of companiesSnapshot.docs) {
+          const companyData = companyDoc.data();
+          const companyId = companyDoc.id;
+          
+          // 매장 수 계산
+          const storesSnapshot = await firebase.firestore().collection('stores')
+            .where('companyId', '==', companyId)
+            .get();
+          const storeCount = storesSnapshot.size;
+          
+          // 활성 직원 수 계산 (resigned 제외)
+          const usersSnapshot = await firebase.firestore().collection('users')
+            .where('companyId', '==', companyId)
+            .where('role', 'in', ['staff', 'store_manager', 'manager'])
+            .get();
+          
+          let activeEmployeeCount = 0;
+          usersSnapshot.forEach(doc => {
+            const userData = doc.data();
+            if (userData.status !== 'resigned') {
+              activeEmployeeCount++;
+            }
+          });
+          
+          // 최근 7일 출석 수 계산
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          const dateStr = sevenDaysAgo.toISOString().split('T')[0];
+          
+          const attendanceSnapshot = await firebase.firestore().collection('attendance')
+            .where('companyId', '==', companyId)
+            .where('date', '>=', dateStr)
+            .get();
+          const attendanceCount = attendanceSnapshot.size;
+          
+          companies.push({
+            id: companyId,
+            name: companyData.brandName || companyData.companyName || companyData.name || '이름 없음',
+            storeCount,
+            activeEmployeeCount,
+            attendanceCount,
+            createdAt: companyData.createdAt?.toDate?.() || null
+          });
+        }
+        
+        // 테이블 렌더링
+        tbody.innerHTML = companies.map(company => {
+          const createdAt = company.createdAt 
+            ? company.createdAt.toLocaleDateString('ko-KR')
+            : '-';
+          
+          return `
+            <tr>
+              <td><code style="background: var(--bg-color); padding: 4px 8px; border-radius: 4px; font-size: 12px;">${company.id}</code></td>
+              <td><strong>${company.name}</strong></td>
+              <td style="text-align: center;">${company.storeCount}개</td>
+              <td style="text-align: center;">${company.activeEmployeeCount}명</td>
+              <td style="text-align: center;">${company.attendanceCount}건</td>
+              <td>${createdAt}</td>
+            </tr>
+          `;
+        }).join('');
+        
+        console.log(`✅ ${companies.length}개 회사 플랫폼 데이터 로드 완료`);
+      } catch (error) {
+        console.error('❌ 플랫폼 대시보드 로드 실패:', error);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger-color);">데이터를 불러오는데 실패했습니다.</td></tr>';
+      }
+    }
+    
     // signedContracts Firestore 캐시 로드
     async function loadSignedContractsCache() {
       try {
@@ -1603,6 +1795,10 @@
         case 'invites':
           detachAttendanceListener();
           loadInvites();
+          break;
+        case 'platform':
+          detachAttendanceListener();
+          loadPlatformDashboard();
           break;
       }
     }
@@ -5159,6 +5355,14 @@
           console.error('  ❌❌❌ myCompanyId가 null입니다! 모든 회사 매장이 조회됩니다!');
         }
         
+        // ✅ v3.2: store_manager는 자기 매장만 조회
+        const userRole = currentUser?.role;
+        const userStoreId = currentUser?.storeId;
+        if (userRole === 'store_manager' && userStoreId) {
+          query = query.where(firebase.firestore.FieldPath.documentId(), '==', userStoreId);
+          console.log('  🔒 store_manager: 자기 매장만 조회:', userStoreId);
+        }
+        
         // 회사 정보 먼저 조회 (한 번만)
         let companyName = '알 수 없음';
         if (myCompanyId) {
@@ -5184,11 +5388,15 @@
         
         // 매장이 없으면 안내 메시지 표시
         if (stores.length === 0) {
+          const addStoreBtn = userRole === 'store_manager' 
+            ? '' 
+            : '<button class="btn btn-primary" onclick="showAddStoreModal()">+ 첫 매장 추가하기</button>';
+          
           tbody.innerHTML = `
             <tr>
               <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                 <p style="margin-bottom: 16px;">등록된 매장이 없습니다.</p>
-                <button class="btn btn-primary" onclick="showAddStoreModal()">+ 첫 매장 추가하기</button>
+                ${addStoreBtn}
               </td>
             </tr>
           `;
