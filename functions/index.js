@@ -838,8 +838,8 @@ exports.createInviteCode = functions.https.onCall(async (data, context) => {
       );
     }
     
-    // 🔒 회사 일치 확인 (super_admin 제외)
-    if (userRole !== 'super_admin' && userCompanyId !== companyId) {
+    // 🔒 회사 일치 확인 (모든 역할 포함)
+    if (userCompanyId !== companyId) {
       throw new functions.https.HttpsError('permission-denied', '다른 회사의 초대 코드는 생성할 수 없습니다.');
     }
     
