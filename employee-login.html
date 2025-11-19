@@ -332,13 +332,13 @@
         if (userDoc.exists) {
           const userData = userDoc.data();
           
-          // 직원 권한 확인 (admin, manager가 아닌 경우만 허용)
-          if (userData.role === 'admin' || userData.role === 'manager') {
+          // 직원 권한 확인 (staff만 허용)
+          if (userData.role === 'super_admin' || userData.role === 'admin' || userData.role === 'store_manager' || userData.role === 'manager') {
             // 관리자 계정이 저장된 경우 localStorage 삭제
             localStorage.removeItem('employee_saved_email');
             localStorage.removeItem('employee_saved_password');
             
-            alert('❌ 관리자 계정은 관리자 로그인 페이지를 이용해주세요.');
+            alert('❌ 관리자/매니저 계정은 관리자 로그인 페이지를 이용해주세요.\n\n직원 포털은 staff 권한만 접근 가능합니다.');
             await auth.signOut();
             return;
           }
@@ -371,13 +371,16 @@
             localStorage.removeItem('employee_remember_me');
           }
           
+          // 🔥 기존 세션 정보 완전히 초기화 (이전 사용자 정보 제거)
+          sessionStorage.clear();
+          
           // 세션에 정보 저장
           sessionStorage.setItem('employee_email', email);
           sessionStorage.setItem('employee_name', userData.name || '직원');
           sessionStorage.setItem('employee_uid', user.uid);
           sessionStorage.setItem('employee_authenticated', 'true');
           
-          console.log('✅ 직원 로그인 성공:', userData.name);
+          console.log('✅ 직원 로그인 성공:', userData.name, '(uid:', user.uid, ')');
           window.location.href = 'employee.html';
         } else {
           // Firestore에 사용자 정보가 없는 경우 (관리자가 삭제함)

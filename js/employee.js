@@ -59,6 +59,32 @@ async function checkLoginStatus() {
     return;
   }
   
+  // 🔥 Firebase Auth 실제 로그인 상태 확인
+  const currentAuthUser = firebase.auth().currentUser;
+  
+  if (!currentAuthUser) {
+    console.error('❌ Firebase Auth 로그인 상태가 아닙니다.');
+    alert('⚠️ 세션이 만료되었습니다. 다시 로그인해주세요.');
+    sessionStorage.clear();
+    window.location.href = 'employee-login.html';
+    return;
+  }
+  
+  // 🔥 sessionStorage의 uid와 Firebase Auth의 uid 일치 확인
+  if (currentAuthUser.uid !== uid) {
+    console.error('❌ 보안 경고: sessionStorage uid와 Firebase Auth uid 불일치!', {
+      sessionStorageUid: uid,
+      firebaseAuthUid: currentAuthUser.uid
+    });
+    alert('⚠️ 보안 오류가 감지되었습니다.\n다시 로그인해주세요.');
+    sessionStorage.clear();
+    await firebase.auth().signOut();
+    window.location.href = 'employee-login.html';
+    return;
+  }
+  
+  console.log('✅ 보안 검증 완료: sessionStorage uid와 Firebase Auth uid 일치');
+  
   // 사용자 정보 로드 (비동기 완료까지 대기)
   await loadUserInfo(uid, name);
 }
@@ -95,6 +121,15 @@ async function loadUserInfo(uid, name) {
       }
       
       // status === 'approved'인 경우만 진행
+      
+      // 🔥 직원 권한 확인 (staff만 허용)
+      const userRole = userData.role || 'staff';
+      if (userRole !== 'staff') {
+        console.error('❌ 접근 거부: 직원 포털은 staff 권한만 접근 가능', { role: userRole });
+        alert('❌ 접근 권한이 없습니다.\n\n직원 포털은 staff 권한만 접근 가능합니다.\n관리자/매니저는 관리자 페이지를 이용해주세요.');
+        logout();
+        return;
+      }
       
       currentUser = {
         uid: uid,
