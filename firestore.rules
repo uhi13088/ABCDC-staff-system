@@ -215,7 +215,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && resource.data.employeeId == request.auth.uid)  // ⭐ staff는 자기 출퇴근만
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 출퇴근만 (employeeId 또는 userId)
       );
       
       allow create: if isSignedIn() && (
@@ -242,7 +242,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && resource.data.employeeId == request.auth.uid)  // ⭐ staff는 자기 스케줄만
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 스케줄만 (employeeId 또는 userId)
       );
       
       allow write: if isSignedIn() && (
@@ -398,7 +398,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && resource.data.employeeId == request.auth.uid)  // ⭐ staff는 자기 수정 이력만
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.employeeUid == request.auth.uid))  // ⭐ staff는 자기 수정 이력만 (employeeId 또는 employeeUid)
       );
       
       allow create: if isSignedIn() &&

@@ -1104,29 +1104,6 @@ async function loadContracts() {
     
     const contracts = [];
     
-    // 🔍 디버깅: 모든 계약서 가져와서 비교
-    console.log('🔍 === 디버깅: 전체 계약서 조회 시작 ===');
-    const allContracts = await db.collection('contracts').get();
-    console.log(`📊 전체 계약서 개수: ${allContracts.size}`);
-    
-    if (allContracts.size > 0) {
-      console.log('📋 각 계약서 상세 정보:');
-      allContracts.forEach((doc, index) => {
-        const data = doc.data();
-        console.log(`\n계약서 #${index + 1} (ID: ${doc.id})`);
-        console.log(`  - employeeId: "${data.employeeId}" (타입: ${typeof data.employeeId})`);
-        console.log(`  - employeeName: "${data.employeeName}" (타입: ${typeof data.employeeName})`);
-        console.log(`  - employeeBirth: "${data.employeeBirth}" (타입: ${typeof data.employeeBirth})`);
-        console.log(`  - 매칭 결과:`);
-        console.log(`    * employeeId 일치? ${data.employeeId === currentUser.uid} (저장값: "${data.employeeId}" vs 현재: "${currentUser.uid}")`);
-        console.log(`    * employeeName 일치? ${data.employeeName === currentUser.name} (저장값: "${data.employeeName}" vs 현재: "${currentUser.name}")`);
-        console.log(`    * employeeBirth 일치? ${data.employeeBirth === currentUser.birth} (저장값: "${data.employeeBirth}" vs 현재: "${currentUser.birth}")`);
-      });
-    } else {
-      console.warn('⚠️ contracts collection에 계약서가 하나도 없습니다!');
-    }
-    console.log('🔍 === 디버깅 종료 ===\n');
-    
     // 1. Firestore에서 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const snapshot = await db.collection('contracts')
       .where('employeeId', '==', currentUser.uid)
