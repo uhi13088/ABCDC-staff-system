@@ -484,6 +484,7 @@
               <thead>
                 <tr>
                   <th>매장명</th>
+                  <th>소속 회사</th>
                   <th>주소</th>
                   <th>연락처</th>
                   <th>대표자</th>
@@ -494,7 +495,7 @@
               </thead>
               <tbody id="storesTableBody">
                 <tr>
-                  <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                  <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                     <p style="margin-bottom: 16px;">로딩 중...</p>
                   </td>
                 </tr>
@@ -565,6 +566,14 @@
         <div class="form-group">
           <label for="storeName">매장명 *</label>
           <input type="text" id="storeName" placeholder="부천시청점" required>
+        </div>
+        <!-- 소속 회사 (읽기 전용) -->
+        <div class="form-group" id="storeCompanyGroup" style="display: none;">
+          <label>소속 회사</label>
+          <input type="text" id="storeCompanyName" readonly style="background-color: var(--bg-color); cursor: not-allowed;">
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 회사 정보는 변경할 수 없습니다.
+          </div>
         </div>
         <div class="form-group">
           <label for="storeAddress">주소</label>
@@ -4856,7 +4865,7 @@
       
       if (!tbody) return;
       
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">매장 정보를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">매장 정보를 불러오는 중...</td></tr>';
       
       try {
         console.log('🔍 loadStores 시작');
@@ -4872,6 +4881,20 @@
           console.error('  ❌❌❌ myCompanyId가 null입니다! 모든 회사 매장이 조회됩니다!');
         }
         
+        // 회사 정보 먼저 조회 (한 번만)
+        let companyName = '알 수 없음';
+        if (myCompanyId) {
+          try {
+            const companyDoc = await firebase.firestore().collection('companies').doc(myCompanyId).get();
+            if (companyDoc.exists) {
+              const companyData = companyDoc.data();
+              companyName = companyData.brandName || companyData.companyName || companyData.name || companyName;
+            }
+          } catch (error) {
+            console.error('  ⚠️ 회사 정보 조회 실패:', error);
+          }
+        }
+        
         // Firestore에서 매장 정보 로드
         const storesSnapshot = await query.get();
         console.log('  📊 조회된 매장 수:', storesSnapshot.size);
@@ -4885,7 +4908,7 @@
         if (stores.length === 0) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+              <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                 <p style="margin-bottom: 16px;">등록된 매장이 없습니다.</p>
                 <button class="btn btn-primary" onclick="showAddStoreModal()">+ 첫 매장 추가하기</button>
               </td>
@@ -4897,6 +4920,7 @@
         tbody.innerHTML = stores.map(store => `
           <tr>
             <td>${store.name}</td>
+            <td><span class="badge" style="background: var(--info-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${companyName}</span></td>
             <td>${store.address || '-'}</td>
             <td>${store.phone || '-'}</td>
             <td>${store.ceo || '-'}</td>
@@ -4970,6 +4994,9 @@
       document.getElementById('storeBusinessNumber').value = '';
       document.getElementById('storeSalaryPaymentDay').value = '';
       
+      // 🏢 추가 모드에서는 회사 필드 숨김
+      document.getElementById('storeCompanyGroup').style.display = 'none';
+      
       // 계산 기간 타입 초기화 (기본값: 자동)
       document.getElementById('salaryCalculationType').value = 'prev_month_full';
       document.getElementById('customCalculationPeriod').style.display = 'none';
@@ -5007,6 +5034,24 @@
         document.getElementById('storeModalTitle').textContent = '🏪 매장 수정';
         document.getElementById('editStoreId').value = store.id;
         document.getElementById('storeName').value = store.name;
+        
+        // 🏢 소속 회사 정보 표시 (수정 모드일 때만)
+        if (store.companyId) {
+          try {
+            const companyDoc = await firebase.firestore().collection('companies').doc(store.companyId).get();
+            if (companyDoc.exists) {
+              const companyData = companyDoc.data();
+              const companyDisplayName = companyData.brandName || companyData.companyName || companyData.name || '알 수 없음';
+              document.getElementById('storeCompanyName').value = companyDisplayName;
+              document.getElementById('storeCompanyGroup').style.display = 'block';
+            }
+          } catch (error) {
+            console.error('⚠️ 회사 정보 로드 실패:', error);
+            document.getElementById('storeCompanyGroup').style.display = 'none';
+          }
+        } else {
+          document.getElementById('storeCompanyGroup').style.display = 'none';
+        }
         document.getElementById('storeAddress').value = store.address || '';
         document.getElementById('storePhone').value = store.phone || '';
         document.getElementById('storeCEO').value = store.ceo || '';
