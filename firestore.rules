@@ -212,10 +212,14 @@ service cloud.firestore {
     
     // attendance: 출퇴근 기록
     match /attendance/{attendanceId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
+      allow list: if isSignedIn() && currentUserExists();
+      
+      // 개별 문서 읽기 (get): 권한 체크
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 출퇴근만 (employeeId 또는 userId)
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 출퇴근만
       );
       
       allow create: if isSignedIn() && (
@@ -239,10 +243,14 @@ service cloud.firestore {
     
     // schedules: 근무 스케줄
     match /schedules/{scheduleId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
+      allow list: if isSignedIn() && currentUserExists();
+      
+      // 개별 문서 읽기 (get): 권한 체크
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 스케줄만 (employeeId 또는 userId)
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 스케줄만
       );
       
       allow write: if isSignedIn() && (
@@ -253,10 +261,14 @@ service cloud.firestore {
     
     // contracts: 계약서
     match /contracts/{contractId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능 (필터 조건은 클라이언트에서)
+      allow list: if isSignedIn() && currentUserExists();
+      
+      // 개별 문서 읽기 (get): 권한 체크
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 계약서만 (employeeId 또는 userId)
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 계약서만
       );
       
       allow write: if isSignedIn() && (
@@ -287,9 +299,13 @@ service cloud.firestore {
     
     // ⭐ v3.1.5: signedContracts (생성 권한 강화 - 본인만 또는 admin만)
     match /signedContracts/{contractId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
+      allow list: if isSignedIn() && currentUserExists();
+      
+      // 개별 문서 읽기 (get): 같은 회사면 조회 가능
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource))  // ⭐ 같은 회사 직원 모두 조회 가능 (staff가 contracts에서 필터링 후 signedContracts 확인)
+        (currentUserExists() && isSameCompany(resource))  // ⭐ 같은 회사 직원 모두 조회 가능
       );
       
       // ⭐ 생성: 본인 계약서만 서명 가능 OR admin이 생성
@@ -394,10 +410,14 @@ service cloud.firestore {
     
     // time_change_reports: 근무시간 수정 이력
     match /time_change_reports/{reportId} {
-      allow read: if isSignedIn() && (
+      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
+      allow list: if isSignedIn() && currentUserExists();
+      
+      // 개별 문서 읽기 (get): 권한 체크
+      allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.employeeUid == request.auth.uid))  // ⭐ staff는 자기 수정 이력만 (employeeId 또는 employeeUid)
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.employeeUid == request.auth.uid))  // ⭐ staff는 자기 수정 이력만
       );
       
       allow create: if isSignedIn() &&
