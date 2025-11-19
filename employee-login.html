@@ -332,13 +332,13 @@
         if (userDoc.exists) {
           const userData = userDoc.data();
           
-          // 직원 권한 확인 (staff만 허용)
-          if (userData.role === 'super_admin' || userData.role === 'admin' || userData.role === 'store_manager' || userData.role === 'manager') {
+          // 직원 권한 확인 (staff, manager 허용)
+          if (userData.role === 'super_admin' || userData.role === 'admin' || userData.role === 'store_manager') {
             // 관리자 계정이 저장된 경우 localStorage 삭제
             localStorage.removeItem('employee_saved_email');
             localStorage.removeItem('employee_saved_password');
             
-            alert('❌ 관리자/매니저 계정은 관리자 로그인 페이지를 이용해주세요.\n\n직원 포털은 staff 권한만 접근 가능합니다.');
+            alert('❌ 최고 관리자/회사 관리자/매장 관리자 계정은 관리자 로그인 페이지를 이용해주세요.\n\n직원 포털은 staff, manager 권한만 접근 가능합니다.');
             await auth.signOut();
             return;
           }

@@ -122,11 +122,11 @@ async function loadUserInfo(uid, name) {
       
       // status === 'approved'인 경우만 진행
       
-      // 🔥 직원 권한 확인 (staff만 허용)
+      // 🔥 직원 권한 확인 (staff, manager 허용)
       const userRole = userData.role || 'staff';
-      if (userRole !== 'staff') {
-        console.error('❌ 접근 거부: 직원 포털은 staff 권한만 접근 가능', { role: userRole });
-        alert('❌ 접근 권한이 없습니다.\n\n직원 포털은 staff 권한만 접근 가능합니다.\n관리자/매니저는 관리자 페이지를 이용해주세요.');
+      if (userRole === 'super_admin' || userRole === 'admin' || userRole === 'store_manager') {
+        console.error('❌ 접근 거부: 직원 포털은 staff/manager 권한만 접근 가능', { role: userRole });
+        alert('❌ 접근 권한이 없습니다.\n\n직원 포털은 staff, manager 권한만 접근 가능합니다.\n최고 관리자/회사 관리자/매장 관리자는 관리자 페이지를 이용해주세요.');
         logout();
         return;
       }
