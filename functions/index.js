@@ -815,8 +815,8 @@ exports.createInviteCode = functions.https.onCall(async (data, context) => {
     const userCompanyId = userData.companyId;
     const userStoreId = userData.storeId;
     
-    // admin 또는 store_manager만 초대 코드 생성 가능
-    if (!['admin', 'store_manager'].includes(userRole)) {
+    // ✅ v3.2: super_admin, admin 또는 store_manager만 초대 코드 생성 가능
+    if (!['super_admin', 'admin', 'store_manager'].includes(userRole)) {
       throw new functions.https.HttpsError('permission-denied', '관리자 또는 점장 권한이 필요합니다.');
     }
     
@@ -838,8 +838,8 @@ exports.createInviteCode = functions.https.onCall(async (data, context) => {
       );
     }
     
-    // 🔒 회사 일치 확인 (admin과 store_manager 공통)
-    if (userCompanyId !== companyId) {
+    // 🔒 회사 일치 확인 (super_admin 제외)
+    if (userRole !== 'super_admin' && userCompanyId !== companyId) {
       throw new functions.https.HttpsError('permission-denied', '다른 회사의 초대 코드는 생성할 수 없습니다.');
     }
     
