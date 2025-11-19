@@ -4,10 +4,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ===================================================================
-    // 멀티테넌트 Firestore Security Rules v3.1.7
+    // 멀티테넌트 Firestore Security Rules v3.3
     // ABCDC Staff System - Multi-tenant SaaS
     // 순환참조 제거 + 보안 강화 + 관리자 회원가입 지원 + 쿼리 레벨 권한 수정
-    // v3.1.7: stores 생성 시 companyId 자동 추가 완료
+    // v3.3: manager 권한을 staff와 동일하게 처리 (일반 직원, 관리 권한 없음)
     // ===================================================================
     
     // ============ Helper Functions ============
@@ -55,7 +55,7 @@ service cloud.firestore {
     
     function isManagerOrAbove() {
       return currentUserExists()
-          && currentUser().data.role in ["admin", "manager", "store_manager"];
+          && currentUser().data.role in ["admin", "store_manager"];
     }
     
     // ⭐ 문서 레벨 권한 체크용 함수 (resource 필요)
@@ -68,7 +68,7 @@ service cloud.firestore {
     function isCompanyAdminOrManager() {
       return currentUserExists()
           && currentUser().data.companyId == resource.data.companyId
-          && currentUser().data.role in ["admin", "manager", "store_manager"];
+          && currentUser().data.role in ["admin", "store_manager"];
     }
     
     function isSameCompany(resource) {
@@ -83,13 +83,13 @@ service cloud.firestore {
     
     // ⭐ v3.1.5: users 컬렉션 (순환참조 제거 + 민감 필드 보호 + 쿼리 레벨 허용)
     match /users/{userId} {
-      // 🔥 쿼리 조회 (list): admin/manager는 자기 회사 전체 조회 가능
+      // 🔥 쿼리 조회 (list): admin/store_manager는 자기 회사 전체 조회 가능
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && currentUser().data.role in ["admin", "manager", "store_manager"])
+        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"])
       );
       
-      // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin/manager
+      // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin/store_manager
       allow get: if isSignedIn() && (
         request.auth.uid == userId ||
         isSuperAdmin() ||
@@ -97,7 +97,7 @@ service cloud.firestore {
           request.auth.uid != userId &&
           currentUserExists() &&
           currentUser().data.companyId == resource.data.companyId &&
-          currentUser().data.role in ["admin", "manager", "store_manager"]
+          currentUser().data.role in ["admin", "store_manager"]
         )
       );
       
@@ -148,10 +148,10 @@ service cloud.firestore {
     
     // ⭐ v3.1.6: stores 컬렉션 (쿼리/문서 권한 분리)
     match /stores/{storeId} {
-      // 🔥 쿼리 조회 (list): admin/manager는 빈 컬렉션도 조회 가능
+      // 🔥 쿼리 조회 (list): admin/store_manager는 빈 컬렉션도 조회 가능
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && currentUser().data.role in ["admin", "manager", "store_manager"])
+        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"])
       );
       
       // 개별 문서 읽기 (get): 같은 회사만
@@ -184,7 +184,7 @@ service cloud.firestore {
           request.auth.uid != employeeId &&
           currentUserExists() &&
           currentUser().data.companyId == resource.data.companyId &&
-          currentUser().data.role in ["admin", "manager", "store_manager"]
+          currentUser().data.role in ["admin", "store_manager"]
         )
       );
       
@@ -378,10 +378,10 @@ service cloud.firestore {
     
     // ⭐ v3.1.6: shift_requests 컬렉션 (쿼리/문서 권한 분리)
     match /shift_requests/{requestId} {
-      // 🔥 쿼리 조회 (list): admin/manager는 빈 컬렉션도 조회 가능
+      // 🔥 쿼리 조회 (list): admin/store_manager는 빈 컬렉션도 조회 가능
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && currentUser().data.role in ["admin", "manager", "store_manager"])
+        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"])
       );
       
       // 개별 문서 읽기 (get): 같은 회사의 admin/manager만
