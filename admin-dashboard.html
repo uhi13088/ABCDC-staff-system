@@ -74,6 +74,7 @@
         <button class="tab" data-tab="schedules" onclick="switchTab('schedules')">근무스케줄</button>
         <button class="tab" data-tab="notice" onclick="switchTab('notice')">공지사항</button>
         <button class="tab" data-tab="stores" onclick="switchTab('stores')">매장 관리</button>
+        <button class="tab" data-tab="invites" onclick="switchTab('invites')">초대 코드</button>
         <button class="tab" data-tab="settings" onclick="switchTab('settings')">시스템 설정</button>
       </div>
 
@@ -496,6 +497,41 @@
               <tbody id="storesTableBody">
                 <tr>
                   <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <p style="margin-bottom: 16px;">로딩 중...</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 초대 코드 관리 탭 -->
+      <div id="tabInvites" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>🎫 초대 코드 관리</h3>
+            <button class="btn btn-primary" onclick="showCreateInviteModal()">+ 초대 코드 생성</button>
+          </div>
+          <div class="card-body">
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+              직원 가입용 초대 코드를 생성하고 관리합니다. 생성된 링크를 카톡/문자로 공유하세요.
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>초대 코드</th>
+                  <th>매장</th>
+                  <th>역할</th>
+                  <th>상태</th>
+                  <th>사용 횟수</th>
+                  <th>생성일</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="invitesTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                     <p style="margin-bottom: 16px;">로딩 중...</p>
                   </td>
                 </tr>
@@ -1153,6 +1189,244 @@
       }
     }
     
+    // ===================================================================
+    // 🎫 초대 코드 관리 함수들
+    // ===================================================================
+    
+    // 초대 코드 리스트 로드
+    async function loadInvites() {
+      const tbody = document.getElementById('invitesTableBody');
+      if (!tbody) return;
+      
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">초대 코드를 불러오는 중...</td></tr>';
+      
+      try {
+        if (!myCompanyId) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger-color);">회사 정보를 불러올 수 없습니다.</td></tr>';
+          return;
+        }
+        
+        // company_invites 조회 (companyId 기준)
+        const invitesSnapshot = await firebase.firestore().collection('company_invites')
+          .where('companyId', '==', myCompanyId)
+          .orderBy('createdAt', 'desc')
+          .get();
+        
+        if (invitesSnapshot.empty) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                <p style="margin-bottom: 16px;">생성된 초대 코드가 없습니다.</p>
+                <button class="btn btn-primary" onclick="showCreateInviteModal()">+ 첫 초대 코드 생성하기</button>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+        
+        const invites = [];
+        invitesSnapshot.forEach(doc => {
+          invites.push({ id: doc.id, ...doc.data() });
+        });
+        
+        tbody.innerHTML = invites.map(invite => {
+          const statusBadge = invite.status === 'active' 
+            ? '<span style="background: var(--success-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">활성</span>'
+            : '<span style="background: var(--text-secondary); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">비활성</span>';
+          
+          const usageText = invite.maxUses 
+            ? `${invite.usedCount || 0} / ${invite.maxUses}`
+            : `${invite.usedCount || 0} / 무제한`;
+          
+          const createdAt = invite.createdAt?.toDate 
+            ? invite.createdAt.toDate().toLocaleString('ko-KR')
+            : '-';
+          
+          return `
+            <tr>
+              <td><code style="background: var(--bg-color); padding: 4px 8px; border-radius: 4px; font-size: 12px;">${invite.code}</code></td>
+              <td>${invite.storeName || '-'}</td>
+              <td>${invite.role}</td>
+              <td>${statusBadge}</td>
+              <td>${usageText}</td>
+              <td>${createdAt}</td>
+              <td>
+                <button class="btn btn-sm btn-info" onclick="copyInviteUrl('${invite.inviteUrl || ''}')">📋 링크 복사</button>
+                <button class="btn btn-sm ${invite.status === 'active' ? 'btn-secondary' : 'btn-success'}" 
+                        onclick="toggleInviteStatus('${invite.id}', '${invite.status}')">
+                  ${invite.status === 'active' ? '⏸️ 중지' : '▶️ 활성'}
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+        
+        console.log(`✅ ${invites.length}개 초대 코드 로드 완료`);
+      } catch (error) {
+        console.error('❌ 초대 코드 로드 실패:', error);
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger-color);">초대 코드를 불러오는데 실패했습니다.</td></tr>';
+      }
+    }
+    
+    // 초대 코드 생성 모달 열기
+    async function showCreateInviteModal() {
+      // 매장 목록 로드
+      const storeSelect = document.getElementById('inviteStoreId');
+      storeSelect.innerHTML = '<option value="">선택하세요</option>';
+      
+      try {
+        if (!myCompanyId) {
+          alert('회사 정보를 불러올 수 없습니다.');
+          return;
+        }
+        
+        const storesSnapshot = await firebase.firestore().collection('stores')
+          .where('companyId', '==', myCompanyId)
+          .get();
+        
+        if (storesSnapshot.empty) {
+          alert('등록된 매장이 없습니다. 먼저 매장을 추가해주세요.');
+          return;
+        }
+        
+        storesSnapshot.forEach(doc => {
+          const store = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.textContent = store.name;
+          option.dataset.storeName = store.name;
+          storeSelect.appendChild(option);
+        });
+        
+        // 초기화
+        document.getElementById('inviteRole').value = '';
+        document.getElementById('inviteMaxUses').value = '';
+        document.getElementById('inviteExpiresAt').value = '';
+        document.getElementById('generatedInviteLink').style.display = 'none';
+        document.getElementById('createInviteBtn').style.display = 'block';
+        
+        document.getElementById('createInviteModal').style.display = 'flex';
+      } catch (error) {
+        console.error('❌ 매장 목록 로드 실패:', error);
+        alert('매장 목록을 불러오는데 실패했습니다.');
+      }
+    }
+    
+    // 초대 코드 생성 모달 닫기
+    function closeCreateInviteModal() {
+      document.getElementById('createInviteModal').style.display = 'none';
+    }
+    
+    // 초대 코드 생성
+    async function createInviteCode() {
+      const storeSelect = document.getElementById('inviteStoreId');
+      const storeId = storeSelect.value;
+      const role = document.getElementById('inviteRole').value;
+      const maxUsesInput = document.getElementById('inviteMaxUses').value;
+      const expiresAtInput = document.getElementById('inviteExpiresAt').value;
+      
+      if (!storeId || !role) {
+        alert('매장과 역할을 선택해주세요.');
+        return;
+      }
+      
+      const storeName = storeSelect.options[storeSelect.selectedIndex].dataset.storeName;
+      const maxUses = maxUsesInput ? parseInt(maxUsesInput) : null;
+      const expiresAt = expiresAtInput ? new Date(expiresAtInput).toISOString() : null;
+      
+      try {
+        document.getElementById('createInviteBtn').disabled = true;
+        document.getElementById('createInviteBtn').textContent = '생성 중...';
+        
+        // Cloud Function 호출
+        const createInvite = firebase.functions().httpsCallable('createInviteCode');
+        const result = await createInvite({
+          companyId: myCompanyId,
+          storeId: storeId,
+          storeName: storeName,
+          role: role,
+          maxUses: maxUses,
+          expiresAt: expiresAt
+        });
+        
+        if (result.data.ok) {
+          console.log('✅ 초대 코드 생성 성공:', result.data);
+          
+          // 생성된 링크 표시
+          document.getElementById('inviteLinkInput').value = result.data.inviteUrl;
+          document.getElementById('generatedInviteLink').style.display = 'block';
+          document.getElementById('createInviteBtn').style.display = 'none';
+          
+          // 자동 복사 시도
+          try {
+            await navigator.clipboard.writeText(result.data.inviteUrl);
+          } catch (e) {
+            console.warn('클립보드 복사 실패:', e);
+          }
+          
+          // 리스트 새로고침
+          loadInvites();
+        } else {
+          alert('초대 코드 생성에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('❌ 초대 코드 생성 실패:', error);
+        alert(`초대 코드 생성 실패: ${error.message}`);
+      } finally {
+        document.getElementById('createInviteBtn').disabled = false;
+        document.getElementById('createInviteBtn').textContent = '생성';
+      }
+    }
+    
+    // 초대 링크 복사
+    function copyInviteLink() {
+      const input = document.getElementById('inviteLinkInput');
+      input.select();
+      navigator.clipboard.writeText(input.value).then(() => {
+        alert('✅ 링크가 클립보드에 복사되었습니다!');
+      }).catch(err => {
+        console.error('복사 실패:', err);
+        alert('링크 복사에 실패했습니다. 수동으로 복사해주세요.');
+      });
+    }
+    
+    // 초대 URL 복사 (리스트에서)
+    function copyInviteUrl(url) {
+      if (!url) {
+        alert('초대 링크가 없습니다.');
+        return;
+      }
+      navigator.clipboard.writeText(url).then(() => {
+        alert('✅ 링크가 클립보드에 복사되었습니다!');
+      }).catch(err => {
+        console.error('복사 실패:', err);
+        alert('링크 복사에 실패했습니다.');
+      });
+    }
+    
+    // 초대 코드 상태 토글
+    async function toggleInviteStatus(inviteId, currentStatus) {
+      const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+      const confirmMsg = newStatus === 'active' 
+        ? '이 초대 코드를 다시 활성화하시겠습니까?'
+        : '이 초대 코드를 중지하시겠습니까? (새로운 가입이 불가능합니다)';
+      
+      if (!confirm(confirmMsg)) return;
+      
+      try {
+        await firebase.firestore().collection('company_invites').doc(inviteId).update({
+          status: newStatus,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert(`✅ 초대 코드가 ${newStatus === 'active' ? '활성화' : '비활성화'}되었습니다.`);
+        loadInvites();
+      } catch (error) {
+        console.error('❌ 상태 변경 실패:', error);
+        alert('상태 변경에 실패했습니다.');
+      }
+    }
+    
     // signedContracts Firestore 캐시 로드
     async function loadSignedContractsCache() {
       try {
@@ -1325,6 +1599,10 @@
         case 'stores': 
           detachAttendanceListener();
           loadStores(); 
+          break;
+        case 'invites':
+          detachAttendanceListener();
+          loadInvites();
           break;
       }
     }
@@ -12559,6 +12837,66 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeCompanyEditModal()">취소</button>
         <button class="btn btn-primary" onclick="saveCompanyInfo()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 초대 코드 생성 모달 -->
+  <div id="createInviteModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">🎫 초대 코드 생성</h2>
+        <button class="modal-close" onclick="closeCreateInviteModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="inviteStoreId">대상 매장 *</label>
+          <select id="inviteStoreId" required>
+            <option value="">선택하세요</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="inviteRole">역할 *</label>
+          <select id="inviteRole" required>
+            <option value="">선택하세요</option>
+            <option value="staff">staff (직원)</option>
+            <option value="store_manager">store_manager (점장)</option>
+            <option value="manager">manager (매니저)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="inviteMaxUses">최대 사용 횟수</label>
+          <input type="number" id="inviteMaxUses" placeholder="비우면 무제한" min="1">
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 비워두면 무제한으로 사용 가능합니다.
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="inviteExpiresAt">만료일시 (선택)</label>
+          <input type="datetime-local" id="inviteExpiresAt">
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 비워두면 만료 기한이 없습니다.
+          </div>
+        </div>
+        
+        <!-- 생성된 초대 링크 표시 영역 -->
+        <div id="generatedInviteLink" style="display: none; margin-top: 20px; padding: 16px; background: var(--bg-color); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary);">생성된 초대 링크</h4>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="inviteLinkInput" readonly style="flex: 1; font-size: 12px; background: white;">
+            <button class="btn btn-sm btn-info" onclick="copyInviteLink()" style="white-space: nowrap;">📋 복사</button>
+          </div>
+          <div style="font-size: 12px; color: var(--success-color); margin-top: 8px;">
+            ✅ 링크가 클립보드에 복사되었습니다! 카톡/문자로 공유하세요.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCreateInviteModal()">취소</button>
+        <button class="btn btn-primary" onclick="createInviteCode()" id="createInviteBtn">생성</button>
       </div>
     </div>
   </div>
