@@ -327,9 +327,10 @@
         if (userDoc.exists) {
           const userData = userDoc.data();
           
-          // 권한 체크
-          if (userData.role !== 'admin' && userData.role !== 'manager') {
-            errorEl.textContent = '관리자 권한이 없습니다.';
+          // ✅ v3.2: 권한 체크 (super_admin, admin, store_manager, manager 허용)
+          const allowedRoles = ['super_admin', 'admin', 'store_manager', 'manager'];
+          if (!allowedRoles.includes(userData.role)) {
+            errorEl.textContent = '관리자 권한이 없습니다.\n직원 계정은 employee.html에서 로그인하세요.';
             errorEl.style.display = 'block';
             await auth.signOut();
             return;

@@ -969,6 +969,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
   
   <!-- Salary Calculator (before main script) -->
   <script src="js/salary-calculator.js"></script>
@@ -1240,6 +1241,18 @@
           document.getElementById('editCompanyBusinessNumber').value = company.businessNumber || '';
           document.getElementById('editCompanyPhone').value = company.phone || '';
           document.getElementById('editCompanyAddress').value = company.address || '';
+          
+          // ✅ v3.2: 브랜딩 필드 로드
+          document.getElementById('editBrandName').value = company.brandName || '';
+          document.getElementById('editLogoUrl').value = company.logoUrl || '';
+          document.getElementById('editPrimaryColor').value = company.primaryColor || '#2196F3';
+          document.getElementById('editPrimaryColorText').value = company.primaryColor || '#2196F3';
+          
+          // 로고 미리보기
+          if (company.logoUrl) {
+            updateLogoPreview(company.logoUrl);
+          }
+          
           document.getElementById('displayCompanyId').textContent = myCompanyId;
         } else {
           alert('회사 정보를 찾을 수 없습니다.');
@@ -1263,26 +1276,135 @@
       const phone = document.getElementById('editCompanyPhone').value.trim();
       const address = document.getElementById('editCompanyAddress').value.trim();
       
+      // ✅ v3.2: 브랜딩 필드
+      const brandName = document.getElementById('editBrandName').value.trim();
+      const logoUrl = document.getElementById('editLogoUrl').value.trim();
+      const primaryColor = document.getElementById('editPrimaryColorText').value.trim();
+      
       if (!companyName) {
         alert('회사명은 필수입니다.');
         return;
       }
       
       try {
-        await firebase.firestore().collection('companies').doc(myCompanyId).update({
+        const updateData = {
           companyName: companyName,
           businessNumber: businessNumber,
           phone: phone,
           address: address,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
         
-        alert('✅ 회사 정보가 수정되었습니다.');
+        // ✅ v3.2: 브랜딩 필드 추가 (비어있어도 저장)
+        updateData.brandName = brandName;
+        updateData.logoUrl = logoUrl;
+        updateData.primaryColor = primaryColor;
+        
+        await firebase.firestore().collection('companies').doc(myCompanyId).update(updateData);
+        
+        alert('✅ 회사 정보가 수정되었습니다.\n\n페이지를 새로고침하면 브랜딩이 적용됩니다.');
         closeCompanyEditModal();
+        
+        // 브랜딩 즉시 적용
+        await loadCompanyBranding();
       } catch (error) {
         console.error('회사 정보 수정 실패:', error);
         alert('회사 정보 수정에 실패했습니다.');
       }
+    }
+    
+    // ===================================================================
+    // 🎨 브랜딩 관리 함수들
+    // ===================================================================
+    
+    // 로고 파일 업로드 처리
+    async function handleLogoUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      // 파일 크기 체크 (5MB 제한)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('⚠️ 파일 크기는 5MB 이하여야 합니다.');
+        return;
+      }
+      
+      // 파일 타입 체크
+      if (!file.type.startsWith('image/')) {
+        alert('⚠️ 이미지 파일만 업로드 가능합니다.');
+        return;
+      }
+      
+      try {
+        document.getElementById('logoUploadProgress').style.display = 'block';
+        
+        // Firebase Storage에 업로드
+        const storage = firebase.storage();
+        const storageRef = storage.ref();
+        const logoRef = storageRef.child(`company-logos/${myCompanyId}/${Date.now()}_${file.name}`);
+        
+        const uploadTask = await logoRef.put(file);
+        const downloadURL = await uploadTask.ref.getDownloadURL();
+        
+        // URL 필드에 자동 입력
+        document.getElementById('editLogoUrl').value = downloadURL;
+        updateLogoPreview(downloadURL);
+        
+        document.getElementById('logoUploadProgress').style.display = 'none';
+        document.getElementById('logoUploadProgress').innerHTML = '✅ 업로드 완료!';
+        setTimeout(() => {
+          document.getElementById('logoUploadProgress').style.display = 'none';
+          document.getElementById('logoUploadProgress').innerHTML = '⏳ 업로드 중...';
+        }, 2000);
+      } catch (error) {
+        console.error('로고 업로드 실패:', error);
+        alert('로고 업로드에 실패했습니다.');
+        document.getElementById('logoUploadProgress').style.display = 'none';
+      }
+    }
+    
+    // 로고 미리보기 업데이트
+    function updateLogoPreview(url) {
+      const preview = document.getElementById('logoPreview');
+      if (url) {
+        preview.innerHTML = `<img src="${url}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;" alt="로고 미리보기">`;
+      } else {
+        preview.innerHTML = '<span style="font-size: 12px; color: var(--text-secondary);">미리보기</span>';
+      }
+    }
+    
+    // 색상 선택기 동기화
+    document.addEventListener('DOMContentLoaded', function() {
+      const colorPicker = document.getElementById('editPrimaryColor');
+      const colorText = document.getElementById('editPrimaryColorText');
+      
+      if (colorPicker && colorText) {
+        // Color picker 변경 시 텍스트 업데이트
+        colorPicker.addEventListener('input', function() {
+          colorText.value = colorPicker.value.toUpperCase();
+        });
+        
+        // 텍스트 입력 시 color picker 업데이트
+        colorText.addEventListener('input', function() {
+          const value = colorText.value.trim();
+          if (/^#[0-9A-F]{6}$/i.test(value)) {
+            colorPicker.value = value;
+          }
+        });
+      }
+      
+      // 로고 URL 입력 시 미리보기 업데이트
+      const logoUrlInput = document.getElementById('editLogoUrl');
+      if (logoUrlInput) {
+        logoUrlInput.addEventListener('input', function() {
+          updateLogoPreview(logoUrlInput.value.trim());
+        });
+      }
+    });
+    
+    // 브랜드 색상 초기화
+    function resetPrimaryColor() {
+      document.getElementById('editPrimaryColor').value = '#2196F3';
+      document.getElementById('editPrimaryColorText').value = '#2196F3';
     }
     
     // ===================================================================
@@ -13037,6 +13159,55 @@
           <label>회사 주소</label>
           <input type="text" id="editCompanyAddress" placeholder="주소" />
         </div>
+        
+        <!-- ✅ v3.2: 브랜딩 설정 -->
+        <hr style="margin: 24px 0; border: none; border-top: 1px solid var(--border-color);">
+        
+        <h3 style="margin: 0 0 16px 0; font-size: 16px; color: var(--text-primary);">🎨 브랜드 설정</h3>
+        
+        <div class="form-group">
+          <label>브랜드명</label>
+          <input type="text" id="editBrandName" placeholder="맛남살롱 (비워두면 회사명 사용)" />
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 관리자 페이지 헤더에 표시될 브랜드명입니다.
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>회사 로고</label>
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="flex: 1;">
+              <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/jpg" style="display: none;" onchange="handleLogoUpload(event)">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('logoFileInput').click()" style="width: 100%; margin-bottom: 8px;">
+                📁 파일 선택
+              </button>
+              <input type="text" id="editLogoUrl" placeholder="또는 이미지 URL 직접 입력" />
+            </div>
+            <div id="logoPreview" style="width: 64px; height: 64px; border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--bg-color); flex-shrink: 0;">
+              <span style="font-size: 12px; color: var(--text-secondary);">미리보기</span>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 권장 크기: 128x128px, PNG 또는 JPG 파일
+          </div>
+          <div id="logoUploadProgress" style="display: none; margin-top: 8px; padding: 8px; background: var(--info-bg); border-radius: 4px; font-size: 12px;">
+            ⏳ 업로드 중...
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>브랜드 색상</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="color" id="editPrimaryColor" style="width: 60px; height: 40px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">
+            <input type="text" id="editPrimaryColorText" placeholder="#FF6B6B" maxlength="7" style="flex: 1;">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="resetPrimaryColor()">초기화</button>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 버튼, 링크 등의 색상으로 사용됩니다.
+          </div>
+        </div>
+        
+        <hr style="margin: 24px 0; border: none; border-top: 1px solid var(--border-color);">
         
         <div style="background: var(--bg-color); padding: 16px; border-radius: 8px; margin-top: 8px;">
           <h4 style="margin: 0 0 8px 0; font-size: 14px; color: var(--text-secondary);">회사 ID (변경 불가)</h4>
