@@ -19,8 +19,12 @@
   <div id="mainScreen">
     <div class="top-bar">
       <h1 style="font-size: 20px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 12px;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="color: var(--primary-color);"><path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/></svg>
-        맛남살롱 근무관리
+        <!-- 회사 로고 (logoUrl이 있을 때만 표시) -->
+        <img id="companyLogo" src="" alt="회사 로고" style="width: 32px; height: 32px; border-radius: 4px; object-fit: contain; display: none;">
+        <!-- 기본 아이콘 (logoUrl이 없을 때 표시) -->
+        <svg id="defaultIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="color: var(--primary-color);"><path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/></svg>
+        <!-- 브랜드명 (companies에서 로드) -->
+        <span id="companyBrandName">로딩 중...</span>
       </h1>
       <div style="display: flex; align-items: center; gap: 16px;">
         <button class="btn btn-info" onclick="showCompanyEditModal()" style="padding: 8px 16px; font-size: 14px;">
@@ -970,6 +974,9 @@
       
       console.log('✅✅✅ companyId 확인 완료:', myCompanyId);
       
+      // 🎨 회사 브랜딩 정보 로드
+      await loadCompanyBranding();
+      
       // 역할 체크 및 UI 제한
       const userRole = sessionStorage.getItem('admin_role');
       if (userRole === 'manager') {
@@ -982,6 +989,57 @@
       await migrateLocalStorageContracts();
       await loadDashboard();  // 🔥 await 추가!
       switchTab('employees');
+    }
+    
+    // 🎨 회사 브랜딩 정보 로드
+    async function loadCompanyBranding() {
+      if (!myCompanyId) {
+        console.error('❌ companyId가 없어서 브랜딩을 로드할 수 없습니다.');
+        return;
+      }
+      
+      try {
+        const companyDoc = await firebase.firestore().collection('companies').doc(myCompanyId).get();
+        
+        if (!companyDoc.exists) {
+          console.error('❌ 회사 문서를 찾을 수 없습니다:', myCompanyId);
+          return;
+        }
+        
+        const company = companyDoc.data();
+        console.log('🎨 회사 브랜딩 정보:', company);
+        
+        // 브랜드명 (brandName이 없으면 companyName 사용)
+        const brandName = company.brandName || company.companyName || company.name || '관리자 대시보드';
+        document.getElementById('companyBrandName').textContent = brandName;
+        
+        // 페이지 타이틀에도 반영
+        document.title = `${brandName} - 관리자 대시보드`;
+        
+        // 로고 URL이 있으면 로고 표시, 없으면 기본 아이콘 표시
+        const logoImg = document.getElementById('companyLogo');
+        const defaultIcon = document.getElementById('defaultIcon');
+        
+        if (company.logoUrl) {
+          logoImg.src = company.logoUrl;
+          logoImg.style.display = 'block';
+          defaultIcon.style.display = 'none';
+        } else {
+          logoImg.style.display = 'none';
+          defaultIcon.style.display = 'block';
+        }
+        
+        // 브랜드 색상이 있으면 CSS 변수로 적용 (선택 사항)
+        if (company.primaryColor) {
+          document.documentElement.style.setProperty('--primary-color', company.primaryColor);
+        }
+        
+        console.log('✅ 브랜딩 정보 로드 완료:', brandName);
+      } catch (error) {
+        console.error('❌ 브랜딩 정보 로드 실패:', error);
+        // 에러가 나도 기본 텍스트로 표시
+        document.getElementById('companyBrandName').textContent = '관리자 대시보드';
+      }
     }
     
     // 매니저 권한 제한 적용

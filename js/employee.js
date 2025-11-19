@@ -216,7 +216,11 @@ function showMainScreen() {
   
   // 사용자 정보 표시
   document.getElementById('displayName').textContent = currentUser.name + '님';
-  document.getElementById('displayStore').textContent = currentUser.store || '매장 정보 없음';
+  const storeName = currentUser.store || '매장 정보 없음';
+  document.getElementById('displayStore').textContent = storeName;
+  
+  // 페이지 타이틀을 매장명으로 설정 (회사명은 표시 안 함)
+  document.title = `${storeName} - 직원 포털`;
   
   // 데이터 로드
   updateCurrentStatus();
