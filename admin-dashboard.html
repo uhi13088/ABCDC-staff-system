@@ -8685,7 +8685,8 @@
       
       const contractData = {
         id: contractId,
-        employeeId: finalEmployeeId,  // 검증된 직원 UID
+        userId: finalEmployeeId,      // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+        employeeId: finalEmployeeId,  // 하위 호환성 (기존 코드 지원)
         employeeName: employeeName,
         employeeBirth: employeeBirth,
         employeeAddress: document.getElementById('employeeAddress').value,
@@ -13336,9 +13337,10 @@
             const employeeDoc = usersSnapshot.docs[0];
             const employeeId = employeeDoc.id;
             
-            // 4. 계약서에 employeeId 추가
+            // 4. 계약서에 employeeId 추가 (듀얼 필드)
             await db.collection('contracts').doc(contractId).update({
-              employeeId: employeeId,
+              userId: employeeId,           // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+              employeeId: employeeId,       // 하위 호환성 (기존 코드 지원)
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               migratedAt: firebase.firestore.FieldValue.serverTimestamp()
             });

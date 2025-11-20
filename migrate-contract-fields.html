@@ -266,8 +266,9 @@
               const uid = usersMap.get(key);
               
               if (uid) {
-                updates.employeeId = uid;
-                log(`  • employeeId = ${uid} (${data.employeeName} 매핑 성공)`, 'success');
+                updates.userId = uid;         // 🔥 표준 필드
+                updates.employeeId = uid;     // 하위 호환성
+                log(`  • userId & employeeId = ${uid} (${data.employeeName} 매핑 성공)`, 'success');
                 needsUpdate = true;
               } else {
                 log(`  • employeeId 매핑 실패: users에서 ${data.employeeName} (${data.employeeBirth}) 찾을 수 없음`, 'error');

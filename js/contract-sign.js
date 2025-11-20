@@ -345,6 +345,9 @@ async function submitSignature() {
   // 서명 데이터 저장 (실제로는 서버에 전송)
   const signedContract = {
     ...contractData,
+    // 🔥 듀얼 필드 보장 (contractData에 없을 경우 대비)
+    userId: contractData.userId || contractData.employeeId,      // 표준 필드
+    employeeId: contractData.employeeId || contractData.userId,  // 호환성
     signature: signatureData,
     signedAt: new Date().toISOString(),
     status: 'signed'
