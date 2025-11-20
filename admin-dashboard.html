@@ -3980,7 +3980,8 @@
         
         // salaries 컬렉션에 저장 (확정 상태)
         const salaryDoc = {
-          employeeUid,
+          userId: employeeUid,              // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+          employeeUid,                      // 하위 호환성 (기존 코드 지원)
           employeeName,
           yearMonth,
           netPay,
@@ -10550,7 +10551,8 @@
           reportedBy: 'admin',
           adminUid: adminUid,
           adminName: adminName,
-          employeeUid: currentAdminEditEmployeeUid,
+          userId: currentAdminEditEmployeeUid,          // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+          employeeUid: currentAdminEditEmployeeUid,    // 하위 호환성 (기존 코드 지원)
           employeeName: currentAdminEditEmployeeName,
           attendanceId: currentAdminEditAttendanceId,
           attendanceDate: oldData.date || '-',

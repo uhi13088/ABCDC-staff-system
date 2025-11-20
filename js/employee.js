@@ -429,8 +429,8 @@ async function recordAttendance(type, unscheduledReason = null) {
       
       // 출근 기록 생성/업데이트
       const recordData = {
-        userId: currentUser.uid,  // 관리자 페이지와 통일 (userId 사용)
-        uid: currentUser.uid,     // 하위 호환성 유지
+        userId: currentUser.uid,  // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+        uid: currentUser.uid,     // 하위 호환성 (기존 코드 지원)
         name: currentUser.name,
         store: currentUser.store,
         // 🔒 멀티테넌트 필드 추가
@@ -615,7 +615,8 @@ async function checkContractTimeViolation(clockIn, clockOut, attendanceId, atten
           companyId: currentUser.companyId,
           type: 'violation',
           reportedBy: 'employee',
-          employeeUid: currentUser.uid,
+          userId: currentUser.uid,          // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+          employeeUid: currentUser.uid,    // 하위 호환성 (기존 코드 지원)
           employeeName: currentUser.name,
           attendanceId: attendanceId,
           attendanceDate: attendanceDate || '-',
@@ -2237,7 +2238,8 @@ async function submitPurchaseRequest() {
     
     await db.collection('approvals').add({
       type: 'purchase',
-      applicantUid: currentUser.uid,
+      userId: currentUser.uid,          // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      applicantUid: currentUser.uid,    // 하위 호환성 (기존 코드 지원)
       applicantName: currentUser.name,
       applicantEmail: currentUser.email,
       companyId: currentUser.companyId,
@@ -2295,7 +2297,8 @@ async function submitDisposalRequest() {
     
     await db.collection('approvals').add({
       type: 'disposal',
-      applicantUid: currentUser.uid,
+      userId: currentUser.uid,          // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      applicantUid: currentUser.uid,    // 하위 호환성 (기존 코드 지원)
       applicantName: currentUser.name,
       applicantEmail: currentUser.email,
       companyId: currentUser.companyId,
@@ -2478,7 +2481,8 @@ async function submitResignationRequest() {
     // Firestore에는 URL만 저장 (Base64 대신)
     await db.collection('approvals').add({
       type: 'resignation',
-      applicantUid: currentUser.uid,
+      userId: currentUser.uid,          // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      applicantUid: currentUser.uid,    // 하위 호환성 (기존 코드 지원)
       applicantName: currentUser.name,
       applicantEmail: currentUser.email,
       companyId: currentUser.companyId,
@@ -2688,7 +2692,8 @@ async function submitAttendanceEdit() {
       companyId: currentUser.companyId,
       type: 'employee_edit',
       reportedBy: 'employee',
-      employeeUid: currentUser.uid,
+      userId: currentUser.uid,          // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      employeeUid: currentUser.uid,    // 하위 호환성 (기존 코드 지원)
       employeeName: currentUser.name,
       attendanceId: currentEditAttendanceId,
       attendanceDate: oldData.date || '-',

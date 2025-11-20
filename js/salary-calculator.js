@@ -233,7 +233,8 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   
   const result = {
     employeeName: employee.name,
-    employeeUid: employee.uid,
+    userId: employee.uid,             // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+    employeeUid: employee.uid,        // 하위 호환성 (기존 코드 지원)
     storeName: employee.store || contract.workStore,
     yearMonth: yearMonth,
     salaryType: contract.salaryType || contract.wageType || '시급',  // 호환성 유지
