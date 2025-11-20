@@ -145,9 +145,13 @@ firebase deploy --only functions
 
 ## 📚 문서
 
+### 배포 및 운영
 - [배포 가이드](DEPLOYMENT_GUIDE.md) - Firebase 배포 절차
 - [테스트 체크리스트](PHASE2_TEST_CHECKLIST.md) - Phase 2 기능 테스트
+
+### 데이터 관리
 - [필드명 표준화 가이드](FIELD_NAMING_STANDARD.md) - 데이터 필드명 일관성 규칙 ⚠️
+- [마이그레이션 가이드](scripts/MIGRATION_GUIDE.md) - 기존 데이터 일괄 변환 도구 🔧
 
 ## 🔗 링크
 
@@ -157,7 +161,7 @@ firebase deploy --only functions
 
 ## 📝 최신 업데이트
 
-### 2025-11-20 - 아키텍처 정리 & 보안 강화 & 성능 최적화
+### 2025-11-20 - 아키텍처 정리 & 성능 최적화 & 필드명 표준화
 - ✅ **Legacy 코드 제거**: Google Apps Script 의존성 완전 제거 (703 lines)
 - ✅ **브랜드 관리 시스템**: 다중 브랜드 관리 기능 추가 (회사 → 브랜드 → 매장)
 - ✅ **야간근무 버그 수정**: 새벽 출근(05:00~14:00) 야간수당 누락 해결
@@ -173,6 +177,12 @@ firebase deploy --only functions
   - 순차 루프를 Promise.all 병렬 처리로 변경
   - 1,000명 이상 직원 처리 시 타임아웃 방지
   - 성능 10배 개선 (30초 → 3초)
+- ✅ **필드명 표준화 (Phase 1 완료)**: 
+  - 8개 컬렉션 듀얼 필드 적용 (userId 표준 + 기존 필드 호환)
+  - 20곳 코드 수정 완료
+  - shift_requests 명확한 네이밍 (requesterUserId, replacementUserId)
+  - 마이그레이션 스크립트 작성 (기존 데이터 일괄 변환)
+  - 완전한 문서화 (FIELD_NAMING_STANDARD.md, MIGRATION_GUIDE.md)
 
 ### 2025-01-19 - 보안 강화
 - ✅ 직원 포털 접근 권한 수정 (manager, staff만 허용)
