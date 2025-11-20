@@ -91,26 +91,37 @@ function calculateNightHours(startTime, endTime) {
   const start = timeToMinutes(startTime);
   let end = timeToMinutes(endTime);
   
+  // 자정을 넘는 경우 처리
   if (end < start) end += 24 * 60;
   
-  const nightStart = 22 * 60; // 22:00
-  const nightEnd = (24 + 6) * 60; // 다음날 06:00
+  const nightStart = 22 * 60; // 22:00 (1320분)
+  const nightEnd = 6 * 60; // 06:00 (360분)
   
   let nightMinutes = 0;
   
-  // 22:00~24:00 구간
+  // 케이스 1: 당일 22:00~24:00 구간 (예: 21:00~23:00 또는 23:00~01:00)
   const overlap1Start = Math.max(start, nightStart);
   const overlap1End = Math.min(end, 24 * 60);
   if (overlap1Start < overlap1End) {
     nightMinutes += overlap1End - overlap1Start;
   }
   
-  // 00:00~06:00 구간
+  // 케이스 2: 다음날 00:00~06:00 구간 (자정 넘는 경우, 예: 23:00~07:00)
   if (end > 24 * 60) {
     const overlap2Start = Math.max(start, 24 * 60);
-    const overlap2End = Math.min(end, nightEnd);
+    const overlap2End = Math.min(end, 24 * 60 + nightEnd);
     if (overlap2Start < overlap2End) {
       nightMinutes += overlap2End - overlap2Start;
+    }
+  }
+  
+  // 케이스 3: 당일 새벽 00:00~06:00 구간 (예: 05:00~14:00)
+  // start와 end 모두 24시간 이하이면서, start가 06:00 이전인 경우
+  if (end <= 24 * 60 && start < nightEnd) {
+    const overlap3Start = start;
+    const overlap3End = Math.min(end, nightEnd);
+    if (overlap3Start < overlap3End) {
+      nightMinutes += overlap3End - overlap3Start;
     }
   }
   
