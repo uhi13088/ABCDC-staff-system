@@ -2951,6 +2951,7 @@ async function loadEmployeeSchedule() {
     // 🆕 리팩토링: schedule-viewer.js의 loadScheduleData() 사용
     const data = await window.loadScheduleData(db, {
       type: 'employee',
+      companyId: currentUser.companyId, // 🔥 필수! (v3.6 보안 규칙)
       userId: currentUser.uid,
       userName: currentUser.name,
       storeName: showStoreSchedule ? currentUser.store : null,
