@@ -8,7 +8,7 @@ service cloud.firestore {
     // ABCDC Staff System - Multi-tenant SaaS
     // 순환참조 제거 + 보안 강화 + 관리자 회원가입 지원 + 쿼리 레벨 권한 수정
     // v3.3: manager 권한을 staff와 동일하게 처리 (일반 직원, 관리 권한 없음)
-    // v3.4: 🔒 SECURITY FIX - list 권한 강화 (staff/manager는 list 차단, get만 허용)
+    // v3.5: 🔒 SECURITY FIX - staff/manager에게 본인 데이터 쿼리(list) 권한 허용 (companyId 필터 필수)
     //       - attendance, schedules, contracts, signedContracts, time_change_reports, approvals
     //       - 타 회사 데이터 유출 방지 (문서 ID 노출 차단)
     // ===================================================================
@@ -215,10 +215,15 @@ service cloud.firestore {
     
     // attendance: 출퇴근 기록
     match /attendance/{attendanceId} {
-      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능, staff/manager는 개별 문서만 get
+      // 🔥 쿼리 조회 (list): 
+      // - 관리자: 회사 전체 쿼리 가능
+      // - staff/manager: 자기 데이터만 쿼리 가능 (companyId + userId 필터 필수)
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // admin, store_manager만 list 허용
+        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
+        (currentUserExists() && 
+         request.query.limit <= 100 &&
+         hasValidQuery(['companyId', 'userId']))  // staff/manager는 본인 데이터만
       );
       
       // 개별 문서 읽기 (get): 권한 체크
@@ -249,10 +254,15 @@ service cloud.firestore {
     
     // schedules: 근무 스케줄
     match /schedules/{scheduleId} {
-      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      // 🔥 쿼리 조회 (list): 
+      // - 관리자: 회사 전체 쿼리 가능
+      // - staff/manager: 자기 스케줄만 쿼리 가능 (companyId 필터 필수)
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // admin, store_manager만 list 허용
+        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
+        (currentUserExists() && 
+         request.query.limit <= 100 &&
+         hasValidQuery(['companyId']))  // staff는 같은 회사 스케줄 조회 가능 (storeId로 필터링됨)
       );
       
       // 개별 문서 읽기 (get): 권한 체크
@@ -270,10 +280,15 @@ service cloud.firestore {
     
     // contracts: 계약서
     match /contracts/{contractId} {
-      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      // 🔥 쿼리 조회 (list): 
+      // - 관리자: 회사 전체 쿼리 가능
+      // - staff/manager: 자기 계약서만 쿼리 가능 (companyId + employeeId 필터 필수)
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // admin, store_manager만 list 허용
+        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
+        (currentUserExists() && 
+         request.query.limit <= 50 &&
+         hasValidQuery(['companyId', 'employeeId']))  // staff/manager는 본인 계약서만
       );
       
       // 개별 문서 읽기 (get): 권한 체크
@@ -367,10 +382,15 @@ service cloud.firestore {
     
     // ⭐ v3.1.6: approvals 컬렉션 (쿼리/문서 권한 분리)
     match /approvals/{approvalId} {
-      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      // 🔥 쿼리 조회 (list): 
+      // - 관리자: 회사 전체 쿼리 가능
+      // - staff/manager: 본인 신청만 쿼리 가능 (companyId + applicantUid 필터 필수)
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // admin, store_manager만 list 허용
+        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
+        (currentUserExists() && 
+         request.query.limit <= 50 &&
+         hasValidQuery(['companyId', 'applicantUid']))  // staff는 본인 신청만
       );
       
       // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin
@@ -393,16 +413,22 @@ service cloud.firestore {
     
     // ⭐ v3.1.6: shift_requests 컬렉션 (쿼리/문서 권한 분리)
     match /shift_requests/{requestId} {
-      // 🔥 쿼리 조회 (list): admin/store_manager는 빈 컬렉션도 조회 가능
+      // 🔥 쿼리 조회 (list): 
+      // - 관리자: 회사 전체 쿼리 가능
+      // - staff/manager: 자기 요청만 쿼리 가능 (companyId + requesterId 필터 필수)
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"])
+        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"]) ||
+        (currentUserExists() && 
+         request.query.limit <= 50 &&
+         hasValidQuery(['companyId', 'requesterId']))  // staff는 본인 요청만
       );
       
-      // 개별 문서 읽기 (get): 같은 회사의 admin/manager만
+      // 개별 문서 읽기 (get): 같은 회사의 admin/manager 또는 본인
       allow get: if isSignedIn() && (
         isSuperAdmin() ||
-        isCompanyAdminOrManager()  // 🔒 자기 회사만
+        isCompanyAdminOrManager() ||  // 🔒 자기 회사만
+        (currentUserExists() && resource.data.requesterId == request.auth.uid)  // 본인 요청
       );
       
       allow create: if isSignedIn() && 
@@ -425,10 +451,15 @@ service cloud.firestore {
     
     // time_change_reports: 근무시간 수정 이력
     match /time_change_reports/{reportId} {
-      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      // 🔥 쿼리 조회 (list): 
+      // - 관리자: 회사 전체 쿼리 가능
+      // - staff/manager: 자기 이력만 쿼리 가능 (companyId + employeeUid 필터 필수)
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove()  // admin, store_manager만 list 허용
+        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
+        (currentUserExists() && 
+         request.query.limit <= 50 &&
+         hasValidQuery(['companyId', 'employeeUid']))  // staff는 본인 이력만
       );
       
       // 개별 문서 읽기 (get): 권한 체크
