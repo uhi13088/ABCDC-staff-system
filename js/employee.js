@@ -1138,42 +1138,19 @@ async function loadContracts() {
   
   try {
     console.log('📝 계약서 조회 시작');
-    console.log('   사용자 정보:', { uid: currentUser.uid, name: currentUser.name, birth: currentUser.birth });
+    console.log('   사용자 정보:', { uid: currentUser.uid, name: currentUser.name, companyId: currentUser.companyId });
     
     const contracts = [];
     
-    // 1. Firestore에서 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
+    // 🔒 Firestore에서 계약서 조회 (companyId + employeeId 필수)
     const snapshot = await db.collection('contracts')
       .where('companyId', '==', currentUser.companyId)
       .where('employeeId', '==', currentUser.uid)
       .get();
     
-    console.log(`   ✅ employeeId 조회 결과: ${snapshot.size}개 계약서`);
+    console.log(`   ✅ 조회 결과: ${snapshot.size}개 계약서`);
     
-    // employeeId로 못 찾으면 employeeName + employeeBirth로 재시도 (하위 호환)
-    let finalSnapshot = snapshot;
-    if (snapshot.empty) {
-      console.warn('   ⚠️ employeeId로 계약서를 찾을 수 없습니다. employeeName으로 재시도...');
-      const nameSnapshot = await db.collection('contracts')
-        .where('companyId', '==', currentUser.companyId)
-        .where('employeeName', '==', currentUser.name)
-        .where('employeeBirth', '==', currentUser.birth)
-        .get();
-      
-      console.log(`   📋 employeeName 조회 결과: ${nameSnapshot.size}개 계약서`);
-      
-      if (nameSnapshot.size > 0) {
-        console.warn('   ⚠️ 발견! 계약서의 employeeId가 설정되지 않았습니다:');
-        nameSnapshot.docs.forEach((doc, idx) => {
-          const data = doc.data();
-          console.warn(`      ${idx + 1}. employeeId: "${data.employeeId || 'NULL'}", employeeName: "${data.employeeName}"`);
-        });
-        // employeeName으로 찾은 계약서 사용
-        finalSnapshot = nameSnapshot;
-      }
-    }
-    
-    for (const doc of finalSnapshot.docs) {
+    for (const doc of snapshot.docs) {
       const contractData = doc.data();
       const contractId = doc.id;
       
@@ -1193,7 +1170,7 @@ async function loadContracts() {
     
     if (contracts.length === 0) {
       document.getElementById('contractContent').innerHTML = 
-        '<div class="alert alert-info">📄 아직 작성된 계약서가 없습니다.<br><br>관리자가 계약서를 작성하면 여기에서 확인하고 서명할 수 있습니다.</div>';
+        '<div class="alert alert-info">📄 작성된 계약서가 없습니다.<br><br>관리자가 계약서를 작성하면 여기에 표시됩니다.</div>';
       return;
     }
     
@@ -1235,7 +1212,7 @@ async function loadContracts() {
   } catch (error) {
     console.error('❌ 계약서 조회 오류:', error);
     document.getElementById('contractContent').innerHTML = 
-      '<div class="alert alert-danger">❌ 데이터를 불러오는 중 오류가 발생했습니다</div>';
+      '<div class="alert alert-danger">❌ 계약서를 불러오지 못했습니다. (보안 권한 오류 등)<br><br>💡 관리자에게 문의하세요.</div>';
   }
 }
 
