@@ -73,6 +73,7 @@
         <button class="tab" data-tab="contracts" onclick="switchTab('contracts')">계약서 관리</button>
         <button class="tab" data-tab="schedules" onclick="switchTab('schedules')">근무스케줄</button>
         <button class="tab" data-tab="notice" onclick="switchTab('notice')">공지사항</button>
+        <button class="tab" data-tab="brands" onclick="switchTab('brands')">브랜드 관리</button>
         <button class="tab" data-tab="stores" onclick="switchTab('stores')">매장 관리</button>
         <button class="tab" data-tab="invites" onclick="switchTab('invites')">초대 코드</button>
         <button class="tab" id="tabPlatformBtn" data-tab="platform" onclick="switchTab('platform')" style="display: none;">🌐 플랫폼 대시보드</button>
@@ -475,6 +476,39 @@
         </div>
       </div>
 
+      <!-- 브랜드 관리 탭 -->
+      <div id="tabBrands" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>🏷️ 브랜드 관리</h3>
+            <button class="btn btn-primary" id="addBrandBtn" onclick="showAddBrandModal()">+ 브랜드 추가</button>
+          </div>
+          <div class="card-body">
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+              회사 내에서 운영하는 브랜드를 관리합니다. 매장 생성 시 브랜드를 선택할 수 있습니다.
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>브랜드명</th>
+                  <th>설명</th>
+                  <th>소속 매장 수</th>
+                  <th>생성일</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="brandsTableBody">
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <p style="margin-bottom: 16px;">로딩 중...</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div id="tabStores" class="tab-content">
         <div class="card">
           <div class="card-header">
@@ -486,6 +520,7 @@
               <thead>
                 <tr>
                   <th>매장명</th>
+                  <th>브랜드</th>
                   <th>소속 회사</th>
                   <th>주소</th>
                   <th>연락처</th>
@@ -497,7 +532,7 @@
               </thead>
               <tbody id="storesTableBody">
                 <tr>
-                  <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                  <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                     <p style="margin-bottom: 16px;">로딩 중...</p>
                   </td>
                 </tr>
@@ -630,6 +665,31 @@
     </div>
   </div>
 
+  <!-- 브랜드 추가/수정 모달 -->
+  <div id="brandModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="brandModalTitle" style="margin: 0;">🏷️ 브랜드 추가</h2>
+        <button class="modal-close" onclick="closeBrandModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editBrandId">
+        <div class="form-group">
+          <label for="brandName">브랜드명 *</label>
+          <input type="text" id="brandName" placeholder="예: 맛남살롱" required>
+        </div>
+        <div class="form-group">
+          <label for="brandDescription">설명</label>
+          <textarea id="brandDescription" placeholder="브랜드에 대한 간단한 설명" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeBrandModal()">취소</button>
+        <button class="btn btn-primary" onclick="saveBrand()">저장</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 매장 추가/수정 모달 -->
   <div id="storeModal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
@@ -642,6 +702,15 @@
         <div class="form-group">
           <label for="storeName">매장명 *</label>
           <input type="text" id="storeName" placeholder="부천시청점" required>
+        </div>
+        <div class="form-group">
+          <label for="storeBrandId">브랜드</label>
+          <select id="storeBrandId" style="width: 100%;">
+            <option value="">선택 안 함 (기본 브랜드)</option>
+          </select>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 브랜드를 선택하지 않으면 기본 브랜드로 설정됩니다.
+          </div>
         </div>
         <!-- 소속 회사 (읽기 전용) -->
         <div class="form-group" id="storeCompanyGroup" style="display: none;">
@@ -1974,6 +2043,10 @@
         case 'notice': 
           detachAttendanceListener();
           loadNotice(); 
+          break;
+        case 'brands': 
+          detachAttendanceListener();
+          loadBrands(); 
           break;
         case 'stores': 
           detachAttendanceListener();
@@ -5526,7 +5599,7 @@
       
       if (!tbody) return;
       
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">매장 정보를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">매장 정보를 불러오는 중...</td></tr>';
       
       try {
         console.log('🔍 loadStores 시작');
@@ -5564,6 +5637,19 @@
           }
         }
         
+        // 브랜드 정보 조회 (한 번만)
+        const brandsMap = {};
+        try {
+          const brandsSnapshot = await firebase.firestore().collection('brands')
+            .where('companyId', '==', myCompanyId)
+            .get();
+          brandsSnapshot.forEach(doc => {
+            brandsMap[doc.id] = doc.data().name;
+          });
+        } catch (error) {
+          console.error('  ⚠️ 브랜드 정보 조회 실패:', error);
+        }
+        
         // Firestore에서 매장 정보 로드
         const storesSnapshot = await query.get();
         console.log('  📊 조회된 매장 수:', storesSnapshot.size);
@@ -5581,7 +5667,7 @@
           
           tbody.innerHTML = `
             <tr>
-              <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+              <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                 <p style="margin-bottom: 16px;">등록된 매장이 없습니다.</p>
                 ${addStoreBtn}
               </td>
@@ -5590,9 +5676,12 @@
           return;
         }
         
-        tbody.innerHTML = stores.map(store => `
+        tbody.innerHTML = stores.map(store => {
+          const brandName = store.brandId ? (brandsMap[store.brandId] || '알 수 없음') : '기본 브랜드';
+          return `
           <tr>
             <td>${store.name}</td>
+            <td><span class="badge" style="background: var(--success-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${brandName}</span></td>
             <td><span class="badge" style="background: var(--info-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${companyName}</span></td>
             <td>${store.address || '-'}</td>
             <td>${store.phone || '-'}</td>
@@ -5604,7 +5693,7 @@
               <button class="btn btn-sm btn-secondary" onclick="showEditStoreModal('${store.id}')">✏️ 수정</button>
             </td>
           </tr>
-        `).join('');
+        `}).join('');
         
         console.log(`✅ ${stores.length}개 매장 로드 완료`);
       } catch (error) {
@@ -5657,15 +5746,234 @@
 
     let storeCeoSignatureData = null;
 
+    // ===========================================
+    // 브랜드 관리 함수들
+    // ===========================================
+
+    /**
+     * 브랜드 목록 로드
+     */
+    async function loadBrands() {
+      if (!currentUser) return;
+      
+      try {
+        let brandsQuery = db.collection('brands')
+          .where('companyId', '==', currentUser.companyId)
+          .orderBy('createdAt', 'desc');
+        
+        const snapshot = await brandsQuery.get();
+        
+        const tbody = document.getElementById('brandsTableBody');
+        tbody.innerHTML = '';
+        
+        if (snapshot.empty) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                <p style="margin-bottom: 16px;">등록된 브랜드가 없습니다.</p>
+                <button class="btn btn-primary" onclick="showAddBrandModal()">+ 첫 브랜드 추가하기</button>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+        
+        // 각 브랜드의 매장 수 조회
+        const brandCounts = {};
+        const storesSnapshot = await db.collection('stores')
+          .where('companyId', '==', currentUser.companyId)
+          .get();
+        
+        storesSnapshot.forEach(doc => {
+          const brandId = doc.data().brandId || '';
+          brandCounts[brandId] = (brandCounts[brandId] || 0) + 1;
+        });
+        
+        snapshot.forEach(doc => {
+          const brand = doc.data();
+          const storeCount = brandCounts[doc.id] || 0;
+          
+          const createdAt = brand.createdAt ? 
+            new Date(brand.createdAt.seconds * 1000).toLocaleDateString('ko-KR') : '-';
+          
+          const row = `
+            <tr>
+              <td><strong>${brand.name}</strong></td>
+              <td>${brand.description || '-'}</td>
+              <td>${storeCount}개</td>
+              <td>${createdAt}</td>
+              <td>
+                <button class="btn btn-sm btn-secondary" onclick="showEditBrandModal('${doc.id}')">수정</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteBrand('${doc.id}', '${brand.name}', ${storeCount})">삭제</button>
+              </td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+        
+      } catch (error) {
+        console.error('❌ 브랜드 목록 조회 오류:', error);
+        document.getElementById('brandsTableBody').innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 40px; color: var(--danger);">
+              ❌ 브랜드 목록을 불러올 수 없습니다.<br>${error.message}
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    /**
+     * 브랜드 추가 모달 표시
+     */
+    function showAddBrandModal() {
+      document.getElementById('brandModalTitle').textContent = '🏷️ 브랜드 추가';
+      document.getElementById('editBrandId').value = '';
+      document.getElementById('brandName').value = '';
+      document.getElementById('brandDescription').value = '';
+      document.getElementById('brandModal').style.display = 'flex';
+    }
+
+    /**
+     * 브랜드 수정 모달 표시
+     */
+    async function showEditBrandModal(brandId) {
+      try {
+        const doc = await db.collection('brands').doc(brandId).get();
+        
+        if (!doc.exists) {
+          alert('❌ 브랜드를 찾을 수 없습니다.');
+          return;
+        }
+        
+        const brand = doc.data();
+        
+        document.getElementById('brandModalTitle').textContent = '🏷️ 브랜드 수정';
+        document.getElementById('editBrandId').value = brandId;
+        document.getElementById('brandName').value = brand.name || '';
+        document.getElementById('brandDescription').value = brand.description || '';
+        document.getElementById('brandModal').style.display = 'flex';
+        
+      } catch (error) {
+        console.error('❌ 브랜드 정보 로드 오류:', error);
+        alert('❌ 브랜드 정보를 불러올 수 없습니다.');
+      }
+    }
+
+    /**
+     * 브랜드 모달 닫기
+     */
+    function closeBrandModal() {
+      document.getElementById('brandModal').style.display = 'none';
+    }
+
+    /**
+     * 브랜드 저장 (추가/수정)
+     */
+    async function saveBrand() {
+      const brandId = document.getElementById('editBrandId').value;
+      const name = document.getElementById('brandName').value.trim();
+      const description = document.getElementById('brandDescription').value.trim();
+      
+      if (!name) {
+        alert('⚠️ 브랜드명을 입력해주세요.');
+        return;
+      }
+      
+      try {
+        const brandData = {
+          companyId: currentUser.companyId,
+          name: name,
+          description: description,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        if (brandId) {
+          // 수정
+          await db.collection('brands').doc(brandId).update(brandData);
+          alert('✅ 브랜드가 수정되었습니다.');
+        } else {
+          // 추가
+          brandData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          await db.collection('brands').add(brandData);
+          alert('✅ 브랜드가 추가되었습니다.');
+        }
+        
+        closeBrandModal();
+        loadBrands();
+        loadBrandsForStoreModal(); // 매장 모달의 브랜드 선택 옵션 갱신
+        
+      } catch (error) {
+        console.error('❌ 브랜드 저장 오류:', error);
+        alert('❌ 브랜드 저장에 실패했습니다.');
+      }
+    }
+
+    /**
+     * 브랜드 삭제
+     */
+    async function deleteBrand(brandId, brandName, storeCount) {
+      if (storeCount > 0) {
+        alert(`❌ 이 브랜드에 ${storeCount}개의 매장이 연결되어 있어 삭제할 수 없습니다.\n\n먼저 해당 매장들의 브랜드를 변경해주세요.`);
+        return;
+      }
+      
+      if (!confirm(`정말 "${brandName}" 브랜드를 삭제하시겠습니까?`)) {
+        return;
+      }
+      
+      try {
+        await db.collection('brands').doc(brandId).delete();
+        alert('✅ 브랜드가 삭제되었습니다.');
+        loadBrands();
+        loadBrandsForStoreModal();
+      } catch (error) {
+        console.error('❌ 브랜드 삭제 오류:', error);
+        alert('❌ 브랜드 삭제에 실패했습니다.');
+      }
+    }
+
+    /**
+     * 매장 모달의 브랜드 선택 옵션 로드
+     */
+    async function loadBrandsForStoreModal() {
+      if (!currentUser) return;
+      
+      try {
+        const snapshot = await db.collection('brands')
+          .where('companyId', '==', currentUser.companyId)
+          .orderBy('name', 'asc')
+          .get();
+        
+        const select = document.getElementById('storeBrandId');
+        select.innerHTML = '<option value="">선택 안 함 (기본 브랜드)</option>';
+        
+        snapshot.forEach(doc => {
+          const brand = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.textContent = brand.name;
+          select.appendChild(option);
+        });
+        
+      } catch (error) {
+        console.error('❌ 브랜드 옵션 로드 오류:', error);
+      }
+    }
+
     function showAddStoreModal() {
       document.getElementById('storeModalTitle').textContent = '🏪 매장 추가';
       document.getElementById('editStoreId').value = '';
       document.getElementById('storeName').value = '';
+      document.getElementById('storeBrandId').value = '';
       document.getElementById('storeAddress').value = '';
       document.getElementById('storePhone').value = '';
       document.getElementById('storeCEO').value = '';
       document.getElementById('storeBusinessNumber').value = '';
       document.getElementById('storeSalaryPaymentDay').value = '';
+      
+      // 브랜드 옵션 로드
+      loadBrandsForStoreModal();
       
       // 🏢 추가 모드에서는 회사 필드 숨김
       document.getElementById('storeCompanyGroup').style.display = 'none';
@@ -5707,6 +6015,10 @@
         document.getElementById('storeModalTitle').textContent = '🏪 매장 수정';
         document.getElementById('editStoreId').value = store.id;
         document.getElementById('storeName').value = store.name;
+        
+        // 브랜드 옵션 로드 및 선택
+        await loadBrandsForStoreModal();
+        document.getElementById('storeBrandId').value = store.brandId || '';
         
         // 🏢 소속 회사 정보 표시 (수정 모드일 때만)
         if (store.companyId) {
@@ -5941,6 +6253,7 @@
     async function saveStore() {
       const storeId = document.getElementById('editStoreId').value;
       const name = document.getElementById('storeName').value.trim();
+      const brandId = document.getElementById('storeBrandId').value.trim();
       const address = document.getElementById('storeAddress').value.trim();
       const phone = document.getElementById('storePhone').value.trim();
       const ceo = document.getElementById('storeCEO').value.trim();
@@ -5998,6 +6311,7 @@
       try {
         const storeData = {
           name,
+          brandId: brandId || null,
           address,
           phone,
           ceo,
