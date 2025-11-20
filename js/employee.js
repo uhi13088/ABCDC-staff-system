@@ -59,34 +59,34 @@ async function checkLoginStatus() {
     return;
   }
   
-  // 🔥 Firebase Auth 실제 로그인 상태 확인
-  const currentAuthUser = firebase.auth().currentUser;
-  
-  if (!currentAuthUser) {
-    console.error('❌ Firebase Auth 로그인 상태가 아닙니다.');
-    alert('⚠️ 세션이 만료되었습니다. 다시 로그인해주세요.');
-    sessionStorage.clear();
-    window.location.href = 'employee-login.html';
-    return;
-  }
-  
-  // 🔥 sessionStorage의 uid와 Firebase Auth의 uid 일치 확인
-  if (currentAuthUser.uid !== uid) {
-    console.error('❌ 보안 경고: sessionStorage uid와 Firebase Auth uid 불일치!', {
-      sessionStorageUid: uid,
-      firebaseAuthUid: currentAuthUser.uid
-    });
-    alert('⚠️ 보안 오류가 감지되었습니다.\n다시 로그인해주세요.');
-    sessionStorage.clear();
-    await firebase.auth().signOut();
-    window.location.href = 'employee-login.html';
-    return;
-  }
-  
-  console.log('✅ 보안 검증 완료: sessionStorage uid와 Firebase Auth uid 일치');
-  
-  // 사용자 정보 로드 (비동기 완료까지 대기)
-  await loadUserInfo(uid, name);
+  // 🔥 Firebase Auth 초기화 대기 후 상태 확인
+  firebase.auth().onAuthStateChanged(async (currentAuthUser) => {
+    if (!currentAuthUser) {
+      console.error('❌ Firebase Auth 로그인 상태가 아닙니다.');
+      alert('⚠️ 세션이 만료되었습니다. 다시 로그인해주세요.');
+      sessionStorage.clear();
+      window.location.href = 'employee-login.html';
+      return;
+    }
+    
+    // 🔥 sessionStorage의 uid와 Firebase Auth의 uid 일치 확인
+    if (currentAuthUser.uid !== uid) {
+      console.error('❌ 보안 경고: sessionStorage uid와 Firebase Auth uid 불일치!', {
+        sessionStorageUid: uid,
+        firebaseAuthUid: currentAuthUser.uid
+      });
+      alert('⚠️ 보안 오류가 감지되었습니다.\n다시 로그인해주세요.');
+      sessionStorage.clear();
+      await firebase.auth().signOut();
+      window.location.href = 'employee-login.html';
+      return;
+    }
+    
+    console.log('✅ 보안 검증 완료: sessionStorage uid와 Firebase Auth uid 일치');
+    
+    // 사용자 정보 로드 (비동기 완료까지 대기)
+    await loadUserInfo(uid, name);
+  });
 }
 
 /**
