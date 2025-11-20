@@ -3832,7 +3832,9 @@ function monitorShiftRequests() {
   
   console.log('🔄 교대근무 요청 모니터링 시작:', currentUser.store);
   
+  // 🔒 [수정] companyId 필터 필수 추가 (보안 규칙 준수)
   db.collection('shift_requests')
+    .where('companyId', '==', currentUser.companyId) // 🔥 필수!
     .where('store', '==', currentUser.store)
     .where('status', '==', 'pending')
     .onSnapshot(snapshot => {
@@ -3846,6 +3848,9 @@ function monitorShiftRequests() {
           }
         }
       });
+    }, error => {
+      // 권한 오류가 나더라도 앱이 멈추지 않도록 로그만 남김
+      console.warn('교대근무 모니터링 권한 없음 (또는 인덱스 필요):', error.code);
     });
 }
 
