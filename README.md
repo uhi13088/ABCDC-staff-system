@@ -17,7 +17,8 @@ ABC Dessert Center와 맛남살롱 카페 체인을 위한 통합 직원 관리 
 - **급여 관리**: 자동 급여 계산, 4대보험 공제, 급여명세서 PDF
 - **계약서 관리**: 전자계약서 작성, 서명, 보관
 - **승인 관리**: 구매/폐기/퇴직서/교대근무 승인
-- **매장 관리**: 매장 정보, 수당 설정, 근태 임계값 설정
+- **브랜드 관리**: 다중 브랜드 CRUD, 브랜드-매장 연결 (NEW!)
+- **매장 관리**: 매장 정보, 브랜드 선택, 수당 설정, 근태 임계값
 - **초대 코드**: 역할별 초대 링크 생성 및 관리
 - **플랫폼 대시보드**: super_admin 전용 전체 회사 현황 조회
 
@@ -128,7 +129,8 @@ firebase deploy --only functions
 ### 주요 컬렉션
 - `users`: 모든 사용자 (companyId, storeId, role 필수)
 - `companies`: 회사 정보 (브랜딩, 설정)
-- `stores`: 매장 정보 (수당 설정, 근태 임계값)
+- `brands`: 브랜드 정보 (companyId, name, description) **NEW!**
+- `stores`: 매장 정보 (brandId, 수당 설정, 근태 임계값)
 - `company_invites`: 초대 코드 (역할, 만료일, 사용 횟수)
 - `attendance`: 출퇴근 기록 (실시간 계산)
 - `schedules`: 근무 스케줄 (간트차트 표시)
@@ -138,6 +140,7 @@ firebase deploy --only functions
 - `approvals`: 승인 문서 (구매/폐기/퇴직서)
 - `shift_requests`: 교대근무 요청 (실시간 알림)
 - `notices`: 공지사항 (회사/매장별)
+- `time_change_reports`: 관리자 근무시간 수정 이력
 
 ## 📚 문서
 
@@ -151,6 +154,13 @@ firebase deploy --only functions
 - **Firebase Console**: https://console.firebase.google.com/project/abcdc-staff-system
 
 ## 📝 최신 업데이트
+
+### 2025-11-20 - 아키텍처 정리 & 보안 강화
+- ✅ **Legacy 코드 제거**: Google Apps Script 의존성 완전 제거 (703 lines)
+- ✅ **브랜드 관리 시스템**: 다중 브랜드 관리 기능 추가 (회사 → 브랜드 → 매장)
+- ✅ **야간근무 버그 수정**: 새벽 출근(05:00~14:00) 야간수당 누락 해결
+- ✅ **Firestore Rules v3.5**: staff/manager 본인 데이터 쿼리 권한 허용 (companyId 필터 필수)
+- ✅ **직원 포털 권한 오류 해결**: 계약서 Fallback 쿼리 제거 (보안 규칙 준수)
 
 ### 2025-01-19 - 보안 강화
 - ✅ 직원 포털 접근 권한 수정 (manager, staff만 허용)
