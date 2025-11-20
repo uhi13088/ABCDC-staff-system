@@ -251,6 +251,7 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     nightPay: 0,
     holidayPay: 0,
     weeklyHolidayPay: 0,
+    incentivePay: 0, // 🆕 Phase 5: 특별 근무 수당 (근무 모집 인센티브)
     severancePay: 0, // 퇴직금
     totalAllowances: 0,
     
@@ -297,6 +298,7 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   let totalOvertimeHours = 0;
   let totalNightHours = 0;
   let totalHolidayHours = 0;
+  let totalIncentiveAmount = 0; // 🆕 Phase 5: 총 인센티브 금액
   let weeklyWorkHours = {}; // 주차별 근무시간
   let weeklyAbsences = {}; // 주차별 결근 여부
   
@@ -393,6 +395,13 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
       console.log(`🎉 공휴일 근무 감지: ${att.date}, ${workHours.toFixed(2)}시간`);
     }
     
+    // 🆕 Phase 5: 인센티브 수당 계산 (wageIncentive × 근무시간)
+    if (att.wageIncentive && att.wageIncentive > 0) {
+      const incentiveAmount = att.wageIncentive * workHours;
+      totalIncentiveAmount += incentiveAmount;
+      console.log(`💰 인센티브 수당 감지: ${att.date}, ${att.wageIncentive.toLocaleString()}원/시간 × ${workHours.toFixed(2)}시간 = ${incentiveAmount.toLocaleString()}원`);
+    }
+    
     // 주차별 근무시간 누적 (주휴수당 계산용)
     // 🔒 하루 최대 8시간만 주휴수당 계산에 포함 (법정 근로시간 기준)
     const date = new Date(att.date);
@@ -413,6 +422,7 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
       workHours: workHours.toFixed(2),
       nightHours: nightHours.toFixed(2),
       isHoliday: isHoliday,
+      wageIncentive: att.wageIncentive || 0, // 🆕 Phase 5: 인센티브 시급
       isRealtime: !att.checkOut && !att.clockOut // 실시간 계산 여부
     });
   });
@@ -449,6 +459,12 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     result.holidayHours = totalHolidayHours;
     result.holidayPay = Math.round(result.hourlyWage * 1.5 * totalHolidayHours);
     console.log(`💰 휴일근로수당: ${totalHolidayHours.toFixed(2)}시간 × ${result.hourlyWage}원 × 1.5 = ${result.holidayPay.toLocaleString()}원`);
+  }
+  
+  // 🆕 Phase 5: 특별 근무 수당 (근무 모집 인센티브)
+  if (totalIncentiveAmount > 0) {
+    result.incentivePay = Math.round(totalIncentiveAmount);
+    console.log(`💰 특별 근무 수당: ${result.incentivePay.toLocaleString()}원`);
   }
   
   // 주휴수당 - 계약서 기준 주 15시간 이상 근무 시 적용
@@ -505,8 +521,8 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
     console.error('⚠️ 퇴직금 계산 실패:', error);
   }
   
-  // 총 수당
-  result.totalAllowances = result.overtimePay + result.nightPay + result.holidayPay + result.weeklyHolidayPay + result.severancePay;
+  // 총 수당 (🆕 Phase 5: incentivePay 포함)
+  result.totalAllowances = result.overtimePay + result.nightPay + result.holidayPay + result.weeklyHolidayPay + result.incentivePay + result.severancePay;
   
   // 총 지급액 (공제 전)
   result.totalPay = result.basePay + result.totalAllowances;

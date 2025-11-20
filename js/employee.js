@@ -446,6 +446,27 @@ async function recordAttendance(type, unscheduledReason = null) {
         }
       }
       
+      // 🆕 Phase 5: 오늘 스케줄에서 wageIncentive 조회
+      let wageIncentive = null;
+      try {
+        const scheduleSnapshot = await db.collection('schedules')
+          .where('companyId', '==', currentUser.companyId)
+          .where('storeId', '==', currentUser.storeId)
+          .where('userId', '==', currentUser.uid)
+          .where('date', '==', dateStr)
+          .get();
+        
+        if (!scheduleSnapshot.empty) {
+          const scheduleData = scheduleSnapshot.docs[0].data();
+          if (scheduleData.wageIncentive && scheduleData.wageIncentive > 0) {
+            wageIncentive = scheduleData.wageIncentive;
+            console.log(`💰 근무 모집 인센티브 발견: ${wageIncentive}원/시간`);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ 스케줄 조회 실패 (인센티브 확인 스킵):', error);
+      }
+      
       // 출근 기록 생성/업데이트
       const recordData = {
         userId: currentUser.uid,  // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
@@ -463,6 +484,12 @@ async function recordAttendance(type, unscheduledReason = null) {
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
+      
+      // 🆕 Phase 5: 인센티브가 있으면 attendance에 저장 (스냅샷)
+      if (wageIncentive !== null) {
+        recordData.wageIncentive = wageIncentive;
+        console.log(`✅ attendance에 wageIncentive 저장: ${wageIncentive}`);
+      }
       
       // 예정 외 출근 사유가 있으면 추가
       if (unscheduledReason) {
@@ -969,6 +996,7 @@ async function loadSalary() {
       overtimePay: salaryData.overtimePay,
       nightPay: salaryData.nightPay,
       holidayPay: salaryData.holidayPay,
+      incentivePay: salaryData.incentivePay || 0, // 🆕 Phase 5: 특별 근무 수당
       severancePay: salaryData.severancePay,
       nationalPension: salaryData.nationalPension,
       healthInsurance: salaryData.healthInsurance,
@@ -1089,6 +1117,12 @@ function renderSalaryInfo(data) {
         <tr>
           <td>주휴수당</td>
           <td style="text-align: right; font-weight: 600; color: var(--success-color);">+${formatCurrency(data.weeklyHolidayPay)}</td>
+        </tr>
+        ` : ''}
+        ${data.incentivePay && data.incentivePay > 0 ? `
+        <tr style="background: #fff3cd;">
+          <td><strong>💰 특별 근무 수당</strong></td>
+          <td style="text-align: right; font-weight: 700; color: #d97706;">+${formatCurrency(data.incentivePay)}</td>
         </tr>
         ` : ''}
         ${data.has4Insurance ? `
