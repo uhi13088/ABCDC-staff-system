@@ -276,7 +276,56 @@ service cloud.firestore {
       );
     }
     
-    // 13. Time Change Reports (수정 이력)
+    // 13. Open Shifts (근무 모집 시스템) 🆕
+    match /open_shifts/{docId} {
+      // 📖 Read: 같은 회사 직원은 모집 공고 조회 가능
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        resource.data.companyId == currentCompanyId()
+      );
+      
+      // ✍️ Create: 관리자만 공고 생성 가능
+      allow create: if isSignedIn() && (
+        isSuperAdmin() ||
+        (isManagerOrAbove() && request.resource.data.companyId == currentCompanyId())
+      );
+      
+      // 🔄 Update: 조건부 허용
+      allow update: if isSignedIn() && (
+        // 1️⃣ 관리자: 전체 수정 가능 (취소, 재오픈 등)
+        isSuperAdmin() ||
+        (isManagerOrAbove() && resource.data.companyId == currentCompanyId()) ||
+        
+        // 2️⃣ 직원: 선착순 수락만 가능 (Transaction 필수)
+        (
+          resource.data.companyId == currentCompanyId() &&
+          // 현재 상태가 'open'이어야 함
+          resource.data.status == 'open' &&
+          // 변경하려는 상태가 'closed'여야 함
+          request.resource.data.status == 'closed' &&
+          // matchedUserId를 본인으로 설정해야 함
+          request.resource.data.matchedUserId == request.auth.uid &&
+          // 기존 matchedUserId가 null이어야 함 (이미 매칭된 경우 방지)
+          resource.data.matchedUserId == null &&
+          // 다른 필드는 변경 불가 (companyId, storeId, date 등)
+          request.resource.data.companyId == resource.data.companyId &&
+          request.resource.data.storeId == resource.data.storeId &&
+          request.resource.data.date == resource.data.date &&
+          request.resource.data.startTime == resource.data.startTime &&
+          request.resource.data.endTime == resource.data.endTime &&
+          request.resource.data.type == resource.data.type &&
+          request.resource.data.wageIncentive == resource.data.wageIncentive
+        )
+      );
+      
+      // 🗑️ Delete: 관리자만 삭제 가능
+      allow delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        (isManagerOrAbove() && resource.data.companyId == currentCompanyId())
+      );
+    }
+    
+    // 14. Time Change Reports (수정 이력)
     match /time_change_reports/{docId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
@@ -288,13 +337,13 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin() || isManagerOrAbove();
     }
 
-    // 14. Notices (공지사항)
+    // 15. Notices (공지사항)
     match /notices/{docId} {
       allow read: if isSignedIn() && (isSuperAdmin() || resource.data.companyId == currentCompanyId());
       allow write: if isSuperAdmin() || (isAdmin() && request.resource.data.companyId == currentCompanyId());
     }
     
-    // 15. Employee Docs (서류)
+    // 16. Employee Docs (서류)
     match /employee_docs/{userId} {
       allow read, write: if isSignedIn() && (
         request.auth.uid == userId ||
@@ -304,13 +353,13 @@ service cloud.firestore {
       );
     }
     
-    // 16. Company Invites (초대 코드)
+    // 17. Company Invites (초대 코드)
     match /company_invites/{docId} {
       allow read: if isSuperAdmin() || isManagerOrAbove();
       allow write: if isSuperAdmin() || isAdmin();
     }
 
-    // 17. Simulators (급여 시뮬레이터 - 관리자 전용)
+    // 18. Simulators (급여 시뮬레이터 - 관리자 전용)
     match /simulators/{docId} { 
       allow read, write: if isSuperAdmin() || isManagerOrAbove(); 
     }
