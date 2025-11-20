@@ -561,6 +561,7 @@ async function checkContractTimeViolation(clockIn, clockOut, attendanceId, atten
   try {
     // 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const contractsSnapshot = await db.collection('contracts')
+      .where('companyId', '==', currentUser.companyId)
       .where('employeeId', '==', currentUser.uid)
       .get();
     
@@ -611,6 +612,7 @@ async function checkContractTimeViolation(clockIn, clockOut, attendanceId, atten
       if (reason && reason.trim()) {
         // 사유 보고 저장
         await db.collection('time_change_reports').add({
+          companyId: currentUser.companyId,
           type: 'violation',
           reportedBy: 'employee',
           employeeUid: currentUser.uid,
@@ -888,6 +890,7 @@ async function loadSalary() {
     let latestContract = null;
     try {
       const contractsSnapshot = await db.collection('contracts')
+        .where('companyId', '==', currentUser.companyId)
         .where('employeeId', '==', currentUser.uid)
         .get();
       
@@ -1141,6 +1144,7 @@ async function loadContracts() {
     
     // 1. Firestore에서 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const snapshot = await db.collection('contracts')
+      .where('companyId', '==', currentUser.companyId)
       .where('employeeId', '==', currentUser.uid)
       .get();
     
@@ -1151,6 +1155,7 @@ async function loadContracts() {
     if (snapshot.empty) {
       console.warn('   ⚠️ employeeId로 계약서를 찾을 수 없습니다. employeeName으로 재시도...');
       const nameSnapshot = await db.collection('contracts')
+        .where('companyId', '==', currentUser.companyId)
         .where('employeeName', '==', currentUser.name)
         .where('employeeBirth', '==', currentUser.birth)
         .get();
@@ -1758,6 +1763,7 @@ async function checkAdminTimeEdits() {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
     const reportsSnapshot = await db.collection('time_change_reports')
+      .where('companyId', '==', currentUser.companyId)
       .where('employeeUid', '==', currentUser.uid)
       .where('type', '==', 'admin_edit')
       .where('createdAt', '>=', firebase.firestore.Timestamp.fromDate(sevenDaysAgo))
@@ -2702,6 +2708,7 @@ async function submitAttendanceEdit() {
     
     // 변경 보고 저장
     await db.collection('time_change_reports').add({
+      companyId: currentUser.companyId,
       type: 'employee_edit',
       reportedBy: 'employee',
       employeeUid: currentUser.uid,
@@ -2796,6 +2803,7 @@ async function loadEmployeeEditHistory(attendanceId) {
   
   try {
     const reportsSnapshot = await db.collection('time_change_reports')
+      .where('companyId', '==', currentUser.companyId)
       .where('attendanceId', '==', attendanceId)
       .orderBy('createdAt', 'desc')
       .get();
@@ -3026,6 +3034,7 @@ async function loadEmployeeSchedule_OLD() {
     // 1. 최신 계약서 조회 (로그용 - 실제 필터링에는 사용하지 않음)
     console.log(`📋 최신 계약서 조회 시작 (참고용)`);
     const contractsSnapshot = await db.collection('contracts')
+      .where('companyId', '==', currentUser.companyId)
       .where('employeeId', '==', currentUser.uid)
       .get();
     
@@ -4338,6 +4347,7 @@ async function checkClockInViolation(clockInTime, date, attendanceRef, attendanc
   try {
     // 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const contractsSnapshot = await db.collection('contracts')
+      .where('companyId', '==', currentUser.companyId)
       .where('employeeId', '==', currentUser.uid)
       .where('workStore', '==', currentUser.store)
       .limit(1)
@@ -4404,6 +4414,7 @@ async function checkClockOutViolation(clockInTime, clockOutTime, attendanceId, d
   try {
     // 계약서 조회 (관리자 페이지와 동일하게 employeeId 사용)
     const contractsSnapshot = await db.collection('contracts')
+      .where('companyId', '==', currentUser.companyId)
       .where('employeeId', '==', currentUser.uid)
       .where('workStore', '==', currentUser.store)
       .limit(1)
