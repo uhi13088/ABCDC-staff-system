@@ -180,8 +180,21 @@
 
       <div id="tabAttendance" class="tab-content">
         <div class="card">
-          <div class="card-header"><h3>📋 근무기록</h3></div>
+          <div class="card-header">
+            <h3>📋 근무기록</h3>
+            <button class="btn btn-primary" onclick="showEmergencyRecruitmentModal()" style="background: #ff6b6b; color: white;">
+              ➕ 긴급 근무 모집
+            </button>
+          </div>
           <div class="card-body">
+            <!-- 모집 현황판 -->
+            <div id="recruitmentStatusSection" style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ff6b6b; display: none;">
+              <h4 style="margin: 0 0 12px 0; color: #333; font-size: 16px;">📢 모집 중인 공고</h4>
+              <div id="recruitmentStatusList" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- 동적으로 채워짐 -->
+              </div>
+            </div>
+            
             <div class="filters">
               <div class="filter-group">
                 <label>조회 월</label>
@@ -298,6 +311,7 @@
                   <option value="purchase">💳 구매</option>
                   <option value="disposal">🗑️ 폐기</option>
                   <option value="resignation">📄 퇴직서</option>
+                  <option value="absence">🏥 결근</option>
                   <option value="shift">🔄 교대근무</option>
                 </select>
               </div>
@@ -2022,7 +2036,8 @@
         case 'attendance': 
           detachAttendanceListener();
           loadStoresForAttendanceFilter(); 
-          loadAttendanceList(); 
+          loadAttendanceList();
+          loadRecruitmentStatus(); // 모집 현황 로드
           break;
         case 'salary': 
           detachAttendanceListener();
@@ -4272,6 +4287,7 @@
             'purchase': '💳',
             'disposal': '🗑️',
             'resignation': '📄',
+            'absence': '🏥',
             'shift': '🔄'
           };
           
@@ -4279,6 +4295,7 @@
             'purchase': '구매',
             'disposal': '폐기',
             'resignation': '퇴직서',
+            'absence': '결근',
             'shift': '교대근무'
           };
           
@@ -4298,6 +4315,8 @@
             summary = `${approval.data?.category || '-'}`;
           } else if (approval.type === 'resignation') {
             summary = `희망 퇴직일: ${approval.data?.resignationDate || '-'}`;
+          } else if (approval.type === 'absence') {
+            summary = `${approval.data?.date} ${approval.data?.startTime}~${approval.data?.endTime} (${approval.data?.storeName})`;
           } else if (approval.type === 'shift') {
             summary = `${approval.data?.requesterName} → ${approval.data?.matchedUserName} (${approval.data?.workDate} ${approval.data?.workStartTime}~${approval.data?.workEndTime})`;
           }
@@ -4875,6 +4894,10 @@
           } else if (type === 'resignation') {
             await approveResignation(approvalId);
             return;
+          } else if (type === 'absence') {
+            // 결근 승인 + 대타 모집 연동
+            await approveAbsenceWithRecruitment(approvalId, docData);
+            return;
           } else {
             // 구매/폐기는 상태만 변경
             await docRef.update({
@@ -4884,12 +4907,18 @@
             });
           }
         } else {
-          // 일반 상태 업데이트
-          await docRef.update({
-            status: newStatus,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            lastEditedBy: sessionStorage.getItem('admin_name')
-          });
+          // 일반 상태 업데이트 (pending → approved 포함)
+          if (newStatus === 'approved' && type === 'absence') {
+            // 결근 승인 + 대타 모집 연동
+            await approveAbsenceWithRecruitment(approvalId, docData);
+            return;
+          } else {
+            await docRef.update({
+              status: newStatus,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              lastEditedBy: sessionStorage.getItem('admin_name')
+            });
+          }
         }
         
         alert('✅ 상태가 변경되었습니다.');
@@ -7206,6 +7235,363 @@
         }
       } catch (error) {
         console.error('❌ 매장 수당 설정 로드 실패:', error);
+      }
+    }
+
+    // ===================================================================
+    // 근무 모집 시스템 (Open Shifts Recruitment)
+    // ===================================================================
+
+    /**
+     * 근무 모집 공고 생성 (모듈화)
+     * @param {Object} shiftData - 공고 데이터
+     * @param {string} shiftData.companyId - 회사 ID
+     * @param {string} shiftData.storeId - 매장 ID
+     * @param {string} shiftData.storeName - 매장 이름
+     * @param {string} shiftData.date - 날짜 (YYYY-MM-DD)
+     * @param {string} shiftData.startTime - 시작 시간 (HH:mm)
+     * @param {string} shiftData.endTime - 종료 시간 (HH:mm)
+     * @param {string} shiftData.type - 'replacement' | 'extra'
+     * @param {number} shiftData.wageIncentive - 추가 시급 (원)
+     * @param {string} shiftData.description - 설명 (선택)
+     * @returns {Promise<string>} - 생성된 문서 ID
+     */
+    async function createOpenShift(shiftData) {
+      try {
+        console.log('📢 근무 모집 공고 생성 시작:', shiftData);
+
+        // 필수 필드 검증
+        const requiredFields = ['companyId', 'storeId', 'storeName', 'date', 'startTime', 'endTime', 'type', 'wageIncentive'];
+        for (const field of requiredFields) {
+          if (!shiftData[field] && shiftData[field] !== 0) {
+            throw new Error(`필수 필드 누락: ${field}`);
+          }
+        }
+
+        // 공고 데이터 생성
+        const openShiftData = {
+          companyId: shiftData.companyId,
+          storeId: shiftData.storeId,
+          storeName: shiftData.storeName,
+          date: shiftData.date,
+          startTime: shiftData.startTime,
+          endTime: shiftData.endTime,
+          type: shiftData.type, // 'replacement' | 'extra'
+          status: 'open',
+          wageIncentive: Number(shiftData.wageIncentive),
+          matchedUserId: null,
+          matchedUserName: null,
+          matchedAt: null,
+          description: shiftData.description || '',
+          createdBy: sessionStorage.getItem('admin_uid'),
+          createdByName: sessionStorage.getItem('admin_name'),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          cancelledAt: null,
+          cancelledBy: null
+        };
+
+        const docRef = await db.collection('open_shifts').add(openShiftData);
+        console.log('✅ 근무 모집 공고 생성 완료:', docRef.id);
+
+        return docRef.id;
+      } catch (error) {
+        console.error('❌ 근무 모집 공고 생성 실패:', error);
+        throw error;
+      }
+    }
+
+    /**
+     * 긴급 근무 모집 모달 표시
+     */
+    async function showEmergencyRecruitmentModal() {
+      try {
+        // 매장 목록 조회
+        let storesQuery = db.collection('stores');
+        if (myCompanyId) {
+          storesQuery = storesQuery.where('companyId', '==', myCompanyId);
+        }
+        const storesSnapshot = await storesQuery.get();
+        
+        const storeOptions = storesSnapshot.docs.map(doc => {
+          const store = doc.data();
+          return `<option value="${doc.id}|${store.name}">${store.name}</option>`;
+        }).join('');
+
+        // 모달 생성
+        const modal = document.createElement('div');
+        modal.id = 'emergencyRecruitmentModal';
+        modal.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+          z-index: 10000;
+        `;
+
+        modal.innerHTML = `
+          <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <h3 style="margin: 0 0 20px 0; color: #333;">➕ 긴급 근무 모집</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+              <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 600; color: #555;">매장 *</label>
+                <select id="emergencyStore" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                  <option value="">매장 선택</option>
+                  ${storeOptions}
+                </select>
+              </div>
+
+              <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 600; color: #555;">근무 날짜 *</label>
+                <input type="date" id="emergencyDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: 600; color: #555;">시작 시간 *</label>
+                  <input type="time" id="emergencyStartTime" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: 600; color: #555;">종료 시간 *</label>
+                  <input type="time" id="emergencyEndTime" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+              </div>
+
+              <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 600; color: #555;">추가 시급 (원) *</label>
+                <input type="number" id="emergencyIncentive" placeholder="예: 5000" min="0" step="1000" 
+                  style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                  💡 기본 시급에 추가되는 인센티브입니다.
+                </div>
+              </div>
+
+              <div>
+                <label style="display: block; margin-bottom: 4px; font-weight: 600; color: #555;">설명 (선택)</label>
+                <textarea id="emergencyDescription" rows="3" placeholder="예: 주말 피크타임 추가 인력 필요" 
+                  style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+              <button onclick="submitEmergencyRecruitment()" 
+                style="flex: 1; padding: 12px; background: #ff6b6b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                📢 공고 올리기
+              </button>
+              <button onclick="closeEmergencyRecruitmentModal()" 
+                style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                취소
+              </button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 오늘 날짜 기본값 설정
+        document.getElementById('emergencyDate').valueAsDate = new Date();
+
+      } catch (error) {
+        console.error('❌ 긴급 모집 모달 표시 실패:', error);
+        alert('❌ 모달을 불러오는데 실패했습니다.');
+      }
+    }
+
+    /**
+     * 긴급 모집 제출
+     */
+    async function submitEmergencyRecruitment() {
+      try {
+        const storeValue = document.getElementById('emergencyStore').value;
+        const date = document.getElementById('emergencyDate').value;
+        const startTime = document.getElementById('emergencyStartTime').value;
+        const endTime = document.getElementById('emergencyEndTime').value;
+        const incentive = document.getElementById('emergencyIncentive').value;
+        const description = document.getElementById('emergencyDescription').value;
+
+        // 유효성 검사
+        if (!storeValue || !date || !startTime || !endTime || !incentive) {
+          alert('⚠️ 모든 필수 항목을 입력해주세요.');
+          return;
+        }
+
+        const [storeId, storeName] = storeValue.split('|');
+
+        // 공고 생성
+        await createOpenShift({
+          companyId: myCompanyId,
+          storeId: storeId,
+          storeName: storeName,
+          date: date,
+          startTime: startTime,
+          endTime: endTime,
+          type: 'extra',
+          wageIncentive: Number(incentive),
+          description: description
+        });
+
+        alert('✅ 긴급 근무 모집 공고가 등록되었습니다!');
+        closeEmergencyRecruitmentModal();
+        
+        // 모집 현황 새로고침
+        loadRecruitmentStatus();
+
+      } catch (error) {
+        console.error('❌ 긴급 모집 제출 실패:', error);
+        alert('❌ 공고 등록에 실패했습니다: ' + error.message);
+      }
+    }
+
+    /**
+     * 긴급 모집 모달 닫기
+     */
+    function closeEmergencyRecruitmentModal() {
+      const modal = document.getElementById('emergencyRecruitmentModal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    /**
+     * 모집 현황 로드
+     */
+    async function loadRecruitmentStatus() {
+      try {
+        console.log('📢 모집 현황 로드 시작...');
+
+        let query = db.collection('open_shifts')
+          .where('companyId', '==', myCompanyId)
+          .where('status', '==', 'open')
+          .orderBy('date', 'asc')
+          .orderBy('startTime', 'asc');
+
+        const snapshot = await query.get();
+        
+        const section = document.getElementById('recruitmentStatusSection');
+        const list = document.getElementById('recruitmentStatusList');
+
+        if (snapshot.empty) {
+          section.style.display = 'none';
+          return;
+        }
+
+        section.style.display = 'block';
+        
+        list.innerHTML = snapshot.docs.map(doc => {
+          const shift = doc.data();
+          const typeIcon = shift.type === 'replacement' ? '🔄' : '➕';
+          const typeText = shift.type === 'replacement' ? '대타' : '추가';
+          
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 6px; border: 1px solid #dee2e6;">
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: #333; margin-bottom: 4px;">
+                  ${typeIcon} ${shift.storeName} - ${typeText} 모집
+                </div>
+                <div style="font-size: 13px; color: #666;">
+                  📅 ${shift.date} | ⏰ ${shift.startTime}~${shift.endTime} | 💰 +${shift.wageIncentive.toLocaleString()}원
+                </div>
+                ${shift.description ? `<div style="font-size: 12px; color: #999; margin-top: 4px;">${shift.description}</div>` : ''}
+              </div>
+              <button onclick="cancelOpenShift('${doc.id}')" 
+                style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                ❌ 취소
+              </button>
+            </div>
+          `;
+        }).join('');
+
+        console.log(`✅ 모집 현황 로드 완료: ${snapshot.size}건`);
+
+      } catch (error) {
+        console.error('❌ 모집 현황 로드 실패:', error);
+      }
+    }
+
+    /**
+     * 근무 모집 공고 취소
+     */
+    async function cancelOpenShift(shiftId) {
+      if (!confirm('⚠️ 이 모집 공고를 취소하시겠습니까?')) {
+        return;
+      }
+
+      try {
+        await db.collection('open_shifts').doc(shiftId).update({
+          status: 'cancelled',
+          cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
+          cancelledBy: sessionStorage.getItem('admin_uid')
+        });
+
+        alert('✅ 모집 공고가 취소되었습니다.');
+        loadRecruitmentStatus();
+
+      } catch (error) {
+        console.error('❌ 공고 취소 실패:', error);
+        alert('❌ 취소에 실패했습니다: ' + error.message);
+      }
+    }
+
+    /**
+     * 결근 승인 + 대타 모집 연동
+     */
+    async function approveAbsenceWithRecruitment(approvalId, absenceData) {
+      try {
+        console.log('🏥 결근 승인 + 대타 모집 프로세스 시작:', approvalId);
+
+        // 1. 결근 승인 처리
+        await db.collection('approvals').doc(approvalId).update({
+          status: 'approved',
+          approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          approvedBy: sessionStorage.getItem('admin_name')
+        });
+
+        // 2. 대타 모집 여부 확인
+        const wantRecruitment = confirm(
+          `✅ ${absenceData.applicantName}님의 결근이 승인되었습니다.\n\n` +
+          `📢 이 시간대에 대타 모집 공고를 올리시겠습니까?\n\n` +
+          `📅 날짜: ${absenceData.data.date}\n` +
+          `⏰ 시간: ${absenceData.data.startTime}~${absenceData.data.endTime}\n` +
+          `🏪 매장: ${absenceData.data.storeName}`
+        );
+
+        if (!wantRecruitment) {
+          alert('✅ 결근 승인이 완료되었습니다.');
+          loadApprovals();
+          return;
+        }
+
+        // 3. 추가 시급 입력 받기
+        const incentive = prompt(
+          '💰 추가 시급(인센티브)을 입력하세요:\n\n' +
+          '예시: 5000 (기본 시급에 추가됩니다)',
+          '5000'
+        );
+
+        if (!incentive || isNaN(incentive)) {
+          alert('⚠️ 추가 시급이 입력되지 않아 공고가 생성되지 않았습니다.\n결근 승인만 처리되었습니다.');
+          loadApprovals();
+          return;
+        }
+
+        // 4. 대타 모집 공고 생성
+        await createOpenShift({
+          companyId: myCompanyId,
+          storeId: absenceData.data.storeId,
+          storeName: absenceData.data.storeName,
+          date: absenceData.data.date,
+          startTime: absenceData.data.startTime,
+          endTime: absenceData.data.endTime,
+          type: 'replacement',
+          wageIncentive: Number(incentive),
+          description: `${absenceData.applicantName}님 결근으로 인한 대타 모집`
+        });
+
+        alert('✅ 결근 승인 및 대타 모집 공고가 등록되었습니다!');
+        loadApprovals();
+        loadRecruitmentStatus();
+
+      } catch (error) {
+        console.error('❌ 결근 승인 + 모집 실패:', error);
+        alert('❌ 처리 실패: ' + error.message);
       }
     }
   </script>
