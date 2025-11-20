@@ -3,10 +3,6 @@
 // ===================================================================
 
 const CONFIG = {
-  // Google Apps Script Web App URL (배포 후 여기에 입력)
-  // 예시: https://script.google.com/macros/s/AKfycbxxx.../exec
-  APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_URL_HERE',
-  
   // 매장 정보
   STORES: [
     { id: 'busan_city', name: '부천시청점', address: '경기도 부천시 원미구' },
@@ -91,9 +87,6 @@ const CONFIG = {
     TIME_DISPLAY: 'HH:mm'
   },
   
-  // API 타임아웃 (밀리초)
-  API_TIMEOUT: 30000,
-  
   // 자동 확정 시간 (매일 00:00)
   AUTO_CONFIRM_TIME: '00:00',
   
@@ -119,11 +112,6 @@ function getConfig(key) {
   }
   
   return value;
-}
-
-// Apps Script URL이 설정되었는지 확인
-function isConfigured() {
-  return CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE';
 }
 
 // 디버그 로그
