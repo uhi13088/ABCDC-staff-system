@@ -3804,16 +3804,27 @@ async function submitShiftRequest() {
   
   try {
     const shiftRequest = {
-      requesterId: currentUser.uid,
+      // 🔒 멀티테넌트 필드
+      companyId: currentUser.companyId,
+      storeId: currentUser.storeId,
+      
+      // 🔥 신청자 필드 (듀얼)
+      requesterUserId: currentUser.uid,     // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      requesterId: currentUser.uid,         // 하위 호환성 (기존 코드 지원)
       requesterName: currentUser.name,
+      
       store: currentUser.store,
       workDate: date,
       workStartTime: startTime,
       workEndTime: endTime,
       reason: reason || '사유 없음',
       status: 'pending',
-      matchedUserId: null,
+      
+      // 🔥 대타 필드 (듀얼)
+      replacementUserId: null,              // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      matchedUserId: null,                  // 하위 호환성 (기존 코드 지원)
       matchedUserName: null,
+      
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       matchedAt: null,
       approvedByAdmin: false
@@ -3897,7 +3908,9 @@ async function acceptShiftRequest() {
   try {
     await db.collection('shift_requests').doc(currentShiftRequestId).update({
       status: 'matched',
-      matchedUserId: currentUser.uid,
+      // 🔥 대타 필드 (듀얼)
+      replacementUserId: currentUser.uid,   // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      matchedUserId: currentUser.uid,       // 하위 호환성 (기존 코드 지원)
       matchedUserName: currentUser.name,
       matchedAt: firebase.firestore.FieldValue.serverTimestamp()
     });

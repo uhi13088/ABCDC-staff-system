@@ -162,7 +162,7 @@ const absentRecord = {
 | **approvals** | `userId` | `applicantUid` | ✅ 듀얼 저장 완료 |
 | **time_change_reports** | `userId` | `employeeUid` | ✅ 듀얼 저장 완료 |
 | **signedContracts** | `userId` | `employeeId` | ✅ 듀얼 저장 완료 |
-| **shift_requests** | `userId`, `replacementUserId` | `requesterId`, `replacementId`, `matchedUserId` | ⚠️ 듀얼 저장 필요 |
+| **shift_requests** | `requesterUserId`, `replacementUserId` | `requesterId`, `matchedUserId` | ✅ 듀얼 저장 완료 |
 
 ### 특수 케이스
 
@@ -171,19 +171,47 @@ const absentRecord = {
 // ✅ CORRECT: 역할별 명확한 필드명 + 표준화
 {
   companyId: 'company123',
+  storeId: 'store789',
   
-  // 표준 필드 (새로 추가)
-  userId: 'user456',              // 요청자
-  replacementUserId: 'user789',   // 대타자
+  // 🔥 신청자 필드 (듀얼)
+  requesterUserId: 'user456',     // 🔥 표준 필드 (신청자)
+  requesterId: 'user456',         // 하위 호환성
+  requesterName: '김철수',
   
-  // 기존 필드 (하위 호환)
-  requesterId: 'user456',
-  replacementId: 'user789',
-  matchedUserId: 'user789',
+  // 🔥 대타 필드 (듀얼)
+  replacementUserId: 'user789',   // 🔥 표준 필드 (대타자)
+  matchedUserId: 'user789',       // 하위 호환성
+  matchedUserName: '이영희',
   
   // 기타 필드
-  date: '2025-11-20',
+  workDate: '2025-11-20',
+  workStartTime: '09:00',
+  workEndTime: '18:00',
   status: 'matched',
+  createdAt: serverTimestamp(),
+  matchedAt: serverTimestamp(),
+  approvedByAdmin: false
+}
+```
+
+**schedules 컬렉션 (교대근무 관련)**:
+```javascript
+// ✅ CORRECT: 교대근무로 생성된 스케줄
+{
+  userId: 'user789',                          // 대타자 (표준)
+  userName: '이영희',
+  
+  isShiftReplacement: true,                   // 교대근무 표시
+  shiftRequestId: 'request123',
+  
+  // 🔥 원 신청자 필드 (듀얼)
+  originalRequesterUserId: 'user456',         // 🔥 표준 필드 (원 신청자)
+  originalRequesterId: 'user456',             // 하위 호환성
+  originalRequesterName: '김철수',
+  
+  date: '2025-11-20',
+  startTime: '09:00',
+  endTime: '18:00',
   // ...
 }
 ```
