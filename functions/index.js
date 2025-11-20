@@ -456,7 +456,7 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
 });
 
 /**
- * 수동 결근 기록 생성 테스트 (특정 날짜)
+ * 수동 결근 기록 생성 테스트 (특정 날짜) - v3.2 성능 최적화
  * 
  * 사용법:
  * curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/createAbsentRecordsForDate \
@@ -464,6 +464,11 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
  *   -d '{"date":"2025-11-08"}'
  * 
  * 기능: 특정 날짜에 대한 결근 기록을 수동으로 생성 (테스트/보정용)
+ * 
+ * v3.2 최적화:
+ * - N+1 쿼리 문제 해결 (순차 루프 → 병렬 처리)
+ * - Promise.all 패턴으로 1,000+ 직원 처리 시 타임아웃 방지
+ * - 기존 기능 유지 (companyId 필터, 배치 처리, 로깅)
  */
 exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) => {
   // POST 요청만 허용
@@ -546,43 +551,54 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
       });
     }
     
-    // 3. attendance 기록 확인 및 결근 기록 생성
+    // 3. attendance 기록 확인 및 결근 기록 생성 (v3.2 성능 최적화 - N+1 문제 해결)
     const createdRecords = [];
     const existingRecords = [];
     const batch = db.batch();
     
-    for (const worker of workersOnDate) {
-      // 해당 직원의 attendance 기록 확인
-      let attendanceQuery = db.collection('attendance')
-        .where('uid', '==', worker.employeeId)
-        .where('date', '==', targetDate);
-      
-      // companyId 필터 추가 (멀티테넌트)
-      if (worker.companyId) {
-        attendanceQuery = attendanceQuery.where('companyId', '==', worker.companyId);
-      }
-      
-      const attendanceSnapshot = await attendanceQuery.get();
-      
-      // attendance 기록이 없으면 결근 기록 생성
-      if (attendanceSnapshot.empty) {
+    // 🔥 최적화: 모든 직원의 출석 여부를 병렬로 확인
+    const attendanceChecks = await Promise.all(
+      workersOnDate.map(async (worker) => {
+        // 해당 직원의 attendance 기록 확인
+        let attendanceQuery = db.collection('attendance')
+          .where('uid', '==', worker.employeeId)
+          .where('date', '==', targetDate);
+        
+        // companyId 필터 추가 (멀티테넌트 데이터 격리)
+        if (worker.companyId) {
+          attendanceQuery = attendanceQuery.where('companyId', '==', worker.companyId);
+        }
+        
+        const attendanceSnapshot = await attendanceQuery.get();
+        
+        return {
+          worker,
+          hasAttendance: !attendanceSnapshot.empty
+        };
+      })
+    );
+    
+    // 결과 처리 및 배치 작업 구성
+    attendanceChecks.forEach(({ worker, hasAttendance }) => {
+      if (!hasAttendance) {
+        // attendance 기록이 없으면 결근 기록 생성
         const newAbsentRef = db.collection('attendance').doc();
         
-        // 🔥 멀티테넌트: companyId + storeId 기준으로 관리 (contracts에서 가져오기)
+        // 🔥 멀티테넌트: companyId + storeId 기준으로 관리
         const absentRecord = {
-          companyId: worker.companyId || null,  // 회사 ID 추가
-          storeId: worker.storeId || null,  // 매장 ID 추가
-          uid: worker.employeeId,
-          userId: worker.employeeId,  // 일관성: userId 필드 추가
+          companyId: worker.companyId || null,  // 회사 ID
+          storeId: worker.storeId || null,      // 매장 ID
+          uid: worker.employeeId,               // 호환성
+          userId: worker.employeeId,            // 표준 필드
           name: worker.employeeName,
-          store: worker.workStore,  // 호환성: 매장명 문자열
+          store: worker.workStore,              // 호환성
           date: targetDate,
           status: 'absent',
           clockIn: null,
           clockOut: null,
           workType: '계약',
           autoCreated: true,
-          manuallyCreated: true, // 수동 생성 표시
+          manuallyCreated: true, // 수동 트리거 표시
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
@@ -596,15 +612,15 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
           date: targetDate
         });
         
-        console.log(`➕ 결근 기록 생성: ${worker.employeeName} (${worker.workStore}) - ${targetDate}`);
+        console.log(`➕ 결근 기록 생성: ${worker.employeeName} (${worker.workStore})`);
       } else {
         existingRecords.push({
           name: worker.employeeName,
           store: worker.workStore
         });
-        console.log(`✓ 출근 기록 존재: ${worker.employeeName} (${worker.workStore})`);
+        // console.log(`✓ 출근 기록 존재: ${worker.employeeName}`); // 로그 과다 방지
       }
-    }
+    });
     
     // 4. 배치 커밋
     if (createdRecords.length > 0) {
