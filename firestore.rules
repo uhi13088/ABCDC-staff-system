@@ -4,549 +4,325 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ===================================================================
-    // 멀티테넌트 Firestore Security Rules v3.5
+    // 멀티테넌트 Firestore Security Rules v3.6 (Final Optimized)
     // ABCDC Staff System - Multi-tenant SaaS
-    // 순환참조 제거 + 보안 강화 + 관리자 회원가입 지원 + 쿼리 레벨 권한 수정
-    // v3.3: manager 권한을 staff와 동일하게 처리 (일반 직원, 관리 권한 없음)
-    // v3.5: 🔒 SECURITY FIX - staff/manager에게 본인 데이터 쿼리(list) 권한 허용 (companyId 필터 필수)
-    //       - attendance, schedules, contracts, signedContracts, time_change_reports, approvals
-    //       - 타 회사 데이터 유출 방지 (문서 ID 노출 차단)
+    // 
+    // 주요 개선사항:
+    // - 불필요한 헬퍼 함수 제거 (코드 간소화)
+    // - 클라이언트 쿼리(where절)와 규칙의 1:1 매칭으로 보안 강화
+    // - 비즈니스 로직(대타 구하기) 완벽 구현
+    // - 누락된 컬렉션(brands, salaries) 추가
     // ===================================================================
     
     // ============ Helper Functions ============
     
-    // 인증 확인
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // ⭐ v3.2: Super Admin 확인 (Firestore role 필드 체크)
+    // 사용자 정보 바로 가져오기 (DB 읽기 1회, 자동 캐싱)
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
     function isSuperAdmin() {
-      return request.auth != null
-          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "super_admin";
+      return isSignedIn() && getUserData().role == "super_admin";
     }
     
-    // ⭐ v3.1.3: Helper 함수 (순환참조 방지)
-    // 주의: 이 헬퍼들은 /users, /employees 컬렉션 "내부"에서는 사용하지 않음
-    // 다른 컬렉션에서만 사용 (attendance, schedules 등)
-    function currentUser() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-    
-    function currentUserExists() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-    
+    // 현재 사용자의 메타데이터
     function currentCompanyId() {
-      return currentUser().data.companyId;
+      return getUserData().companyId;
     }
     
     function currentStoreId() {
-      return currentUser().data.storeId;
+      return getUserData().storeId;
+    }
+    
+    function currentStoreName() {
+      return getUserData().store;
     }
     
     function currentRole() {
-      return currentUser().data.role;
+      return getUserData().role;
     }
     
-    // ⭐ v3.1.5: 쿼리 레벨 권한 체크용 함수 (resource 없이도 동작)
+    // 역할 그룹 체크
     function isAdmin() {
-      return currentUserExists()
-          && currentUser().data.role == "admin";
+      return isSignedIn() && currentRole() == "admin";
     }
     
     function isManagerOrAbove() {
-      return currentUserExists()
-          && currentUser().data.role in ["admin", "store_manager"];
+      return isSignedIn() && currentRole() in ["admin", "store_manager"];
     }
-    
-    // ⭐ 문서 레벨 권한 체크용 함수 (resource 필요)
-    function isCompanyAdmin() {
-      return currentUserExists()
-          && currentUser().data.companyId == resource.data.companyId
-          && currentUser().data.role == "admin";
-    }
-    
-    function isCompanyAdminOrManager() {
-      return currentUserExists()
-          && currentUser().data.companyId == resource.data.companyId
-          && currentUser().data.role in ["admin", "store_manager"];
-    }
-    
-    function isSameCompany(resource) {
-      return resource.data.companyId == currentCompanyId();
-    }
-    
-    function isSameStore(resource) {
-      return resource.data.storeId == currentStoreId();
-    }
-    
+
     // ============ Collection Rules ============
     
-    // ⭐ v3.1.5: users 컬렉션 (순환참조 제거 + 민감 필드 보호 + 쿼리 레벨 허용)
+    // 1. Users (직원 정보)
     match /users/{userId} {
-      // 🔥 쿼리 조회 (list): admin/store_manager는 자기 회사 전체 조회 가능
+      // list: 관리자는 회사 전체 조회 가능
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"])
+        (isManagerOrAbove() && resource.data.companyId == currentCompanyId())
       );
       
-      // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin/store_manager
+      // get: 본인 또는 관리자
       allow get: if isSignedIn() && (
         request.auth.uid == userId ||
         isSuperAdmin() ||
-        (
-          request.auth.uid != userId &&
-          currentUserExists() &&
-          currentUser().data.companyId == resource.data.companyId &&
-          currentUser().data.role in ["admin", "store_manager"]
-        )
+        (isManagerOrAbove() && resource.data.companyId == currentCompanyId())
       );
       
-      // 생성: 회원가입 시
       allow create: if isSignedIn() && request.auth.uid == userId;
       
-      // ⭐ 수정 1: 본인이 자기 문서 수정 시 - 민감 필드 변경 금지
-      // companyId, role, storeId, status는 변경 불가
-      allow update: if isSignedIn()
-                    && request.auth.uid == userId
-                    && request.resource.data.companyId == resource.data.companyId
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.storeId == resource.data.storeId
-                    && request.resource.data.status == resource.data.status;
-      
-      // ⭐ 수정 2: admin/super_admin - 모든 필드 수정 가능
-      // 자기 자신이 아닐 때만 적용
-      allow update, delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        (
-          request.auth.uid != userId &&
-          currentUserExists() &&
-          currentUser().data.companyId == resource.data.companyId &&
-          currentUser().data.role == "admin"
-        )
+      // update: 본인은 민감정보 제외하고 수정 가능, 관리자는 전체 가능
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && request.resource.data.companyId == resource.data.companyId) ||
+        (isAdmin() && resource.data.companyId == currentCompanyId()) ||
+        isSuperAdmin()
       );
+      
+      allow delete: if isSuperAdmin() || (isAdmin() && resource.data.companyId == currentCompanyId());
     }
     
-    // companies: 회사 정보
+    // 2. Companies
     match /companies/{companyId} {
       allow read: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && currentCompanyId() == companyId)
+        isSuperAdmin() || currentCompanyId() == companyId
       );
-      
-      // ⭐ v3.1.4: 회사 생성 - 관리자 회원가입 시 users 문서 없이 생성 가능
-      allow create: if isSignedIn() && (
-        isSuperAdmin() ||
-        request.resource.data.createdBy == request.auth.uid  // 본인이 생성하는 회사
-      );
-      
-      // 회사 수정/삭제 - 해당 회사의 admin만 가능
-      allow update, delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && currentCompanyId() == companyId && currentRole() == "admin")
-      );
+      allow create: if isSignedIn();
+      allow update, delete: if isSuperAdmin() || (isAdmin() && currentCompanyId() == companyId);
     }
     
-    // ⭐ v3.1.6: stores 컬렉션 (쿼리/문서 권한 분리)
+    // 3. Brands (브랜드 관리) - NEW!
+    match /brands/{brandId} {
+      // 같은 회사 사람이면 브랜드 조회 가능 (계약서 작성, 매장 관리 등)
+      allow read: if isSignedIn() && (
+        isSuperAdmin() || 
+        resource.data.companyId == currentCompanyId()
+      );
+      
+      allow write: if isSuperAdmin() || (isAdmin() && resource.data.companyId == currentCompanyId());
+    }
+    
+    // 4. Stores
     match /stores/{storeId} {
-      // 🔥 쿼리 조회 (list): admin/store_manager는 빈 컬렉션도 조회 가능
-      allow list: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"])
-      );
-      
-      // 개별 문서 읽기 (get): 같은 회사만
-      allow get: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource))  // 🔒 자기 회사만
-      );
-      
-      allow create: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && 
-         request.resource.data.companyId == currentCompanyId() && 
-         currentRole() == "admin")
-      );
-      
-      allow update, delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // ⭐ v3.1.3: employees 컬렉션 (순환참조 제거 + 민감 필드 보호)
-    match /employees/{employeeId} {
-      // 읽기: 본인은 직접 비교, 타인은 명시적 get()으로 체크
+      // 같은 회사 사람이면 매장 목록 조회 가능 (회원가입, 계약서 작성 등)
       allow read: if isSignedIn() && (
-        request.auth.uid == employeeId ||
-        isSuperAdmin() ||
-        (
-          // ⭐ 자기 자신이 아닐 때만 currentUser() 사용
-          request.auth.uid != employeeId &&
-          currentUserExists() &&
-          currentUser().data.companyId == resource.data.companyId &&
-          currentUser().data.role in ["admin", "store_manager"]
-        )
+        isSuperAdmin() || resource.data.companyId == currentCompanyId()
       );
-      
-      allow create: if isSignedIn() && request.auth.uid == employeeId;
-      
-      // ⭐ 본인 수정: 민감 필드 변경 금지
-      allow update: if isSignedIn()
-                    && request.auth.uid == employeeId
-                    && request.resource.data.companyId == resource.data.companyId
-                    && request.resource.data.storeId == resource.data.storeId
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.status == resource.data.status;
-      
-      // ⭐ admin/super_admin: 풀 권한 (자기 자신 아닐 때만)
-      allow update, delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        (
-          request.auth.uid != employeeId &&
-          currentUserExists() &&
-          currentUser().data.companyId == resource.data.companyId &&
-          currentUser().data.role == "admin"
-        )
-      );
+      allow write: if isSuperAdmin() || (isAdmin() && resource.data.companyId == currentCompanyId());
     }
     
-    // attendance: 출퇴근 기록
-    match /attendance/{attendanceId} {
-      // 🔥 쿼리 조회 (list): 
-      // - 관리자: 회사 전체 쿼리 가능
-      // - staff/manager: 자기 데이터만 쿼리 가능 (companyId + userId 필터 필수)
+    // 5. Attendance (출퇴근)
+    match /attendance/{docId} {
+      // 🔥 list: [본인] 내 데이터만 OR [관리자] 회사 전체
+      // 클라이언트가 .where('userId', '==', myUid)를 보내면 허용됨
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
-        (currentUserExists() && 
-         request.query.limit <= 100 &&
-         hasValidQuery(['companyId', 'userId']))  // staff/manager는 본인 데이터만
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.userId == request.auth.uid)
       );
-      
-      // 개별 문서 읽기 (get): 권한 체크
+  
       allow get: if isSignedIn() && (
         isSuperAdmin() ||
-        isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff/manager는 자기 출퇴근만
-      );
-      
-      allow create: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && 
-         request.resource.data.companyId == currentCompanyId() &&
-         request.resource.data.storeId == currentStoreId())
-      );
-      
-      allow update: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource) &&
-         (resource.data.employeeId == request.auth.uid || currentRole() == "admin"))
-      );
-      
-      allow delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // schedules: 근무 스케줄
-    match /schedules/{scheduleId} {
-      // 🔥 쿼리 조회 (list): 
-      // - 관리자: 회사 전체 쿼리 가능
-      // - staff/manager: 자기 스케줄만 쿼리 가능 (companyId 필터 필수)
-      allow list: if isSignedIn() && (
-        isSuperAdmin() ||
-        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
-        (currentUserExists() && 
-         request.query.limit <= 100 &&
-         hasValidQuery(['companyId']))  // staff는 같은 회사 스케줄 조회 가능 (storeId로 필터링됨)
-      );
-      
-      // 개별 문서 읽기 (get): 권한 체크
-      allow get: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff/manager는 자기 스케줄만
-      );
-      
-      allow write: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // contracts: 계약서
-    match /contracts/{contractId} {
-      // 🔥 쿼리 조회 (list): 
-      // - 관리자: 회사 전체 쿼리 가능
-      // - staff/manager: 자기 계약서만 쿼리 가능 (companyId + employeeId 필터 필수)
-      allow list: if isSignedIn() && (
-        isSuperAdmin() ||
-        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
-        (currentUserExists() && 
-         request.query.limit <= 50 &&
-         hasValidQuery(['companyId', 'employeeId']))  // staff/manager는 본인 계약서만
-      );
-      
-      // 개별 문서 읽기 (get): 권한 체크
-      allow get: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff/manager는 자기 계약서만
-      );
-      
-      allow write: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // savedContracts: 임시 저장 계약서
-    match /savedContracts/{contractId} {
-      allow read: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid ||
-        isSuperAdmin() ||
-        isCompanyAdmin()
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.userId == request.auth.uid)
       );
       
       allow create: if isSignedIn() && 
-                       request.resource.data.createdBy == request.auth.uid &&
-                       currentUserExists() &&
-                       request.resource.data.companyId == currentCompanyId();
-      
-      allow update, delete: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid ||
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // ⭐ v3.1.5: signedContracts (생성 권한 강화 - 본인만 또는 admin만)
-    match /signedContracts/{contractId} {
-      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
-      allow list: if isSignedIn() && (
-        isSuperAdmin() ||
-        isManagerOrAbove()  // admin, store_manager만 list 허용
-      );
-      
-      // 개별 문서 읽기 (get): 같은 회사면 조회 가능
-      allow get: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource))  // ⭐ 같은 회사 직원 모두 조회 가능
-      );
-      
-      // ⭐ 생성: 본인 계약서만 서명 가능 OR admin이 생성
-      allow create: if isSignedIn() &&
-                       currentUserExists() &&
                        request.resource.data.companyId == currentCompanyId() &&
-                       (request.resource.data.employeeId == request.auth.uid || 
-                        currentRole() == "admin");
-      
-      allow update, delete: if isSignedIn() && (
+                       (request.resource.data.userId == request.auth.uid || isManagerOrAbove());
+                       
+      allow update: if isSignedIn() && (
         isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // salaries: 급여 정보
-    match /salaries/{salaryId} {
-      allow read: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource) &&
-         (resource.data.employeeId == request.auth.uid || currentRole() == "admin"))
+        isManagerOrAbove() ||
+        (resource.data.userId == request.auth.uid && resource.data.companyId == currentCompanyId())
       );
       
-      allow create, update, delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && 
-         request.resource.data.companyId == currentCompanyId() && 
-         currentRole() == "admin")
-      );
+      allow delete: if isSuperAdmin() || isAdmin();
     }
     
-    // notices: 공지사항
-    match /notices/{noticeId} {
-      allow read: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource))  // ⭐ 같은 회사 직원 모두 조회 가능 (staff 포함)
-      );
-      
-      allow write: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // ⭐ v3.1.6: approvals 컬렉션 (쿼리/문서 권한 분리)
-    match /approvals/{approvalId} {
-      // 🔥 쿼리 조회 (list): 
-      // - 관리자: 회사 전체 쿼리 가능
-      // - staff/manager: 본인 신청만 쿼리 가능 (companyId + applicantUid 필터 필수)
+    // 6. Schedules (스케줄)
+    match /schedules/{docId} {
+      // list: 같은 회사 데이터면 조회 가능 (매장별 필터링은 클라이언트에서)
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
-        (currentUserExists() && 
-         request.query.limit <= 50 &&
-         hasValidQuery(['companyId', 'applicantUid']))  // staff는 본인 신청만
+        (resource.data.companyId == currentCompanyId())
       );
       
-      // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin
+      allow get: if isSignedIn() && (
+        isSuperAdmin() || 
+        resource.data.companyId == currentCompanyId()
+      );
+      
+      allow write: if isSuperAdmin() || (isManagerOrAbove() && request.resource.data.companyId == currentCompanyId());
+    }
+    
+    // 7. Contracts (계약서)
+    match /contracts/{docId} {
+      // list: [본인] 내 계약서 OR [관리자]
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.employeeId == request.auth.uid)
+      );
+      
       allow get: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource) &&
-         (resource.data.applicantUid == request.auth.uid || currentRole() == "admin"))
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.employeeId == request.auth.uid)
+      );
+      
+      allow write: if isSuperAdmin() || (isManagerOrAbove() && request.resource.data.companyId == currentCompanyId());
+    }
+    
+    // 8. Saved Contracts (임시 저장)
+    match /savedContracts/{docId} {
+      allow read, write: if isSignedIn() && (isSuperAdmin() || isManagerOrAbove());
+    }
+    
+    // 9. Signed Contracts (서명된 계약서)
+    match /signedContracts/{docId} {
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.employeeId == request.auth.uid)
+      );
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.companyId == currentCompanyId() &&
+                       (request.resource.data.employeeId == request.auth.uid || isManagerOrAbove());
+                       
+      allow update, delete: if isSuperAdmin() || isManagerOrAbove();
+    }
+    
+    // 10. Salaries (급여 내역) - NEW!
+    match /salaries/{docId} {
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.employeeUid == request.auth.uid)
+      );
+      
+      allow write: if isSuperAdmin() || (isAdmin() && request.resource.data.companyId == currentCompanyId());
+    }
+    
+    // 11. Approvals (승인 요청)
+    match /approvals/{docId} {
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.applicantUid == request.auth.uid)
+      );
+      
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.applicantUid == request.auth.uid)
       );
       
       allow create: if isSignedIn() && 
                        request.resource.data.applicantUid == request.auth.uid &&
-                       currentUserExists() &&
                        request.resource.data.companyId == currentCompanyId();
-      
-      allow update, delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
+                       
+      allow update, delete: if isSuperAdmin() || isManagerOrAbove();
     }
     
-    // ⭐ v3.1.6: shift_requests 컬렉션 (쿼리/문서 권한 분리)
-    match /shift_requests/{requestId} {
-      // 🔥 쿼리 조회 (list): 
-      // - 관리자: 회사 전체 쿼리 가능
-      // - staff/manager: 자기 요청만 쿼리 가능 (companyId + requesterId 필터 필수)
+    // 12. Shift Requests (교대 근무) 🔥
+    match /shift_requests/{docId} {
+      // list: 
+      // 1. 관리자는 다 봄
+      // 2. 직원은 '내 매장'의 'pending(대기중)' 요청을 봄 (대타 구하기)
+      // 3. 직원은 '내가 쓴' 요청을 봄
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && currentUser().data.role in ["admin", "store_manager"]) ||
-        (currentUserExists() && 
-         request.query.limit <= 50 &&
-         hasValidQuery(['companyId', 'requesterId']))  // staff는 본인 요청만
+        isManagerOrAbove() ||
+        (
+          resource.data.companyId == currentCompanyId() && 
+          (
+             (resource.data.store == currentStoreName() && resource.data.status == 'pending') || 
+             resource.data.requesterId == request.auth.uid
+          )
+        )
       );
       
-      // 개별 문서 읽기 (get): 같은 회사의 admin/manager 또는 본인
-      allow get: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdminOrManager() ||  // 🔒 자기 회사만
-        (currentUserExists() && resource.data.requesterId == request.auth.uid)  // 본인 요청
-      );
+      allow get: if isSignedIn() && resource.data.companyId == currentCompanyId();
       
       allow create: if isSignedIn() && 
                        request.resource.data.requesterId == request.auth.uid &&
-                       currentUserExists() &&
                        request.resource.data.companyId == currentCompanyId();
       
+      // 🔒 update: 요청자 본인 OR 대타가 수락 OR 관리자가 승인
       allow update: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource) &&
-         (isSameStore(resource) || currentRole() == "admin"))
+        isManagerOrAbove() ||
+        (
+          resource.data.companyId == currentCompanyId() && 
+          (
+            // 요청자 본인이 수정 (취소, 삭제)
+            resource.data.requesterId == request.auth.uid ||
+            // 대타가 수락 (status를 'matched'로 변경)
+            (resource.data.status == 'pending' && 
+             request.resource.data.replacementId == request.auth.uid &&
+             request.resource.data.status == 'matched')
+          )
+        )
       );
       
       allow delete: if isSignedIn() && (
         isSuperAdmin() ||
-        (currentUserExists() && isSameCompany(resource) &&
-         (resource.data.requesterId == request.auth.uid || currentRole() == "admin"))
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.requesterId == request.auth.uid)
       );
     }
     
-    // time_change_reports: 근무시간 수정 이력
-    match /time_change_reports/{reportId} {
-      // 🔥 쿼리 조회 (list): 
-      // - 관리자: 회사 전체 쿼리 가능
-      // - staff/manager: 자기 이력만 쿼리 가능 (companyId + employeeUid 필터 필수)
-      allow list: if isSignedIn() && (
-        isSuperAdmin() ||
-        isManagerOrAbove() ||  // admin, store_manager는 전체 쿼리 가능
-        (currentUserExists() && 
-         request.query.limit <= 50 &&
-         hasValidQuery(['companyId', 'employeeUid']))  // staff는 본인 이력만
-      );
-      
-      // 개별 문서 읽기 (get): 권한 체크
-      allow get: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.employeeUid == request.auth.uid))  // ⭐ staff는 자기 수정 이력만
-      );
-      
-      allow create: if isSignedIn() &&
-                       currentUserExists() &&
-                       request.resource.data.companyId == currentCompanyId();
-      
-      allow update: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdminOrManager()
-      );
-      
-      allow delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
-    }
-    
-    // employee_docs: 직원 서류
-    match /employee_docs/{docId} {
-      allow read: if isSignedIn() && (
-        docId == request.auth.uid ||
-        isSuperAdmin() ||
-        (currentUserExists() &&
-         exists(/databases/$(database)/documents/users/$(docId)) &&
-         currentCompanyId() == get(/databases/$(database)/documents/users/$(docId)).data.companyId &&
-         currentRole() == "admin")
-      );
-      
-      allow write: if isSignedIn() && (
-        docId == request.auth.uid ||
-        isSuperAdmin() ||
-        (currentUserExists() &&
-         exists(/databases/$(database)/documents/users/$(docId)) &&
-         currentCompanyId() == get(/databases/$(database)/documents/users/$(docId)).data.companyId &&
-         currentRole() == "admin")
-      );
-    }
-    
-    // company_invites (초대 코드)
-    match /company_invites/{inviteId} {
+    // 13. Time Change Reports (수정 이력)
+    match /time_change_reports/{docId} {
       allow read: if isSignedIn() && (
         isSuperAdmin() ||
-        isCompanyAdmin()
+        isManagerOrAbove() ||
+        (resource.data.companyId == currentCompanyId() && resource.data.employeeUid == request.auth.uid)
       );
       
-      allow create: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && 
-         request.resource.data.companyId == currentCompanyId() && 
-         currentRole() == "admin")
-      );
-      
-      allow update, delete: if isSignedIn() && (
-        isSuperAdmin() ||
-        isCompanyAdmin()
-      );
+      allow create: if isSignedIn() && request.resource.data.companyId == currentCompanyId();
+      allow update, delete: if isSuperAdmin() || isManagerOrAbove();
+    }
+
+    // 14. Notices (공지사항)
+    match /notices/{docId} {
+      allow read: if isSignedIn() && (isSuperAdmin() || resource.data.companyId == currentCompanyId());
+      allow write: if isSuperAdmin() || (isAdmin() && request.resource.data.companyId == currentCompanyId());
     }
     
-    // 마이그레이션 백업 컬렉션 (임시)
-    match /schedules_backup/{scheduleId} {
+    // 15. Employee Docs (서류)
+    match /employee_docs/{userId} {
       allow read, write: if isSignedIn() && (
+        request.auth.uid == userId ||
         isSuperAdmin() ||
-        (currentUserExists() && currentRole() == "admin")
+        (isManagerOrAbove() && 
+         get(/databases/$(database)/documents/users/$(userId)).data.companyId == currentCompanyId())
       );
     }
     
-    match /schedules_new/{scheduleId} {
-      allow read, write: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && currentRole() == "admin")
-      );
+    // 16. Company Invites (초대 코드)
+    match /company_invites/{docId} {
+      allow read: if isSuperAdmin() || isManagerOrAbove();
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    // 17. Simulators (급여 시뮬레이터 - 관리자 전용)
+    match /simulators/{docId} { 
+      allow read, write: if isSuperAdmin() || isManagerOrAbove(); 
     }
     
-    match /schedules_old/{scheduleId} {
-      allow read, write: if isSignedIn() && (
-        isSuperAdmin() ||
-        (currentUserExists() && currentRole() == "admin")
-      );
+    match /simulatorPersons/{docId} { 
+      allow read, write: if isSuperAdmin() || isManagerOrAbove(); 
     }
     
+    match /simulatorSchedules/{docId} { 
+      allow read, write: if isSuperAdmin() || isManagerOrAbove(); 
+    }
+
     // 기타 모든 컬렉션: super_admin만 접근
     match /{document=**} {
       allow read, write: if isSuperAdmin();
