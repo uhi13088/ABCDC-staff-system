@@ -2482,6 +2482,17 @@ async function submitResignationRequest() {
   }
   
   try {
+    // 🔥 서명 이미지를 Firebase Storage에 업로드
+    const signatureBlob = await fetch(signatureDataURL).then(res => res.blob());
+    const signatureFileName = `resignation_signatures/${currentUser.uid}_${Date.now()}.png`;
+    const signatureRef = firebase.storage().ref().child(signatureFileName);
+    
+    console.log('📤 서명 이미지 업로드 중...', signatureFileName);
+    const uploadTask = await signatureRef.put(signatureBlob);
+    const signatureURL = await uploadTask.ref.getDownloadURL();
+    console.log('✅ 서명 이미지 업로드 완료:', signatureURL);
+    
+    // Firestore에는 URL만 저장 (Base64 대신)
     await db.collection('approvals').add({
       type: 'resignation',
       applicantUid: currentUser.uid,
@@ -2494,7 +2505,7 @@ async function submitResignationRequest() {
         name: name,
         resignationDate: resignationDate,
         reason: reason,
-        employeeSignature: signatureDataURL
+        employeeSignatureURL: signatureURL  // ✅ URL만 저장 (Base64 대신)
       },
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });

@@ -4586,11 +4586,11 @@
               ${approval.data?.reason || '사유 없음'}
             </div>
           </div>
-          ${approval.data?.employeeSignature ? `
+          ${approval.data?.employeeSignatureURL || approval.data?.employeeSignature ? `
             <div style="margin-bottom: 16px;">
               <strong>신청자 서명:</strong><br>
               <div style="border: 1px solid #ddd; padding: 8px; background: white; border-radius: 8px; margin-top: 8px;">
-                <img src="${approval.data.employeeSignature}" alt="신청자 서명" style="max-width: 200px; height: auto; display: block;">
+                <img src="${approval.data.employeeSignatureURL || approval.data.employeeSignature}" alt="신청자 서명" style="max-width: 200px; height: auto; display: block;">
               </div>
             </div>
           ` : ''}
