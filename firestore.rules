@@ -4,10 +4,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ===================================================================
-    // 멀티테넌트 Firestore Security Rules v3.3
+    // 멀티테넌트 Firestore Security Rules v3.4
     // ABCDC Staff System - Multi-tenant SaaS
     // 순환참조 제거 + 보안 강화 + 관리자 회원가입 지원 + 쿼리 레벨 권한 수정
     // v3.3: manager 권한을 staff와 동일하게 처리 (일반 직원, 관리 권한 없음)
+    // v3.4: 🔒 SECURITY FIX - list 권한 강화 (staff/manager는 list 차단, get만 허용)
+    //       - attendance, schedules, contracts, signedContracts, time_change_reports, approvals
+    //       - 타 회사 데이터 유출 방지 (문서 ID 노출 차단)
     // ===================================================================
     
     // ============ Helper Functions ============
@@ -212,14 +215,17 @@ service cloud.firestore {
     
     // attendance: 출퇴근 기록
     match /attendance/{attendanceId} {
-      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
-      allow list: if isSignedIn() && currentUserExists();
+      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능, staff/manager는 개별 문서만 get
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove()  // admin, store_manager만 list 허용
+      );
       
       // 개별 문서 읽기 (get): 권한 체크
       allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 출퇴근만
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff/manager는 자기 출퇴근만
       );
       
       allow create: if isSignedIn() && (
@@ -243,14 +249,17 @@ service cloud.firestore {
     
     // schedules: 근무 스케줄
     match /schedules/{scheduleId} {
-      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
-      allow list: if isSignedIn() && currentUserExists();
+      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove()  // admin, store_manager만 list 허용
+      );
       
       // 개별 문서 읽기 (get): 권한 체크
       allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 스케줄만
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff/manager는 자기 스케줄만
       );
       
       allow write: if isSignedIn() && (
@@ -261,14 +270,17 @@ service cloud.firestore {
     
     // contracts: 계약서
     match /contracts/{contractId} {
-      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능 (필터 조건은 클라이언트에서)
-      allow list: if isSignedIn() && currentUserExists();
+      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove()  // admin, store_manager만 list 허용
+      );
       
       // 개별 문서 읽기 (get): 권한 체크
       allow get: if isSignedIn() && (
         isSuperAdmin() ||
         isCompanyAdminOrManager() ||  // 🔒 관리자는 자기 회사만
-        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff는 자기 계약서만
+        (currentUserExists() && (resource.data.employeeId == request.auth.uid || resource.data.userId == request.auth.uid))  // ⭐ staff/manager는 자기 계약서만
       );
       
       allow write: if isSignedIn() && (
@@ -299,8 +311,11 @@ service cloud.firestore {
     
     // ⭐ v3.1.5: signedContracts (생성 권한 강화 - 본인만 또는 admin만)
     match /signedContracts/{contractId} {
-      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
-      allow list: if isSignedIn() && currentUserExists();
+      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove()  // admin, store_manager만 list 허용
+      );
       
       // 개별 문서 읽기 (get): 같은 회사면 조회 가능
       allow get: if isSignedIn() && (
@@ -352,10 +367,10 @@ service cloud.firestore {
     
     // ⭐ v3.1.6: approvals 컬렉션 (쿼리/문서 권한 분리)
     match /approvals/{approvalId} {
-      // 🔥 쿼리 조회 (list): 관리자는 빈 컬렉션도 조회 가능, staff는 쿼리 필터 필수
+      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
       allow list: if isSignedIn() && (
         isSuperAdmin() ||
-        currentUserExists()  // ⭐ 모든 인증된 사용자가 쿼리 가능 (필터 조건은 클라이언트에서)
+        isManagerOrAbove()  // admin, store_manager만 list 허용
       );
       
       // 개별 문서 읽기 (get): 본인 또는 같은 회사의 admin
@@ -410,8 +425,11 @@ service cloud.firestore {
     
     // time_change_reports: 근무시간 수정 이력
     match /time_change_reports/{reportId} {
-      // 🔥 쿼리 조회 (list): 모든 인증된 사용자가 쿼리 가능
-      allow list: if isSignedIn() && currentUserExists();
+      // 🔥 쿼리 조회 (list): 관리자만 쿼리 가능
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        isManagerOrAbove()  // admin, store_manager만 list 허용
+      );
       
       // 개별 문서 읽기 (get): 권한 체크
       allow get: if isSignedIn() && (

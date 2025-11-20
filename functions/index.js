@@ -363,25 +363,35 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
       });
     }
     
-    // 3. attendance 기록 확인 및 결근 기록 생성
+    // 3. attendance 기록 확인 및 결근 기록 생성 (병렬 처리)
     const createdRecords = [];
     const batch = db.batch();
     
-    for (const worker of workersYesterday) {
-      // 해당 직원의 어제 attendance 기록 확인
-      let attendanceQuery = db.collection('attendance')
-        .where('uid', '==', worker.employeeId)
-        .where('date', '==', yesterdayStr);
-      
-      // companyId 필터 추가 (멀티테넌트)
-      if (worker.companyId) {
-        attendanceQuery = attendanceQuery.where('companyId', '==', worker.companyId);
-      }
-      
-      const attendanceSnapshot = await attendanceQuery.get();
-      
-      // attendance 기록이 없으면 결근 기록 생성
-      if (attendanceSnapshot.empty) {
+    // 🔥 Promise.all로 병렬 처리 (N+1 문제 해결)
+    const attendanceChecks = await Promise.all(
+      workersYesterday.map(async (worker) => {
+        // 해당 직원의 어제 attendance 기록 확인
+        let attendanceQuery = db.collection('attendance')
+          .where('uid', '==', worker.employeeId)
+          .where('date', '==', yesterdayStr);
+        
+        // companyId 필터 추가 (멀티테넌트)
+        if (worker.companyId) {
+          attendanceQuery = attendanceQuery.where('companyId', '==', worker.companyId);
+        }
+        
+        const attendanceSnapshot = await attendanceQuery.get();
+        
+        return {
+          worker,
+          hasAttendance: !attendanceSnapshot.empty
+        };
+      })
+    );
+    
+    // 결근 기록 생성
+    for (const { worker, hasAttendance } of attendanceChecks) {
+      if (!hasAttendance) {
         const newAbsentRef = db.collection('attendance').doc();
         
         // 🔥 멀티테넌트: companyId + storeId 기준으로 관리 (contracts에서 가져오기)
