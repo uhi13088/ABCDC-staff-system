@@ -192,6 +192,9 @@ async function loadUserInfo(uid, name) {
     // 교대근무 요청 실시간 모니터링 시작
     monitorShiftRequests();
     
+    // 🆕 근무 모집 실시간 모니터링 시작
+    monitorOpenShifts();
+    
   } catch (error) {
     console.error('❌ 사용자 정보 로드 오류:', error);
     // 오류 발생 시에도 기본 정보로 진행
@@ -213,6 +216,9 @@ async function loadUserInfo(uid, name) {
     
     // 미처리 결근 사유 체크 (비동기로 실행)
     checkPendingAbsentReasons().catch(err => console.error('결근 사유 체크 오류:', err));
+    
+    // 🆕 근무 모집 실시간 모니터링 시작 (오류 후에도 시작)
+    monitorOpenShifts();
   }
 }
 
@@ -224,6 +230,9 @@ async function handleLogout() {
   if (confirm('로그아웃 하시겠습니까?')) {
     try {
       isLoggingOut = true; // 🔒 로그아웃 플래그 설정
+      
+      // 🆕 근무 모집 모니터링 중단
+      stopMonitoringOpenShifts();
       
       // Firebase 로그아웃
       if (auth) {
@@ -4736,3 +4745,325 @@ function getWeekNumber(date) {
 // ===================================================================
 // viewContract, showContractViewModal, closeContractViewModal 함수는
 // js/contract-viewer.js에서 로드됩니다.
+
+// ===================================================================
+// 근무 모집 실시간 모니터링 (Open Shifts Real-time Monitoring)
+// ===================================================================
+
+let openShiftsUnsubscribe = null;  // onSnapshot 구독 해제 함수
+let currentOpenShifts = [];        // 현재 표시 중인 공고 목록
+let activeRecruitmentPopups = {};  // 활성 팝업 관리 {shiftId: popupElement}
+
+/**
+ * 근무 모집 실시간 모니터링 시작
+ * loadUserInfo에서 자동 호출됨
+ */
+function monitorOpenShifts() {
+  if (!currentUser || !currentUser.storeId || !currentUser.companyId) {
+    console.warn('⚠️ 근무 모집 모니터링: currentUser 정보 부족', currentUser);
+    return;
+  }
+
+  console.log('📢 근무 모집 실시간 모니터링 시작:', {
+    companyId: currentUser.companyId,
+    storeId: currentUser.storeId,
+    storeName: currentUser.store
+  });
+
+  // 기존 구독 해제
+  if (openShiftsUnsubscribe) {
+    openShiftsUnsubscribe();
+  }
+
+  // onSnapshot으로 실시간 감시
+  openShiftsUnsubscribe = db.collection('open_shifts')
+    .where('companyId', '==', currentUser.companyId)
+    .where('storeId', '==', currentUser.storeId)
+    .where('status', '==', 'open')
+    .onSnapshot(snapshot => {
+      console.log('📢 open_shifts 변경 감지:', snapshot.size, '건');
+
+      snapshot.docChanges().forEach(change => {
+        const shiftId = change.doc.id;
+        const shiftData = change.doc.data();
+
+        if (change.type === 'added') {
+          console.log('🆕 새 공고 추가:', shiftId, shiftData);
+          showRecruitmentPopup(shiftId, shiftData);
+        } else if (change.type === 'modified') {
+          console.log('🔄 공고 수정:', shiftId, shiftData);
+          // status가 'closed'로 변경되면 팝업 닫기
+          if (shiftData.status !== 'open' && activeRecruitmentPopups[shiftId]) {
+            closeRecruitmentPopup(shiftId);
+          }
+        } else if (change.type === 'removed') {
+          console.log('🗑️ 공고 삭제:', shiftId);
+          closeRecruitmentPopup(shiftId);
+        }
+      });
+
+      // 현재 open 상태인 공고 목록 업데이트
+      currentOpenShifts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    }, error => {
+      console.error('❌ open_shifts 모니터링 오류:', error);
+    });
+}
+
+/**
+ * 근무 모집 팝업 표시
+ */
+function showRecruitmentPopup(shiftId, shiftData) {
+  // 이미 표시 중인 팝업이면 무시
+  if (activeRecruitmentPopups[shiftId]) {
+    console.log('ℹ️ 이미 표시 중인 팝업:', shiftId);
+    return;
+  }
+
+  console.log('📢 팝업 생성:', shiftId, shiftData);
+
+  const typeIcon = shiftData.type === 'replacement' ? '🔄' : '➕';
+  const typeText = shiftData.type === 'replacement' ? '대타 모집' : '추가 근무';
+
+  // 팝업 생성
+  const popup = document.createElement('div');
+  popup.id = `recruitment-popup-${shiftId}`;
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    z-index: 10000;
+    min-width: 320px;
+    max-width: 90%;
+    animation: popupSlideIn 0.3s ease-out;
+  `;
+
+  popup.innerHTML = `
+    <style>
+      @keyframes popupSlideIn {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -60%);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, -50%);
+        }
+      }
+    </style>
+
+    <div style="text-align: center; margin-bottom: 20px;">
+      <div style="font-size: 48px; margin-bottom: 8px;">📢</div>
+      <h3 style="margin: 0; color: #ff6b6b; font-size: 20px;">긴급 근무 모집!</h3>
+    </div>
+
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 16px; font-weight: 600;">${typeIcon} ${typeText}</span>
+        <span style="background: #ff6b6b; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">모집중</span>
+      </div>
+
+      <div style="font-size: 14px; color: #666; line-height: 1.8;">
+        <div style="margin-bottom: 8px;">
+          <strong>📅 날짜:</strong> ${shiftData.date}
+        </div>
+        <div style="margin-bottom: 8px;">
+          <strong>⏰ 시간:</strong> ${shiftData.startTime} ~ ${shiftData.endTime}
+        </div>
+        <div style="margin-bottom: 8px;">
+          <strong>🏪 매장:</strong> ${shiftData.storeName}
+        </div>
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px; border-radius: 4px;">
+          <strong style="color: #856404;">💰 추가 시급:</strong>
+          <span style="color: #ff6b6b; font-size: 18px; font-weight: 700; margin-left: 8px;">+${shiftData.wageIncentive.toLocaleString()}원</span>
+        </div>
+        ${shiftData.description ? `
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #dee2e6; color: #999; font-size: 13px;">
+            ${shiftData.description}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px;">
+      <button onclick="acceptRecruitment('${shiftId}')" 
+        style="flex: 1; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); transition: all 0.3s;">
+        🙋 제가 할게요!
+      </button>
+      <button onclick="closeRecruitmentPopup('${shiftId}')" 
+        style="padding: 14px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer;">
+        닫기
+      </button>
+    </div>
+
+    <div style="margin-top: 16px; text-align: center; font-size: 12px; color: #999;">
+      ⚡ 선착순 마감! 다른 직원이 먼저 수락하면 자동으로 닫힙니다.
+    </div>
+  `;
+
+  // Overlay 생성
+  const overlay = document.createElement('div');
+  overlay.id = `recruitment-overlay-${shiftId}`;
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+  `;
+
+  // DOM에 추가
+  document.body.appendChild(overlay);
+  document.body.appendChild(popup);
+
+  // 활성 팝업 목록에 추가
+  activeRecruitmentPopups[shiftId] = { popup, overlay };
+
+  // 알림음 재생 (선택사항)
+  try {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGm98OScSgwOT6jk87ViHAU7k9fyz3orBSV5yPDekUALFF+26OylVRQKSKDh8r1sIQYsgM/w2Ik2CBdpvfDlnEoMDlCn4fO1YhsFPJTW8tB6KwUlecny3pFACxRftuvsplUUCkig4fO9bCEHLYHP8NiJNggXar3w5ZxKDA5Rp+Lzt2IaBTyU1/LReisGJnrJ8d+RQAwVYLbr7KZVFApJoOLzvmwhBy6Bz/DYiTUIFmu+8OWcSgwPUqfh87diFwU9ldfy0HorBiZ6yfLfkUAMFWC26+ymVRUKSaHi875tIQcugc/v2Ik1CBZsvvDlnEoMD1Kn4fO3YhcFPZTY8tF6KgUle8rx35FADBVhtuvsplUVCkqh4vO+bSEGLoDP79iJNQgWbL7w5ZtLDA9Sp+Hzt2IXBj2U2PLReisFJXvK8t+RQQ0VYbbr7KZWFQ==');
+    audio.volume = 0.3;
+    audio.play().catch(e => console.log('알림음 재생 실패:', e));
+  } catch (e) {
+    console.log('알림음 재생 오류:', e);
+  }
+}
+
+/**
+ * 근무 모집 팝업 닫기
+ */
+function closeRecruitmentPopup(shiftId) {
+  const popupData = activeRecruitmentPopups[shiftId];
+  if (!popupData) {
+    console.log('ℹ️ 닫을 팝업이 없음:', shiftId);
+    return;
+  }
+
+  console.log('🔒 팝업 닫기:', shiftId);
+
+  // DOM에서 제거
+  if (popupData.popup) popupData.popup.remove();
+  if (popupData.overlay) popupData.overlay.remove();
+
+  // 활성 목록에서 제거
+  delete activeRecruitmentPopups[shiftId];
+}
+
+/**
+ * 근무 수락 (Transaction 기반 선착순)
+ */
+async function acceptRecruitment(shiftId) {
+  if (!currentUser) {
+    alert('❌ 로그인 정보가 없습니다.');
+    return;
+  }
+
+  // 버튼 비활성화 (중복 클릭 방지)
+  const button = event.target;
+  button.disabled = true;
+  button.textContent = '⏳ 처리중...';
+  button.style.opacity = '0.6';
+
+  try {
+    console.log('🙋 근무 수락 시도:', shiftId);
+
+    await db.runTransaction(async (transaction) => {
+      const shiftRef = db.collection('open_shifts').doc(shiftId);
+      const shiftDoc = await transaction.get(shiftRef);
+
+      if (!shiftDoc.exists) {
+        throw new Error('공고가 존재하지 않습니다.');
+      }
+
+      const shiftData = shiftDoc.data();
+
+      // 이미 마감된 경우
+      if (shiftData.status !== 'open' || shiftData.matchedUserId !== null) {
+        throw new Error('이미 마감된 공고입니다.');
+      }
+
+      // 1. open_shift 상태 업데이트 (closed + matchedUserId)
+      transaction.update(shiftRef, {
+        status: 'closed',
+        matchedUserId: currentUser.uid,
+        matchedUserName: currentUser.name,
+        matchedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // 2. schedules 컬렉션에 근무 등록
+      const scheduleRef = db.collection('schedules').doc();
+      transaction.set(scheduleRef, {
+        companyId: currentUser.companyId,
+        storeId: currentUser.storeId,
+        storeName: shiftData.storeName,
+        userId: currentUser.uid,
+        userName: currentUser.name,
+        date: shiftData.date,
+        startTime: shiftData.startTime,
+        endTime: shiftData.endTime,
+        isWorkDay: true,
+        wageIncentive: shiftData.wageIncentive,
+        recruitmentType: shiftData.type,  // 'replacement' | 'extra'
+        fromOpenShift: true,
+        openShiftId: shiftId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy: 'recruitment_acceptance'
+      });
+
+      console.log('✅ Transaction 성공');
+    });
+
+    // 성공 알림
+    alert('✅ 근무 수락 완료!\n\n스케줄에 자동으로 등록되었습니다.');
+
+    // 팝업 닫기
+    closeRecruitmentPopup(shiftId);
+
+    // 스케줄 새로고침 (있다면)
+    if (typeof loadEmployeeSchedule === 'function') {
+      loadEmployeeSchedule();
+    }
+
+  } catch (error) {
+    console.error('❌ 근무 수락 실패:', error);
+
+    if (error.message.includes('이미 마감')) {
+      alert('😢 아쉽지만 이미 마감되었습니다.\n\n다른 직원이 먼저 수락했습니다.');
+      closeRecruitmentPopup(shiftId);
+    } else {
+      alert(`❌ 수락 실패: ${error.message}`);
+      // 버튼 복구
+      button.disabled = false;
+      button.textContent = '🙋 제가 할게요!';
+      button.style.opacity = '1';
+    }
+  }
+}
+
+/**
+ * 모니터링 종료 (로그아웃 시)
+ */
+function stopMonitoringOpenShifts() {
+  if (openShiftsUnsubscribe) {
+    console.log('📢 근무 모집 모니터링 종료');
+    openShiftsUnsubscribe();
+    openShiftsUnsubscribe = null;
+  }
+
+  // 모든 활성 팝업 닫기
+  Object.keys(activeRecruitmentPopups).forEach(shiftId => {
+    closeRecruitmentPopup(shiftId);
+  });
+}
+
+// 로그아웃 시 모니터링 종료
+window.addEventListener('beforeunload', stopMonitoringOpenShifts);
