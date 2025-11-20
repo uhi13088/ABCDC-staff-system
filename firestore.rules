@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ===================================================================
-    // 멀티테넌트 Firestore Security Rules v3.4
+    // 멀티테넌트 Firestore Security Rules v3.5
     // ABCDC Staff System - Multi-tenant SaaS
     // 순환참조 제거 + 보안 강화 + 관리자 회원가입 지원 + 쿼리 레벨 권한 수정
     // v3.3: manager 권한을 staff와 동일하게 처리 (일반 직원, 관리 권한 없음)
