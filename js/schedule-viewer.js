@@ -252,9 +252,11 @@ window.loadScheduleData = async function(db, options) {
   console.log('🔍 [loadScheduleData] 시작:', options);
   
   try {
-    // 🔒 companyId 체크 (옵션에 없으면 에러 경고)
+    // 🔒 companyId 체크 (옵션에 없으면 실행 차단)
     if (!options.companyId && options.type === 'employee') {
-       console.warn('⚠️ loadScheduleData: companyId가 없습니다. 보안 규칙 오류 가능성 있음.');
+      console.error('❌ [치명적 오류] companyId가 누락되었습니다. 보안 쿼리를 실행할 수 없습니다.', options);
+      // 여기서 멈추지 않으면 'Missing or insufficient permissions' 에러 발생함
+      throw new Error('사용자 정보에 companyId가 없습니다. 관리자에게 문의하세요.');
     }
 
     if (options.type === 'store') {

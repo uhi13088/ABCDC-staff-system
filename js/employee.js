@@ -9,6 +9,7 @@
 // ===================================================================
 
 let currentUser = null; // 현재 로그인한 직원 정보
+let isLoggingOut = false; // 로그아웃 진행 중 플래그 (의도된 로그아웃 vs 세션 만료 구분)
 // auth, db는 firebase-config.js에서 전역으로 선언됨
 
 // ===================================================================
@@ -61,6 +62,12 @@ async function checkLoginStatus() {
   
   // 🔥 Firebase Auth 초기화 대기 후 상태 확인
   firebase.auth().onAuthStateChanged(async (currentAuthUser) => {
+    // 🔒 의도적인 로그아웃인 경우 에러 처리 중단
+    if (isLoggingOut) {
+      console.log('👋 로그아웃이 정상적으로 처리되었습니다.');
+      return;
+    }
+    
     if (!currentAuthUser) {
       console.error('❌ Firebase Auth 로그인 상태가 아닙니다.');
       alert('⚠️ 세션이 만료되었습니다. 다시 로그인해주세요.');
@@ -216,6 +223,8 @@ async function loadUserInfo(uid, name) {
 async function handleLogout() {
   if (confirm('로그아웃 하시겠습니까?')) {
     try {
+      isLoggingOut = true; // 🔒 로그아웃 플래그 설정
+      
       // Firebase 로그아웃
       if (auth) {
         await auth.signOut();
@@ -230,6 +239,7 @@ async function handleLogout() {
       window.location.href = 'employee-login.html';
     } catch (error) {
       console.error('❌ 로그아웃 오류:', error);
+      isLoggingOut = false; // 실패 시 플래그 복구
       // 에러가 나도 강제로 로그아웃 처리
       sessionStorage.clear();
       window.location.href = 'employee-login.html';
@@ -2932,6 +2942,14 @@ function getEmployeeWeekNumber(date) {
  */
 async function loadEmployeeSchedule() {
   if (!currentUser) return;
+  
+  // 🔒 companyId 누락 시 실행 방지 및 알림
+  if (!currentUser.companyId) {
+    console.error('❌ currentUser 객체에 companyId가 없습니다:', currentUser);
+    document.getElementById('employeeScheduleContainer').innerHTML = 
+      '<div class="alert alert-danger">계정 정보 오류: 소속 회사 정보(companyId)가 없습니다.<br>관리자에게 문의하여 계정 정보를 업데이트해주세요.</div>';
+    return;
+  }
   
   const monday = getEmployeeMonday(currentEmployeeWeek);
   const year = monday.getFullYear();
