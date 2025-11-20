@@ -244,17 +244,20 @@ const absentRecord = {
    - [x] README.md에 필드명 표준 링크 추가
    - [x] 커밋 메시지에 상세 설명 포함
 
-### 중기 계획 (Medium Priority)
+### ✅ 중기 계획 (Medium Priority - READY)
 
-4. **조회 로직 개선**
+4. **배치 마이그레이션 스크립트**
+   - [x] 통합 마이그레이션 스크립트 작성 (`scripts/migrate-add-userid.js`)
+   - [x] Dry-Run 모드 지원
+   - [x] 배치 처리 최적화 (500개씩)
+   - [x] 상세 가이드 문서 작성 (`scripts/MIGRATION_GUIDE.md`)
+   - [ ] 테스트 환경에서 검증
+   - [ ] 프로덕션 배포 (주말/야간)
+
+5. **조회 로직 개선** (선택 사항)
    - [ ] `getEmployeeContracts` 헬퍼 함수 생성
    - [ ] Fallback 패턴 적용한 공통 모듈 작성
    - [ ] 기존 쿼리 점진적 교체
-
-5. **배치 마이그레이션 스크립트**
-   - [ ] 각 컬렉션별 마이그레이션 스크립트 작성
-   - [ ] 테스트 환경에서 검증
-   - [ ] 프로덕션 배포 (주말/야간)
 
 ### 장기 계획 (Low Priority)
 
@@ -266,6 +269,19 @@ const absentRecord = {
 ---
 
 ## 📖 참고 자료
+
+### 마이그레이션 스크립트
+
+**기존 데이터 일괄 업데이트**:
+- [scripts/migrate-add-userid.js](../scripts/migrate-add-userid.js) - 마이그레이션 스크립트
+- [scripts/MIGRATION_GUIDE.md](../scripts/MIGRATION_GUIDE.md) - 실행 가이드 📚
+
+**주요 기능**:
+- ✅ Dry-Run 모드 (테스트)
+- ✅ 배치 처리 최적화 (500개씩)
+- ✅ 8개 컬렉션 통합 처리
+- ✅ 상세 로그 및 통계
+- ✅ 롤백 가이드 포함
 
 ### 컬렉션별 코드 위치
 
