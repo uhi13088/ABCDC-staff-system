@@ -155,13 +155,14 @@ const absentRecord = {
 
 | 컬렉션 | 표준 필드 | 기존 필드 (하위 호환) | 상태 |
 |--------|----------|---------------------|------|
-| **attendance** | `userId` | `uid` | 듀얼 저장 필요 |
-| **contracts** | `userId` | `employeeId` | 듀얼 저장 필요 |
+| **attendance** | `userId` | `uid` | ✅ 듀얼 저장 완료 |
+| **contracts** | `userId` | `employeeId` | ✅ 듀얼 저장 완료 |
 | **schedules** | `userId` | - | ✅ 이미 표준 |
-| **salaries** | `userId` | `employeeUid` | 듀얼 저장 필요 |
-| **approvals** | `userId` | `applicantUid` | 듀얼 저장 필요 |
-| **time_change_reports** | `userId` | `employeeUid` | 듀얼 저장 필요 |
-| **shift_requests** | `userId`, `replacementUserId` | `requesterId`, `replacementId`, `matchedUserId` | 듀얼 저장 필요 |
+| **salaries** | `userId` | `employeeUid` | ✅ 듀얼 저장 완료 |
+| **approvals** | `userId` | `applicantUid` | ✅ 듀얼 저장 완료 |
+| **time_change_reports** | `userId` | `employeeUid` | ✅ 듀얼 저장 완료 |
+| **signedContracts** | `userId` | `employeeId` | ✅ 듀얼 저장 완료 |
+| **shift_requests** | `userId`, `replacementUserId` | `requesterId`, `replacementId`, `matchedUserId` | ⚠️ 듀얼 저장 필요 |
 
 ### 특수 케이스
 
@@ -191,22 +192,29 @@ const absentRecord = {
 
 ## 🚀 Action Items
 
-### 즉시 적용 (High Priority)
+### ✅ 즉시 적용 완료 (High Priority - DONE)
 
 1. **신규 코드 작성 규칙**
-   - [ ] 모든 신규 데이터 저장 시 `userId` 필드 추가
-   - [ ] 기존 필드도 함께 저장 (듀얼 필드)
-   - [ ] 주석으로 표준 필드 명시: `// 🔥 표준 필드`
+   - [x] 모든 신규 데이터 저장 시 `userId` 필드 추가
+   - [x] 기존 필드도 함께 저장 (듀얼 필드)
+   - [x] 주석으로 표준 필드 명시: `// 🔥 표준 필드`
 
 2. **Cloud Functions 수정**
-   - [ ] `createAbsentRecords`: `userId` + `uid` 듀얼 저장
-   - [ ] `createAbsentRecordsForDate`: `userId` + `uid` 듀얼 저장
-   - [ ] 기타 Functions 점진적 수정
+   - [x] `createAbsentRecords`: `userId` + `uid` 듀얼 저장
+   - [x] `createAbsentRecordsForDate`: `userId` + `uid` 듀얼 저장
 
-3. **문서화**
-   - [x] 이 문서 작성 및 배포
-   - [ ] README.md에 필드명 표준 링크 추가
-   - [ ] 개발자 온보딩 문서에 포함
+3. **프론트엔드 코드 수정**
+   - [x] attendance: `userId` + `uid` 듀얼 저장
+   - [x] approvals: `userId` + `applicantUid` 듀얼 저장 (3곳)
+   - [x] time_change_reports: `userId` + `employeeUid` 듀얼 저장 (3곳)
+   - [x] salaries: `userId` + `employeeUid` 듀얼 저장
+   - [x] contracts: `userId` + `employeeId` 듀얼 저장
+   - [x] signedContracts: `userId` + `employeeId` 듀얼 저장
+
+4. **문서화**
+   - [x] FIELD_NAMING_STANDARD.md 작성 및 배포
+   - [x] README.md에 필드명 표준 링크 추가
+   - [x] 커밋 메시지에 상세 설명 포함
 
 ### 중기 계획 (Medium Priority)
 
@@ -281,4 +289,4 @@ const attendanceQuery = db.collection('attendance')
 필드명 표준화 관련 질문이나 제안사항은 GitHub Issues에 등록해주세요.
 
 **마지막 업데이트**: 2025-11-20
-**버전**: v1.0 (Initial Draft)
+**버전**: v1.1 (Phase 1 완료 - 듀얼 필드 적용 완료)
