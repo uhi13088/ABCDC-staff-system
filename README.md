@@ -147,6 +147,7 @@ firebase deploy --only functions
 
 - [배포 가이드](DEPLOYMENT_GUIDE.md) - Firebase 배포 절차
 - [테스트 체크리스트](PHASE2_TEST_CHECKLIST.md) - Phase 2 기능 테스트
+- [필드명 표준화 가이드](FIELD_NAMING_STANDARD.md) - 데이터 필드명 일관성 규칙 ⚠️
 
 ## 🔗 링크
 

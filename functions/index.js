@@ -396,10 +396,10 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
         
         // 🔥 멀티테넌트: companyId + storeId 기준으로 관리 (contracts에서 가져오기)
         const absentRecord = {
-          companyId: worker.companyId || null,  // 회사 ID 추가
-          storeId: worker.storeId || null,  // 매장 ID 추가
-          uid: worker.employeeId,
-          userId: worker.employeeId,  // 일관성: userId 필드 추가
+          companyId: worker.companyId || null,  // 회사 ID
+          storeId: worker.storeId || null,      // 매장 ID
+          userId: worker.employeeId,            // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+          uid: worker.employeeId,               // 하위 호환성 (기존 코드 지원)
           name: worker.employeeName,
           store: worker.workStore,  // 호환성: 매장명 문자열
           date: yesterdayStr,
@@ -588,8 +588,8 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
         const absentRecord = {
           companyId: worker.companyId || null,  // 회사 ID
           storeId: worker.storeId || null,      // 매장 ID
-          uid: worker.employeeId,               // 호환성
-          userId: worker.employeeId,            // 표준 필드
+          userId: worker.employeeId,            // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+          uid: worker.employeeId,               // 하위 호환성 (기존 코드 지원)
           name: worker.employeeName,
           store: worker.workStore,              // 호환성
           date: targetDate,
