@@ -159,7 +159,12 @@ firebase deploy --only functions
 - ✅ **Legacy 코드 제거**: Google Apps Script 의존성 완전 제거 (703 lines)
 - ✅ **브랜드 관리 시스템**: 다중 브랜드 관리 기능 추가 (회사 → 브랜드 → 매장)
 - ✅ **야간근무 버그 수정**: 새벽 출근(05:00~14:00) 야간수당 누락 해결
-- ✅ **Firestore Rules v3.5**: staff/manager 본인 데이터 쿼리 권한 허용 (companyId 필터 필수)
+- ✅ **Firestore Rules v3.6 (Final)**: 
+  - 헬퍼 함수 최적화 (getUserData 중심)
+  - brands/salaries 컬렉션 규칙 추가
+  - shift_requests update 보안 강화 (임의 수정 방지)
+  - 비즈니스 로직 완벽 구현 (대타 구하기)
+  - 코드 간소화 (555 lines → 331 lines, -224 lines)
 - ✅ **직원 포털 권한 오류 해결**: 계약서 Fallback 쿼리 제거 (보안 규칙 준수)
 
 ### 2025-01-19 - 보안 강화
