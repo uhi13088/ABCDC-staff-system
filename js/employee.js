@@ -2054,6 +2054,7 @@ async function loadMyApprovals() {
     const typeEmoji = {
       'purchase': '💳',
       'disposal': '🗑️',
+      'absence': '🏥',
       'resignation': '📄',
       'shift': '🔄'
     };
@@ -2061,6 +2062,7 @@ async function loadMyApprovals() {
     const typeText = {
       'purchase': '구매',
       'disposal': '폐기',
+      'absence': '결근',
       'resignation': '퇴직서',
       'shift': '교대근무'
     };
@@ -2082,6 +2084,8 @@ async function loadMyApprovals() {
         summary = items.length > 0 ? `${items[0].item} 외 ${items.length - 1}건` : '-';
       } else if (request.type === 'disposal') {
         summary = `${request.data?.category || '-'}`;
+      } else if (request.type === 'absence') {
+        summary = `${request.data?.date || '-'} ${request.data?.startTime || ''}-${request.data?.endTime || ''}`;
       } else if (request.type === 'resignation') {
         summary = `희망일: ${request.data?.resignationDate || '-'}`;
       } else if (request.type === 'shift') {
@@ -2333,6 +2337,92 @@ async function submitDisposalRequest() {
   }
 }
 
+// ===================================================================
+// 결근 신청 (Absence Request)
+// ===================================================================
+
+// 결근 신청 모달 열기
+function showAbsenceRequestModal() {
+  document.getElementById('absenceRequestModal').style.display = 'flex';
+  
+  // 초기화
+  document.getElementById('absenceDate').value = '';
+  document.getElementById('absenceStartTime').value = '';
+  document.getElementById('absenceEndTime').value = '';
+  document.getElementById('absenceReason').value = '';
+  
+  // 오늘 날짜 기본값 설정
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('absenceDate').value = today;
+}
+
+function closeAbsenceRequestModal() {
+  document.getElementById('absenceRequestModal').style.display = 'none';
+}
+
+// 결근 신청 제출
+async function submitAbsenceRequest() {
+  console.log('🏥 submitAbsenceRequest 호출, currentUser:', currentUser);
+  
+  if (!currentUser) {
+    alert('❌ 로그인이 필요합니다.');
+    return;
+  }
+  
+  const date = document.getElementById('absenceDate').value;
+  const startTime = document.getElementById('absenceStartTime').value;
+  const endTime = document.getElementById('absenceEndTime').value;
+  const reason = document.getElementById('absenceReason').value.trim();
+  
+  // 유효성 검사
+  if (!date || !startTime || !endTime || !reason) {
+    alert('⚠️ 모든 항목을 입력해주세요.');
+    return;
+  }
+  
+  // 시간 검증
+  if (startTime >= endTime) {
+    alert('⚠️ 종료 시간은 시작 시간보다 늦어야 합니다.');
+    return;
+  }
+  
+  try {
+    console.log('📤 Firestore에 결근 신청 저장 시도:', { 
+      date, startTime, endTime, reason, currentUser 
+    });
+    
+    await db.collection('approvals').add({
+      type: 'absence',
+      userId: currentUser.uid,          // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+      applicantUid: currentUser.uid,    // 하위 호환성 (기존 코드 지원)
+      applicantName: currentUser.name,
+      applicantEmail: currentUser.email,
+      companyId: currentUser.companyId,
+      storeId: currentUser.storeId,
+      status: 'pending',
+      data: {
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        reason: reason,
+        storeName: currentUser.store || '매장 정보 없음'
+      },
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log('✅ 결근 신청 저장 성공');
+    alert('✅ 결근 신청이 완료되었습니다.\n\n관리자 승인 후 효력이 발생합니다.');
+    closeAbsenceRequestModal();
+    loadMyApprovals();
+    
+  } catch (error) {
+    console.error('❌ 결근 신청 실패 상세:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    alert(`❌ 신청에 실패했습니다.\n\n${error.message}\n\n개발자 도구 콘솔을 확인해주세요.`);
+  }
+}
+
 // 퇴직서 신청 모달 열기
 let resignationCanvas;
 let resignationCtx;
@@ -2532,6 +2622,7 @@ async function viewMyApprovalDetail(approvalId) {
     const typeText = {
       'purchase': '구매 신청',
       'disposal': '폐기 신청',
+      'absence': '결근 신청',
       'resignation': '퇴직서 신청'
     };
     
@@ -2561,6 +2652,13 @@ async function viewMyApprovalDetail(approvalId) {
     } else if (approval.type === 'disposal') {
       detailHtml = `
         <p><strong>품목:</strong> ${approval.data?.category || '-'}</p>
+        <p><strong>사유:</strong> ${approval.data?.reason || '-'}</p>
+      `;
+    } else if (approval.type === 'absence') {
+      detailHtml = `
+        <p><strong>결근 날짜:</strong> ${approval.data?.date || '-'}</p>
+        <p><strong>시간:</strong> ${approval.data?.startTime || '-'} ~ ${approval.data?.endTime || '-'}</p>
+        <p><strong>매장:</strong> ${approval.data?.storeName || '-'}</p>
         <p><strong>사유:</strong> ${approval.data?.reason || '-'}</p>
       `;
     } else if (approval.type === 'resignation') {

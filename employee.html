@@ -206,6 +206,7 @@
             <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
               <button class="btn btn-primary btn-sm" onclick="showPurchaseRequestModal()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>구매 신청</button>
               <button class="btn btn-primary btn-sm" onclick="showDisposalRequestModal()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>폐기 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showAbsenceRequestModal()" style="background: #ff6b6b;"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>결근 신청</button>
               <button class="btn btn-primary btn-sm" onclick="showResignationRequestModal()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>퇴직서 신청</button>
               <button class="btn btn-primary btn-sm" onclick="showShiftRequestModal()" style="background: var(--info-color);">교대근무 신청</button>
             </div>
@@ -410,6 +411,47 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeDisposalRequestModal()">취소</button>
         <button class="btn btn-primary" onclick="submitDisposalRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결근 신청 모달 -->
+  <div id="absenceRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>결근 신청</h3>
+        <button class="modal-close" onclick="closeAbsenceRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" style="margin-bottom: var(--spacing-md);">
+          <strong>💡 안내</strong><br>
+          결근 신청은 관리자의 승인이 필요합니다. 승인 시 대타 모집 공고가 자동으로 생성될 수 있습니다.
+        </div>
+        
+        <div class="form-group">
+          <label>결근 날짜 <span style="color: var(--danger-color);">*</span></label>
+          <input type="date" id="absenceDate" style="width: 100%;">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>시작 시간 <span style="color: var(--danger-color);">*</span></label>
+            <input type="time" id="absenceStartTime" style="width: 100%;">
+          </div>
+          <div class="form-group">
+            <label>종료 시간 <span style="color: var(--danger-color);">*</span></label>
+            <input type="time" id="absenceEndTime" style="width: 100%;">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>결근 사유 <span style="color: var(--danger-color);">*</span></label>
+          <textarea id="absenceReason" rows="4" placeholder="결근 사유를 상세히 작성해주세요.&#10;&#10;예시:&#10;- 개인 사정으로 인한 결근&#10;- 병원 진료 예약&#10;- 가족 경조사"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAbsenceRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitAbsenceRequest()">신청하기</button>
       </div>
     </div>
   </div>
