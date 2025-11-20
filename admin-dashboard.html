@@ -6900,7 +6900,6 @@
     // ===================================================================
     
     const CONFIG = {
-      APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_URL_HERE',
       STORES: [
         { id: 'busan_city', name: '부천시청점', address: '경기도 부천시 원미구' },
         { id: 'sangdong', name: '상동점', address: '경기도 부천시 상동' },
@@ -6958,7 +6957,6 @@
         DATETIME_DISPLAY: 'YYYY-MM-DD HH:mm:ss',
         TIME_DISPLAY: 'HH:mm'
       },
-      API_TIMEOUT: 30000,
       AUTO_CONFIRM_TIME: '00:00',
       DATA_RETENTION_YEARS: 2,
       DEBUG_MODE: true
@@ -6978,10 +6976,6 @@
       }
       
       return value;
-    }
-
-    function isConfigured() {
-      return CONFIG.APPS_SCRIPT_URL && CONFIG.APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE';
     }
 
     function debugLog(...args) {
