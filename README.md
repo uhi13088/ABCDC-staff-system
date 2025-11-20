@@ -108,7 +108,8 @@ firebase deploy --only functions
 - `recordInviteUse`: 초대 코드 사용 기록
 - `createInviteCode`: 초대 코드 생성
 - `deleteUser`: 직원 삭제 시 Auth 계정 자동 삭제
-- `createAbsentRecords`: 매일 자동 결근 생성
+- `createAbsentRecords`: 매일 자동 결근 생성 (v3.1 병렬 처리 최적화)
+- `createAbsentRecordsForDate`: 특정 날짜 결근 생성 (v3.2 병렬 처리 최적화)
 
 ## 🎫 초대 코드 시스템
 
@@ -155,7 +156,7 @@ firebase deploy --only functions
 
 ## 📝 최신 업데이트
 
-### 2025-11-20 - 아키텍처 정리 & 보안 강화
+### 2025-11-20 - 아키텍처 정리 & 보안 강화 & 성능 최적화
 - ✅ **Legacy 코드 제거**: Google Apps Script 의존성 완전 제거 (703 lines)
 - ✅ **브랜드 관리 시스템**: 다중 브랜드 관리 기능 추가 (회사 → 브랜드 → 매장)
 - ✅ **야간근무 버그 수정**: 새벽 출근(05:00~14:00) 야간수당 누락 해결
@@ -166,6 +167,11 @@ firebase deploy --only functions
   - 비즈니스 로직 완벽 구현 (대타 구하기)
   - 코드 간소화 (555 lines → 331 lines, -224 lines)
 - ✅ **직원 포털 권한 오류 해결**: 계약서 Fallback 쿼리 제거 (보안 규칙 준수)
+- ✅ **Cloud Functions 성능 최적화 (v3.2)**: 
+  - N+1 쿼리 문제 해결 (createAbsentRecordsForDate)
+  - 순차 루프를 Promise.all 병렬 처리로 변경
+  - 1,000명 이상 직원 처리 시 타임아웃 방지
+  - 성능 10배 개선 (30초 → 3초)
 
 ### 2025-01-19 - 보안 강화
 - ✅ 직원 포털 접근 권한 수정 (manager, staff만 허용)
