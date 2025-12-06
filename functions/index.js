@@ -360,14 +360,12 @@ exports.cleanupOldResignedUsers = functions.https.onRequest(async (req, res) => 
       });
     }
     
-    // 배치 삭제
-    const batch = admin.firestore().batch();
-    const deletedUsers = [];
-    
+    // 삭제 대상 사용자 목록 수집
+    const usersToDelete = [];
     usersSnapshot.forEach(doc => {
       const userData = doc.data();
-      batch.delete(doc.ref);
-      deletedUsers.push({
+      usersToDelete.push({
+        ref: doc.ref,
         uid: doc.id,
         name: userData.name,
         email: userData.email,
@@ -376,10 +374,39 @@ exports.cleanupOldResignedUsers = functions.https.onRequest(async (req, res) => 
       console.log(`📋 삭제 예정: ${userData.name} (${userData.email}) - 퇴사일: ${userData.resignedAt?.toDate()}`);
     });
     
-    // 일괄 삭제 실행
-    await batch.commit();
+    // 🔥 Firestore Batch 500개 제한 대응: 청크 단위로 분할 처리
+    const BATCH_SIZE = 500;
+    const chunks = [];
     
-    console.log(`✅ ${deletedUsers.length}명의 퇴사자 문서 삭제 완료`);
+    for (let i = 0; i < usersToDelete.length; i += BATCH_SIZE) {
+      chunks.push(usersToDelete.slice(i, i + BATCH_SIZE));
+    }
+    
+    console.log(`📦 ${usersToDelete.length}명을 ${chunks.length}개 청크로 분할 (청크당 최대 ${BATCH_SIZE}개)`);
+    
+    // 각 청크별로 배치 삭제 (병렬 처리)
+    await Promise.all(
+      chunks.map(async (chunk, chunkIndex) => {
+        const batch = admin.firestore().batch();
+        
+        chunk.forEach((user) => {
+          batch.delete(user.ref);
+        });
+        
+        await batch.commit();
+        console.log(`✅ 청크 ${chunkIndex + 1}/${chunks.length} 삭제 완료: ${chunk.length}개`);
+      })
+    );
+    
+    console.log(`✅ 전체 퇴사자 문서 삭제 완료: ${usersToDelete.length}명`);
+    
+    // 삭제된 사용자 목록 (ref 제외)
+    const deletedUsers = usersToDelete.map(({ uid, name, email, resignedAt }) => ({
+      uid,
+      name,
+      email,
+      resignedAt
+    }));
     
     return res.status(200).json({
       success: true,
@@ -494,9 +521,6 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
     }
     
     // 3. attendance 기록 확인 및 결근 기록 생성 (병렬 처리)
-    const createdRecords = [];
-    const batch = db.batch();
-    
     // 🔥 Promise.all로 병렬 처리 (N+1 문제 해결)
     const attendanceChecks = await Promise.all(
       workersYesterday.map(async (worker) => {
@@ -519,51 +543,84 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
       })
     );
     
-    // 결근 기록 생성
-    for (const { worker, hasAttendance } of attendanceChecks) {
-      if (!hasAttendance) {
-        const newAbsentRef = db.collection('attendance').doc();
-        
-        // 🔥 멀티테넌트: companyId + storeId 기준으로 관리 (contracts에서 가져오기)
-        const absentRecord = {
-          companyId: worker.companyId || null,  // 회사 ID
-          storeId: worker.storeId || null,      // 매장 ID
-          userId: worker.employeeId,            // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
-          uid: worker.employeeId,               // 하위 호환성 (기존 코드 지원)
-          name: worker.employeeName,
-          store: worker.workStore,  // 호환성: 매장명 문자열
-          date: yesterdayStr,
-          status: 'absent',
-          clockIn: null,
-          clockOut: null,
-          workType: '계약',
-          autoCreated: true, // 자동 생성 표시
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-        
-        batch.set(newAbsentRef, absentRecord);
-        
-        createdRecords.push({
-          id: newAbsentRef.id,
-          name: worker.employeeName,
-          store: worker.workStore,
-          date: yesterdayStr
-        });
-        
-        console.log(`➕ 결근 기록 생성: ${worker.employeeName} (${worker.workStore}) - ${yesterdayStr}`);
-      } else {
-        console.log(`✓ 출근 기록 존재: ${worker.employeeName} (${worker.workStore})`);
-      }
+    // 결근 대상자만 필터링
+    const absentWorkers = attendanceChecks
+      .filter(({ hasAttendance }) => !hasAttendance)
+      .map(({ worker }) => worker);
+    
+    console.log(`📊 출근 기록 확인 완료: ${attendanceChecks.length}명 중 ${absentWorkers.length}명 결근`);
+    
+    if (absentWorkers.length === 0) {
+      console.log(`✓ 생성할 결근 기록 없음 (모두 출근 기록 존재)`);
+      return res.status(200).json({
+        success: true,
+        message: '생성할 결근 기록이 없습니다.',
+        date: yesterdayStr,
+        dayOfWeek: yesterdayDayName,
+        totalWorkers: workersYesterday.length,
+        createdCount: 0,
+        createdRecords: []
+      });
     }
     
-    // 4. 배치 커밋
-    if (createdRecords.length > 0) {
-      await batch.commit();
-      console.log(`✅ ${createdRecords.length}명의 결근 기록 생성 완료`);
-    } else {
-      console.log(`✓ 생성할 결근 기록 없음 (모두 출근 기록 존재)`);
+    // 4. 🔥 Firestore Batch 500개 제한 대응: 청크 단위로 분할 처리
+    const BATCH_SIZE = 500;
+    const chunks = [];
+    
+    for (let i = 0; i < absentWorkers.length; i += BATCH_SIZE) {
+      chunks.push(absentWorkers.slice(i, i + BATCH_SIZE));
     }
+    
+    console.log(`📦 ${absentWorkers.length}명을 ${chunks.length}개 청크로 분할 (청크당 최대 ${BATCH_SIZE}개)`);
+    
+    // 5. 각 청크별로 배치 처리 (병렬)
+    const chunkResults = await Promise.all(
+      chunks.map(async (chunk, chunkIndex) => {
+        const batch = db.batch();
+        const chunkRecords = [];
+        
+        chunk.forEach((worker) => {
+          const newAbsentRef = db.collection('attendance').doc();
+          
+          // 🔥 멀티테넌트: companyId + storeId 기준으로 관리
+          const absentRecord = {
+            companyId: worker.companyId || null,  // 회사 ID
+            storeId: worker.storeId || null,      // 매장 ID
+            userId: worker.employeeId,            // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+            uid: worker.employeeId,               // 하위 호환성 (기존 코드 지원)
+            name: worker.employeeName,
+            store: worker.workStore,  // 호환성: 매장명 문자열
+            date: yesterdayStr,
+            status: 'absent',
+            clockIn: null,
+            clockOut: null,
+            workType: '계약',
+            autoCreated: true, // 자동 생성 표시
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          };
+          
+          batch.set(newAbsentRef, absentRecord);
+          
+          chunkRecords.push({
+            id: newAbsentRef.id,
+            name: worker.employeeName,
+            store: worker.workStore,
+            date: yesterdayStr
+          });
+        });
+        
+        // 청크별 커밋
+        await batch.commit();
+        console.log(`✅ 청크 ${chunkIndex + 1}/${chunks.length} 커밋 완료: ${chunkRecords.length}개`);
+        
+        return chunkRecords;
+      })
+    );
+    
+    // 6. 모든 청크 결과 합산
+    const createdRecords = chunkResults.flat();
+    console.log(`✅ 전체 결근 기록 생성 완료: ${createdRecords.length}명`);
     
     return res.status(200).json({
       success: true,
@@ -703,10 +760,6 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
     }
     
     // 3. attendance 기록 확인 및 결근 기록 생성 (v3.2 성능 최적화 - N+1 문제 해결)
-    const createdRecords = [];
-    const existingRecords = [];
-    const batch = db.batch();
-    
     // 🔥 최적화: 모든 직원의 출석 여부를 병렬로 확인
     const attendanceChecks = await Promise.all(
       workersOnDate.map(async (worker) => {
@@ -729,57 +782,95 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
       })
     );
     
-    // 결과 처리 및 배치 작업 구성
-    attendanceChecks.forEach(({ worker, hasAttendance }) => {
-      if (!hasAttendance) {
-        // attendance 기록이 없으면 결근 기록 생성
-        const newAbsentRef = db.collection('attendance').doc();
-        
-        // 🔥 멀티테넌트: companyId + storeId 기준으로 관리
-        const absentRecord = {
-          companyId: worker.companyId || null,  // 회사 ID
-          storeId: worker.storeId || null,      // 매장 ID
-          userId: worker.employeeId,            // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
-          uid: worker.employeeId,               // 하위 호환성 (기존 코드 지원)
-          name: worker.employeeName,
-          store: worker.workStore,              // 호환성
-          date: targetDate,
-          status: 'absent',
-          clockIn: null,
-          clockOut: null,
-          workType: '계약',
-          autoCreated: true,
-          manuallyCreated: true, // 수동 트리거 표시
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-        
-        batch.set(newAbsentRef, absentRecord);
-        
-        createdRecords.push({
-          id: newAbsentRef.id,
-          name: worker.employeeName,
-          store: worker.workStore,
-          date: targetDate
-        });
-        
-        console.log(`➕ 결근 기록 생성: ${worker.employeeName} (${worker.workStore})`);
-      } else {
-        existingRecords.push({
-          name: worker.employeeName,
-          store: worker.workStore
-        });
-        // console.log(`✓ 출근 기록 존재: ${worker.employeeName}`); // 로그 과다 방지
-      }
-    });
+    // 결근 대상자만 필터링
+    const absentWorkers = attendanceChecks
+      .filter(({ hasAttendance }) => !hasAttendance)
+      .map(({ worker }) => worker);
     
-    // 4. 배치 커밋
-    if (createdRecords.length > 0) {
-      await batch.commit();
-      console.log(`✅ ${createdRecords.length}명의 결근 기록 생성 완료`);
-    } else {
+    // 출근 기록이 있는 직원
+    const existingRecords = attendanceChecks
+      .filter(({ hasAttendance }) => hasAttendance)
+      .map(({ worker }) => ({
+        name: worker.employeeName,
+        store: worker.workStore
+      }));
+    
+    console.log(`📊 출근 기록 확인 완료: ${attendanceChecks.length}명 중 ${absentWorkers.length}명 결근`);
+    
+    if (absentWorkers.length === 0) {
       console.log(`✓ 생성할 결근 기록 없음`);
+      return res.status(200).json({
+        success: true,
+        message: '생성할 결근 기록이 없습니다.',
+        date: targetDate,
+        dayOfWeek: targetDayName,
+        totalWorkers: workersOnDate.length,
+        createdCount: 0,
+        existingCount: existingRecords.length,
+        createdRecords: [],
+        existingRecords: existingRecords
+      });
     }
+    
+    // 4. 🔥 Firestore Batch 500개 제한 대응: 청크 단위로 분할 처리
+    const BATCH_SIZE = 500;
+    const chunks = [];
+    
+    for (let i = 0; i < absentWorkers.length; i += BATCH_SIZE) {
+      chunks.push(absentWorkers.slice(i, i + BATCH_SIZE));
+    }
+    
+    console.log(`📦 ${absentWorkers.length}명을 ${chunks.length}개 청크로 분할 (청크당 최대 ${BATCH_SIZE}개)`);
+    
+    // 5. 각 청크별로 배치 처리 (병렬)
+    const chunkResults = await Promise.all(
+      chunks.map(async (chunk, chunkIndex) => {
+        const batch = db.batch();
+        const chunkRecords = [];
+        
+        chunk.forEach((worker) => {
+          const newAbsentRef = db.collection('attendance').doc();
+          
+          // 🔥 멀티테넌트: companyId + storeId 기준으로 관리
+          const absentRecord = {
+            companyId: worker.companyId || null,  // 회사 ID
+            storeId: worker.storeId || null,      // 매장 ID
+            userId: worker.employeeId,            // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
+            uid: worker.employeeId,               // 하위 호환성 (기존 코드 지원)
+            name: worker.employeeName,
+            store: worker.workStore,              // 호환성
+            date: targetDate,
+            status: 'absent',
+            clockIn: null,
+            clockOut: null,
+            workType: '계약',
+            autoCreated: true,
+            manuallyCreated: true, // 수동 트리거 표시
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          };
+          
+          batch.set(newAbsentRef, absentRecord);
+          
+          chunkRecords.push({
+            id: newAbsentRef.id,
+            name: worker.employeeName,
+            store: worker.workStore,
+            date: targetDate
+          });
+        });
+        
+        // 청크별 커밋
+        await batch.commit();
+        console.log(`✅ 청크 ${chunkIndex + 1}/${chunks.length} 커밋 완료: ${chunkRecords.length}개`);
+        
+        return chunkRecords;
+      })
+    );
+    
+    // 6. 모든 청크 결과 합산
+    const createdRecords = chunkResults.flat();
+    console.log(`✅ 전체 결근 기록 생성 완료: ${createdRecords.length}명`);
     
     return res.status(200).json({
       success: true,
