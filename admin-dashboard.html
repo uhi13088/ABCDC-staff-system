@@ -505,6 +505,8 @@
               <thead>
                 <tr>
                   <th>브랜드명</th>
+                  <th>로고</th>
+                  <th>색상</th>
                   <th>설명</th>
                   <th>소속 매장 수</th>
                   <th>생성일</th>
@@ -695,6 +697,46 @@
         <div class="form-group">
           <label for="brandDescription">설명</label>
           <textarea id="brandDescription" placeholder="브랜드에 대한 간단한 설명" rows="3"></textarea>
+        </div>
+        
+        <!-- 브랜드 로고 업로드 -->
+        <div class="form-group">
+          <label for="brandLogo">브랜드 로고</label>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="file" id="brandLogoFile" accept="image/*" style="flex: 1;" onchange="previewBrandLogo(event)">
+            <button type="button" class="btn btn-secondary" onclick="clearBrandLogo()" style="padding: 8px 16px;">삭제</button>
+          </div>
+          <div id="brandLogoPreview" style="margin-top: 10px; display: none;">
+            <img id="brandLogoImg" src="" alt="로고 미리보기" style="max-width: 200px; max-height: 100px; border: 1px solid #ddd; border-radius: 4px; padding: 5px;">
+          </div>
+          <input type="hidden" id="brandLogoUrl">
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            ℹ️ 권장 크기: 200x100px, PNG 또는 JPG
+          </div>
+        </div>
+        
+        <!-- 브랜드 색상 설정 -->
+        <div class="form-group">
+          <label>브랜드 색상</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label for="brandPrimaryColor" style="font-size: 13px; color: var(--text-secondary);">주 색상 (Primary)</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="color" id="brandPrimaryColor" value="#4CAF50" style="width: 50px; height: 35px; border: none; border-radius: 4px; cursor: pointer;">
+                <input type="text" id="brandPrimaryColorHex" value="#4CAF50" placeholder="#4CAF50" style="flex: 1; padding: 8px;" oninput="updateColorPickerFromHex('Primary')">
+              </div>
+            </div>
+            <div>
+              <label for="brandSecondaryColor" style="font-size: 13px; color: var(--text-secondary);">보조 색상 (Secondary)</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="color" id="brandSecondaryColor" value="#2196F3" style="width: 50px; height: 35px; border: none; border-radius: 4px; cursor: pointer;">
+                <input type="text" id="brandSecondaryColorHex" value="#2196F3" placeholder="#2196F3" style="flex: 1; padding: 8px;" oninput="updateColorPickerFromHex('Secondary')">
+              </div>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+            ℹ️ 설정한 색상은 해당 브랜드 직원 및 관리자 대시보드에 적용됩니다.
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -1199,8 +1241,45 @@
         const company = companyDoc.data();
         console.log('🎨 회사 브랜딩 정보:', company);
         
-        // 브랜드명 (brandName이 없으면 companyName 사용)
-        const brandName = company.brandName || company.companyName || company.name || '관리자 대시보드';
+        // 기본 브랜드명 (brandName이 없으면 companyName 사용)
+        let brandName = company.brandName || company.companyName || company.name || '관리자 대시보드';
+        let logoUrl = company.logoUrl;
+        let primaryColor = company.primaryColor;
+        let secondaryColor = company.secondaryColor;
+        
+        // 🎨 사용자가 특정 매장에 소속되어 있다면 해당 매장의 브랜드 테마 적용
+        if (currentUser && currentUser.storeId) {
+          try {
+            const storeDoc = await firebase.firestore().collection('stores').doc(currentUser.storeId).get();
+            
+            if (storeDoc.exists) {
+              const store = storeDoc.data();
+              console.log('🏪 매장 정보:', store);
+              
+              // 매장에 브랜드가 연결되어 있으면 해당 브랜드 테마 적용
+              if (store.brandId) {
+                const brandDoc = await firebase.firestore().collection('brands').doc(store.brandId).get();
+                
+                if (brandDoc.exists) {
+                  const brand = brandDoc.data();
+                  console.log('🏷️ 브랜드 정보:', brand);
+                  
+                  // 브랜드 정보로 덮어쓰기
+                  brandName = brand.name || brandName;
+                  logoUrl = brand.logoUrl || logoUrl;
+                  primaryColor = brand.primaryColor || primaryColor;
+                  secondaryColor = brand.secondaryColor || secondaryColor;
+                  
+                  console.log('✅ 브랜드 테마 적용됨:', brand.name);
+                }
+              }
+            }
+          } catch (storeError) {
+            console.warn('⚠️ 매장/브랜드 정보 로드 실패 (기본 회사 정보 사용):', storeError);
+          }
+        }
+        
+        // 브랜드명 표시
         document.getElementById('companyBrandName').textContent = brandName;
         
         // 페이지 타이틀에도 반영
@@ -1210,8 +1289,8 @@
         const logoImg = document.getElementById('companyLogo');
         const defaultIcon = document.getElementById('defaultIcon');
         
-        if (company.logoUrl) {
-          logoImg.src = company.logoUrl;
+        if (logoUrl) {
+          logoImg.src = logoUrl;
           logoImg.style.display = 'block';
           defaultIcon.style.display = 'none';
         } else {
@@ -1219,9 +1298,13 @@
           defaultIcon.style.display = 'block';
         }
         
-        // 브랜드 색상이 있으면 CSS 변수로 적용 (선택 사항)
-        if (company.primaryColor) {
-          document.documentElement.style.setProperty('--primary-color', company.primaryColor);
+        // 브랜드 색상이 있으면 CSS 변수로 적용
+        if (primaryColor) {
+          document.documentElement.style.setProperty('--primary-color', primaryColor);
+        }
+        
+        if (secondaryColor) {
+          document.documentElement.style.setProperty('--secondary-color', secondaryColor);
         }
         
         console.log('✅ 브랜딩 정보 로드 완료:', brandName);
@@ -5801,7 +5884,7 @@
         if (snapshot.empty) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                 <p style="margin-bottom: 16px;">등록된 브랜드가 없습니다.</p>
                 <button class="btn btn-primary" onclick="showAddBrandModal()">+ 첫 브랜드 추가하기</button>
               </td>
@@ -5828,9 +5911,24 @@
           const createdAt = brand.createdAt ? 
             new Date(brand.createdAt.seconds * 1000).toLocaleDateString('ko-KR') : '-';
           
+          // 로고 표시
+          const logoHtml = brand.logoUrl ? 
+            `<img src="${brand.logoUrl}" alt="${brand.name} 로고" style="max-width: 80px; max-height: 40px; object-fit: contain; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px;">` : 
+            '<span style="color: var(--text-secondary); font-size: 12px;">-</span>';
+          
+          // 색상 표시
+          const colorHtml = `
+            <div style="display: flex; gap: 4px; align-items: center;">
+              <div style="width: 24px; height: 24px; background: ${brand.primaryColor || '#4CAF50'}; border: 1px solid var(--border-color); border-radius: 4px;" title="주 색상: ${brand.primaryColor || '#4CAF50'}"></div>
+              <div style="width: 24px; height: 24px; background: ${brand.secondaryColor || '#2196F3'}; border: 1px solid var(--border-color); border-radius: 4px;" title="보조 색상: ${brand.secondaryColor || '#2196F3'}"></div>
+            </div>
+          `;
+          
           const row = `
             <tr>
               <td><strong>${brand.name}</strong></td>
+              <td style="text-align: center;">${logoHtml}</td>
+              <td style="text-align: center;">${colorHtml}</td>
               <td>${brand.description || '-'}</td>
               <td>${storeCount}개</td>
               <td>${createdAt}</td>
@@ -5847,7 +5945,7 @@
         console.error('❌ 브랜드 목록 조회 오류:', error);
         document.getElementById('brandsTableBody').innerHTML = `
           <tr>
-            <td colspan="5" style="text-align: center; padding: 40px; color: var(--danger);">
+            <td colspan="7" style="text-align: center; padding: 40px; color: var(--danger);">
               ❌ 브랜드 목록을 불러올 수 없습니다.<br>${error.message}
             </td>
           </tr>
@@ -5884,6 +5982,24 @@
         document.getElementById('editBrandId').value = brandId;
         document.getElementById('brandName').value = brand.name || '';
         document.getElementById('brandDescription').value = brand.description || '';
+        
+        // 로고 미리보기
+        if (brand.logoUrl) {
+          document.getElementById('brandLogoUrl').value = brand.logoUrl;
+          document.getElementById('brandLogoImg').src = brand.logoUrl;
+          document.getElementById('brandLogoPreview').style.display = 'block';
+        } else {
+          clearBrandLogo();
+        }
+        
+        // 색상 설정
+        const primaryColor = brand.primaryColor || '#4CAF50';
+        const secondaryColor = brand.secondaryColor || '#2196F3';
+        document.getElementById('brandPrimaryColor').value = primaryColor;
+        document.getElementById('brandPrimaryColorHex').value = primaryColor;
+        document.getElementById('brandSecondaryColor').value = secondaryColor;
+        document.getElementById('brandSecondaryColorHex').value = secondaryColor;
+        
         document.getElementById('brandModal').style.display = 'flex';
         
       } catch (error) {
@@ -5895,8 +6011,103 @@
     /**
      * 브랜드 모달 닫기
      */
+    /**
+     * 브랜드 로고 미리보기
+     */
+    function previewBrandLogo(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('brandLogoImg').src = e.target.result;
+          document.getElementById('brandLogoPreview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    
+    /**
+     * 브랜드 로고 삭제
+     */
+    function clearBrandLogo() {
+      document.getElementById('brandLogoFile').value = '';
+      document.getElementById('brandLogoUrl').value = '';
+      document.getElementById('brandLogoPreview').style.display = 'none';
+      document.getElementById('brandLogoImg').src = '';
+    }
+    
+    /**
+     * 색상 Picker와 Hex 입력 동기화
+     */
+    function updateColorPickerFromHex(type) {
+      const hexInput = document.getElementById(`brand${type}ColorHex`);
+      const colorPicker = document.getElementById(`brand${type}Color`);
+      
+      let hexValue = hexInput.value.trim();
+      if (!hexValue.startsWith('#')) {
+        hexValue = '#' + hexValue;
+      }
+      
+      // 유효한 hex 색상인지 확인
+      if (/^#[0-9A-F]{6}$/i.test(hexValue)) {
+        colorPicker.value = hexValue;
+        hexInput.value = hexValue;
+      }
+    }
+    
+    // 색상 Picker 변경 시 Hex 입력 업데이트
+    document.addEventListener('DOMContentLoaded', function() {
+      const primaryPicker = document.getElementById('brandPrimaryColor');
+      const secondaryPicker = document.getElementById('brandSecondaryColor');
+      
+      if (primaryPicker) {
+        primaryPicker.addEventListener('input', function(e) {
+          document.getElementById('brandPrimaryColorHex').value = e.target.value.toUpperCase();
+        });
+      }
+      
+      if (secondaryPicker) {
+        secondaryPicker.addEventListener('input', function(e) {
+          document.getElementById('brandSecondaryColorHex').value = e.target.value.toUpperCase();
+        });
+      }
+    });
+    
+    /**
+     * 브랜드 로고 Firebase Storage에 업로드
+     */
+    async function uploadBrandLogo(file, brandId) {
+      try {
+        const timestamp = Date.now();
+        const fileName = `brand_logos/${currentUser.companyId}/${brandId}_${timestamp}.${file.name.split('.').pop()}`;
+        const storageRef = firebase.storage().ref(fileName);
+        
+        // 파일 업로드
+        const uploadTask = await storageRef.put(file);
+        
+        // 다운로드 URL 가져오기
+        const downloadURL = await uploadTask.ref.getDownloadURL();
+        
+        console.log('✅ 브랜드 로고 업로드 완료:', downloadURL);
+        return downloadURL;
+        
+      } catch (error) {
+        console.error('❌ 로고 업로드 실패:', error);
+        throw new Error('로고 업로드에 실패했습니다.');
+      }
+    }
+    
     function closeBrandModal() {
       document.getElementById('brandModal').style.display = 'none';
+      // 모달 닫을 때 입력값 초기화
+      document.getElementById('editBrandId').value = '';
+      document.getElementById('brandName').value = '';
+      document.getElementById('brandDescription').value = '';
+      clearBrandLogo();
+      document.getElementById('brandPrimaryColorHex').value = '#4CAF50';
+      document.getElementById('brandPrimaryColor').value = '#4CAF50';
+      document.getElementById('brandSecondaryColorHex').value = '#2196F3';
+      document.getElementById('brandSecondaryColor').value = '#2196F3';
     }
 
     /**
@@ -5906,6 +6117,10 @@
       const brandId = document.getElementById('editBrandId').value;
       const name = document.getElementById('brandName').value.trim();
       const description = document.getElementById('brandDescription').value.trim();
+      const logoFile = document.getElementById('brandLogoFile').files[0];
+      const logoUrl = document.getElementById('brandLogoUrl').value;
+      const primaryColor = document.getElementById('brandPrimaryColorHex').value.trim();
+      const secondaryColor = document.getElementById('brandSecondaryColorHex').value.trim();
       
       if (!name) {
         alert('⚠️ 브랜드명을 입력해주세요.');
@@ -5917,8 +6132,19 @@
           companyId: currentUser.companyId,
           name: name,
           description: description,
+          primaryColor: primaryColor || '#4CAF50',
+          secondaryColor: secondaryColor || '#2196F3',
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
+        
+        // 로고 업로드 처리
+        if (logoFile) {
+          const logoUploadUrl = await uploadBrandLogo(logoFile, brandId || 'new');
+          brandData.logoUrl = logoUploadUrl;
+        } else if (logoUrl) {
+          // 기존 로고 유지
+          brandData.logoUrl = logoUrl;
+        }
         
         if (brandId) {
           // 수정
@@ -5927,7 +6153,14 @@
         } else {
           // 추가
           brandData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-          await db.collection('brands').add(brandData);
+          const docRef = await db.collection('brands').add(brandData);
+          
+          // 로고 파일이 있었다면 실제 브랜드 ID로 경로 업데이트
+          if (logoFile) {
+            const finalLogoUrl = await uploadBrandLogo(logoFile, docRef.id);
+            await docRef.update({ logoUrl: finalLogoUrl });
+          }
+          
           alert('✅ 브랜드가 추가되었습니다.');
         }
         
@@ -5937,7 +6170,7 @@
         
       } catch (error) {
         console.error('❌ 브랜드 저장 오류:', error);
-        alert('❌ 브랜드 저장에 실패했습니다.');
+        alert('❌ 브랜드 저장에 실패했습니다: ' + error.message);
       }
     }
 

@@ -276,6 +276,9 @@ function showMainScreen() {
   // 페이지 타이틀을 매장명으로 설정 (회사명은 표시 안 함)
   document.title = `${storeName} - 직원 포털`;
   
+  // 🎨 브랜드 테마 로드
+  loadBrandTheme();
+  
   // 데이터 로드
   updateCurrentStatus();
   loadNotices();
@@ -5101,6 +5104,93 @@ function stopMonitoringOpenShifts() {
 
 // 로그아웃 시 모니터링 종료
 window.addEventListener('beforeunload', stopMonitoringOpenShifts);
+
+// ===========================================
+// 브랜드 테마 로딩
+// ===========================================
+
+/**
+ * 브랜드 테마 로드 및 적용
+ * 사용자의 매장에 연결된 브랜드 로고와 색상을 가져와 UI에 적용
+ */
+async function loadBrandTheme() {
+  if (!currentUser || !currentUser.companyId) {
+    console.warn('⚠️ currentUser 또는 companyId가 없어서 브랜드 테마를 로드할 수 없습니다.');
+    return;
+  }
+  
+  try {
+    // 기본값: 회사 정보
+    let brandName = currentUser.store || '직원 포털';
+    let logoUrl = null;
+    let primaryColor = null;
+    let secondaryColor = null;
+    
+    // 🎨 사용자가 특정 매장에 소속되어 있다면 해당 매장의 브랜드 테마 적용
+    if (currentUser.storeId) {
+      try {
+        const storeDoc = await db.collection('stores').doc(currentUser.storeId).get();
+        
+        if (storeDoc.exists) {
+          const store = storeDoc.data();
+          console.log('🏪 매장 정보:', store);
+          
+          // 매장에 브랜드가 연결되어 있으면 해당 브랜드 테마 적용
+          if (store.brandId) {
+            const brandDoc = await db.collection('brands').doc(store.brandId).get();
+            
+            if (brandDoc.exists) {
+              const brand = brandDoc.data();
+              console.log('🏷️ 브랜드 정보:', brand);
+              
+              // 브랜드 정보 적용
+              brandName = brand.name || brandName;
+              logoUrl = brand.logoUrl;
+              primaryColor = brand.primaryColor;
+              secondaryColor = brand.secondaryColor;
+              
+              console.log('✅ 브랜드 테마 적용됨:', brand.name);
+            }
+          }
+        }
+      } catch (storeError) {
+        console.warn('⚠️ 매장/브랜드 정보 로드 실패 (기본값 사용):', storeError);
+      }
+    }
+    
+    // 페이지 타이틀 업데이트
+    if (brandName) {
+      document.title = `${brandName} - 직원 포털`;
+    }
+    
+    // 로고 적용 (헤더에 로고 이미지가 있다면)
+    const logoElements = document.querySelectorAll('.company-logo, #companyLogo');
+    if (logoUrl && logoElements.length > 0) {
+      logoElements.forEach(logoEl => {
+        if (logoEl.tagName === 'IMG') {
+          logoEl.src = logoUrl;
+          logoEl.style.display = 'block';
+          logoEl.alt = `${brandName} 로고`;
+        }
+      });
+    }
+    
+    // 브랜드 색상 적용 (CSS 변수)
+    if (primaryColor) {
+      document.documentElement.style.setProperty('--primary-color', primaryColor);
+    }
+    
+    if (secondaryColor) {
+      document.documentElement.style.setProperty('--secondary-color', secondaryColor);
+    }
+    
+    console.log('✅ 브랜드 테마 로드 완료:', { brandName, primaryColor, secondaryColor });
+    
+  } catch (error) {
+    console.error('❌ 브랜드 테마 로드 실패:', error);
+    // 에러가 나도 기본 UI는 표시
+  }
+}
 
 // ===========================================
 // 모듈 Export (Node.js/Jest 테스트용)
