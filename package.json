@@ -4,13 +4,20 @@
   "scripts": {
     "build": "echo 'No build step required for static site'",
     "serve": "http-server . -p 8080",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "git:setup": "bash .git-setup.sh",
     "git:push": "bash .git-setup.sh && git push origin main",
     "git:commit": "git add . && git commit -m",
     "git:sync": "bash .git-setup.sh && git add . && git commit -m 'Update' && git push origin main"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "babel-jest": "^29.7.0",
     "firebase-tools": "^14.23.0",
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "jest": "^29.7.0"
   }
 }

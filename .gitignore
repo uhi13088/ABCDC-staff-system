@@ -69,3 +69,8 @@ serviceAccountKey.json
 check-admin-data.js
 setup-initial-data.js
 test-*.js
+
+# Jest 테스트 결과 및 커버리지
+coverage/
+.nyc_output/
+*.lcov

@@ -572,3 +572,27 @@ async function calculateMonthlySalary(employee, contract, attendances, yearMonth
   console.log('✅ 급여 계산 완료:', result);
   return result;
 }
+
+// ===========================================
+// 모듈 Export (Node.js/Jest 테스트용)
+// 브라우저 환경에서는 무시되고, Node.js에서만 동작
+// ===========================================
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    // 공휴일 데이터
+    publicHolidays2025,
+    
+    // 순수 함수들 (Firebase 의존성 없음 - 테스트 가능)
+    isPublicHoliday,
+    timeToMinutes,
+    formatHoursAndMinutes,
+    calculateWorkHours,
+    calculateNightHours,
+    getWeekOfMonth,
+    calculateWeeklySalary,
+    
+    // Firebase 의존 함수 (테스트 시 Mock 필요)
+    calculateMonthlySalary
+  };
+}
