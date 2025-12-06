@@ -5101,3 +5101,23 @@ function stopMonitoringOpenShifts() {
 
 // 로그아웃 시 모니터링 종료
 window.addEventListener('beforeunload', stopMonitoringOpenShifts);
+
+// ===========================================
+// 모듈 Export (Node.js/Jest 테스트용)
+// 브라우저 환경에서는 무시되고, Node.js에서만 동작
+// ===========================================
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    // Pure Utility Functions (Firebase 의존성 없음)
+    capitalize,
+    formatTime,
+    calculateWorkTime,
+    timeToMinutes,
+    getWorkMinutes,
+    getStatusClass,
+    formatFirestoreTimestamp,
+    getWeekOfMonth,
+    formatHoursAndMinutes
+  };
+}

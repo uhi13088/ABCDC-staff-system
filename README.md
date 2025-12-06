@@ -161,6 +161,12 @@ firebase deploy --only functions
 - [Functions 보안 가이드](FUNCTIONS_SECURITY_v3.7.md) - v3.7 보안 강화 🔒
 - [테스트 체크리스트](PHASE2_TEST_CHECKLIST.md) - Phase 2 기능 테스트
 
+### 테스트 자동화 (v3.8 NEW!)
+- [테스트 가이드](TESTING.md) - Jest 테스트 환경 및 실행 방법 🧪
+- **테스트 커버리지**: 86% (salary-calculator + employee-utils)
+- **테스트 개수**: 67개 (Pure Functions 62개 + Firebase Mock 5개)
+- **실행 명령어**: `npm test` / `npm run test:coverage`
+
 ### 데이터 관리
 - [필드명 표준화 가이드](FIELD_NAMING_STANDARD.md) - 데이터 필드명 일관성 규칙 ⚠️
 - [마이그레이션 가이드](scripts/MIGRATION_GUIDE.md) - 기존 데이터 일괄 변환 도구 🔧

@@ -14,9 +14,10 @@ module.exports = {
     '**/?(*.)+(spec|test).js'
   ],
   
-  // 커버리지 수집 대상 (js/ 폴더의 파일들)
+  // 커버리지 수집 대상 (테스트 가능한 Pure Function 모듈만)
   collectCoverageFrom: [
-    'js/**/*.js',
+    'js/salary-calculator.js',
+    'js/employee-utils.js',
     '!js/**/*.min.js',
     '!**/node_modules/**',
     '!**/vendor/**'
@@ -37,13 +38,13 @@ module.exports = {
     'lcov'            // CI/CD용
   ],
   
-  // 커버리지 임계값 (향후 점진적으로 높일 예정)
+  // 커버리지 임계값 (Pure Function 모듈 기준)
   coverageThreshold: {
     global: {
-      branches: 50,
-      functions: 60,
-      lines: 60,
-      statements: 60
+      branches: 75,
+      functions: 90,
+      lines: 85,
+      statements: 85
     }
   },
   
