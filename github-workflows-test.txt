@@ -1,0 +1,143 @@
+================================================================================
+파일명: .github/workflows/test.yml
+설명: Jest 자동 테스트 워크플로우 (PR/Push 시 자동 실행)
+================================================================================
+
+name: Jest 자동 테스트
+
+# 트리거: main 브랜치 push, 모든 Pull Request
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: 테스트 실행
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      # 1. 코드 체크아웃
+      - name: 📥 코드 체크아웃
+        uses: actions/checkout@v4
+      
+      # 2. Node.js 설정
+      - name: 🟢 Node.js ${{ matrix.node-version }} 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      # 3. 의존성 설치
+      - name: 📦 의존성 설치
+        run: npm ci
+      
+      # 4. Jest 테스트 실행
+      - name: 🧪 Jest 테스트 실행
+        run: npm test
+      
+      # 5. 커버리지 리포트 생성
+      - name: 📊 커버리지 리포트 생성
+        run: npm run test:coverage
+      
+      # 6. 커버리지 업로드 (Codecov)
+      - name: 📤 Codecov에 커버리지 업로드
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+      
+      # 7. 테스트 결과 아티팩트 저장
+      - name: 💾 테스트 결과 저장
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-node-${{ matrix.node-version }}
+          path: |
+            coverage/
+            jest-results.json
+          retention-days: 30
+
+
+================================================================================
+파일명: .github/workflows/code-quality.yml
+설명: 코드 품질 검사 워크플로우 (PR 시 커버리지 검증)
+================================================================================
+
+name: 코드 품질 검사
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    name: 코드 품질 분석
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 코드 체크아웃
+        uses: actions/checkout@v4
+      
+      - name: 🟢 Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: 📦 의존성 설치
+        run: npm ci
+      
+      # 커버리지 임계값 검증
+      - name: 📊 커버리지 임계값 검증
+        run: npm run test:coverage
+      
+      - name: 📈 커버리지 리포트 코멘트
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        if: github.event_name == 'pull_request'
+        with:
+          lcov-file: ./coverage/lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          title: "테스트 커버리지 리포트"
+
+
+================================================================================
+사용 방법
+================================================================================
+
+1. GitHub 웹사이트 접속
+   https://github.com/uhi13088/ABCDC-staff-system
+
+2. Actions 탭 클릭
+
+3. "New workflow" 또는 "set up a workflow yourself" 클릭
+
+4. 파일 생성
+   - 첫 번째 파일: .github/workflows/test.yml
+   - 두 번째 파일: .github/workflows/code-quality.yml
+
+5. 위 내용을 각각 복사해서 붙여넣기
+
+6. "Commit changes" 클릭
+
+7. 완료!
+
+
+================================================================================
+주의사항
+================================================================================
+
+- CODECOV_TOKEN: Codecov 사용 시 필요 (선택사항)
+  → 사용하지 않으면 해당 step은 자동으로 실패하지만 전체 워크플로우는 계속 진행됨
+
+- GITHUB_TOKEN: 자동 제공됨 (별도 설정 불필요)
+
+- 이 파일들을 추가하면 PR/Push 시 자동으로 테스트가 실행됩니다.
