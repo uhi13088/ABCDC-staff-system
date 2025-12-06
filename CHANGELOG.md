@@ -4,6 +4,98 @@
 
 ---
 
+## [v3.7.0] - 2025-01-20
+
+### 🔒 보안 강화 (Critical Security Update)
+
+이번 릴리스는 **Cloud Functions 보안 취약점 해결**에 집중했습니다.
+
+#### 🚨 수정된 보안 취약점
+
+**문제**: HTTP 트리거 함수가 인증 없이 외부에서 호출 가능
+- `cleanupOrphanedAuth` - 모든 고아 Auth 계정 삭제
+- `cleanupOldResignedUsers` - 2년 지난 퇴사자 삭제
+- `createAbsentRecords` - 자동 결근 기록 생성
+- `createAbsentRecordsForDate` - 수동 결근 기록 생성
+
+**영향**: 악의적 사용자가 대량 데이터 삭제/생성 가능
+
+#### ✅ 보안 해결책
+
+**인증 메커니�m**: `Authorization: Bearer SECRET_KEY` 헤더 검증
+
+**구현 내용**:
+- 🔒 `verifyAuthorization()` 미들웨어 추가
+- 🔒 비밀 키 일치 여부 검증
+- 🔒 무단 접근 시 401 Unauthorized 응답
+- 🔒 IP 및 User-Agent 로깅 (보안 감사)
+
+**보호된 엔드포인트**:
+```javascript
+// ✅ BEFORE (취약)
+exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
+  // 인증 없이 실행
+});
+
+// ✅ AFTER (보안)
+exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
+  const authResult = verifyAuthorization(req);
+  if (!authResult.authorized) {
+    return respondUnauthorized(res, authResult.error, 'createAbsentRecords');
+  }
+  // 인증 성공 후 실행
+});
+```
+
+#### 📚 문서화
+
+- **새로 추가**: `FUNCTIONS_SECURITY_v3.7.md`
+  - 비밀 키 생성 및 설정 가이드
+  - Cloud Scheduler 설정 방법
+  - 테스트 및 트러블슈팅
+  - 보안 모범 사례
+
+- **업데이트**:
+  - `README.md`: Functions 배포 섹션 보안 가이드 추가
+  - `CHANGELOG.md`: v3.7 변경사항 문서화
+
+#### 🚀 배포 절차
+
+**1. 비밀 키 설정 (필수)**:
+```bash
+firebase functions:config:set functions.secret_key="YOUR_64_CHAR_SECRET"
+```
+
+**2. Functions 배포**:
+```bash
+firebase deploy --only functions
+```
+
+**3. Cloud Scheduler 헤더 추가**:
+```
+Authorization: Bearer YOUR_64_CHAR_SECRET
+```
+
+#### 🎯 영향
+
+**하위 호환성**:
+- ✅ Firestore Trigger 함수는 영향 없음
+- ✅ `onCall` 함수는 영향 없음
+- ⚠️ HTTP 트리거 함수는 Authorization 헤더 필수
+
+**보안 강화**:
+- ✅ 무단 접근 완전 차단
+- ✅ 대량 데이터 조작 방지
+- ✅ Cloud Scheduler 전용 보호
+- ✅ 보안 감사 로깅 추가
+
+**운영 영향**:
+- ✅ 자동 스케줄 작업 정상 작동 (헤더 설정 후)
+- ✅ 수동 호출 시 비밀 키 필요
+- ✅ 기존 Firestore Rules 영향 없음
+
+---
+
 ## [v3.2.0] - 2025-11-20
 
 ### 🎉 주요 업데이트

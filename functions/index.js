@@ -1,14 +1,101 @@
 /**
  * Firebase Cloud Functions
- * 맛남살롱 관리 시스템
+ * 맛남살롱 관리 시스템 - v3.7 보안 강화
  * 
- * 기능: Firestore users 컬렉션 삭제 시 Firebase Authentication 계정도 자동 삭제
+ * 기능: 
+ * - Firestore users 컬렉션 삭제 시 Firebase Authentication 계정도 자동 삭제
+ * - HTTP 트리거 보안 강화 (비밀 키 헤더 검증)
+ * 
+ * v3.7 변경사항:
+ * - HTTP 트리거 함수에 Authorization 헤더 검증 추가
+ * - 무단 접근 방지 (401 Unauthorized)
+ * - Cloud Scheduler 전용 비밀 키 사용
  */
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
+
+// ===================================================================
+// 🔒 보안: HTTP 트리거 인증 미들웨어
+// ===================================================================
+
+/**
+ * 비밀 키: Firebase Functions 환경 변수에 저장 필요
+ * 
+ * 설정 방법:
+ * firebase functions:config:set functions.secret_key="YOUR_SECRET_KEY_HERE"
+ * 
+ * 로컬 테스트:
+ * .runtimeconfig.json 파일 생성:
+ * {
+ *   "functions": {
+ *     "secret_key": "YOUR_SECRET_KEY_HERE"
+ *   }
+ * }
+ */
+const SECRET_KEY = functions.config().functions?.secret_key || 'DEVELOPMENT_KEY_PLEASE_CHANGE';
+
+/**
+ * HTTP 요청 인증 검증
+ * 
+ * @param {Object} req - Express 요청 객체
+ * @returns {Object} - { authorized: boolean, error?: string }
+ */
+function verifyAuthorization(req) {
+  const authHeader = req.headers.authorization;
+  
+  // Authorization 헤더 존재 확인
+  if (!authHeader) {
+    return {
+      authorized: false,
+      error: 'Missing Authorization header'
+    };
+  }
+  
+  // Bearer 토큰 형식 검증
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return {
+      authorized: false,
+      error: 'Invalid Authorization format. Use: Bearer YOUR_SECRET_KEY'
+    };
+  }
+  
+  const providedKey = parts[1];
+  
+  // 비밀 키 일치 확인
+  if (providedKey !== SECRET_KEY) {
+    return {
+      authorized: false,
+      error: 'Invalid secret key'
+    };
+  }
+  
+  return { authorized: true };
+}
+
+/**
+ * 인증 실패 응답 반환
+ * 
+ * @param {Object} res - Express 응답 객체
+ * @param {string} error - 에러 메시지
+ * @param {string} functionName - 함수 이름
+ */
+function respondUnauthorized(res, error, functionName) {
+  console.error(`🚫 인증 실패: ${functionName}`);
+  console.error(`   사유: ${error}`);
+  console.error(`   IP: ${res.req.ip || 'Unknown'}`);
+  console.error(`   User-Agent: ${res.req.headers['user-agent'] || 'Unknown'}`);
+  
+  return res.status(401).json({
+    success: false,
+    error: 'Unauthorized',
+    message: 'Invalid or missing authorization credentials',
+    code: 'AUTH_FAILED'
+  });
+}
 
 /**
  * users 컬렉션에서 문서 삭제 시 Firebase Authentication 계정도 함께 삭제
@@ -69,15 +156,26 @@ exports.deleteAuthOnUserDelete = functions.firestore
   });
 
 /**
- * 대량 정리 함수 (HTTP 트리거)
+ * 대량 정리 함수 (HTTP 트리거) - v3.7 보안 강화
+ * 
+ * 🔒 인증 필수: Authorization 헤더에 비밀 키 필요
  * 
  * 사용법: 
- * curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/cleanupOrphanedAuth
+ * curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/cleanupOrphanedAuth \
+ *   -H "Authorization: Bearer YOUR_SECRET_KEY"
  * 
  * 기능: Firestore에 없는 Authentication 계정을 모두 삭제
  */
 exports.cleanupOrphanedAuth = functions.https.onRequest(async (req, res) => {
-  console.log('🧹 Authentication 정리 시작');
+  console.log('🧹 Authentication 정리 요청 수신');
+  
+  // 🔒 인증 검증
+  const authResult = verifyAuthorization(req);
+  if (!authResult.authorized) {
+    return respondUnauthorized(res, authResult.error, 'cleanupOrphanedAuth');
+  }
+  
+  console.log('✅ 인증 성공 - Authentication 정리 시작');
   
   try {
     // 1. Firestore users 컬렉션에서 모든 UID 가져오기
@@ -218,14 +316,25 @@ exports.deleteAuthOnResign = functions.firestore
   });
 
 /**
- * 2년 지난 퇴사자 문서 자동 삭제 (매일 실행)
+ * 2년 지난 퇴사자 문서 자동 삭제 (매일 실행) - v3.7 보안 강화
+ * 
+ * 🔒 인증 필수: Authorization 헤더에 비밀 키 필요
  * 
  * Cloud Scheduler 설정 필요:
- * - 스케줄: 0 3 * * * (매일 새벽 3시)
+ * - 스케줄: 0 3 * * * (매일 새벽 3시, Asia/Seoul)
  * - URL: https://us-central1-abcdc-staff-system.cloudfunctions.net/cleanupOldResignedUsers
+ * - HTTP 헤더: Authorization: Bearer YOUR_SECRET_KEY
  */
 exports.cleanupOldResignedUsers = functions.https.onRequest(async (req, res) => {
-  console.log('🧹 2년 지난 퇴사자 정리 시작');
+  console.log('🧹 2년 지난 퇴사자 정리 요청 수신');
+  
+  // 🔒 인증 검증
+  const authResult = verifyAuthorization(req);
+  if (!authResult.authorized) {
+    return respondUnauthorized(res, authResult.error, 'cleanupOldResignedUsers');
+  }
+  
+  console.log('✅ 인증 성공 - 2년 지난 퇴사자 정리 시작');
   
   try {
     // 2년 전 날짜 계산
@@ -289,12 +398,15 @@ exports.cleanupOldResignedUsers = functions.https.onRequest(async (req, res) => 
 });
 
 /**
- * 자동 결근 기록 생성 (매일 자정 1분 실행)
+ * 자동 결근 기록 생성 (매일 자정 1분 실행) - v3.7 보안 강화
+ * 
+ * 🔒 인증 필수: Authorization 헤더에 비밀 키 필요
  * 
  * Cloud Scheduler 설정:
  * - 스케줄: 1 0 * * * (매일 자정 1분, Asia/Seoul)
  * - 타임존: Asia/Seoul
  * - URL: https://us-central1-abcdc-staff-system.cloudfunctions.net/createAbsentRecords
+ * - HTTP 헤더: Authorization: Bearer YOUR_SECRET_KEY
  * 
  * 기능:
  * 1. 어제 날짜 기준으로 모든 계약서 조회
@@ -302,7 +414,15 @@ exports.cleanupOldResignedUsers = functions.https.onRequest(async (req, res) => 
  * 3. 자동으로 status: 'absent' 결근 기록 생성
  */
 exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
-  console.log('🔄 자동 결근 기록 생성 시작');
+  console.log('🔄 자동 결근 기록 생성 요청 수신');
+  
+  // 🔒 인증 검증
+  const authResult = verifyAuthorization(req);
+  if (!authResult.authorized) {
+    return respondUnauthorized(res, authResult.error, 'createAbsentRecords');
+  }
+  
+  console.log('✅ 인증 성공 - 자동 결근 기록 생성 시작');
   
   try {
     const db = admin.firestore();
@@ -456,14 +576,21 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
 });
 
 /**
- * 수동 결근 기록 생성 테스트 (특정 날짜) - v3.2 성능 최적화
+ * 수동 결근 기록 생성 테스트 (특정 날짜) - v3.7 보안 강화 + v3.2 성능 최적화
+ * 
+ * 🔒 인증 필수: Authorization 헤더에 비밀 키 필요
  * 
  * 사용법:
  * curl -X POST https://us-central1-abcdc-staff-system.cloudfunctions.net/createAbsentRecordsForDate \
  *   -H "Content-Type: application/json" \
+ *   -H "Authorization: Bearer YOUR_SECRET_KEY" \
  *   -d '{"date":"2025-11-08"}'
  * 
  * 기능: 특정 날짜에 대한 결근 기록을 수동으로 생성 (테스트/보정용)
+ * 
+ * v3.7 보안:
+ * - Authorization 헤더 검증 추가
+ * - 무단 접근 방지
  * 
  * v3.2 최적화:
  * - N+1 쿼리 문제 해결 (순차 루프 → 병렬 처리)
@@ -471,6 +598,16 @@ exports.createAbsentRecords = functions.https.onRequest(async (req, res) => {
  * - 기존 기능 유지 (companyId 필터, 배치 처리, 로깅)
  */
 exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) => {
+  console.log('🔄 수동 결근 기록 생성 요청 수신');
+  
+  // 🔒 인증 검증
+  const authResult = verifyAuthorization(req);
+  if (!authResult.authorized) {
+    return respondUnauthorized(res, authResult.error, 'createAbsentRecordsForDate');
+  }
+  
+  console.log('✅ 인증 성공 - 수동 결근 기록 생성 진행');
+  
   // POST 요청만 허용
   if (req.method !== 'POST') {
     return res.status(405).json({
@@ -495,8 +632,6 @@ exports.createAbsentRecordsForDate = functions.https.onRequest(async (req, res) 
       error: '날짜 형식이 잘못되었습니다. YYYY-MM-DD 형식으로 입력해주세요.'
     });
   }
-  
-  console.log(`🔄 수동 결근 기록 생성 시작 (날짜: ${targetDate})`);
   
   try {
     const db = admin.firestore();

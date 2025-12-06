@@ -98,8 +98,15 @@ git push origin main
 
 ### Cloud Functions 배포
 
+**⚠️ 중요: v3.7부터 보안 강화 필요**
+
 ```bash
 cd /home/user/webapp
+
+# 1. 비밀 키 환경 변수 설정 (최초 1회)
+firebase functions:config:set functions.secret_key="YOUR_SECRET_KEY"
+
+# 2. Functions 배포
 firebase deploy --only functions
 ```
 
@@ -108,8 +115,12 @@ firebase deploy --only functions
 - `recordInviteUse`: 초대 코드 사용 기록
 - `createInviteCode`: 초대 코드 생성
 - `deleteUser`: 직원 삭제 시 Auth 계정 자동 삭제
-- `createAbsentRecords`: 매일 자동 결근 생성 (v3.1 병렬 처리 최적화)
-- `createAbsentRecordsForDate`: 특정 날짜 결근 생성 (v3.2 병렬 처리 최적화)
+- `createAbsentRecords`: 매일 자동 결근 생성 (v3.7 보안 강화)
+- `createAbsentRecordsForDate`: 특정 날짜 결근 생성 (v3.7 보안 강화)
+- `cleanupOrphanedAuth`: 고아 Auth 계정 정리 (v3.7 보안 강화)
+- `cleanupOldResignedUsers`: 2년 지난 퇴사자 삭제 (v3.7 보안 강화)
+
+**📚 상세 가이드**: [FUNCTIONS_SECURITY_v3.7.md](FUNCTIONS_SECURITY_v3.7.md)
 
 ## 🎫 초대 코드 시스템
 
@@ -147,6 +158,7 @@ firebase deploy --only functions
 
 ### 배포 및 운영
 - [배포 가이드](DEPLOYMENT_GUIDE.md) - Firebase 배포 절차
+- [Functions 보안 가이드](FUNCTIONS_SECURITY_v3.7.md) - v3.7 보안 강화 🔒
 - [테스트 체크리스트](PHASE2_TEST_CHECKLIST.md) - Phase 2 기능 테스트
 
 ### 데이터 관리
@@ -161,7 +173,14 @@ firebase deploy --only functions
 
 ## 📝 최신 업데이트
 
-### 2025-11-20 - 아키텍처 정리 & 성능 최적화 & 필드명 표준화
+### 2025-01-20 - Cloud Functions 보안 강화 (v3.7)
+- ✅ **HTTP 트리거 보안**: Authorization 헤더 검증 추가 (4개 함수)
+- ✅ **무단 접근 방지**: 비밀 키 없이 호출 불가 (401 Unauthorized)
+- ✅ **자동 실행 보호**: Cloud Scheduler 전용 비밀 키 사용
+- ✅ **보안 로깅**: IP 주소, User-Agent 기록으로 감사 추적
+- ✅ **상세 가이드**: FUNCTIONS_SECURITY_v3.7.md 문서화
+
+### 2025-11-20 - 아키텍처 정리 & 성능 최적화 & 필드명 표준화 (v3.2)
 - ✅ **Legacy 코드 제거**: Google Apps Script 의존성 완전 제거 (703 lines)
 - ✅ **브랜드 관리 시스템**: 다중 브랜드 관리 기능 추가 (회사 → 브랜드 → 매장)
 - ✅ **야간근무 버그 수정**: 새벽 출근(05:00~14:00) 야간수당 누락 해결
