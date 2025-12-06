@@ -1,0 +1,67 @@
+================================================================================
+파일명: .github/workflows/test.yml
+설명: Jest 자동 테스트 워크플로우 (PR/Push 시 자동 실행)
+================================================================================
+
+name: Jest 자동 테스트
+
+# 트리거: main 브랜치 push, 모든 Pull Request
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: 테스트 실행
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      # 1. 코드 체크아웃
+      - name: 📥 코드 체크아웃
+        uses: actions/checkout@v4
+      
+      # 2. Node.js 설정
+      - name: 🟢 Node.js ${{ matrix.node-version }} 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      # 3. 의존성 설치
+      - name: 📦 의존성 설치
+        run: npm ci
+      
+      # 4. Jest 테스트 실행
+      - name: 🧪 Jest 테스트 실행
+        run: npm test
+      
+      # 5. 커버리지 리포트 생성
+      - name: 📊 커버리지 리포트 생성
+        run: npm run test:coverage
+      
+      # 6. 커버리지 업로드 (Codecov)
+      - name: 📤 Codecov에 커버리지 업로드
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+      
+      # 7. 테스트 결과 아티팩트 저장
+      - name: 💾 테스트 결과 저장
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-node-${{ matrix.node-version }}
+          path: |
+            coverage/
+            jest-results.json
+          retention-days: 30
