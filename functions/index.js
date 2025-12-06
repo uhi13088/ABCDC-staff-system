@@ -188,11 +188,31 @@ exports.cleanupOrphanedAuth = functions.https.onRequest(async (req, res) => {
     
     console.log(`✅ Firestore에 등록된 사용자: ${validUIDs.size}명`);
     
-    // 2. Firebase Authentication 사용자 목록 가져오기
-    const listUsersResult = await admin.auth().listUsers();
-    const allAuthUsers = listUsersResult.users;
+    // 2. Firebase Authentication 사용자 목록 가져오기 (페이지네이션 지원)
+    // 🔥 1,000명 제한 문제 해결: pageToken을 활용하여 모든 사용자 조회
+    const allAuthUsers = [];
+    let pageToken;
+    let pageCount = 0;
+    const MAX_RESULTS = 1000;  // Firebase Auth listUsers의 기본 최대값
     
-    console.log(`📊 Firebase Authentication 총 계정: ${allAuthUsers.length}개`);
+    console.log('📥 Firebase Authentication 사용자 조회 시작...');
+    
+    do {
+      const listUsersResult = await admin.auth().listUsers(MAX_RESULTS, pageToken);
+      
+      // 현재 페이지 사용자 추가
+      allAuthUsers.push(...listUsersResult.users);
+      pageCount++;
+      
+      console.log(`   페이지 ${pageCount}: ${listUsersResult.users.length}명 조회 (누적: ${allAuthUsers.length}명)`);
+      
+      // 다음 페이지 토큰 저장
+      pageToken = listUsersResult.pageToken;
+      
+      // pageToken이 없으면 마지막 페이지
+    } while (pageToken);
+    
+    console.log(`✅ Firebase Authentication 총 계정: ${allAuthUsers.length}개 (${pageCount}개 페이지)`);
     
     // 3. Firestore에 없는 계정 찾기
     const orphanedUsers = allAuthUsers.filter(user => !validUIDs.has(user.uid));
@@ -209,24 +229,54 @@ exports.cleanupOrphanedAuth = functions.https.onRequest(async (req, res) => {
       });
     }
     
-    // 4. 정리 대상 계정 삭제
-    const deletePromises = orphanedUsers.map(user => 
-      admin.auth().deleteUser(user.uid)
-        .then(() => {
-          console.log(`✅ 삭제 완료: ${user.email} (${user.uid})`);
-          return { success: true, email: user.email, uid: user.uid };
-        })
-        .catch(error => {
-          console.error(`❌ 삭제 실패: ${user.email} (${user.uid}) - ${error.message}`);
-          return { success: false, email: user.email, uid: user.uid, error: error.message };
-        })
-    );
+    // 4. 정리 대상 계정 삭제 (청크 단위로 처리하여 Rate Limit 회피)
+    // 🔥 대량 삭제 최적화: 100개씩 청크로 나누어 순차 처리
+    const DELETE_CHUNK_SIZE = 100;
+    const deleteChunks = [];
     
-    const results = await Promise.all(deletePromises);
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.filter(r => !r.success).length;
+    for (let i = 0; i < orphanedUsers.length; i += DELETE_CHUNK_SIZE) {
+      deleteChunks.push(orphanedUsers.slice(i, i + DELETE_CHUNK_SIZE));
+    }
     
-    console.log(`✅ 정리 완료: 성공 ${successCount}개, 실패 ${failCount}개`);
+    console.log(`📦 ${orphanedUsers.length}개 계정을 ${deleteChunks.length}개 청크로 분할 (청크당 ${DELETE_CHUNK_SIZE}개)`);
+    
+    // 각 청크를 순차적으로 처리 (Rate Limit 회피)
+    const allResults = [];
+    
+    for (let chunkIndex = 0; chunkIndex < deleteChunks.length; chunkIndex++) {
+      const chunk = deleteChunks[chunkIndex];
+      
+      console.log(`🗑️ 청크 ${chunkIndex + 1}/${deleteChunks.length} 삭제 시작 (${chunk.length}개)...`);
+      
+      // 청크 내에서는 병렬 처리
+      const chunkResults = await Promise.all(
+        chunk.map(user => 
+          admin.auth().deleteUser(user.uid)
+            .then(() => {
+              return { success: true, email: user.email, uid: user.uid };
+            })
+            .catch(error => {
+              console.error(`❌ 삭제 실패: ${user.email} (${user.uid}) - ${error.message}`);
+              return { success: false, email: user.email, uid: user.uid, error: error.message };
+            })
+        )
+      );
+      
+      allResults.push(...chunkResults);
+      
+      const chunkSuccessCount = chunkResults.filter(r => r.success).length;
+      console.log(`✅ 청크 ${chunkIndex + 1}/${deleteChunks.length} 완료: ${chunkSuccessCount}/${chunk.length}개 성공`);
+      
+      // Rate Limit 회피를 위한 짧은 대기 (마지막 청크는 제외)
+      if (chunkIndex < deleteChunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));  // 0.5초 대기
+      }
+    }
+    
+    const successCount = allResults.filter(r => r.success).length;
+    const failCount = allResults.filter(r => !r.success).length;
+    
+    console.log(`✅ 전체 정리 완료: 성공 ${successCount}개, 실패 ${failCount}개`);
     
     return res.status(200).json({
       success: true,
@@ -236,7 +286,8 @@ exports.cleanupOrphanedAuth = functions.https.onRequest(async (req, res) => {
       orphanedUsers: orphanedUsers.length,
       deletedCount: successCount,
       failedCount: failCount,
-      results: results
+      pagesScanned: pageCount,
+      results: allResults
     });
     
   } catch (error) {
