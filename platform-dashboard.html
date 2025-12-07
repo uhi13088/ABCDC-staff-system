@@ -1500,9 +1500,78 @@
           </div>
 
           <div class="form-group">
-            <label for="planFeatures">기능 리스트 (한 줄에 하나씩)</label>
-            <textarea id="planFeatures" rows="6" placeholder="예:&#10;최대 10명의 팀원&#10;무제한 프로젝트&#10;24/7 고객 지원&#10;고급 분석 도구"></textarea>
-            <small style="color: var(--text-secondary);">각 기능을 줄바꿈으로 구분하세요</small>
+            <label for="planFeatures">기능 리스트 (랜딩 페이지 표시용, 한 줄에 하나씩)</label>
+            <textarea id="planFeatures" rows="4" placeholder="예:&#10;최대 10명의 팀원&#10;무제한 프로젝트&#10;24/7 고객 지원"></textarea>
+            <small style="color: var(--text-secondary);">각 기능을 줄바꿈으로 구분하세요 (마케팅 문구)</small>
+          </div>
+
+          <!-- 📋 권한 선택 (Optional Permissions) -->
+          <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: 16px; margin-top: 16px;">
+            <label style="font-weight: 600; font-size: 15px; margin-bottom: 12px; display: block;">
+              🔐 선택적 권한 설정
+            </label>
+            <small style="color: var(--text-secondary); display: block; margin-bottom: 16px;">
+              ℹ️ 기본 기능(직원 조회/수정, 레시피 관리 등)은 모든 플랜에 포함됩니다. 아래는 부가 기능입니다.
+            </small>
+
+            <!-- Group A: 레시피 활용 및 보안 -->
+            <div style="margin-bottom: 16px;">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+                📚 레시피 활용 및 보안
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="recipe.print" />
+                  <span style="font-size: 14px;">인쇄 최적화 뷰 & 프린트 기능</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="recipe.view_secret" />
+                  <span style="font-size: 14px;">'비법(Secret)' 태그 레시피 열람</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="recipe.share_external" />
+                  <span style="font-size: 14px;">외부 공유 링크 생성</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Group B: 인사 관리 고도화 -->
+            <div style="margin-bottom: 16px;">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+                👥 인사 관리 고도화
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="staff.manage_contract" />
+                  <span style="font-size: 14px;">근로계약서 업로드 및 파일 관리</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="staff.invite_email" />
+                  <span style="font-size: 14px;">이메일 발송 자동 초대</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="staff.schedule_manage" />
+                  <span style="font-size: 14px;">근무 스케줄(로스터) 배정 및 관리</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Group C: 데이터 소유 및 대량 작업 -->
+            <div style="margin-bottom: 16px;">
+              <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+                📊 데이터 소유 및 대량 작업
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="data.export_all" />
+                  <span style="font-size: 14px;">Excel/CSV 다운로드 (직원 명부, 레시피)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" class="permission-checkbox" data-permission="data.bulk_update" />
+                  <span style="font-size: 14px;">다중 선택 일괄 수정/삭제</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           <div class="form-group">
@@ -1620,11 +1689,32 @@
                 </div>
                 
                 <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
-                  <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">포함 기능:</h5>
+                  <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">마케팅 설명:</h5>
                   <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: var(--text-primary);">
-                    ${features.map(f => `<li style="margin-bottom: 4px;">${f}</li>`).join('')}
+                    ${features.length > 0 ? features.map(f => `<li style="margin-bottom: 4px;">${f}</li>`).join('') : '<li style="color: var(--text-secondary);">없음</li>'}
                   </ul>
                 </div>
+                
+                ${plan.permissions && plan.permissions.length > 0 ? `
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                  <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">🔐 부가 권한 (${plan.permissions.length}개):</h5>
+                  <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    ${plan.permissions.map(p => {
+                      const permissionLabels = {
+                        'recipe.print': '레시피 인쇄',
+                        'recipe.view_secret': '비법 열람',
+                        'recipe.share_external': '외부 공유',
+                        'staff.manage_contract': '계약서 관리',
+                        'staff.invite_email': '이메일 초대',
+                        'staff.schedule_manage': '스케줄 관리',
+                        'data.export_all': 'CSV 다운로드',
+                        'data.bulk_update': '일괄 수정'
+                      };
+                      return `<span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${permissionLabels[p] || p}</span>`;
+                    }).join('')}
+                  </div>
+                </div>
+                ` : ''}
                 
                 <div style="display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
                   <button class="btn btn-sm btn-primary" onclick="editPlan('${plan.id}')" style="flex: 1;">수정</button>
@@ -1653,6 +1743,12 @@
       document.getElementById('planId').value = '';
       document.getElementById('planIsActive').checked = true;
       document.getElementById('planIsPopular').checked = false;
+      
+      // 권한 체크박스 초기화
+      document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      
       document.getElementById('planModal').style.display = 'flex';
     }
 
@@ -1676,6 +1772,22 @@
         document.getElementById('planFeatures').value = Array.isArray(plan.features) ? plan.features.join('\n') : '';
         document.getElementById('planIsActive').checked = plan.isActive !== false;
         document.getElementById('planIsPopular').checked = plan.isPopular === true;
+        
+        // 권한 체크박스 초기화
+        document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
+          checkbox.checked = false;
+        });
+        
+        // 저장된 권한 체크
+        if (Array.isArray(plan.permissions)) {
+          plan.permissions.forEach(permission => {
+            const checkbox = document.querySelector(`.permission-checkbox[data-permission="${permission}"]`);
+            if (checkbox) {
+              checkbox.checked = true;
+            }
+          });
+        }
+        
         document.getElementById('planModal').style.display = 'flex';
         
       } catch (error) {
@@ -1691,6 +1803,13 @@
       event.preventDefault();
       
       const planId = document.getElementById('planId').value;
+      
+      // 선택된 권한 수집
+      const permissions = [];
+      document.querySelectorAll('.permission-checkbox:checked').forEach(checkbox => {
+        permissions.push(checkbox.dataset.permission);
+      });
+      
       const planData = {
         name: document.getElementById('planName').value.trim(),
         price: parseInt(document.getElementById('planPrice').value) || 0,
@@ -1699,10 +1818,13 @@
           .split('\n')
           .map(f => f.trim())
           .filter(f => f.length > 0),
+        permissions: permissions, // 권한 배열 추가
         isActive: document.getElementById('planIsActive').checked,
         isPopular: document.getElementById('planIsPopular').checked,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
+      
+      console.log('💾 플랜 저장 데이터:', planData);
       
       try {
         if (planId) {
