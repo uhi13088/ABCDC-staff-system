@@ -168,27 +168,32 @@
       background: var(--danger);
     }
     
-    /* 모달 오버레이 강제 중앙 정렬 */
-    .modal-overlay {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      background: rgba(0, 0, 0, 0.6) !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      z-index: 9999 !important;
-      padding: 20px !important;
+    /* 모달 오버레이 - 숨김 상태가 기본 */
+    #companyManageModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;  /* 기본은 숨김 */
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
       backdrop-filter: blur(4px);
     }
     
-    .modal-overlay .modal-content {
-      position: relative !important;
-      margin: auto !important;
+    /* 모달이 열릴 때 */
+    #companyManageModal[style*="display: block"] {
+      display: flex !important;
+    }
+    
+    #companyManageModal .modal-content {
+      position: relative;
+      margin: auto;
     }
   </style>
 </head>
@@ -351,7 +356,7 @@
     <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
         <h2 style="margin: 0; font-size: 20px; font-weight: 700;">🏢 회사 관리</h2>
-        <button class="modal-close" onclick="closeCompanyManageModal()" aria-label="닫기">&times;</button>
+        <button type="button" class="modal-close" onclick="closeCompanyManageModal()" aria-label="닫기">&times;</button>
       </div>
       <div class="modal-body">
         <form id="companyManageForm" onsubmit="saveCompanySettings(event)">
