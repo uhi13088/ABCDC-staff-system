@@ -436,7 +436,7 @@
         // 2. Company ID 생성
         const companyId = generateCompanyId(companyName);
 
-        // 3. Firestore에 회사 정보 저장
+        // 3. Firestore에 회사 정보 저장 (구독 정보 포함)
         await db.collection('companies').doc(companyId).set({
           companyId: companyId,
           companyName: companyName,
@@ -446,7 +446,15 @@
           address: '',  // 나중에 입력
           status: 'active',
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          createdBy: user.uid
+          createdBy: user.uid,
+          // 🎯 구독(Subscription) 정보 초기화
+          subscription: {
+            planType: 'free',          // 기본값: 무료 플랜
+            status: 'active',          // 활성 상태
+            maxUsers: 5,               // 무료 플랜 제한: 5명
+            startedAt: firebase.firestore.FieldValue.serverTimestamp(),  // 구독 시작일
+            nextBillingDate: null      // 무료는 결제일 없음
+          }
         });
 
         // 4. Firestore에 관리자 정보 저장 (users)
