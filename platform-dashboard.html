@@ -229,7 +229,7 @@
     </div>
 
     <div class="container">
-      <!-- 📊 통계 카드 -->
+      <!-- 📊 통계 카드 (항상 표시) -->
       <div class="platform-stats">
         <div class="stat-card">
           <div class="stat-card-label">
@@ -252,37 +252,49 @@
         </div>
       </div>
 
-      <!-- 💳 구독 플랜 관리 섹션 -->
-      <div class="companies-table-container" style="margin-bottom: 24px;">
-        <div class="companies-table-header">
-          <h2>📦 구독 플랜 관리</h2>
-          <button class="btn btn-primary" onclick="openPlanModal()">+ 새 플랜 추가</button>
-        </div>
-        <div style="padding: 24px;">
-          <div id="plansListContainer">
-            <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
-              플랜 목록을 불러오는 중...
-            </p>
+      <!-- 탭 메뉴 -->
+      <div class="tabs" style="margin-top: 24px; margin-bottom: 0;">
+        <button class="tab" data-tab="plans" onclick="switchPlatformTab('plans')">📦 구독 플랜 관리</button>
+        <button class="tab" data-tab="invites" onclick="switchPlatformTab('invites')">🎟️ 초대 코드 관리</button>
+        <button class="tab active" data-tab="companies" onclick="switchPlatformTab('companies')">📋 가입 회사 목록</button>
+      </div>
+
+      <!-- 📦 구독 플랜 관리 탭 -->
+      <div id="tabPlans" class="tab-content">
+        <div class="companies-table-container">
+          <div class="companies-table-header">
+            <h2>📦 구독 플랜 관리</h2>
+            <button class="btn btn-primary" onclick="openPlanModal()">+ 새 플랜 추가</button>
+          </div>
+          <div style="padding: 24px;">
+            <div id="plansListContainer">
+              <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+                플랜 목록을 불러오는 중...
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 🎟️ 초대 코드 관리 섹션 -->
-      <div class="companies-table-container" style="margin-bottom: 24px;">
-        <div class="companies-table-header">
-          <h2>🎟️ 초대 코드 관리</h2>
-          <button class="btn btn-success" onclick="openInviteCodeGeneratorModal()">+ 코드 생성</button>
-        </div>
-        <div style="padding: 24px;">
-          <div id="inviteCodesListContainer">
-            <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
-              초대 코드 목록을 불러오는 중...
-            </p>
+      <!-- 🎟️ 초대 코드 관리 탭 -->
+      <div id="tabInvites" class="tab-content">
+        <div class="companies-table-container">
+          <div class="companies-table-header">
+            <h2>🎟️ 초대 코드 관리</h2>
+            <button class="btn btn-success" onclick="openInviteCodeGeneratorModal()">+ 코드 생성</button>
+          </div>
+          <div style="padding: 24px;">
+            <div id="inviteCodesListContainer">
+              <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+                초대 코드 목록을 불러오는 중...
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 📋 회사 목록 테이블 -->
+      <!-- 📋 가입 회사 목록 탭 -->
+      <div id="tabCompanies" class="tab-content active">
       <div class="companies-table-container">
         <div class="companies-table-header">
           <div style="display: flex; align-items: center; gap: 16px;">
@@ -529,6 +541,10 @@
     </div>
   </div>
 
+  </div> <!-- 탭 콘텐츠 닫기: tabCompanies -->
+  </div> <!-- container 닫기 -->
+  </div> <!-- mainScreen 닫기 -->
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -623,6 +639,38 @@
     /**
      * 플랫폼 대시보드 로드
      */
+    /**
+     * 플랫폼 탭 전환
+     */
+    function switchPlatformTab(tabName) {
+      console.log('🔄 탭 전환:', tabName);
+      
+      // 모든 탭 비활성화
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // 모든 탭 콘텐츠 숨김
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // 선택된 탭 활성화
+      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+      
+      // 선택된 탭 콘텐츠 표시
+      if (tabName === 'plans') {
+        document.getElementById('tabPlans').classList.add('active');
+        loadPlans(); // 플랜 목록 로드
+      } else if (tabName === 'invites') {
+        document.getElementById('tabInvites').classList.add('active');
+        loadInviteCodes(); // 초대 코드 목록 로드
+      } else if (tabName === 'companies') {
+        document.getElementById('tabCompanies').classList.add('active');
+        // 회사 목록은 이미 로드되어 있음
+      }
+    }
+
     async function loadPlatformDashboard() {
       console.log('📊 플랫폼 대시보드 로드 시작...');
       
@@ -636,12 +684,10 @@
         
         console.log(`✅ 통계 로드 완료: ${companiesSnapshot.size}개 회사, ${usersSnapshot.size}명 사용자`);
         
-        // 📋 회사 목록 로드
+        // 📋 회사 목록 로드 (기본 탭)
         await loadCompanies();
         
-        // 💳 구독 플랜 및 초대 코드 로드
-        await loadPlans();
-        await loadInviteCodes();
+        // 💳 구독 플랜 및 초대 코드는 탭 클릭 시 로드
         
       } catch (error) {
         console.error('❌ 플랫폼 대시보드 로드 실패:', error);
