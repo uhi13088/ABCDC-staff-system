@@ -168,6 +168,11 @@
       background: var(--danger);
     }
     
+    /* 권한 체크박스 호버 효과 */
+    label:has(.permission-checkbox):hover {
+      background: rgba(102, 126, 234, 0.08) !important;
+    }
+    
     /* 모달 오버레이 - 숨김 상태가 기본 */
     #companyManageModal {
       position: fixed;
@@ -1532,70 +1537,72 @@
           </div>
 
           <!-- 📋 권한 선택 (Optional Permissions) -->
-          <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: 16px; margin-top: 16px;">
-            <label style="font-weight: 600; font-size: 15px; margin-bottom: 12px; display: block;">
+          <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: 20px; margin-top: 20px;">
+            <label style="font-weight: 600; font-size: 16px; margin-bottom: 8px; display: block; color: var(--text-primary);">
               🔐 선택적 권한 설정
             </label>
-            <small style="color: var(--text-secondary); display: block; margin-bottom: 16px;">
+            <small style="color: var(--text-secondary); display: block; margin-bottom: 20px; line-height: 1.5;">
               ℹ️ 기본 기능(직원 조회/수정, 레시피 관리 등)은 모든 플랜에 포함됩니다. 아래는 부가 기능입니다.
             </small>
 
-            <!-- Group A: 레시피 활용 및 보안 -->
-            <div style="margin-bottom: 16px;">
-              <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
-                📚 레시피 활용 및 보안
-              </h4>
-              <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="recipe.print" />
-                  <span style="font-size: 14px;" data-label="recipe.print"></span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="recipe.view_secret" />
-                  <span style="font-size: 14px;" data-label="recipe.view_secret"></span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="recipe.share_external" />
-                  <span style="font-size: 14px;" data-label="recipe.share_external"></span>
-                </label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+              <!-- Group A: 레시피 활용 및 보안 -->
+              <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">
+                  📚 레시피 활용 및 보안
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="recipe.print" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="recipe.print"></span>
+                  </label>
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="recipe.view_secret" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="recipe.view_secret"></span>
+                  </label>
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="recipe.share_external" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="recipe.share_external"></span>
+                  </label>
+                </div>
               </div>
-            </div>
 
-            <!-- Group B: 인사 관리 고도화 -->
-            <div style="margin-bottom: 16px;">
-              <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
-                👥 인사 관리 고도화
-              </h4>
-              <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="staff.manage_contract" />
-                  <span style="font-size: 14px;" data-label="staff.manage_contract"></span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="staff.invite_email" />
-                  <span style="font-size: 14px;" data-label="staff.invite_email"></span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="staff.schedule_manage" />
-                  <span style="font-size: 14px;" data-label="staff.schedule_manage"></span>
-                </label>
+              <!-- Group B: 인사 관리 고도화 -->
+              <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">
+                  👥 인사 관리 고도화
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="staff.manage_contract" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="staff.manage_contract"></span>
+                  </label>
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="staff.invite_email" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="staff.invite_email"></span>
+                  </label>
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="staff.schedule_manage" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="staff.schedule_manage"></span>
+                  </label>
+                </div>
               </div>
-            </div>
 
-            <!-- Group C: 데이터 소유 및 대량 작업 -->
-            <div style="margin-bottom: 16px;">
-              <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
-                📊 데이터 소유 및 대량 작업
-              </h4>
-              <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="data.export_all" />
-                  <span style="font-size: 14px;" data-label="data.export_all"></span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" class="permission-checkbox" data-permission="data.bulk_update" />
-                  <span style="font-size: 14px;" data-label="data.bulk_update"></span>
-                </label>
+              <!-- Group C: 데이터 소유 및 대량 작업 -->
+              <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">
+                  📊 데이터 소유 및 대량 작업
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="data.export_all" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="data.export_all"></span>
+                  </label>
+                  <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="data.bulk_update" style="margin-top: 2px; flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4;" data-label="data.bulk_update"></span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
