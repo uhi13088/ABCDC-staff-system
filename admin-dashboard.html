@@ -27,6 +27,42 @@
         <span id="companyBrandName">로딩 중...</span>
       </h1>
       <div style="display: flex; align-items: center; gap: 16px;">
+        <!-- 🎯 구독 정보 위젯 -->
+        <div id="subscriptionWidget" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 200px;">
+          <!-- 플랜 배지 -->
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span id="planBadge" style="font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: #e0e0e0; color: #666;">
+              Free Plan
+            </span>
+            <span id="subscriptionStatus" style="font-size: 11px; color: var(--text-secondary);">활성</span>
+          </div>
+          
+          <!-- 인원 현황 -->
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 11px; color: var(--text-secondary);">직원 수</span>
+              <span id="userCountText" style="font-size: 13px; font-weight: 600; color: var(--text-primary);">
+                <span id="currentUsers">0</span> / <span id="maxUsers">5</span>명
+              </span>
+            </div>
+            
+            <!-- 프로그레스 바 -->
+            <div style="width: 100%; height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden;">
+              <div id="usersProgressBar" style="height: 100%; background: var(--success-color); transition: width 0.3s ease, background 0.3s ease; width: 0%;"></div>
+            </div>
+          </div>
+          
+          <!-- 경고 메시지 & 업그레이드 버튼 -->
+          <div id="subscriptionWarning" style="display: none; margin-top: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 6px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
+              <span style="font-size: 11px; color: #856404;">⚠️ 인원 초과</span>
+              <button class="btn btn-primary" onclick="upgradeSubscription()" style="padding: 4px 12px; font-size: 11px; margin-left: auto;">
+                업그레이드
+              </button>
+            </div>
+          </div>
+        </div>
+        
         <button class="btn btn-info" onclick="showCompanyEditModal()" style="padding: 8px 16px; font-size: 14px;">
           🏢 회사 정보
         </button>
@@ -1220,6 +1256,10 @@
       // localStorage contracts 자동 마이그레이션
       await migrateLocalStorageContracts();
       await loadDashboard();  // 🔥 await 추가!
+      
+      // 🎯 구독 정보 실시간 모니터링
+      loadSubscriptionInfo();
+      
       switchTab('employees');
     }
     
@@ -1313,6 +1353,139 @@
         // 에러가 나도 기본 텍스트로 표시
         document.getElementById('companyBrandName').textContent = '관리자 대시보드';
       }
+    }
+    
+    // 🎯 구독 정보 실시간 모니터링
+    let subscriptionUnsubscribe = null;  // onSnapshot 구독 해제 함수
+    
+    function loadSubscriptionInfo() {
+      if (!myCompanyId) {
+        console.error('❌ companyId가 없어서 구독 정보를 로드할 수 없습니다.');
+        return;
+      }
+      
+      console.log('🎯 구독 정보 실시간 모니터링 시작:', myCompanyId);
+      
+      // 기존 구독 해제
+      if (subscriptionUnsubscribe) {
+        subscriptionUnsubscribe();
+      }
+      
+      // 실시간 구독 정보 모니터링 (onSnapshot)
+      subscriptionUnsubscribe = firebase.firestore().collection('companies')
+        .doc(myCompanyId)
+        .onSnapshot(async (doc) => {
+          if (!doc.exists) {
+            console.error('❌ 회사 문서를 찾을 수 없습니다.');
+            return;
+          }
+          
+          const company = doc.data();
+          const subscription = company.subscription;
+          
+          // 구독 정보가 없으면 기본값 사용 (레거시 데이터)
+          if (!subscription) {
+            console.warn('⚠️ 구독 정보 없음 - 기본값 사용');
+            updateSubscriptionWidget({
+              planType: 'free',
+              status: 'active',
+              maxUsers: 5
+            }, 0);
+            return;
+          }
+          
+          console.log('📊 구독 정보:', subscription);
+          
+          // 현재 직원 수 카운트
+          try {
+            const usersCount = await firebase.firestore().collection('users')
+              .where('companyId', '==', myCompanyId)
+              .where('status', 'in', ['active', 'pending'])
+              .count()
+              .get();
+            
+            const currentUsers = usersCount.data().count;
+            console.log(`👥 현재 직원 수: ${currentUsers}명`);
+            
+            // 위젯 업데이트
+            updateSubscriptionWidget(subscription, currentUsers);
+            
+          } catch (error) {
+            console.error('❌ 직원 수 카운트 실패:', error);
+            updateSubscriptionWidget(subscription, 0);
+          }
+        }, (error) => {
+          console.error('❌ 구독 정보 실시간 모니터링 실패:', error);
+        });
+    }
+    
+    /**
+     * 구독 정보 위젯 UI 업데이트
+     */
+    function updateSubscriptionWidget(subscription, currentUsers) {
+      const planType = subscription.planType || 'free';
+      const maxUsers = subscription.maxUsers || 5;
+      const status = subscription.status || 'active';
+      
+      // 플랜 배지 업데이트
+      const planBadge = document.getElementById('planBadge');
+      const planNames = {
+        'free': 'Free Plan',
+        'basic': 'Basic Plan',
+        'pro': 'Pro Plan',
+        'enterprise': 'Enterprise Plan'
+      };
+      
+      const planColors = {
+        'free': { bg: '#e0e0e0', color: '#666' },
+        'basic': { bg: '#e3f2fd', color: '#1976d2' },
+        'pro': { bg: '#e8eaf6', color: '#3f51b5' },
+        'enterprise': { bg: '#f3e5f5', color: '#7b1fa2' }
+      };
+      
+      planBadge.textContent = planNames[planType] || 'Unknown Plan';
+      planBadge.style.background = planColors[planType]?.bg || '#e0e0e0';
+      planBadge.style.color = planColors[planType]?.color || '#666';
+      
+      // 상태 업데이트
+      const subscriptionStatus = document.getElementById('subscriptionStatus');
+      subscriptionStatus.textContent = status === 'active' ? '활성' : '비활성';
+      subscriptionStatus.style.color = status === 'active' ? 'var(--success-color)' : 'var(--danger)';
+      
+      // 인원 현황 업데이트
+      document.getElementById('currentUsers').textContent = currentUsers;
+      document.getElementById('maxUsers').textContent = maxUsers;
+      
+      // 프로그레스 바 업데이트
+      const progressBar = document.getElementById('usersProgressBar');
+      const percentage = maxUsers > 0 ? (currentUsers / maxUsers * 100) : 0;
+      progressBar.style.width = `${Math.min(percentage, 100)}%`;
+      
+      // 프로그레스 바 색상 변경 (80% 이상이면 경고색)
+      if (percentage >= 100) {
+        progressBar.style.background = 'var(--danger)';
+      } else if (percentage >= 80) {
+        progressBar.style.background = '#ffc107';  // 경고색
+      } else {
+        progressBar.style.background = 'var(--success-color)';
+      }
+      
+      // 경고 메시지 표시/숨김
+      const warning = document.getElementById('subscriptionWarning');
+      if (currentUsers >= maxUsers) {
+        warning.style.display = 'block';
+      } else {
+        warning.style.display = 'none';
+      }
+      
+      console.log(`✅ 구독 위젯 업데이트: ${planType} - ${currentUsers}/${maxUsers}명`);
+    }
+    
+    /**
+     * 플랜 업그레이드 버튼 클릭
+     */
+    function upgradeSubscription() {
+      alert('준비 중인 기능입니다.\n\n곧 다양한 플랜을 선택할 수 있습니다:\n- Basic Plan: 20명까지\n- Pro Plan: 100명까지\n- Enterprise Plan: 무제한');
     }
     
     // 매니저 권한 제한 적용
