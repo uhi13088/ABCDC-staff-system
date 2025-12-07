@@ -470,7 +470,7 @@
 
           <input type="hidden" id="targetCompanyId" />
 
-          <!-- 버튼 -->
+          <!-- 저장/취소 버튼 -->
           <div style="display: flex; gap: 12px; margin-top: 24px;">
             <button type="submit" class="btn btn-primary" style="flex: 1;">
               💾 저장
@@ -480,6 +480,21 @@
             </button>
           </div>
         </form>
+
+        <!-- 위험 구역: 회사 삭제 -->
+        <div style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #f0f0f0;">
+          <h3 style="color: #dc3545; font-size: 14px; font-weight: 600; margin-bottom: 8px;">⚠️ 위험 구역</h3>
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">
+            이 작업은 되돌릴 수 없습니다. 회사와 관련된 모든 데이터(직원, 계약서, 근태 기록 등)가 영구적으로 삭제됩니다.
+          </p>
+          <button 
+            type="button" 
+            class="btn" 
+            onclick="deleteCompanyFromModal()"
+            style="background: #dc3545; color: white; width: 100%; font-weight: 600; border: none;">
+            🗑️ 회사 완전 삭제
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -791,6 +806,70 @@
       } catch (error) {
         console.error('❌ 회사 설정 저장 실패:', error);
         alert('❌ 업데이트 실패!\n\n' + error.message);
+      }
+    }
+
+    /**
+     * 모달에서 회사 완전 삭제
+     */
+    async function deleteCompanyFromModal() {
+      const companyId = document.getElementById('targetCompanyId').value;
+      const companyName = document.getElementById('targetCompanyName').textContent.trim();
+      
+      if (!companyId || companyId === '') {
+        alert('❌ 회사 ID를 확인할 수 없습니다.');
+        return;
+      }
+      
+      // 2단계 확인
+      const confirmMessage = `⚠️ 정말로 "${companyName}"와 모든 관련 데이터를 영구 삭제하시겠습니까?\n\n다음 데이터가 모두 삭제됩니다:\n- 회사 정보\n- 모든 직원 계정 (Firebase Auth 포함)\n- 계약서\n- 근태 기록\n- 스케줄\n\n⚠️ 이 작업은 되돌릴 수 없습니다!`;
+      
+      if (!confirm(confirmMessage)) {
+        console.log('회사 삭제 취소됨');
+        return;
+      }
+      
+      // 추가 확인: "삭제" 입력 받기
+      const userInput = prompt(`정말로 삭제하시려면 "삭제"를 입력하세요.`);
+      if (userInput !== '삭제') {
+        alert('❌ 삭제가 취소되었습니다.');
+        return;
+      }
+      
+      console.log('🗑️ 회사 삭제 시작:', companyId, companyName);
+      
+      try {
+        // Cloud Function 호출
+        const deleteCompanyFunc = firebase.functions().httpsCallable('deleteCompany');
+        const result = await deleteCompanyFunc({ companyId });
+        
+        console.log('✅ 회사 삭제 완료:', result.data);
+        
+        // 삭제 성공 알림
+        const deletedCounts = result.data.deletedCount || {};
+        const totalDeleted = result.data.totalDeleted || 0;
+        
+        alert(`✅ 회사 삭제 완료!\n\n회사명: ${companyName}\n총 삭제된 항목: ${totalDeleted}개\n\n상세:\n- 직원: ${deletedCounts.users || 0}명\n- 근태 기록: ${deletedCounts.attendance || 0}개\n- 계약서: ${deletedCounts.contracts || 0}개\n- 스케줄: ${deletedCounts.schedules || 0}개`);
+        
+        // 모달 닫기
+        closeCompanyManageModal();
+        
+        // 리스트 새로고침
+        await loadPlatformDashboard();
+        
+      } catch (error) {
+        console.error('❌ 회사 삭제 실패:', error);
+        
+        let errorMessage = '❌ 회사 삭제에 실패했습니다.\n\n';
+        if (error.code === 'permission-denied') {
+          errorMessage += '권한이 없습니다. super_admin 권한이 필요합니다.';
+        } else if (error.message) {
+          errorMessage += error.message;
+        } else {
+          errorMessage += '알 수 없는 오류가 발생했습니다.';
+        }
+        
+        alert(errorMessage);
       }
     }
 
