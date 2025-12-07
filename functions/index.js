@@ -97,6 +97,76 @@ function respondUnauthorized(res, error, functionName) {
   });
 }
 
+// ===================================================================
+// 🎯 구독(Subscription) 인원 제한 체크 헬퍼 함수
+// ===================================================================
+
+/**
+ * 구독 플랜의 인원 제한 확인
+ * 
+ * @param {Object} db - Firestore 인스턴스
+ * @param {string} companyId - 회사 ID
+ * @throws {functions.https.HttpsError} 인원 제한 초과 시
+ */
+async function checkSubscriptionLimit(db, companyId) {
+  console.log(`🔍 구독 인원 제한 체크: ${companyId}`);
+  
+  try {
+    // 1. 회사의 구독 정보 조회
+    const companyDoc = await db.collection('companies').doc(companyId).get();
+    
+    if (!companyDoc.exists) {
+      throw new functions.https.HttpsError('not-found', '회사 정보를 찾을 수 없습니다.');
+    }
+    
+    const companyData = companyDoc.data();
+    const subscription = companyData.subscription;
+    
+    // 구독 정보가 없으면 체크 건너뛰기 (기존 데이터 호환)
+    if (!subscription) {
+      console.log('⚠️ 구독 정보 없음 - 제한 체크 건너뜀 (레거시 데이터)');
+      return;
+    }
+    
+    const maxUsers = subscription.maxUsers || 5;  // 기본값: 5명
+    
+    console.log(`📊 구독 정보: planType=${subscription.planType}, maxUsers=${maxUsers}`);
+    
+    // 2. 현재 활성 직원 수 조회 (count 쿼리 사용 - 비용 절약)
+    // 'active'와 'pending' 상태 모두 포함 (가입 대기중인 사람도 인원에 포함)
+    const activeUsersCount = await db.collection('users')
+      .where('companyId', '==', companyId)
+      .where('status', 'in', ['active', 'pending'])
+      .count()
+      .get();
+    
+    const currentUserCount = activeUsersCount.data().count;
+    
+    console.log(`👥 현재 활성 직원 수: ${currentUserCount}명 / 최대 ${maxUsers}명`);
+    
+    // 3. 인원 제한 체크
+    if (currentUserCount >= maxUsers) {
+      console.error(`❌ 인원 제한 초과: ${currentUserCount}/${maxUsers}명`);
+      throw new functions.https.HttpsError(
+        'resource-exhausted', 
+        `최대 인원 제한(${maxUsers}명)을 초과했습니다. 플랜 업그레이드가 필요합니다. (현재: ${currentUserCount}명)`
+      );
+    }
+    
+    console.log(`✅ 인원 제한 체크 통과: ${currentUserCount}/${maxUsers}명`);
+    
+  } catch (error) {
+    // HttpsError는 그대로 throw
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    // 기타 에러는 internal 에러로 변환
+    console.error('❌ 구독 제한 체크 실패:', error);
+    throw new functions.https.HttpsError('internal', '구독 정보 확인 중 오류가 발생했습니다.');
+  }
+}
+
 /**
  * users 컬렉션에서 문서 삭제 시 Firebase Authentication 계정도 함께 삭제
  * 
@@ -1160,6 +1230,11 @@ exports.createInviteCode = functions.https.onCall(async (data, context) => {
     // 🔒 회사 일치 확인 (모든 역할 포함)
     if (userCompanyId !== companyId) {
       throw new functions.https.HttpsError('permission-denied', '다른 회사의 초대 코드는 생성할 수 없습니다.');
+    }
+    
+    // 🎯 구독 인원 제한 체크 (super_admin은 제외)
+    if (userRole !== 'super_admin') {
+      await checkSubscriptionLimit(db, companyId);
     }
     
     // 🔒 store_manager는 자기 매장만 초대 코드 생성 가능
