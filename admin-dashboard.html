@@ -1407,20 +1407,32 @@
             // const currentUsers = usersCount.data().count;
             
             // 방법 2: get()으로 문서 가져와서 직접 카운트 (인덱스 문제 회피)
+            console.log('🔍 [구독 위젯] 직원 카운트 쿼리 시작...');
+            console.log(`   - companyId: ${myCompanyId}`);
+            console.log(`   - status 조건: ['active', 'pending', 'approved']`);
+            
             const usersSnapshot = await firebase.firestore().collection('users')
               .where('companyId', '==', myCompanyId)
               .where('status', 'in', ['active', 'pending', 'approved'])  // ✅ 'approved' 추가!
               .get();
             
             const currentUsers = usersSnapshot.size;
-            console.log(`👥 현재 직원 수 (KST 기준): ${currentUsers}명 (active/pending/approved, 전체 ${usersSnapshot.docs.length}개 문서)`);
+            console.log(`👥 [구독 위젯] 현재 직원 수 (KST 기준): ${currentUsers}명 (active/pending/approved, 전체 ${usersSnapshot.docs.length}개 문서)`);
+            
+            // 🔍 각 직원의 상세 정보 출력
+            usersSnapshot.docs.forEach(doc => {
+              const data = doc.data();
+              console.log(`   ✅ ${data.name || data.displayName || 'Unknown'} (${doc.id}): status=${data.status}, role=${data.role}`);
+            });
             
             // 위젯 업데이트
             updateSubscriptionWidget(subscription, currentUsers);
             
           } catch (error) {
-            console.error('❌ 직원 수 카운트 실패:', error);
-            console.error('에러 상세:', error.message);
+            console.error('❌ [구독 위젯] 직원 수 카운트 실패:', error);
+            console.error('   - 에러 코드:', error.code);
+            console.error('   - 에러 메시지:', error.message);
+            console.error('   - companyId:', myCompanyId);
             updateSubscriptionWidget(subscription, 0);
           }
         }, (error) => {
