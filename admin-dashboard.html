@@ -1409,11 +1409,11 @@
             // 방법 2: get()으로 문서 가져와서 직접 카운트 (인덱스 문제 회피)
             const usersSnapshot = await firebase.firestore().collection('users')
               .where('companyId', '==', myCompanyId)
-              .where('status', 'in', ['active', 'pending'])
+              .where('status', 'in', ['active', 'pending', 'approved'])  // ✅ 'approved' 추가!
               .get();
             
             const currentUsers = usersSnapshot.size;
-            console.log(`👥 현재 직원 수: ${currentUsers}명 (전체 ${usersSnapshot.docs.length}개 문서)`);
+            console.log(`👥 현재 직원 수 (KST 기준): ${currentUsers}명 (active/pending/approved, 전체 ${usersSnapshot.docs.length}개 문서)`);
             
             // 위젯 업데이트
             updateSubscriptionWidget(subscription, currentUsers);
