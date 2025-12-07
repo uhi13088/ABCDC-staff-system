@@ -1427,17 +1427,25 @@
             console.log('🔍 [구독 위젯] 직원 카운트 쿼리 시작...');
             console.log(`   - companyId: ${myCompanyId}`);
             console.log(`   - status 조건: ['active', 'pending', 'approved']`);
+            console.log(`   - role 조건: ['staff', 'store_manager', 'manager'] (관리자 제외!)`);
             
             const usersSnapshot = await firebase.firestore().collection('users')
               .where('companyId', '==', myCompanyId)
               .where('status', 'in', ['active', 'pending', 'approved'])  // ✅ 'approved' 추가!
               .get();
             
-            const currentUsers = usersSnapshot.size;
-            console.log(`👥 [구독 위젯] 현재 직원 수 (KST 기준): ${currentUsers}명 (active/pending/approved, 전체 ${usersSnapshot.docs.length}개 문서)`);
+            // 🔥 관리자(admin, super_admin) 제외하고 직원만 카운트
+            const employeeRoles = ['staff', 'store_manager', 'manager'];
+            const employees = usersSnapshot.docs.filter(doc => {
+              const role = doc.data().role;
+              return employeeRoles.includes(role);
+            });
+            
+            const currentUsers = employees.length;
+            console.log(`👥 [구독 위젯] 현재 직원 수 (KST 기준): ${currentUsers}명 (관리자 제외, 전체 ${usersSnapshot.size}명 중 필터링)`);
             
             // 🔍 각 직원의 상세 정보 출력
-            usersSnapshot.docs.forEach(doc => {
+            employees.forEach(doc => {
               const data = doc.data();
               console.log(`   ✅ ${data.name || data.displayName || 'Unknown'} (${doc.id}): status=${data.status}, role=${data.role}`);
             });
