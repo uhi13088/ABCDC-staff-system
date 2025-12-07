@@ -324,11 +324,11 @@
   </div>
 
   <!-- 🏢 회사 관리 모달 -->
-  <div id="companyManageModal" class="modal">
+  <div id="companyManageModal" class="modal-overlay" style="display: none;">
     <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
-        <h2>🏢 회사 관리</h2>
-        <span class="close" onclick="closeCompanyManageModal()">&times;</span>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">🏢 회사 관리</h2>
+        <button class="modal-close" onclick="closeCompanyManageModal()" aria-label="닫기">&times;</button>
       </div>
       <div class="modal-body">
         <form id="companyManageForm" onsubmit="saveCompanySettings(event)">
