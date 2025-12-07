@@ -264,7 +264,12 @@
         <div class="companies-table-container">
           <div class="companies-table-header">
             <h2>📦 구독 플랜 관리</h2>
-            <button class="btn btn-primary" onclick="openPlanModal()">+ 새 플랜 추가</button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-success" onclick="seedInitialPlans()" style="background: #28a745;">
+                🌱 샘플 플랜 4개 생성
+              </button>
+              <button class="btn btn-primary" onclick="openPlanModal()">+ 새 플랜 추가</button>
+            </div>
           </div>
           <div style="padding: 24px;">
             <div id="plansListContainer">
@@ -1863,6 +1868,155 @@
       } catch (error) {
         console.error('플랜 삭제 실패:', error);
         alert('❌ 플랜 삭제에 실패했습니다.\n\n' + error.message);
+      }
+    }
+
+    /**
+     * 샘플 플랜 4개 생성 (Starter, Basic, Pro, Master)
+     */
+    async function seedInitialPlans() {
+      const confirmMessage = 
+        '🌱 다음 4개의 샘플 플랜을 생성합니다:\n\n' +
+        '1. 새싹 (Starter) - 0원/월 (최대 5명)\n' +
+        '2. 카페/매장 (Basic) - 9,900원/월 (최대 15명)\n' +
+        '3. 성장하는 기업 (Pro) - 29,000원/월 (최대 50명) ⭐ 인기\n' +
+        '4. 프랜차이즈 (Master) - 59,000원/월 (최대 9,999명)\n\n' +
+        '계속하시겠습니까?';
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      const samplePlans = [
+        {
+          id: 'plan_free',
+          name: '새싹 (Starter)',
+          price: 0,
+          billingCycle: 'monthly',
+          maxUsers: 5,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 관리 (기본)',
+            '대시보드 (기본 통계)',
+            '공지사항 게시판'
+          ],
+          description: '개인 또는 소규모 팀을 위한 무료 플랜',
+          permissions: [],
+          isActive: true,
+          isPopular: false
+        },
+        {
+          id: 'plan_basic',
+          name: '카페/매장 (Basic)',
+          price: 9900,
+          billingCycle: 'monthly',
+          maxUsers: 15,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 인쇄 📄',
+            '레시피 외부 공유 🔗',
+            '대시보드 (상세 통계)',
+            '공지사항 게시판'
+          ],
+          description: '1~2개 매장을 운영하는 카페/베이커리',
+          permissions: ['recipe.print', 'recipe.share_external'],
+          isActive: true,
+          isPopular: false
+        },
+        {
+          id: 'plan_pro',
+          name: '성장하는 기업 (Pro)',
+          price: 29000,
+          billingCycle: 'monthly',
+          maxUsers: 50,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 인쇄 📄 + 외부 공유 🔗',
+            '계약서 관리 📝',
+            '스케줄 관리 📅',
+            '이메일 초대 ✉️',
+            '대시보드 (고급 분석)',
+            '공지사항 게시판'
+          ],
+          description: '다수의 매장과 직원을 관리하는 중소기업',
+          permissions: [
+            'recipe.print',
+            'recipe.share_external',
+            'staff.manage_contract',
+            'staff.schedule_manage',
+            'staff.invite_email'
+          ],
+          isActive: true,
+          isPopular: true
+        },
+        {
+          id: 'plan_enterprise',
+          name: '프랜차이즈 (Master)',
+          price: 59000,
+          billingCycle: 'monthly',
+          maxUsers: 9999,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 인쇄 📄 + 외부 공유 🔗',
+            '레시피 비공개 필드 조회 🔒',
+            '계약서 관리 📝',
+            '스케줄 관리 📅',
+            '이메일 초대 ✉️',
+            '데이터 전체 내보내기 📊',
+            '일괄 업데이트 ⚡',
+            '대시보드 (커스텀 리포트)',
+            '공지사항 게시판'
+          ],
+          description: '프랜차이즈 또는 대규모 체인 운영',
+          permissions: [
+            'recipe.print',
+            'recipe.share_external',
+            'recipe.view_secret',
+            'staff.manage_contract',
+            'staff.schedule_manage',
+            'staff.invite_email',
+            'data.export_all',
+            'data.bulk_update'
+          ],
+          isActive: true,
+          isPopular: false
+        }
+      ];
+
+      try {
+        let successCount = 0;
+        let skipCount = 0;
+
+        for (const plan of samplePlans) {
+          // 중복 체크
+          const existing = await db.collection('subscription_plans').doc(plan.id).get();
+          if (existing.exists) {
+            console.log(`⏭️ 플랜 "${plan.name}"은 이미 존재합니다. 건너뜁니다.`);
+            skipCount++;
+            continue;
+          }
+
+          // 생성
+          await db.collection('subscription_plans').doc(plan.id).set({
+            ...plan,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          console.log(`✅ 플랜 생성 완료: ${plan.name}`);
+          successCount++;
+        }
+
+        if (successCount > 0) {
+          alert(`✅ 샘플 플랜 ${successCount}개가 생성되었습니다.\n${skipCount > 0 ? `⏭️ ${skipCount}개는 이미 존재하여 건너뛰었습니다.` : ''}`);
+          loadPlans(); // 목록 새로고침
+        } else {
+          alert('ℹ️ 모든 샘플 플랜이 이미 존재합니다.');
+        }
+
+      } catch (error) {
+        console.error('❌ 샘플 플랜 생성 실패:', error);
+        alert('❌ 샘플 플랜 생성에 실패했습니다.\n\n' + error.message);
       }
     }
 
