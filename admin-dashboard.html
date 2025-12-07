@@ -1381,22 +1381,20 @@
           }
           
           const company = doc.data();
-          const subscription = company.subscription;
+          const subscription = company.subscription || {
+            planType: 'free',
+            status: 'active',
+            maxUsers: 5
+          };
           
           // 구독 정보가 없으면 기본값 사용 (레거시 데이터)
-          if (!subscription) {
-            console.warn('⚠️ 구독 정보 없음 - 기본값 사용');
-            updateSubscriptionWidget({
-              planType: 'free',
-              status: 'active',
-              maxUsers: 5
-            }, 0);
-            return;
+          if (!company.subscription) {
+            console.warn('⚠️ 구독 정보 없음 - 기본값 사용 (free plan, max 5명)');
+          } else {
+            console.log('📊 구독 정보:', subscription);
           }
           
-          console.log('📊 구독 정보:', subscription);
-          
-          // 현재 직원 수 카운트
+          // ✅ 구독 정보 유무와 관계없이 현재 직원 수 카운트
           try {
             // 방법 1: count() 쿼리 (인덱스 필요)
             // const usersCount = await firebase.firestore().collection('users')
