@@ -262,6 +262,85 @@
     </div>
   </div>
 
+  <!-- 🏢 회사 관리 모달 -->
+  <div id="companyManageModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2>🏢 회사 관리</h2>
+        <span class="close" onclick="closeCompanyManageModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="companyManageForm" onsubmit="saveCompanySettings(event)">
+          <!-- 회사명 표시 -->
+          <div class="form-group">
+            <label style="font-weight: 600; color: var(--text-primary);">대상 회사</label>
+            <div id="targetCompanyName" style="font-size: 18px; padding: 12px; background: #f5f5f5; border-radius: 8px; margin-top: 8px;">
+              -
+            </div>
+          </div>
+
+          <!-- 플랜 변경 -->
+          <div class="form-group">
+            <label for="planTypeSelect">플랜 변경</label>
+            <select id="planTypeSelect" class="form-control" required>
+              <option value="free">Free Plan (무료)</option>
+              <option value="basic">Basic Plan (기본)</option>
+              <option value="pro">Pro Plan (프로)</option>
+              <option value="enterprise">Enterprise Plan (기업)</option>
+            </select>
+          </div>
+
+          <!-- 최대 인원 수정 -->
+          <div class="form-group">
+            <label for="maxUsersInput">최대 인원 (Max Users)</label>
+            <input 
+              type="number" 
+              id="maxUsersInput" 
+              class="form-control" 
+              min="1" 
+              max="10000" 
+              required
+              placeholder="최대 직원 수 입력"
+            />
+            <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
+              💡 Free: 5명, Basic: 20명, Pro: 100명, Enterprise: 무제한 (10000명)
+            </small>
+          </div>
+
+          <!-- 상태 변경 -->
+          <div class="form-group">
+            <label>회사 상태</label>
+            <div style="display: flex; gap: 16px; margin-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="radio" name="companyStatus" value="active" checked />
+                <span>✅ Active (활성)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="radio" name="companyStatus" value="suspended" />
+                <span>🚫 Suspended (정지)</span>
+              </label>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 12px; margin-top: 8px; display: block;">
+              ⚠️ 정지 상태 시 해당 회사의 모든 사용자가 로그인할 수 없습니다.
+            </small>
+          </div>
+
+          <input type="hidden" id="targetCompanyId" />
+
+          <!-- 버튼 -->
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">
+              💾 저장
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="closeCompanyManageModal()" style="flex: 1;">
+              취소
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -485,8 +564,8 @@
               </td>
               <td><span class="company-status-badge ${statusClass}">${statusText}</span></td>
               <td>
-                <button class="btn btn-sm btn-primary" onclick="viewCompanyDetail('${company.id}')">
-                  상세보기
+                <button class="btn btn-sm btn-primary" onclick="openCompanyManageModal('${company.id}', '${company.name}', '${planType}', ${maxUsers}, '${status}')">
+                  ⚙️ 관리
                 </button>
               </td>
             </tr>
@@ -506,11 +585,76 @@
     }
 
     /**
-     * 회사 상세보기
+     * 회사 관리 모달 열기
      */
-    function viewCompanyDetail(companyId) {
-      // TODO: 회사 상세 정보 모달 또는 페이지로 이동
-      alert(`회사 상세 정보 (ID: ${companyId})\n\n이 기능은 추후 구현 예정입니다.`);
+    function openCompanyManageModal(companyId, companyName, planType, maxUsers, status) {
+      console.log('🏢 회사 관리 모달 열기:', { companyId, companyName, planType, maxUsers, status });
+      
+      // 모달 데이터 설정
+      document.getElementById('targetCompanyId').value = companyId;
+      document.getElementById('targetCompanyName').textContent = companyName;
+      document.getElementById('planTypeSelect').value = planType;
+      document.getElementById('maxUsersInput').value = maxUsers;
+      
+      // 상태 라디오 버튼 설정
+      const statusRadios = document.querySelectorAll('input[name="companyStatus"]');
+      statusRadios.forEach(radio => {
+        radio.checked = radio.value === status;
+      });
+      
+      // 모달 표시
+      document.getElementById('companyManageModal').style.display = 'block';
+    }
+
+    /**
+     * 회사 관리 모달 닫기
+     */
+    function closeCompanyManageModal() {
+      document.getElementById('companyManageModal').style.display = 'none';
+    }
+
+    /**
+     * 회사 설정 저장
+     */
+    async function saveCompanySettings(event) {
+      event.preventDefault();
+      
+      const companyId = document.getElementById('targetCompanyId').value;
+      const planType = document.getElementById('planTypeSelect').value;
+      const maxUsers = parseInt(document.getElementById('maxUsersInput').value);
+      const status = document.querySelector('input[name="companyStatus"]:checked').value;
+      
+      console.log('💾 회사 설정 저장:', { companyId, planType, maxUsers, status });
+      
+      if (!companyId) {
+        alert('❌ 회사 ID가 없습니다.');
+        return;
+      }
+      
+      try {
+        // Firestore 업데이트
+        await db.collection('companies').doc(companyId).update({
+          'subscription.planType': planType,
+          'subscription.maxUsers': maxUsers,
+          'subscription.status': status,
+          'subscription.updatedAt': firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ 회사 설정 업데이트 완료');
+        
+        // 성공 알림
+        alert('✅ 업데이트 완료!\n\n변경 사항이 성공적으로 저장되었습니다.');
+        
+        // 모달 닫기
+        closeCompanyManageModal();
+        
+        // 테이블 새로고침
+        await loadPlatformDashboard();
+        
+      } catch (error) {
+        console.error('❌ 회사 설정 저장 실패:', error);
+        alert('❌ 업데이트 실패!\n\n' + error.message);
+      }
     }
 
     /**
@@ -535,6 +679,14 @@
         });
       }
     }
+
+    // 모달 외부 클릭 시 닫기
+    window.onclick = function(event) {
+      const modal = document.getElementById('companyManageModal');
+      if (event.target === modal) {
+        closeCompanyManageModal();
+      }
+    };
   </script>
 </body>
 </html>
