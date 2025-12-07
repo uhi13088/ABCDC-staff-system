@@ -4,10 +4,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ===================================================================
-    // 멀티테넌트 Firestore Security Rules v3.6 (Final Optimized)
+    // 멀티테넌트 Firestore Security Rules v3.7
     // ABCDC Staff System - Multi-tenant SaaS
     // 
-    // 주요 개선사항:
+    // v3.7 업데이트 (2024-12-07):
+    // - subscription_plans 컬렉션 추가 (공개 읽기 허용)
+    // - invitation_codes 컬렉션 추가 (관리자 전용)
+    // - 구독 플랜 기반 권한 시스템 기반 마련
+    // 
+    // v3.6 주요 개선사항:
     // - 불필요한 헬퍼 함수 제거 (코드 간소화)
     // - 클라이언트 쿼리(where절)와 규칙의 1:1 매칭으로 보안 강화
     // - 비즈니스 로직(대타 구하기) 완벽 구현
