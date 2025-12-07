@@ -1134,28 +1134,103 @@
     }
 
     /**
-     * 선택 항목 삭제
+     * 선택 항목 삭제 (Cloud Functions 호출)
      */
     async function bulkDelete() {
       if (selectedCompanies.size === 0) return;
       
-      if (!confirm(`선택한 ${selectedCompanies.size}개 회사를 정말 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
+      const companyNames = Array.from(selectedCompanies).map(id => {
+        const company = allCompaniesData.find(c => c.id === id);
+        return company ? company.name : id;
+      }).join(', ');
+      
+      const confirmMessage = `선택한 ${selectedCompanies.size}개 회사를 정말 삭제하시겠습니까?\n\n` +
+        `회사: ${companyNames}\n\n` +
+        `⚠️ 경고: 이 작업은 되돌릴 수 없습니다!\n` +
+        `⚠️ 모든 직원, 출퇴근 기록, 계약서 등이 함께 삭제됩니다.\n\n` +
+        `계속하려면 "삭제"를 입력하세요.`;
+      
+      const userInput = prompt(confirmMessage);
+      
+      if (userInput !== '삭제') {
+        alert('삭제가 취소되었습니다.');
         return;
       }
       
       try {
-        const batch = db.batch();
-        selectedCompanies.forEach(companyId => {
-          batch.delete(db.collection('companies').doc(companyId));
-        });
-        await batch.commit();
+        // 로딩 표시
+        const tbody = document.getElementById('companiesTableBody');
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px;">
+              <div class="loading-spinner">
+                <div style="font-size: 48px; margin-bottom: 16px;">🗑️</div>
+                <div>회사 삭제 중... (이 작업은 시간이 걸릴 수 있습니다)</div>
+              </div>
+            </td>
+          </tr>
+        `;
         
-        alert('✅ 선택한 회사가 삭제되었습니다.');
+        const deleteCompany = firebase.functions().httpsCallable('deleteCompany');
+        const results = [];
+        let successCount = 0;
+        let failCount = 0;
+        
+        // 각 회사를 순차적으로 삭제
+        for (const companyId of selectedCompanies) {
+          try {
+            console.log(`🗑️ 회사 삭제 시작: ${companyId}`);
+            const result = await deleteCompany({ companyId });
+            console.log(`✅ 회사 삭제 완료:`, result.data);
+            results.push({
+              companyId,
+              success: true,
+              data: result.data
+            });
+            successCount++;
+          } catch (error) {
+            console.error(`❌ 회사 삭제 실패 (${companyId}):`, error);
+            results.push({
+              companyId,
+              success: false,
+              error: error.message
+            });
+            failCount++;
+          }
+        }
+        
+        // 결과 요약
+        let summaryMessage = `삭제 완료!\n\n`;
+        summaryMessage += `✅ 성공: ${successCount}개\n`;
+        if (failCount > 0) {
+          summaryMessage += `❌ 실패: ${failCount}개\n`;
+        }
+        
+        // 삭제 통계 표시 (첫 번째 성공 케이스)
+        const successResult = results.find(r => r.success);
+        if (successResult && successResult.data.deletedCount) {
+          const counts = successResult.data.deletedCount;
+          summaryMessage += `\n[삭제된 데이터]\n`;
+          summaryMessage += `- 사용자: ${counts.users}명\n`;
+          summaryMessage += `- Auth 계정: ${counts.authAccounts}개\n`;
+          summaryMessage += `- 출퇴근 기록: ${counts.attendance}건\n`;
+          summaryMessage += `- 계약서: ${counts.contracts}건\n`;
+          summaryMessage += `- 스케줄: ${counts.schedules}건\n`;
+          summaryMessage += `- 매장: ${counts.stores}개\n`;
+          summaryMessage += `- 브랜드: ${counts.brands}개\n`;
+          summaryMessage += `- 초대 코드: ${counts.invites}개\n`;
+        }
+        
+        alert(summaryMessage);
+        
+        // 선택 해제 및 새로고침
         selectedCompanies.clear();
         await loadPlatformDashboard();
+        
       } catch (error) {
-        console.error('❌ 삭제 실패:', error);
-        alert('삭제 중 오류가 발생했습니다.');
+        console.error('❌ 삭제 중 오류:', error);
+        alert(`삭제 중 오류가 발생했습니다.\n\n${error.message}`);
+        await loadPlatformDashboard();
       }
     }
 

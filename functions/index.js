@@ -1292,3 +1292,258 @@ exports.createInviteCode = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', '초대 코드 생성 실패');
   }
 });
+
+// ===================================================================
+// 🗑️ 회사 완전 삭제 (슈퍼 어드민 전용) - v3.8
+// ===================================================================
+
+/**
+ * 회사 및 모든 관련 데이터 완전 삭제
+ * 
+ * ⚠️ 위험: 이 작업은 되돌릴 수 없습니다!
+ * 
+ * 삭제 대상:
+ * - companies 문서
+ * - users (직원 + Firebase Auth 계정)
+ * - attendance (출퇴근 기록)
+ * - contracts (계약서)
+ * - schedules (근무 스케줄)
+ * - stores (매장)
+ * - brands (브랜드)
+ * - company_invites (초대 코드)
+ * 
+ * @param {Object} data - { companyId: string }
+ * @param {Object} context - Firebase Auth 컨텍스트
+ * @returns {Object} - { success: true, deletedCount: {...} }
+ */
+exports.deleteCompany = functions.https.onCall(async (data, context) => {
+  const db = admin.firestore();
+  const auth = admin.auth();
+  
+  try {
+    console.log('🗑️ 회사 완전 삭제 요청 받음');
+    
+    // 🔒 인증 확인
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+    
+    // 🔒 super_admin 권한 확인
+    const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+    
+    if (!callerDoc.exists) {
+      throw new functions.https.HttpsError('not-found', '사용자 정보를 찾을 수 없습니다.');
+    }
+    
+    const callerData = callerDoc.data();
+    
+    if (callerData.role !== 'super_admin') {
+      console.error(`🚫 권한 없음: ${context.auth.uid} (role: ${callerData.role})`);
+      throw new functions.https.HttpsError(
+        'permission-denied', 
+        '이 작업은 슈퍼 어드민만 수행할 수 있습니다.'
+      );
+    }
+    
+    // 파라미터 검증
+    const { companyId } = data;
+    
+    if (!companyId) {
+      throw new functions.https.HttpsError('invalid-argument', 'companyId는 필수입니다.');
+    }
+    
+    console.log(`🔍 삭제 대상 회사: ${companyId}`);
+    
+    // 회사 존재 확인
+    const companyDoc = await db.collection('companies').doc(companyId).get();
+    
+    if (!companyDoc.exists) {
+      throw new functions.https.HttpsError('not-found', '회사를 찾을 수 없습니다.');
+    }
+    
+    const companyData = companyDoc.data();
+    console.log(`📋 회사 정보: ${companyData.companyName || companyData.name || '(이름 없음)'}`);
+    
+    // 삭제 카운터
+    const deletedCount = {
+      companies: 0,
+      users: 0,
+      authAccounts: 0,
+      attendance: 0,
+      contracts: 0,
+      schedules: 0,
+      stores: 0,
+      brands: 0,
+      invites: 0
+    };
+    
+    // ===================================================================
+    // 1️⃣ 해당 회사의 모든 직원 UID 수집 (Firebase Auth 삭제용)
+    // ===================================================================
+    
+    console.log('1️⃣ 직원 UID 수집 중...');
+    const usersSnapshot = await db.collection('users')
+      .where('companyId', '==', companyId)
+      .get();
+    
+    const employeeUids = [];
+    usersSnapshot.forEach(doc => {
+      employeeUids.push(doc.id);
+    });
+    
+    console.log(`   📊 직원 ${employeeUids.length}명 발견`);
+    
+    // ===================================================================
+    // 2️⃣ Firebase Auth 계정 삭제 (배치 처리)
+    // ===================================================================
+    
+    console.log('2️⃣ Firebase Auth 계정 삭제 중...');
+    
+    // 100명씩 청크로 나누어 삭제 (rate limit 방지)
+    const CHUNK_SIZE = 100;
+    const authChunks = [];
+    for (let i = 0; i < employeeUids.length; i += CHUNK_SIZE) {
+      authChunks.push(employeeUids.slice(i, i + CHUNK_SIZE));
+    }
+    
+    for (let chunkIndex = 0; chunkIndex < authChunks.length; chunkIndex++) {
+      const chunk = authChunks[chunkIndex];
+      console.log(`   🔄 Auth 청크 ${chunkIndex + 1}/${authChunks.length} 처리 중 (${chunk.length}명)...`);
+      
+      for (const uid of chunk) {
+        try {
+          await auth.deleteUser(uid);
+          deletedCount.authAccounts++;
+        } catch (error) {
+          console.warn(`   ⚠️ Auth 계정 삭제 실패 (${uid}):`, error.message);
+          // 계속 진행 (이미 삭제되었거나 존재하지 않을 수 있음)
+        }
+      }
+      
+      // Rate limit 방지: 0.5초 대기
+      if (chunkIndex < authChunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    console.log(`   ✅ Auth 계정 ${deletedCount.authAccounts}개 삭제 완료`);
+    
+    // ===================================================================
+    // 3️⃣ Firestore 컬렉션 데이터 삭제 (배치 처리)
+    // ===================================================================
+    
+    /**
+     * 컬렉션 배치 삭제 헬퍼 함수
+     */
+    async function batchDeleteCollection(collectionName, whereField, whereValue) {
+      console.log(`   🔄 ${collectionName} 삭제 중...`);
+      
+      const snapshot = await db.collection(collectionName)
+        .where(whereField, '==', whereValue)
+        .get();
+      
+      if (snapshot.empty) {
+        console.log(`   ℹ️ ${collectionName}: 삭제할 데이터 없음`);
+        return 0;
+      }
+      
+      // 500개씩 청크로 나누어 배치 삭제
+      const chunks = [];
+      let chunk = [];
+      
+      snapshot.forEach(doc => {
+        chunk.push(doc.ref);
+        if (chunk.length === 500) {
+          chunks.push(chunk);
+          chunk = [];
+        }
+      });
+      
+      if (chunk.length > 0) {
+        chunks.push(chunk);
+      }
+      
+      let totalDeleted = 0;
+      
+      for (let i = 0; i < chunks.length; i++) {
+        const batch = db.batch();
+        chunks[i].forEach(ref => {
+          batch.delete(ref);
+        });
+        await batch.commit();
+        totalDeleted += chunks[i].length;
+        console.log(`   📦 ${collectionName} 청크 ${i + 1}/${chunks.length} 삭제 완료 (${chunks[i].length}개)`);
+      }
+      
+      console.log(`   ✅ ${collectionName}: ${totalDeleted}개 삭제 완료`);
+      return totalDeleted;
+    }
+    
+    // users 컬렉션 삭제
+    console.log('3️⃣ Firestore 데이터 삭제 중...');
+    deletedCount.users = await batchDeleteCollection('users', 'companyId', companyId);
+    
+    // attendance 컬렉션 삭제
+    deletedCount.attendance = await batchDeleteCollection('attendance', 'companyId', companyId);
+    
+    // contracts 컬렉션 삭제
+    deletedCount.contracts = await batchDeleteCollection('contracts', 'companyId', companyId);
+    
+    // schedules 컬렉션 삭제
+    deletedCount.schedules = await batchDeleteCollection('schedules', 'companyId', companyId);
+    
+    // stores 컬렉션 삭제
+    deletedCount.stores = await batchDeleteCollection('stores', 'companyId', companyId);
+    
+    // brands 컬렉션 삭제
+    deletedCount.brands = await batchDeleteCollection('brands', 'companyId', companyId);
+    
+    // company_invites 컬렉션 삭제
+    deletedCount.invites = await batchDeleteCollection('company_invites', 'companyId', companyId);
+    
+    // ===================================================================
+    // 4️⃣ 회사 문서 삭제
+    // ===================================================================
+    
+    console.log('4️⃣ 회사 문서 삭제 중...');
+    await db.collection('companies').doc(companyId).delete();
+    deletedCount.companies = 1;
+    console.log('   ✅ 회사 문서 삭제 완료');
+    
+    // ===================================================================
+    // 완료
+    // ===================================================================
+    
+    const totalDeleted = Object.values(deletedCount).reduce((sum, count) => sum + count, 0);
+    
+    console.log('✅ 회사 완전 삭제 완료!');
+    console.log('📊 삭제 통계:');
+    console.log(`   - 회사: ${deletedCount.companies}개`);
+    console.log(`   - 사용자: ${deletedCount.users}명`);
+    console.log(`   - Auth 계정: ${deletedCount.authAccounts}개`);
+    console.log(`   - 출퇴근 기록: ${deletedCount.attendance}건`);
+    console.log(`   - 계약서: ${deletedCount.contracts}건`);
+    console.log(`   - 스케줄: ${deletedCount.schedules}건`);
+    console.log(`   - 매장: ${deletedCount.stores}개`);
+    console.log(`   - 브랜드: ${deletedCount.brands}개`);
+    console.log(`   - 초대 코드: ${deletedCount.invites}개`);
+    console.log(`   🔢 총합: ${totalDeleted}개`);
+    
+    return {
+      success: true,
+      deletedCount,
+      totalDeleted,
+      companyId,
+      companyName: companyData.companyName || companyData.name || '(이름 없음)'
+    };
+    
+  } catch (error) {
+    console.error('❌ 회사 삭제 실패:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', `회사 삭제 실패: ${error.message}`);
+  }
+});
