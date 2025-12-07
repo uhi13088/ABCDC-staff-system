@@ -255,13 +255,33 @@
       <!-- 📋 회사 목록 테이블 -->
       <div class="companies-table-container">
         <div class="companies-table-header">
-          <h2>📋 가입 회사 목록</h2>
-          <button class="btn btn-primary" onclick="refreshCompanies()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
-              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-            </svg>
-            새로고침
-          </button>
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <h2>📋 가입 회사 목록</h2>
+            <!-- 대량 작업 버튼 (선택된 항목이 있을 때만 표시) -->
+            <div id="bulkActionsBar" style="display: none; gap: 8px;">
+              <span id="selectedCount" style="font-size: 14px; color: var(--text-secondary);"></span>
+              <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="bulkDelete()">
+                🗑️ 선택 삭제
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
+                선택 해제
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-success" onclick="exportToCSV()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+                <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+              </svg>
+              CSV 다운로드
+            </button>
+            <button class="btn btn-primary" onclick="refreshCompanies()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              </svg>
+              새로고침
+            </button>
+          </div>
         </div>
         
         <!-- 🔍 검색 & 필터 -->
@@ -314,19 +334,28 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>회사명</th>
+                <th style="width: 40px;">
+                  <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" />
+                </th>
+                <th style="cursor: pointer; user-select: none;" onclick="sortTable('name')">
+                  회사명 <span id="sortIcon-name"></span>
+                </th>
                 <th>대표자 이메일</th>
-                <th>가입일</th>
+                <th style="cursor: pointer; user-select: none;" onclick="sortTable('createdAt')">
+                  가입일 <span id="sortIcon-createdAt">↓</span>
+                </th>
                 <th>플랜</th>
-                <th>직원 현황</th>
+                <th style="cursor: pointer; user-select: none;" onclick="sortTable('employeeCount')">
+                  직원 현황 <span id="sortIcon-employeeCount"></span>
+                </th>
                 <th>상태</th>
                 <th>관리</th>
               </tr>
             </thead>
             <tbody id="companiesTableBody">
               <tr>
-                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                  ⏳ 회사 목록을 불러오는 중...
+                <td colspan="8" style="text-align: center; padding: 40px;">
+                  <div class="loading-spinner" style="margin: 0 auto;">⏳ 회사 목록을 불러오는 중...</div>
                 </td>
               </tr>
             </tbody>
@@ -334,17 +363,42 @@
         </div>
         
         <!-- 페이지네이션 -->
-        <div style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #f8f9fa;">
+        <div style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; flex-wrap: wrap; gap: 16px;">
           <div style="font-size: 13px; color: var(--text-secondary);">
             <span id="paginationInfo">0개 회사</span>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button id="btnPrevPage" class="btn btn-secondary btn-sm" onclick="loadPreviousPage()" disabled>
+          
+          <!-- 페이지 번호 네비게이션 -->
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <button id="btnFirstPage" class="btn btn-secondary btn-sm" onclick="goToPage(1)" disabled>
+              ⏮️
+            </button>
+            <button id="btnPrevPage" class="btn btn-secondary btn-sm" onclick="goToPage(currentPage - 1)" disabled>
               ← 이전
             </button>
-            <button id="btnNextPage" class="btn btn-secondary btn-sm" onclick="loadNextPage()" disabled>
+            
+            <!-- 페이지 번호 버튼들 -->
+            <div id="pageNumbers" style="display: flex; gap: 4px;"></div>
+            
+            <button id="btnNextPage" class="btn btn-secondary btn-sm" onclick="goToPage(currentPage + 1)" disabled>
               다음 →
             </button>
+            <button id="btnLastPage" class="btn btn-secondary btn-sm" onclick="goToPage(totalPages)" disabled>
+              ⏭️
+            </button>
+          </div>
+          
+          <!-- Go to Page -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-size: 13px; color: var(--text-secondary);">페이지 이동:</span>
+            <input 
+              type="number" 
+              id="gotoPageInput" 
+              min="1" 
+              style="width: 60px; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px;"
+              onkeypress="if(event.key==='Enter') gotoPageByInput()"
+            />
+            <button class="btn btn-sm btn-secondary" onclick="gotoPageByInput()">이동</button>
           </div>
         </div>
       </div>
@@ -455,13 +509,17 @@
 
     let currentUser = null;
     
-    // 📄 페이지네이션 상태
+    // 📄 페이지네이션 & 정렬 & 선택 상태
     const PAGE_SIZE = 10;  // 페이지당 항목 수
     let currentPage = 1;
-    let lastVisibleDoc = null;  // 현재 페이지의 마지막 문서
-    let firstVisibleDoc = null; // 현재 페이지의 첫 문서
-    let pageHistory = [];  // 페이지 이동 히스토리 (뒤로가기용)
-    let totalCompaniesCount = 0;  // 전체 회사 수 (필터 적용 후)
+    let totalPages = 1;
+    let allCompaniesData = [];  // 모든 회사 데이터 (클라이언트 사이드 정렬/페이징용)
+    let filteredCompaniesData = [];  // 필터링된 회사 데이터
+    let selectedCompanies = new Set();  // 선택된 회사 ID Set
+    
+    // 정렬 상태
+    let currentSortField = 'createdAt';  // 기본 정렬: 가입일
+    let currentSortOrder = 'desc';  // desc: 내림차순, asc: 오름차순
 
     // 🔒 페이지 로드 시 권한 확인
     firebase.auth().onAuthStateChanged(async (user) => {
@@ -542,79 +600,46 @@
     }
 
     /**
-     * 회사 목록 로드 (페이지네이션 & 필터 적용)
+     * 회사 목록 로드 (전체 데이터 로드)
      */
-    async function loadCompanies(direction = 'first') {
+    async function loadCompanies() {
       const tbody = document.getElementById('companiesTableBody');
       
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align: center; padding: 40px;">
-            <div>⏳ 회사 목록을 불러오는 중...</div>
+          <td colspan="8" style="text-align: center; padding: 40px;">
+            <div class="loading-spinner">
+              <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+              <div>회사 목록을 불러오는 중...</div>
+            </div>
           </td>
         </tr>
       `;
       
       try {
-        console.log('📋 회사 목록 로드 시작... (direction:', direction, ')');
+        console.log('📋 회사 목록 전체 로드 시작...');
         
-        // 검색 & 필터 값 가져오기
-        const searchName = document.getElementById('searchCompanyName')?.value.toLowerCase().trim() || '';
-        const filterPlan = document.getElementById('filterPlan')?.value || '';
-        const filterStatus = document.getElementById('filterStatus')?.value || '';
-        
-        console.log('🔍 필터 조건:', { searchName, filterPlan, filterStatus });
-        
-        // 🔥 Firestore 쿼리 동적 생성
-        let query = db.collection('companies').orderBy('createdAt', 'desc');
-        
-        // 플랜 필터 적용 (Firestore 쿼리)
-        if (filterPlan) {
-          query = query.where('subscription.planType', '==', filterPlan);
-        }
-        
-        // 상태 필터 적용 (Firestore 쿼리)
-        if (filterStatus) {
-          query = query.where('subscription.status', '==', filterStatus);
-        }
-        
-        // 페이지네이션 적용
-        if (direction === 'next' && lastVisibleDoc) {
-          query = query.startAfter(lastVisibleDoc);
-        } else if (direction === 'prev' && firstVisibleDoc) {
-          // 이전 페이지로 가기 (히스토리에서 가져오기)
-          if (pageHistory.length > 0) {
-            const prevPageStart = pageHistory.pop();
-            if (prevPageStart) {
-              query = query.startAt(prevPageStart);
-            }
-          }
-        }
-        
-        // limit 적용
-        query = query.limit(PAGE_SIZE);
-        
-        const companiesSnapshot = await query.get();
+        // 🔥 Firestore에서 모든 회사 데이터 가져오기
+        const companiesSnapshot = await db.collection('companies')
+          .orderBy('createdAt', 'desc')
+          .get();
         
         if (companiesSnapshot.empty) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                ${searchName || filterPlan || filterStatus ? '검색 결과가 없습니다.' : '등록된 회사가 없습니다.'}
+              <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                📭 등록된 회사가 없습니다.
               </td>
             </tr>
           `;
-          updatePaginationButtons(false, false);
           document.getElementById('paginationInfo').textContent = '0개 회사';
+          allCompaniesData = [];
+          filteredCompaniesData = [];
           return;
         }
         
-        // 현재 페이지의 첫/마지막 문서 저장
-        firstVisibleDoc = companiesSnapshot.docs[0];
-        lastVisibleDoc = companiesSnapshot.docs[companiesSnapshot.docs.length - 1];
-        
-        // 각 회사의 직원 수 카운트
-        const companiesData = [];
+        // 각 회사의 직원 수 카운트 및 데이터 수집
+        allCompaniesData = [];
         
         for (const doc of companiesSnapshot.docs) {
           const company = doc.data();
@@ -627,7 +652,7 @@
             .where('status', 'in', ['active', 'pending', 'approved'])
             .get();
           
-          companiesData.push({
+          allCompaniesData.push({
             id: companyId,
             name: company.name || company.companyName || '(이름 없음)',
             adminEmail: company.email || company.adminEmail || '(이메일 없음)',
@@ -641,104 +666,13 @@
           });
         }
         
-        // 🔍 클라이언트 사이드 검색 필터링 (회사명)
-        let filteredCompanies = companiesData;
-        if (searchName) {
-          filteredCompanies = companiesData.filter(company => 
-            company.name.toLowerCase().includes(searchName)
-          );
-        }
+        console.log(`✅ 전체 ${allCompaniesData.length}개 회사 데이터 로드 완료`);
         
-        console.log(`✅ ${companiesData.length}개 회사 로드 완료 (검색 필터 후: ${filteredCompanies.length}개)`);
+        // 정렬 아이콘 초기화
+        updateSortIcons();
         
-        // 페이지네이션 정보 업데이트
-        const startNum = (currentPage - 1) * PAGE_SIZE + 1;
-        const endNum = startNum + filteredCompanies.length - 1;
-        document.getElementById('paginationInfo').textContent = 
-          `${startNum}-${endNum}번째 회사 (페이지 ${currentPage})`;
-        
-        // 페이지네이션 버튼 업데이트
-        const hasMore = companiesSnapshot.docs.length === PAGE_SIZE;
-        const hasPrev = currentPage > 1;
-        updatePaginationButtons(hasPrev, hasMore);
-        
-        // 검색 결과 없음
-        if (filteredCompanies.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                "${searchName}" 검색 결과가 없습니다.
-              </td>
-            </tr>
-          `;
-          return;
-        }
-        
-        // 테이블 렌더링
-        tbody.innerHTML = filteredCompanies.map(company => {
-          const subscription = company.subscription;
-          const planType = subscription.planType || 'free';
-          const status = subscription.status || 'active';
-          const maxUsers = subscription.maxUsers || 5;
-          const currentUsers = company.employeeCount;
-          
-          // 가입일 포맷팅
-          let createdAtStr = '-';
-          if (company.createdAt) {
-            try {
-              const date = company.createdAt.toDate();
-              createdAtStr = date.toLocaleDateString('ko-KR');
-            } catch (e) {
-              createdAtStr = '-';
-            }
-          }
-          
-          // 플랜 배지
-          const planNames = {
-            'free': 'Free',
-            'basic': 'Basic',
-            'pro': 'Pro',
-            'enterprise': 'Enterprise'
-          };
-          const planName = planNames[planType] || planType;
-          const planClass = `plan-${planType}`;
-          
-          // 상태 배지
-          const statusText = status === 'active' ? '활성' : '비활성';
-          const statusClass = status === 'active' ? 'status-active' : 'status-inactive';
-          
-          // 직원 현황 프로그레스 바
-          const usagePercent = maxUsers > 0 ? (currentUsers / maxUsers) * 100 : 0;
-          let progressClass = 'progress-safe';
-          if (usagePercent >= 100) {
-            progressClass = 'progress-danger';
-          } else if (usagePercent >= 80) {
-            progressClass = 'progress-warning';
-          }
-          
-          return `
-            <tr>
-              <td><strong>${company.name}</strong></td>
-              <td>${company.adminEmail}</td>
-              <td>${createdAtStr}</td>
-              <td><span class="plan-badge ${planClass}">${planName}</span></td>
-              <td>
-                <div class="users-progress">
-                  <span style="font-weight: 600; min-width: 60px;">${currentUsers} / ${maxUsers}명</span>
-                  <div class="users-progress-bar">
-                    <div class="users-progress-fill ${progressClass}" style="width: ${Math.min(usagePercent, 100)}%;"></div>
-                  </div>
-                </div>
-              </td>
-              <td><span class="company-status-badge ${statusClass}">${statusText}</span></td>
-              <td>
-                <button class="btn btn-sm btn-primary" onclick="openCompanyManageModal('${company.id}', '${company.name}', '${planType}', ${maxUsers}, '${status}')">
-                  ⚙️ 관리
-                </button>
-              </td>
-            </tr>
-          `;
-        }).join('');
+        // 정렬 및 필터링 적용하여 렌더링
+        applySortingAndFiltering();
         
       } catch (error) {
         console.error('❌ 회사 목록 로드 실패:', error);
@@ -864,46 +798,9 @@
      * 필터 적용
      */
     function applyFilters() {
-      console.log('🔍 필터 적용 - 첫 페이지로 이동');
+      console.log('🔍 필터 적용');
       currentPage = 1;
-      pageHistory = [];
-      lastVisibleDoc = null;
-      firstVisibleDoc = null;
-      loadCompanies('first');
-    }
-
-    /**
-     * 다음 페이지 로드
-     */
-    async function loadNextPage() {
-      console.log('➡️ 다음 페이지 로드');
-      if (firstVisibleDoc) {
-        pageHistory.push(firstVisibleDoc);
-      }
-      currentPage++;
-      await loadCompanies('next');
-    }
-
-    /**
-     * 이전 페이지 로드
-     */
-    async function loadPreviousPage() {
-      console.log('⬅️ 이전 페이지 로드');
-      if (currentPage > 1) {
-        currentPage--;
-        await loadCompanies('prev');
-      }
-    }
-
-    /**
-     * 페이지네이션 버튼 상태 업데이트
-     */
-    function updatePaginationButtons(hasPrev, hasNext) {
-      const btnPrev = document.getElementById('btnPrevPage');
-      const btnNext = document.getElementById('btnNextPage');
-      
-      btnPrev.disabled = !hasPrev;
-      btnNext.disabled = !hasNext;
+      applySortingAndFiltering();
     }
 
     /**
@@ -912,10 +809,407 @@
     async function refreshCompanies() {
       console.log('🔄 회사 목록 새로고침...');
       currentPage = 1;
-      pageHistory = [];
-      lastVisibleDoc = null;
-      firstVisibleDoc = null;
+      selectedCompanies.clear();
       await loadPlatformDashboard();
+    }
+
+    /**
+     * 페이지 이동 (번호 클릭)
+     */
+    function goToPage(page) {
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderCurrentPage();
+    }
+
+    /**
+     * 입력란으로 페이지 이동
+     */
+    function gotoPageByInput() {
+      const input = document.getElementById('gotoPageInput');
+      const page = parseInt(input.value);
+      if (page && page >= 1 && page <= totalPages) {
+        goToPage(page);
+        input.value = '';
+      } else {
+        alert(`1~${totalPages} 사이의 페이지 번호를 입력하세요.`);
+      }
+    }
+
+    /**
+     * 테이블 정렬
+     */
+    function sortTable(field) {
+      if (currentSortField === field) {
+        // 같은 컬럼 클릭 시 방향 토글
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        // 다른 컬럼 클릭 시 해당 컬럼으로 오름차순
+        currentSortField = field;
+        currentSortOrder = 'asc';
+      }
+      
+      // 정렬 아이콘 업데이트
+      updateSortIcons();
+      
+      // 데이터 정렬 및 렌더링
+      applySortingAndFiltering();
+    }
+
+    /**
+     * 정렬 아이콘 업데이트
+     */
+    function updateSortIcons() {
+      // 모든 아이콘 초기화
+      document.querySelectorAll('[id^="sortIcon-"]').forEach(icon => {
+        icon.textContent = '';
+      });
+      
+      // 현재 정렬 컬럼에만 아이콘 표시
+      const icon = document.getElementById(`sortIcon-${currentSortField}`);
+      if (icon) {
+        icon.textContent = currentSortOrder === 'asc' ? '↑' : '↓';
+      }
+    }
+
+    /**
+     * 정렬 및 필터링 적용
+     */
+    function applySortingAndFiltering() {
+      // 필터 적용
+      const searchName = document.getElementById('searchCompanyName')?.value.toLowerCase().trim() || '';
+      const filterPlan = document.getElementById('filterPlan')?.value || '';
+      const filterStatus = document.getElementById('filterStatus')?.value || '';
+      
+      filteredCompaniesData = allCompaniesData.filter(company => {
+        // 회사명 검색
+        if (searchName && !company.name.toLowerCase().includes(searchName)) {
+          return false;
+        }
+        
+        // 플랜 필터
+        if (filterPlan && company.subscription.planType !== filterPlan) {
+          return false;
+        }
+        
+        // 상태 필터
+        if (filterStatus && company.subscription.status !== filterStatus) {
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // 정렬 적용
+      filteredCompaniesData.sort((a, b) => {
+        let aVal = a[currentSortField];
+        let bVal = b[currentSortField];
+        
+        // createdAt는 Timestamp 객체
+        if (currentSortField === 'createdAt') {
+          aVal = aVal ? aVal.toDate().getTime() : 0;
+          bVal = bVal ? bVal.toDate().getTime() : 0;
+        }
+        
+        // 문자열 정렬 (회사명)
+        if (currentSortField === 'name') {
+          aVal = (aVal || '').toLowerCase();
+          bVal = (bVal || '').toLowerCase();
+        }
+        
+        // 숫자 정렬 (직원 수)
+        if (currentSortField === 'employeeCount') {
+          aVal = aVal || 0;
+          bVal = bVal || 0;
+        }
+        
+        if (aVal < bVal) return currentSortOrder === 'asc' ? -1 : 1;
+        if (aVal > bVal) return currentSortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+      
+      // 페이지네이션 재계산
+      totalPages = Math.ceil(filteredCompaniesData.length / PAGE_SIZE) || 1;
+      currentPage = Math.min(currentPage, totalPages);  // 현재 페이지가 범위 벗어나면 조정
+      
+      // 렌더링
+      renderCurrentPage();
+    }
+
+    /**
+     * 현재 페이지 렌더링
+     */
+    function renderCurrentPage() {
+      const tbody = document.getElementById('companiesTableBody');
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const endIdx = startIdx + PAGE_SIZE;
+      const pageData = filteredCompaniesData.slice(startIdx, endIdx);
+      
+      // 데이터 없음
+      if (pageData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+              📭 표시할 데이터가 없습니다.
+            </td>
+          </tr>
+        `;
+        document.getElementById('paginationInfo').textContent = '0개 회사';
+        return;
+      }
+      
+      // 테이블 렌더링
+      tbody.innerHTML = pageData.map(company => {
+        const subscription = company.subscription;
+        const planType = subscription.planType || 'free';
+        const status = subscription.status || 'active';
+        const maxUsers = subscription.maxUsers || 5;
+        const currentUsers = company.employeeCount;
+        const isSelected = selectedCompanies.has(company.id);
+        
+        // 가입일 포맷팅
+        let createdAtStr = '-';
+        if (company.createdAt) {
+          try {
+            const date = company.createdAt.toDate();
+            createdAtStr = date.toLocaleDateString('ko-KR');
+          } catch (e) {
+            createdAtStr = '-';
+          }
+        }
+        
+        // 플랜 배지
+        const planNames = { 'free': 'Free', 'basic': 'Basic', 'pro': 'Pro', 'enterprise': 'Enterprise' };
+        const planName = planNames[planType] || planType;
+        const planClass = `plan-${planType}`;
+        
+        // 상태 배지
+        const statusText = status === 'active' ? '활성' : '비활성';
+        const statusClass = status === 'active' ? 'status-active' : 'status-inactive';
+        
+        // 직원 현황 프로그레스 바
+        const usagePercent = maxUsers > 0 ? (currentUsers / maxUsers) * 100 : 0;
+        let progressClass = 'progress-safe';
+        if (usagePercent >= 100) progressClass = 'progress-danger';
+        else if (usagePercent >= 80) progressClass = 'progress-warning';
+        
+        return `
+          <tr>
+            <td><input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelect('${company.id}')" /></td>
+            <td><strong>${company.name}</strong></td>
+            <td>${company.adminEmail}</td>
+            <td>${createdAtStr}</td>
+            <td><span class="plan-badge ${planClass}">${planName}</span></td>
+            <td>
+              <div class="users-progress">
+                <span style="font-weight: 600; min-width: 60px;">${currentUsers} / ${maxUsers}명</span>
+                <div class="users-progress-bar">
+                  <div class="users-progress-fill ${progressClass}" style="width: ${Math.min(usagePercent, 100)}%;"></div>
+                </div>
+              </div>
+            </td>
+            <td><span class="company-status-badge ${statusClass}">${statusText}</span></td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="openCompanyManageModal('${company.id}', '${company.name.replace(/'/g, "\\'")}', '${planType}', ${maxUsers}, '${status}')">
+                ⚙️ 관리
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      // 페이지네이션 정보 업데이트
+      document.getElementById('paginationInfo').textContent = 
+        `${startIdx + 1}-${startIdx + pageData.length} / 전체 ${filteredCompaniesData.length}개 회사`;
+      
+      // 페이지 번호 버튼 렌더링
+      renderPageNumbers();
+      
+      // 선택 상태 업데이트
+      updateSelectAllCheckbox();
+      updateBulkActionsBar();
+    }
+
+    /**
+     * 페이지 번호 버튼 렌더링
+     */
+    function renderPageNumbers() {
+      const container = document.getElementById('pageNumbers');
+      const maxButtons = 5;  // 최대 표시할 버튼 수
+      let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+      let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+      
+      // 끝 페이지 조정
+      if (endPage - startPage < maxButtons - 1) {
+        startPage = Math.max(1, endPage - maxButtons + 1);
+      }
+      
+      let html = '';
+      for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === currentPage;
+        html += `
+          <button 
+            class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'}" 
+            onclick="goToPage(${i})"
+            ${isActive ? 'style="font-weight: bold;"' : ''}
+          >
+            ${i}
+          </button>
+        `;
+      }
+      container.innerHTML = html;
+      
+      // 첫/마지막/이전/다음 버튼 상태
+      document.getElementById('btnFirstPage').disabled = currentPage === 1;
+      document.getElementById('btnPrevPage').disabled = currentPage === 1;
+      document.getElementById('btnNextPage').disabled = currentPage === totalPages;
+      document.getElementById('btnLastPage').disabled = currentPage === totalPages;
+    }
+
+    /**
+     * 체크박스 선택/해제
+     */
+    function toggleSelect(companyId) {
+      if (selectedCompanies.has(companyId)) {
+        selectedCompanies.delete(companyId);
+      } else {
+        selectedCompanies.add(companyId);
+      }
+      updateSelectAllCheckbox();
+      updateBulkActionsBar();
+    }
+
+    /**
+     * 전체 선택/해제
+     */
+    function toggleSelectAll() {
+      const checkbox = document.getElementById('selectAllCheckbox');
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const endIdx = startIdx + PAGE_SIZE;
+      const pageData = filteredCompaniesData.slice(startIdx, endIdx);
+      
+      if (checkbox.checked) {
+        pageData.forEach(company => selectedCompanies.add(company.id));
+      } else {
+        pageData.forEach(company => selectedCompanies.delete(company.id));
+      }
+      
+      renderCurrentPage();
+    }
+
+    /**
+     * 전체 선택 체크박스 상태 업데이트
+     */
+    function updateSelectAllCheckbox() {
+      const checkbox = document.getElementById('selectAllCheckbox');
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const endIdx = startIdx + PAGE_SIZE;
+      const pageData = filteredCompaniesData.slice(startIdx, endIdx);
+      
+      const allSelected = pageData.length > 0 && pageData.every(company => selectedCompanies.has(company.id));
+      checkbox.checked = allSelected;
+    }
+
+    /**
+     * 대량 작업 바 업데이트
+     */
+    function updateBulkActionsBar() {
+      const bar = document.getElementById('bulkActionsBar');
+      const countSpan = document.getElementById('selectedCount');
+      
+      if (selectedCompanies.size > 0) {
+        bar.style.display = 'flex';
+        countSpan.textContent = `${selectedCompanies.size}개 선택됨`;
+      } else {
+        bar.style.display = 'none';
+      }
+    }
+
+    /**
+     * 선택 해제
+     */
+    function clearSelection() {
+      selectedCompanies.clear();
+      renderCurrentPage();
+    }
+
+    /**
+     * 선택 항목 삭제
+     */
+    async function bulkDelete() {
+      if (selectedCompanies.size === 0) return;
+      
+      if (!confirm(`선택한 ${selectedCompanies.size}개 회사를 정말 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
+        return;
+      }
+      
+      try {
+        const batch = db.batch();
+        selectedCompanies.forEach(companyId => {
+          batch.delete(db.collection('companies').doc(companyId));
+        });
+        await batch.commit();
+        
+        alert('✅ 선택한 회사가 삭제되었습니다.');
+        selectedCompanies.clear();
+        await loadPlatformDashboard();
+      } catch (error) {
+        console.error('❌ 삭제 실패:', error);
+        alert('삭제 중 오류가 발생했습니다.');
+      }
+    }
+
+    /**
+     * CSV 내보내기
+     */
+    function exportToCSV() {
+      if (filteredCompaniesData.length === 0) {
+        alert('내보낼 데이터가 없습니다.');
+        return;
+      }
+      
+      // CSV 헤더
+      const headers = ['회사명', '대표자 이메일', '가입일', '플랜', '현재 직원 수', '최대 직원 수', '상태'];
+      
+      // CSV 데이터
+      const rows = filteredCompaniesData.map(company => {
+        const subscription = company.subscription || {};
+        const createdAt = company.createdAt ? company.createdAt.toDate().toLocaleDateString('ko-KR') : '-';
+        const planNames = { 'free': 'Free', 'basic': 'Basic', 'pro': 'Pro', 'enterprise': 'Enterprise' };
+        
+        return [
+          company.name,
+          company.adminEmail,
+          createdAt,
+          planNames[subscription.planType] || subscription.planType || 'Free',
+          company.employeeCount || 0,
+          subscription.maxUsers || 5,
+          subscription.status === 'active' ? '활성' : '비활성'
+        ];
+      });
+      
+      // CSV 문자열 생성
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      // UTF-8 BOM 추가 (한글 깨짐 방지)
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // 다운로드
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `회사목록_${timestamp}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log(`✅ CSV 내보내기 완료: ${filteredCompaniesData.length}개 회사`);
     }
 
     /**
