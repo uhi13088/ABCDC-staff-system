@@ -236,6 +236,52 @@
           </button>
         </div>
         
+        <!-- 🔍 검색 & 필터 -->
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--border-color); background: #f8f9fa;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: end;">
+            <!-- 검색창 -->
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                🔍 회사명 검색
+              </label>
+              <input 
+                type="text" 
+                id="searchCompanyName" 
+                class="form-control" 
+                placeholder="회사명 입력..." 
+                onkeyup="applyFilters()"
+                style="width: 100%;"
+              />
+            </div>
+            
+            <!-- 플랜 필터 -->
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                📦 플랜 필터
+              </label>
+              <select id="filterPlan" class="form-control" onchange="applyFilters()" style="width: 100%;">
+                <option value="">전체 (All)</option>
+                <option value="free">Free</option>
+                <option value="basic">Basic</option>
+                <option value="pro">Pro</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            
+            <!-- 상태 필터 -->
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                ⚙️ 상태 필터
+              </label>
+              <select id="filterStatus" class="form-control" onchange="applyFilters()" style="width: 100%;">
+                <option value="">전체 (All)</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
         <div style="overflow-x: auto;">
           <table class="data-table">
             <thead>
@@ -257,6 +303,21 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #f8f9fa;">
+          <div style="font-size: 13px; color: var(--text-secondary);">
+            <span id="paginationInfo">0개 회사</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnPrevPage" class="btn btn-secondary btn-sm" onclick="loadPreviousPage()" disabled>
+              ← 이전
+            </button>
+            <button id="btnNextPage" class="btn btn-secondary btn-sm" onclick="loadNextPage()" disabled>
+              다음 →
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -365,6 +426,14 @@
     const db = firebase.firestore();
 
     let currentUser = null;
+    
+    // 📄 페이지네이션 상태
+    const PAGE_SIZE = 10;  // 페이지당 항목 수
+    let currentPage = 1;
+    let lastVisibleDoc = null;  // 현재 페이지의 마지막 문서
+    let firstVisibleDoc = null; // 현재 페이지의 첫 문서
+    let pageHistory = [];  // 페이지 이동 히스토리 (뒤로가기용)
+    let totalCompaniesCount = 0;  // 전체 회사 수 (필터 적용 후)
 
     // 🔒 페이지 로드 시 권한 확인
     firebase.auth().onAuthStateChanged(async (user) => {
@@ -445,9 +514,9 @@
     }
 
     /**
-     * 회사 목록 로드
+     * 회사 목록 로드 (페이지네이션 & 필터 적용)
      */
-    async function loadCompanies() {
+    async function loadCompanies(direction = 'first') {
       const tbody = document.getElementById('companiesTableBody');
       
       tbody.innerHTML = `
@@ -459,24 +528,64 @@
       `;
       
       try {
-        console.log('📋 회사 목록 로드 시작...');
+        console.log('📋 회사 목록 로드 시작... (direction:', direction, ')');
         
-        const companiesSnapshot = await db.collection('companies')
-          .orderBy('createdAt', 'desc')
-          .get();
+        // 검색 & 필터 값 가져오기
+        const searchName = document.getElementById('searchCompanyName')?.value.toLowerCase().trim() || '';
+        const filterPlan = document.getElementById('filterPlan')?.value || '';
+        const filterStatus = document.getElementById('filterStatus')?.value || '';
+        
+        console.log('🔍 필터 조건:', { searchName, filterPlan, filterStatus });
+        
+        // 🔥 Firestore 쿼리 동적 생성
+        let query = db.collection('companies').orderBy('createdAt', 'desc');
+        
+        // 플랜 필터 적용 (Firestore 쿼리)
+        if (filterPlan) {
+          query = query.where('subscription.planType', '==', filterPlan);
+        }
+        
+        // 상태 필터 적용 (Firestore 쿼리)
+        if (filterStatus) {
+          query = query.where('subscription.status', '==', filterStatus);
+        }
+        
+        // 페이지네이션 적용
+        if (direction === 'next' && lastVisibleDoc) {
+          query = query.startAfter(lastVisibleDoc);
+        } else if (direction === 'prev' && firstVisibleDoc) {
+          // 이전 페이지로 가기 (히스토리에서 가져오기)
+          if (pageHistory.length > 0) {
+            const prevPageStart = pageHistory.pop();
+            if (prevPageStart) {
+              query = query.startAt(prevPageStart);
+            }
+          }
+        }
+        
+        // limit 적용
+        query = query.limit(PAGE_SIZE);
+        
+        const companiesSnapshot = await query.get();
         
         if (companiesSnapshot.empty) {
           tbody.innerHTML = `
             <tr>
               <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                등록된 회사가 없습니다.
+                ${searchName || filterPlan || filterStatus ? '검색 결과가 없습니다.' : '등록된 회사가 없습니다.'}
               </td>
             </tr>
           `;
+          updatePaginationButtons(false, false);
+          document.getElementById('paginationInfo').textContent = '0개 회사';
           return;
         }
         
-        // 각 회사의 직원 수 카운트를 위한 Promise 배열
+        // 현재 페이지의 첫/마지막 문서 저장
+        firstVisibleDoc = companiesSnapshot.docs[0];
+        lastVisibleDoc = companiesSnapshot.docs[companiesSnapshot.docs.length - 1];
+        
+        // 각 회사의 직원 수 카운트
         const companiesData = [];
         
         for (const doc of companiesSnapshot.docs) {
@@ -504,10 +613,41 @@
           });
         }
         
-        console.log(`✅ ${companiesData.length}개 회사 로드 완료`);
+        // 🔍 클라이언트 사이드 검색 필터링 (회사명)
+        let filteredCompanies = companiesData;
+        if (searchName) {
+          filteredCompanies = companiesData.filter(company => 
+            company.name.toLowerCase().includes(searchName)
+          );
+        }
+        
+        console.log(`✅ ${companiesData.length}개 회사 로드 완료 (검색 필터 후: ${filteredCompanies.length}개)`);
+        
+        // 페이지네이션 정보 업데이트
+        const startNum = (currentPage - 1) * PAGE_SIZE + 1;
+        const endNum = startNum + filteredCompanies.length - 1;
+        document.getElementById('paginationInfo').textContent = 
+          `${startNum}-${endNum}번째 회사 (페이지 ${currentPage})`;
+        
+        // 페이지네이션 버튼 업데이트
+        const hasMore = companiesSnapshot.docs.length === PAGE_SIZE;
+        const hasPrev = currentPage > 1;
+        updatePaginationButtons(hasPrev, hasMore);
+        
+        // 검색 결과 없음
+        if (filteredCompanies.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                "${searchName}" 검색 결과가 없습니다.
+              </td>
+            </tr>
+          `;
+          return;
+        }
         
         // 테이블 렌더링
-        tbody.innerHTML = companiesData.map(company => {
+        tbody.innerHTML = filteredCompanies.map(company => {
           const subscription = company.subscription;
           const planType = subscription.planType || 'free';
           const status = subscription.status || 'active';
@@ -574,13 +714,48 @@
         
       } catch (error) {
         console.error('❌ 회사 목록 로드 실패:', error);
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align: center; padding: 40px; color: var(--danger);">
-              ❌ 회사 목록을 불러오는 중 오류가 발생했습니다.
-            </td>
-          </tr>
-        `;
+        
+        // Firestore 인덱스 필요 에러 처리
+        if (error.code === 'failed-precondition' || error.message.includes('index')) {
+          console.error('🔗 Firestore 인덱스가 필요합니다!');
+          console.error('아래 링크에서 인덱스를 생성하세요:');
+          
+          // 에러 메시지에서 인덱스 생성 링크 추출
+          const indexUrlMatch = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/);
+          if (indexUrlMatch) {
+            console.error('👉 ' + indexUrlMatch[0]);
+          }
+          
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px;">
+                <div style="color: var(--danger); margin-bottom: 16px;">
+                  ❌ Firestore 인덱스가 필요합니다
+                </div>
+                <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;">
+                  필터 검색을 위해 Firestore 복합 인덱스가 필요합니다.<br/>
+                  콘솔에서 인덱스 생성 링크를 확인하세요.
+                </div>
+                ${indexUrlMatch ? `
+                  <a href="${indexUrlMatch[0]}" target="_blank" class="btn btn-primary">
+                    🔗 인덱스 생성하기
+                  </a>
+                ` : ''}
+              </td>
+            </tr>
+          `;
+        } else {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--danger);">
+                ❌ 회사 목록을 불러오는 중 오류가 발생했습니다.<br/>
+                <small style="font-size: 13px; color: var(--text-secondary); margin-top: 8px; display: block;">
+                  ${error.message}
+                </small>
+              </td>
+            </tr>
+          `;
+        }
       }
     }
 
@@ -658,10 +833,60 @@
     }
 
     /**
+     * 필터 적용
+     */
+    function applyFilters() {
+      console.log('🔍 필터 적용 - 첫 페이지로 이동');
+      currentPage = 1;
+      pageHistory = [];
+      lastVisibleDoc = null;
+      firstVisibleDoc = null;
+      loadCompanies('first');
+    }
+
+    /**
+     * 다음 페이지 로드
+     */
+    async function loadNextPage() {
+      console.log('➡️ 다음 페이지 로드');
+      if (firstVisibleDoc) {
+        pageHistory.push(firstVisibleDoc);
+      }
+      currentPage++;
+      await loadCompanies('next');
+    }
+
+    /**
+     * 이전 페이지 로드
+     */
+    async function loadPreviousPage() {
+      console.log('⬅️ 이전 페이지 로드');
+      if (currentPage > 1) {
+        currentPage--;
+        await loadCompanies('prev');
+      }
+    }
+
+    /**
+     * 페이지네이션 버튼 상태 업데이트
+     */
+    function updatePaginationButtons(hasPrev, hasNext) {
+      const btnPrev = document.getElementById('btnPrevPage');
+      const btnNext = document.getElementById('btnNextPage');
+      
+      btnPrev.disabled = !hasPrev;
+      btnNext.disabled = !hasNext;
+    }
+
+    /**
      * 회사 목록 새로고침
      */
     async function refreshCompanies() {
       console.log('🔄 회사 목록 새로고침...');
+      currentPage = 1;
+      pageHistory = [];
+      lastVisibleDoc = null;
+      firstVisibleDoc = null;
       await loadPlatformDashboard();
     }
 
