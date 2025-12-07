@@ -1398,20 +1398,29 @@
           
           // 현재 직원 수 카운트
           try {
-            const usersCount = await firebase.firestore().collection('users')
+            // 방법 1: count() 쿼리 (인덱스 필요)
+            // const usersCount = await firebase.firestore().collection('users')
+            //   .where('companyId', '==', myCompanyId)
+            //   .where('status', 'in', ['active', 'pending'])
+            //   .count()
+            //   .get();
+            // const currentUsers = usersCount.data().count;
+            
+            // 방법 2: get()으로 문서 가져와서 직접 카운트 (인덱스 문제 회피)
+            const usersSnapshot = await firebase.firestore().collection('users')
               .where('companyId', '==', myCompanyId)
               .where('status', 'in', ['active', 'pending'])
-              .count()
               .get();
             
-            const currentUsers = usersCount.data().count;
-            console.log(`👥 현재 직원 수: ${currentUsers}명`);
+            const currentUsers = usersSnapshot.size;
+            console.log(`👥 현재 직원 수: ${currentUsers}명 (전체 ${usersSnapshot.docs.length}개 문서)`);
             
             // 위젯 업데이트
             updateSubscriptionWidget(subscription, currentUsers);
             
           } catch (error) {
             console.error('❌ 직원 수 카운트 실패:', error);
+            console.error('에러 상세:', error.message);
             updateSubscriptionWidget(subscription, 0);
           }
         }, (error) => {
