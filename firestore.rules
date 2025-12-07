@@ -372,6 +372,24 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin() || isManagerOrAbove(); 
     }
 
+    // 19. Subscription Plans (구독 플랜 - 공개 읽기)
+    match /subscription_plans/{planId} {
+      // 📖 Read: 누구나 읽기 가능 (랜딩 페이지 가격표)
+      allow read: if true;
+      
+      // ✍️ Write: super_admin만 가능
+      allow write: if isSuperAdmin();
+    }
+    
+    // 20. Invitation Codes (초대 코드 - 관리자 전용)
+    match /invitation_codes/{codeId} {
+      // 📖 Read: super_admin + admin만 조회 가능
+      allow read: if isSuperAdmin() || isAdmin();
+      
+      // ✍️ Write: super_admin만 생성/수정/삭제 가능
+      allow write: if isSuperAdmin();
+    }
+
     // 기타 모든 컬렉션: super_admin만 접근
     match /{document=**} {
       allow read, write: if isSuperAdmin();
