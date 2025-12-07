@@ -238,20 +238,24 @@
   <!-- 랜딩 페이지 JavaScript -->
   <script>
     /**
+     * 권한 코드 → 한글 명칭 매핑 (공통 상수)
+     */
+    const PERMISSION_LABELS = {
+      'recipe.print': '🖨️ 레시피 인쇄 모드',
+      'recipe.view_secret': '🔒 레시피 비공개 필드 조회',
+      'recipe.share_external': '🔗 외부 공유 링크',
+      'staff.manage_contract': '📝 근로계약서 보관',
+      'staff.invite_email': '✉️ 이메일 발송 초대',
+      'staff.schedule_manage': '📅 근무 스케줄 관리',
+      'data.export_all': '📊 데이터 엑셀 다운로드',
+      'data.bulk_update': '⚡ 직원 대량 일괄 수정'
+    };
+
+    /**
      * 권한 → 사람이 읽을 수 있는 기능명 변환
      */
     function getPermissionLabel(permission) {
-      const permissionLabels = {
-        'recipe.print': '레시피 인쇄 📄',
-        'recipe.view_secret': '레시피 비공개 필드 조회 🔒',
-        'recipe.share_external': '레시피 외부 공유 🔗',
-        'staff.manage_contract': '계약서 관리 📝',
-        'staff.invite_email': '이메일 초대 발송 ✉️',
-        'staff.schedule_manage': '스케줄 관리 📅',
-        'data.export_all': '데이터 전체 내보내기 📊',
-        'data.bulk_update': '일괄 업데이트 ⚡'
-      };
-      return permissionLabels[permission] || permission;
+      return PERMISSION_LABELS[permission] || permission;
     }
 
     /**

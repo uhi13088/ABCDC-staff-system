@@ -642,6 +642,27 @@
     });
 
     /**
+     * 권한 코드 → 한글 명칭 매핑 (공통 상수)
+     */
+    const PERMISSION_LABELS = {
+      'recipe.print': '🖨️ 레시피 인쇄 모드',
+      'recipe.view_secret': '🔒 레시피 비공개 필드 조회',
+      'recipe.share_external': '🔗 외부 공유 링크',
+      'staff.manage_contract': '📝 근로계약서 보관',
+      'staff.invite_email': '✉️ 이메일 발송 초대',
+      'staff.schedule_manage': '📅 근무 스케줄 관리',
+      'data.export_all': '📊 데이터 엑셀 다운로드',
+      'data.bulk_update': '⚡ 직원 대량 일괄 수정'
+    };
+
+    /**
+     * 권한 → 사람이 읽을 수 있는 기능명 변환
+     */
+    function getPermissionLabel(permission) {
+      return PERMISSION_LABELS[permission] || permission;
+    }
+
+    /**
      * 플랫폼 대시보드 로드
      */
     /**
@@ -1527,15 +1548,15 @@
               <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="recipe.print" />
-                  <span style="font-size: 14px;">인쇄 최적화 뷰 & 프린트 기능</span>
+                  <span style="font-size: 14px;" data-label="recipe.print"></span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="recipe.view_secret" />
-                  <span style="font-size: 14px;">'비법(Secret)' 태그 레시피 열람</span>
+                  <span style="font-size: 14px;" data-label="recipe.view_secret"></span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="recipe.share_external" />
-                  <span style="font-size: 14px;">외부 공유 링크 생성</span>
+                  <span style="font-size: 14px;" data-label="recipe.share_external"></span>
                 </label>
               </div>
             </div>
@@ -1548,15 +1569,15 @@
               <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="staff.manage_contract" />
-                  <span style="font-size: 14px;">근로계약서 업로드 및 파일 관리</span>
+                  <span style="font-size: 14px;" data-label="staff.manage_contract"></span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="staff.invite_email" />
-                  <span style="font-size: 14px;">이메일 발송 자동 초대</span>
+                  <span style="font-size: 14px;" data-label="staff.invite_email"></span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="staff.schedule_manage" />
-                  <span style="font-size: 14px;">근무 스케줄(로스터) 배정 및 관리</span>
+                  <span style="font-size: 14px;" data-label="staff.schedule_manage"></span>
                 </label>
               </div>
             </div>
@@ -1569,11 +1590,11 @@
               <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 8px;">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="data.export_all" />
-                  <span style="font-size: 14px;">Excel/CSV 다운로드 (직원 명부, 레시피)</span>
+                  <span style="font-size: 14px;" data-label="data.export_all"></span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" class="permission-checkbox" data-permission="data.bulk_update" />
-                  <span style="font-size: 14px;">다중 선택 일괄 수정/삭제</span>
+                  <span style="font-size: 14px;" data-label="data.bulk_update"></span>
                 </label>
               </div>
             </div>
@@ -1705,17 +1726,7 @@
                   <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">🔐 부가 권한 (${plan.permissions.length}개):</h5>
                   <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                     ${plan.permissions.map(p => {
-                      const permissionLabels = {
-                        'recipe.print': '레시피 인쇄',
-                        'recipe.view_secret': '비법 열람',
-                        'recipe.share_external': '외부 공유',
-                        'staff.manage_contract': '계약서 관리',
-                        'staff.invite_email': '이메일 초대',
-                        'staff.schedule_manage': '스케줄 관리',
-                        'data.export_all': 'CSV 다운로드',
-                        'data.bulk_update': '일괄 수정'
-                      };
-                      return `<span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${permissionLabels[p] || p}</span>`;
+                      return `<span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${getPermissionLabel(p)}</span>`;
                     }).join('')}
                   </div>
                 </div>
@@ -1754,6 +1765,12 @@
         checkbox.checked = false;
       });
       
+      // 권한 라벨 동적 렌더링 (PERMISSION_LABELS 사용)
+      document.querySelectorAll('[data-label]').forEach(label => {
+        const permission = label.getAttribute('data-label');
+        label.textContent = getPermissionLabel(permission);
+      });
+      
       document.getElementById('planModal').style.display = 'flex';
     }
 
@@ -1771,6 +1788,12 @@
         const plan = doc.data();
         document.getElementById('planModalTitle').textContent = '📦 플랜 수정';
         document.getElementById('planId').value = planId;
+        
+        // 권한 라벨 동적 렌더링 (PERMISSION_LABELS 사용)
+        document.querySelectorAll('[data-label]').forEach(label => {
+          const permission = label.getAttribute('data-label');
+          label.textContent = getPermissionLabel(permission);
+        });
         document.getElementById('planName').value = plan.name || '';
         document.getElementById('planPrice').value = plan.price || 0;
         document.getElementById('planBillingCycle').value = plan.billingCycle || 'monthly';
