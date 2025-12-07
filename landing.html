@@ -238,7 +238,24 @@
   <!-- 랜딩 페이지 JavaScript -->
   <script>
     /**
-     * 동적 가격표 렌더링
+     * 권한 → 사람이 읽을 수 있는 기능명 변환
+     */
+    function getPermissionLabel(permission) {
+      const permissionLabels = {
+        'recipe.print': '레시피 인쇄 📄',
+        'recipe.view_secret': '레시피 비공개 필드 조회 🔒',
+        'recipe.share_external': '레시피 외부 공유 🔗',
+        'staff.manage_contract': '계약서 관리 📝',
+        'staff.invite_email': '이메일 초대 발송 ✉️',
+        'staff.schedule_manage': '스케줄 관리 📅',
+        'data.export_all': '데이터 전체 내보내기 📊',
+        'data.bulk_update': '일괄 업데이트 ⚡'
+      };
+      return permissionLabels[permission] || permission;
+    }
+
+    /**
+     * 동적 가격표 렌더링 (DB 기반)
      */
     async function loadPricingPlans() {
       try {
@@ -260,53 +277,98 @@
 
         let html = '';
         
+        // 누적 권한 추적 (상위 플랜일수록 하위 플랜 권한 포함)
+        const allPlans = [];
         plansSnapshot.forEach(doc => {
-          const plan = doc.data();
-          const features = Array.isArray(plan.features) ? plan.features : [];
+          allPlans.push({ id: doc.id, ...doc.data() });
+        });
+
+        allPlans.forEach((plan, index) => {
           const isPopular = plan.isPopular === true;
-          
           const maxUsersText = plan.maxUsers >= 9999 ? '무제한' : `최대 ${plan.maxUsers}명`;
           const description = plan.description || '';
+          const permissions = Array.isArray(plan.permissions) ? plan.permissions : [];
+          
+          // 기본 기능 (모든 플랜 공통)
+          const baseFeatures = [
+            { text: '✅ 모든 기본 기능 포함', isBold: true },
+            { text: '회사/브랜드/매장 관리', isBold: false },
+            { text: '직원 프로필 관리', isBold: false },
+            { text: '레시피 관리 (기본)', isBold: false },
+            { text: '공지사항 게시판', isBold: false }
+          ];
+
+          // 누적 권한 계산 (현재 플랜까지의 모든 권한)
+          let accumulatedPermissions = [];
+          for (let i = 0; i <= index; i++) {
+            const currentPlanPermissions = Array.isArray(allPlans[i].permissions) ? allPlans[i].permissions : [];
+            accumulatedPermissions = [...new Set([...accumulatedPermissions, ...currentPlanPermissions])];
+          }
+
+          // 신규 권한 (이전 플랜에 없던 권한)
+          let previousPermissions = [];
+          if (index > 0) {
+            for (let i = 0; i < index; i++) {
+              const prevPlanPerms = Array.isArray(allPlans[i].permissions) ? allPlans[i].permissions : [];
+              previousPermissions = [...new Set([...previousPermissions, ...prevPlanPerms])];
+            }
+          }
+          
+          const newPermissions = permissions.filter(p => !previousPermissions.includes(p));
+
+          // 권한을 기능 문구로 변환
+          const permissionFeatures = accumulatedPermissions.map(perm => {
+            const isNew = newPermissions.includes(perm);
+            return {
+              text: getPermissionLabel(perm),
+              isBold: isNew // 신규 기능은 굵게 표시
+            };
+          });
+
+          const allFeatures = [...baseFeatures, ...permissionFeatures];
+
+          // 버튼 텍스트 분기
+          const buttonText = plan.price === 0 ? '무료로 시작하기' : '지금 시작하기';
           
           html += `
-            <div class="bg-white rounded-2xl shadow-lg overflow-hidden ${isPopular ? 'popular-plan border-2 border-purple-600 relative transform scale-105' : 'border border-gray-200'}">
-              ${isPopular ? '<div class="absolute top-0 left-0 right-0 bg-purple-600 text-white text-center py-2 text-sm font-bold">⭐ 가장 인기있는 플랜</div>' : ''}
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden ${isPopular ? 'popular-plan border-4 border-purple-600 relative' : 'border border-gray-200'} transition-all duration-300 hover:shadow-xl">
+              ${isPopular ? '<div class="absolute top-0 left-0 right-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-center py-2 text-sm font-bold">⭐ 추천 플랜</div>' : ''}
               
-              <div class="p-6 ${isPopular ? 'pt-14' : ''}">
-                <h3 class="text-xl font-bold text-gray-900 mb-1">${plan.name}</h3>
-                <p class="text-sm text-gray-500 mb-4">${description}</p>
+              <div class="p-6 ${isPopular ? 'pt-12' : ''}">
+                <h3 class="text-2xl font-extrabold text-gray-900 mb-1">${plan.name}</h3>
+                <p class="text-sm text-gray-500 mb-4 min-h-[40px]">${description}</p>
                 
                 <div class="mb-4">
                   <span class="text-4xl font-extrabold ${isPopular ? 'text-purple-600' : 'text-gray-900'}">
                     ${plan.price === 0 ? '무료' : plan.price.toLocaleString() + '원'}
                   </span>
-                  <span class="text-gray-600 text-sm block mt-1">
-                    ${plan.price === 0 ? '' : '/ ' + (plan.billingCycle === 'monthly' ? '월' : '년')}
+                  <span class="text-gray-600 text-base block mt-1">
+                    ${plan.price === 0 ? '영구 무료' : '/ ' + (plan.billingCycle === 'monthly' ? '월' : '년')}
                   </span>
                 </div>
                 
                 <div class="mb-4 pb-4 border-b border-gray-200">
-                  <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-semibold">
+                  <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full text-xs font-semibold">
                     👥 ${maxUsersText}
                   </span>
                 </div>
                 
-                <ul class="space-y-2 mb-6 min-h-[200px]">
-                  ${features.map(feature => `
+                <ul class="space-y-2.5 mb-6 min-h-[280px]">
+                  ${allFeatures.map(feature => `
                     <li class="flex items-start text-sm">
-                      <svg class="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                       </svg>
-                      <span class="text-gray-700">${feature}</span>
+                      <span class="${feature.isBold ? 'font-bold text-gray-900' : 'text-gray-700'}">${feature.text}</span>
                     </li>
                   `).join('')}
                 </ul>
                 
                 <button 
                   onclick="openInviteCodeModal()" 
-                  class="w-full ${isPopular ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-900 hover:bg-gray-800'} text-white px-6 py-3 rounded-lg transition font-bold text-sm"
+                  class="w-full ${isPopular ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800' : 'bg-gray-900 hover:bg-gray-800'} text-white px-6 py-3 rounded-lg transition-all duration-200 font-bold text-base shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                 >
-                  초대 코드로 시작
+                  ${buttonText}
                 </button>
               </div>
             </div>
@@ -319,8 +381,9 @@
         console.error('플랜 로드 실패:', error);
         document.getElementById('pricingContainer').innerHTML = `
           <div class="col-span-full text-center py-20">
-            <p class="text-red-600">요금제를 불러오는데 실패했습니다.</p>
-            <button onclick="loadPricingPlans()" class="mt-4 text-purple-600 hover:underline">다시 시도</button>
+            <p class="text-red-600 font-semibold mb-2">요금제를 불러오는데 실패했습니다.</p>
+            <p class="text-sm text-gray-600 mb-4">${error.message}</p>
+            <button onclick="loadPricingPlans()" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">다시 시도</button>
           </div>
         `;
       }
