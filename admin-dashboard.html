@@ -1348,6 +1348,25 @@
         }
         
         console.log('✅ 브랜딩 정보 로드 완료:', brandName);
+        
+        // 🔧 레거시 데이터 마이그레이션: subscription 필드 자동 생성
+        if (!company.subscription) {
+          console.warn('⚠️ subscription 필드가 없습니다. 자동으로 생성합니다...');
+          try {
+            await firebase.firestore().collection('companies').doc(myCompanyId).update({
+              subscription: {
+                planType: 'free',
+                status: 'active',
+                maxUsers: 5,
+                startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                nextBillingDate: null
+              }
+            });
+            console.log('✅ subscription 필드 자동 생성 완료!');
+          } catch (updateError) {
+            console.error('❌ subscription 필드 생성 실패:', updateError);
+          }
+        }
       } catch (error) {
         console.error('❌ 브랜딩 정보 로드 실패:', error);
         // 에러가 나도 기본 텍스트로 표시
