@@ -630,7 +630,7 @@
           companiesData.push({
             id: companyId,
             name: company.name || company.companyName || '(이름 없음)',
-            adminEmail: company.adminEmail || '(이메일 없음)',
+            adminEmail: company.email || company.adminEmail || '(이메일 없음)',
             createdAt: company.createdAt,
             subscription: company.subscription || {
               planType: 'free',
