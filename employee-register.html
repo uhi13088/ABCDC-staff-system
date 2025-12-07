@@ -516,6 +516,14 @@
       showInfo('URL에서 초대 코드를 자동으로 입력했습니다. "코드 확인" 버튼을 눌러주세요.');
       console.log('✅ URL 파라미터에서 초대 코드 자동 입력:', codeFromUrl);
     }
+    
+    // 📦 랜딩 페이지에서 초대 코드 입력한 경우 (로컬 스토리지)
+    const inviteCodeFromLanding = localStorage.getItem('inviteCode');
+    if (inviteCodeFromLanding && !codeFromUrl) {
+      inviteCodeInput.value = inviteCodeFromLanding;
+      showInfo('초대 코드가 자동으로 입력되었습니다. "코드 확인" 버튼을 눌러주세요.');
+      console.log('✅ 로컬 스토리지에서 초대 코드 자동 입력:', inviteCodeFromLanding);
+    }
 
     // 에러 표시
     function showError(msg) {
@@ -737,6 +745,22 @@
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
+        
+        // 📦 로컬 스토리지에서 플랜 정보 가져오기 (랜딩 페이지에서 초대 코드 입력한 경우)
+        const planIdFromLanding = localStorage.getItem('planId');
+        const planNameFromLanding = localStorage.getItem('planName');
+        
+        if (planIdFromLanding && planNameFromLanding) {
+          employeeData.subscriptionPlanId = planIdFromLanding;
+          employeeData.subscriptionPlanName = planNameFromLanding;
+          console.log('✅ 플랜 정보 추가:', planNameFromLanding);
+          
+          // 로컬 스토리지 정리
+          localStorage.removeItem('inviteCode');
+          localStorage.removeItem('inviteCodeId');
+          localStorage.removeItem('planId');
+          localStorage.removeItem('planName');
+        }
 
         // users 컬렉션에 저장
         await db.collection('users').doc(user.uid).set(employeeData);
@@ -756,6 +780,22 @@
           console.log('✅ 초대 코드 사용 기록 완료');
         } catch (recordError) {
           console.warn('⚠️ 초대 코드 사용 기록 실패 (무시하고 진행):', recordError);
+        }
+        
+        // 📦 랜딩 페이지에서 온 초대 코드의 경우 직접 사용 처리 (Cloud Function이 없을 경우 대비)
+        const inviteCodeIdFromLanding = localStorage.getItem('inviteCodeId');
+        if (inviteCodeIdFromLanding) {
+          try {
+            await db.collection('invitation_codes').doc(inviteCodeIdFromLanding).update({
+              isUsed: true,
+              usedBy: user.uid,
+              usedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('✅ 랜딩 페이지 초대 코드 사용 처리 완료');
+            localStorage.removeItem('inviteCodeId');
+          } catch (updateError) {
+            console.warn('⚠️ 초대 코드 업데이트 실패:', updateError);
+          }
         }
         
         showSuccess('✅ 가입 신청이 완료되었습니다!\n관리자 승인 후 로그인이 가능합니다.\n잠시 후 로그인 페이지로 이동합니다.');
