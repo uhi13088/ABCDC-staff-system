@@ -19,6 +19,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { COLLECTIONS } from '@/lib/constants';
 import type { 
   AttendanceRecord, 
   AttendanceFilterOptions, 
@@ -92,7 +93,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
       console.log('📍 근무기록 매장 필터 로드:');
       
       const storesQuery = query(
-        collection(db, 'stores'),
+        collection(db, COLLECTIONS.STORES),
         where('companyId', '==', companyId)
       );
       
@@ -145,7 +146,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
       
       // Firestore에서 근태 데이터 가져오기
       let attendanceQuery = query(
-        collection(db, 'attendance'),
+        collection(db, COLLECTIONS.ATTENDANCE),
         where('storeId', '==', filters.storeId),
         where('companyId', '==', companyId),
         orderBy('date', 'desc'),
@@ -196,7 +197,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
       
       // 근무상태 필터를 위해 직원 정보 가져오기
       const usersQuery = query(
-        collection(db, 'users'),
+        collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId)
       );
       

@@ -10,6 +10,7 @@ import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import type { Approval, ApprovalType, ApprovalStatus, ShiftRequest } from '@/lib/types/approval';
+import { COLLECTIONS } from '@/lib/constants';
 
 export function useApprovalsLogic() {
   const { user } = useAuth();
@@ -91,7 +92,7 @@ export function useApprovalsLogic() {
       // 기존 승인 문서 조회 (approvals 컬렉션)
       if (!typeFilter || typeFilter !== 'shift') {
         let approvalsQuery = query(
-          collection(db, 'approvals'),
+          collection(db, COLLECTIONS.APPROVALS),
           where('companyId', '==', companyId)
         );
         

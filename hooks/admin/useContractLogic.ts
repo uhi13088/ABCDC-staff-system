@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Contract, ContractFilterOptions, ContractStats } from '@/lib/types/contract';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseContractLogicProps {
   companyId: string;
@@ -72,7 +73,7 @@ export function useContractLogic({ companyId }: UseContractLogicProps) {
 
       // 기본 쿼리
       let q = query(
-        collection(db, 'contracts'),
+        collection(db, COLLECTIONS.CONTRACTS),
         where('companyId', '==', companyId)
       );
 
@@ -143,7 +144,7 @@ export function useContractLogic({ companyId }: UseContractLogicProps) {
         const employeeNames = [...new Set(contractsList.map(c => c.employeeName))];
         const usersSnapshot = await getDocs(
           query(
-            collection(db, 'users'),
+            collection(db, COLLECTIONS.USERS),
             where('companyId', '==', companyId)
           )
         );
@@ -219,7 +220,7 @@ export function useContractLogic({ companyId }: UseContractLogicProps) {
           isSigned: false,
         };
 
-        const docRef = await addDoc(collection(db, 'contracts'), newContract);
+        const docRef = await addDoc(collection(db, COLLECTIONS.CONTRACTS), newContract);
 
         await loadContracts();
 
@@ -265,7 +266,7 @@ export function useContractLogic({ companyId }: UseContractLogicProps) {
     async (name: string, birth: string) => {
       try {
         const q = query(
-          collection(db, 'contracts'),
+          collection(db, COLLECTIONS.CONTRACTS),
           where('employeeName', '==', name),
           where('employeeBirth', '==', birth),
           where('companyId', '==', companyId),

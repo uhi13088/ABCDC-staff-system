@@ -20,6 +20,7 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import type { Brand, BrandFormData } from '@/lib/types/store';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseBrandsLogicProps {
   companyId: string;
@@ -38,7 +39,7 @@ export function useBrandsLogic({ companyId }: UseBrandsLogicProps) {
     setLoading(true);
     try {
       const q = query(
-        collection(db, 'brands'),
+        collection(db, COLLECTIONS.BRANDS),
         where('companyId', '==', companyId),
         orderBy('createdAt', 'desc')
       );
@@ -78,7 +79,7 @@ export function useBrandsLogic({ companyId }: UseBrandsLogicProps) {
         secondaryColor: formData.secondaryColor || '#2196F3',
       };
       
-      await addDoc(collection(db, 'brands'), brandData);
+      await addDoc(collection(db, COLLECTIONS.BRANDS), brandData);
       await loadBrands();
     } catch (error) {
       console.error('브랜드 추가 실패:', error);
@@ -129,7 +130,7 @@ export function useBrandsLogic({ companyId }: UseBrandsLogicProps) {
     
     try {
       const q = query(
-        collection(db, 'stores'),
+        collection(db, COLLECTIONS.STORES),
         where('companyId', '==', companyId)
       );
       

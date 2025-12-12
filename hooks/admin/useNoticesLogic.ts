@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import type { Notice, NoticeFormData } from '@/lib/types/notice';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseNoticesLogicProps {
   companyId: string;
@@ -27,7 +28,7 @@ export function useNoticesLogic({ companyId }: UseNoticesLogicProps) {
     setLoading(true);
     try {
       const q = query(
-        collection(db, 'notices'),
+        collection(db, COLLECTIONS.NOTICES),
         where('companyId', '==', companyId)
       );
       
@@ -71,7 +72,7 @@ export function useNoticesLogic({ companyId }: UseNoticesLogicProps) {
         createdAt: serverTimestamp(),
       };
       
-      await addDoc(collection(db, 'notices'), noticeData);
+      await addDoc(collection(db, COLLECTIONS.NOTICES), noticeData);
       await loadNotices();
     } catch (error) {
       console.error('공지사항 추가 실패:', error);

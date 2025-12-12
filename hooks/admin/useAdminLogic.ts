@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { BaseUser } from '@/lib/types/common';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseAdminLogicProps {
   companyId: string;
@@ -23,7 +24,7 @@ export function useAdminLogic({ companyId }: UseAdminLogicProps) {
     setLoading(true);
     try {
       const q = query(
-        collection(db, 'users'),
+        collection(db, COLLECTIONS.USERS),
         where('role', 'in', ['admin', 'super_admin']),
         where('companyId', '==', companyId)
       );

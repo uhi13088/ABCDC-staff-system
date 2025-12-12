@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Notice, NoticeFilterOptions } from '@/lib/types/notice';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseNoticeLogicProps {
   companyId: string;
@@ -44,7 +45,7 @@ export function useNoticeLogic({ companyId, userId, userName }: UseNoticeLogicPr
 
     try {
       let q = query(
-        collection(db, 'notices'),
+        collection(db, COLLECTIONS.NOTICES),
         where('companyId', '==', companyId),
         orderBy('createdAt', 'desc')
       );
@@ -94,7 +95,7 @@ export function useNoticeLogic({ companyId, userId, userName }: UseNoticeLogicPr
   const addNotice = useCallback(
     async (noticeData: { title: string; content: string }) => {
       try {
-        await addDoc(collection(db, 'notices'), {
+        await addDoc(collection(db, COLLECTIONS.NOTICES), {
           companyId,
           title: noticeData.title,
           content: noticeData.content,

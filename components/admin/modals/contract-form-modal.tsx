@@ -31,6 +31,7 @@ import { AlertCircle, Check, FileEdit, Eye, Save, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { User } from '@/lib/types';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface ContractFormModalProps {
   open: boolean;
@@ -139,7 +140,7 @@ export function ContractFormModal({
   const loadEmployees = async () => {
     try {
       const q = query(
-        collection(db, 'users'),
+        collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId),
         where('role', '==', 'employee')
       );
@@ -160,7 +161,7 @@ export function ContractFormModal({
   const loadStores = async () => {
     try {
       const q = query(
-        collection(db, 'stores'),
+        collection(db, COLLECTIONS.STORES),
         where('companyId', '==', companyId)
       );
       const snapshot = await getDocs(q);
@@ -361,7 +362,7 @@ export function ContractFormModal({
 
       // Firestore에 저장
       const { addDoc, collection, Timestamp } = await import('firebase/firestore');
-      const docRef = await addDoc(collection(db, 'contracts'), {
+      const docRef = await addDoc(collection(db, COLLECTIONS.CONTRACTS), {
         ...contractData,
         companyId,
         createdAt: Timestamp.now(),

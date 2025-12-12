@@ -27,6 +27,7 @@ import {
 import { db } from '@/lib/firebase';
 import { Contract, ContractFilters, ContractGroup } from '@/lib/types/contract';
 import { useAuth } from '@/lib/auth-context';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseContractsLogicProps {
   companyId: string;
@@ -58,7 +59,7 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
     
     try {
       const storesQuery = query(
-        collection(db, 'stores'),
+        collection(db, COLLECTIONS.STORES),
         where('companyId', '==', companyId)
       );
       const snapshot = await getDocs(storesQuery);
@@ -83,7 +84,7 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
     try {
       // 1. 직원 정보 가져오기 (status 매핑용)
       const usersQuery = query(
-        collection(db, 'users'),
+        collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId)
       );
       const usersSnapshot = await getDocs(usersQuery);
@@ -97,7 +98,7 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
 
       // 2. 계약서 가져오기
       const contractsQuery = query(
-        collection(db, 'contracts'),
+        collection(db, COLLECTIONS.CONTRACTS),
         where('companyId', '==', companyId)
       );
       const snapshot = await getDocs(contractsQuery);
@@ -212,7 +213,7 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
       console.log(`🗑️ 계약서 ${contractId}의 기본 스케줄 삭제 시작...`);
       
       const schedulesQuery = query(
-        collection(db, 'schedules'),
+        collection(db, COLLECTIONS.SCHEDULES),
         where('companyId', '==', companyId),
         where('contractId', '==', contractId)
       );

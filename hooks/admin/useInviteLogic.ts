@@ -3,6 +3,7 @@ import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, doc } fr
 import { db } from '@/lib/firebase';
 import { InvitationCode, InviteGenerateOptions } from '@/lib/types/invite';
 import { Store } from '@/lib/types/common';
+import { COLLECTIONS } from '@/lib/constants';
 
 /**
  * Invite 관리 Hook
@@ -66,7 +67,7 @@ export const useInviteLogic = (companyId: string) => {
 
     try {
       const storesQuery = query(
-        collection(db, 'stores'),
+        collection(db, COLLECTIONS.STORES),
         where('companyId', '==', companyId)
       );
 

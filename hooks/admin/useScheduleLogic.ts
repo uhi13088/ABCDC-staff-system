@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type {
+import { COLLECTIONS } from '@/lib/constants';
   WorkSchedule,
   ScheduleGroup,
   ScheduleFilterOptions,
@@ -70,7 +71,7 @@ export function useScheduleLogic({ companyId }: UseScheduleLogicProps) {
 
       // 기본 쿼리
       let q = query(
-        collection(db, 'schedules'),
+        collection(db, COLLECTIONS.SCHEDULES),
         where('companyId', '==', companyId)
       );
 
@@ -189,7 +190,7 @@ export function useScheduleLogic({ companyId }: UseScheduleLogicProps) {
           updatedAt: Timestamp.now(),
         };
 
-        await addDoc(collection(db, 'schedules'), newSchedule);
+        await addDoc(collection(db, COLLECTIONS.SCHEDULES), newSchedule);
         await loadSchedules();
 
         return { success: true, message: '스케줄이 추가되었습니다.' };
@@ -251,7 +252,7 @@ export function useScheduleLogic({ companyId }: UseScheduleLogicProps) {
           updatedAt: Timestamp.now(),
         };
 
-        await addDoc(collection(db, 'schedules'), openShift);
+        await addDoc(collection(db, COLLECTIONS.SCHEDULES), openShift);
         await loadSchedules();
 
         return { success: true, message: 'Open Shift가 생성되었습니다.' };

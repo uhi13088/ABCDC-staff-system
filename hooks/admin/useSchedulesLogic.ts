@@ -35,6 +35,7 @@ import {
   ScheduleDetail
 } from '@/lib/types/schedule';
 import { useAuth } from '@/lib/auth-context';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseSchedulesLogicProps {
   companyId: string;
@@ -107,7 +108,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
     
     try {
       const storesQuery = query(
-        collection(db, 'stores'),
+        collection(db, COLLECTIONS.STORES),
         where('companyId', '==', companyId)
       );
       const snapshot = await getDocs(storesQuery);
@@ -160,7 +161,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
       
       // 실시간 리스너 설정
       const attendanceQuery = query(
-        collection(db, 'attendance'),
+        collection(db, COLLECTIONS.ATTENDANCE),
         where('companyId', '==', companyId),
         where('store', '==', storeName),
         where('date', '>=', startDateStr),
@@ -293,7 +294,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
       
       // 2. 해당 매장의 직원 조회 (퇴사자 제외)
       const employeesQuery = query(
-        collection(db, 'users'),
+        collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId),
         where('role', '==', 'employee'),
         where('store', '==', storeName)
@@ -317,7 +318,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
         
         // 해당 직원의 주간 스케줄 조회
         const schedulesQuery = query(
-          collection(db, 'schedules'),
+          collection(db, COLLECTIONS.SCHEDULES),
           where('companyId', '==', companyId),
           where('userId', '==', empUid),
           where('date', '>=', mondayStr),

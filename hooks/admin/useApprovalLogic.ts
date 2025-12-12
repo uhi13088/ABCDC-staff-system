@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { ApprovalRequest, ApprovalFilterOptions, ApprovalStats } from '@/lib/types/approval';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseApprovalLogicProps {
   companyId: string;
@@ -47,7 +48,7 @@ export function useApprovalLogic({ companyId }: UseApprovalLogicProps) {
 
       // 기본 쿼리
       let q = query(
-        collection(db, 'approvals'),
+        collection(db, COLLECTIONS.APPROVALS),
         where('companyId', '==', companyId)
       );
 

@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs, doc, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Store } from '@/lib/types/common';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseStoreLogicProps {
   companyId: string;
@@ -22,7 +23,7 @@ export function useStoreLogic({ companyId }: UseStoreLogicProps) {
     if (!companyId) return;
     setLoading(true);
     try {
-      const q = query(collection(db, 'stores'), where('companyId', '==', companyId));
+      const q = query(collection(db, COLLECTIONS.STORES), where('companyId', '==', companyId));
       const snapshot = await getDocs(q);
       const storesList: Store[] = [];
       snapshot.forEach((docSnap) => {
@@ -50,7 +51,7 @@ export function useStoreLogic({ companyId }: UseStoreLogicProps) {
   const addStore = useCallback(
     async (storeData: Omit<Store, 'id' | 'createdAt' | 'updatedAt'>) => {
       try {
-        await addDoc(collection(db, 'stores'), {
+        await addDoc(collection(db, COLLECTIONS.STORES), {
           ...storeData,
           companyId,
           createdAt: Timestamp.now(),

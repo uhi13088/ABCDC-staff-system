@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Contract } from '@/lib/types/contract';
 import { Badge } from '@/components/ui/badge';
 import { FileDown, Printer, X } from 'lucide-react';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface ContractDetailModalProps {
   open: boolean;
@@ -64,7 +65,7 @@ export function ContractDetailModal({
       
       // 같은 직원의 모든 계약서 찾기
       const q = query(
-        collection(db, 'contracts'),
+        collection(db, COLLECTIONS.CONTRACTS),
         where('employeeName', '==', contractData.employeeName),
         where('employeeBirth', '==', contractData.employeeBirth)
       );

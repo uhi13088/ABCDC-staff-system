@@ -17,6 +17,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { COLLECTIONS, USER_ROLES, USER_STATUS } from '@/lib/constants';
 import type { Employee, EmployeeFilterOptions, EmployeeStats } from '@/lib/types/employee';
 
 interface UseEmployeeLogicProps {
@@ -48,8 +49,8 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
 
       // Firestore users 컬렉션에서 직원 데이터 가져오기
       let q = query(
-        collection(db, 'users'),
-        where('role', 'in', ['staff', 'store_manager', 'manager']),
+        collection(db, COLLECTIONS.USERS),
+        where('role', 'in', [USER_ROLES.STAFF, USER_ROLES.STORE_MANAGER, USER_ROLES.MANAGER]),
         where('companyId', '==', companyId)
       );
 
@@ -117,7 +118,7 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
       console.log(`✅ ${employeesList.length}명의 직원 목록 표시`);
 
       // Firestore에서 모든 계약서 가져오기
-      const contractsSnapshot = await getDocs(collection(db, 'contracts'));
+      const contractsSnapshot = await getDocs(collection(db, COLLECTIONS.CONTRACTS));
       const contractsMapTemp = new Map<string, number>();
 
       contractsSnapshot.forEach((docSnap) => {
@@ -278,7 +279,7 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
     
     try {
       const storesSnapshot = await getDocs(
-        query(collection(db, 'stores'), where('companyId', '==', companyId))
+        query(collection(db, COLLECTIONS.STORES), where('companyId', '==', companyId))
       );
       
       const storesList = storesSnapshot.docs.map(doc => ({

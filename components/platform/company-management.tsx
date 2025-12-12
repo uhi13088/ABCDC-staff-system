@@ -7,6 +7,7 @@ import { Company } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface CompanyManagementProps {
   onStatsUpdate: (stats: any) => void;
@@ -24,7 +25,7 @@ export default function CompanyManagement({ onStatsUpdate }: CompanyManagementPr
     try {
       setLoading(true);
       const companiesQuery = query(
-        collection(db, 'companies'),
+        collection(db, COLLECTIONS.COMPANIES),
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(companiesQuery);

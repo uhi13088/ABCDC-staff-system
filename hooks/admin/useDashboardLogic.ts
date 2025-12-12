@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface UseDashboardLogicProps {
   companyId: string;
@@ -36,7 +37,7 @@ export function useDashboardLogic({ companyId }: UseDashboardLogicProps) {
       // 총 직원 수
       const employeesSnapshot = await getDocs(
         query(
-          collection(db, 'users'),
+          collection(db, COLLECTIONS.USERS),
           where('role', 'in', ['staff', 'store_manager', 'manager']),
           where('companyId', '==', companyId),
           where('status', '!=', 'resigned')
@@ -47,7 +48,7 @@ export function useDashboardLogic({ companyId }: UseDashboardLogicProps) {
       const today = new Date().toISOString().split('T')[0];
       const attendanceSnapshot = await getDocs(
         query(
-          collection(db, 'attendance'),
+          collection(db, COLLECTIONS.ATTENDANCE),
           where('companyId', '==', companyId),
           where('date', '==', today)
         )
@@ -56,7 +57,7 @@ export function useDashboardLogic({ companyId }: UseDashboardLogicProps) {
       // 승인 대기
       const approvalsSnapshot = await getDocs(
         query(
-          collection(db, 'approvals'),
+          collection(db, COLLECTIONS.APPROVALS),
           where('companyId', '==', companyId),
           where('status', '==', 'pending')
         )
@@ -64,7 +65,7 @@ export function useDashboardLogic({ companyId }: UseDashboardLogicProps) {
 
       // 미서명 계약서
       const contractsSnapshot = await getDocs(
-        query(collection(db, 'contracts'), where('companyId', '==', companyId))
+        query(collection(db, COLLECTIONS.CONTRACTS), where('companyId', '==', companyId))
       );
 
       const signedSnapshot = await getDocs(

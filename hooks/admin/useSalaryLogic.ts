@@ -10,6 +10,7 @@ import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } fro
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { calculateMonthlySalary, SalaryCalculationResult } from '@/lib/utils/salary-calculator';
+import { COLLECTIONS } from '@/lib/constants';
 
 export interface SalaryWithStatus extends SalaryCalculationResult {
   status: 'unconfirmed' | 'confirmed' | 'paid';
@@ -54,7 +55,7 @@ export function useSalaryLogic() {
       try {
         const companyId = user.companyId || 'default-company';
         const storesQuery = query(
-          collection(db, 'stores'),
+          collection(db, COLLECTIONS.STORES),
           where('companyId', '==', companyId)
         );
         
@@ -99,7 +100,7 @@ export function useSalaryLogic() {
       
       // 🔒 companyId 조건 추가 (필수!)
       let employeesQuery = query(
-        collection(db, 'users'),
+        collection(db, COLLECTIONS.USERS),
         where('role', 'in', ['staff', 'store_manager', 'manager']),
         where('companyId', '==', companyId)
       );
@@ -144,7 +145,7 @@ export function useSalaryLogic() {
         
         // 해당 직원의 계약서 찾기 (복합 인덱스 없이 처리)
         let contractQuery = query(
-          collection(db, 'contracts'),
+          collection(db, COLLECTIONS.CONTRACTS),
           where('employeeName', '==', employee.name)
         );
         
@@ -248,7 +249,7 @@ export function useSalaryLogic() {
         }
         
         let attendanceQuery = query(
-          collection(db, 'attendance'),
+          collection(db, COLLECTIONS.ATTENDANCE),
           where('uid', '==', employee.uid),
           where('date', '>=', startDate),
           where('date', '<=', endDate)
@@ -416,7 +417,7 @@ export function useSalaryLogic() {
       
       // 계약서 찾기 (복합 인덱스 없이 처리)
       const contractsQuery = query(
-        collection(db, 'contracts'),
+        collection(db, COLLECTIONS.CONTRACTS),
         where('employeeName', '==', employee.name),
         where('companyId', '==', companyId)
       );
@@ -445,7 +446,7 @@ export function useSalaryLogic() {
       const endDate = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
       
       const attendancesQuery = query(
-        collection(db, 'attendance'),
+        collection(db, COLLECTIONS.ATTENDANCE),
         where('uid', '==', employeeUid),
         where('date', '>=', startDate),
         where('date', '<=', endDate),
