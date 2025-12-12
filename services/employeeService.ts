@@ -37,9 +37,14 @@ export async function getEmployees(
     where('companyId', '==', companyId),
   ];
 
-  // 필터 조건 추가
+  // 🔥 DB Query 필터: status 조건 추가
   if (filters?.status) {
     constraints.push(where('status', '==', filters.status));
+  }
+
+  // 🔥 DB Query 필터: storeId 조건 추가
+  if (filters?.storeId) {
+    constraints.push(where('storeId', '==', filters.storeId));
   }
 
   const q = query(collection(db, COLLECTIONS.USERS), ...constraints);

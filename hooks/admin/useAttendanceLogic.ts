@@ -117,6 +117,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
 
   /**
    * 근태 목록 로드 (백업: loadAttendanceList 함수 라인 3316~3473)
+   * 🔥 Phase 4: DB Query 최적화 - Service Layer 사용
    */
   const loadAttendanceList = useCallback(async () => {
     console.log('🔍 loadAttendanceList 호출됨');
@@ -131,118 +132,32 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
     setError(null);
 
     try {
-      console.log('🔍 Firestore 쿼리 시작: attendance 컬렉션');
-      console.log('🔍 쿼리 조건:', { storeId: filters.storeId, companyId });
-      
-      // Firestore에서 근태 데이터 가져오기
-      let attendanceQuery = query(
-        collection(db, COLLECTIONS.ATTENDANCE),
-        where('storeId', '==', filters.storeId),
-        where('companyId', '==', companyId),
-        orderBy('date', 'desc'),
-        limit(100)
-      );
-
-      const attendanceSnapshot = await getDocs(attendanceQuery);
-      
-      console.log('📊 조회 결과:', {
-        empty: attendanceSnapshot.empty,
-        size: attendanceSnapshot.size,
+      // 🔥 Service Layer 사용 - DB에서 필터링
+      const list = await attendanceService.getAttendanceRecords(companyId, {
+        storeId: filters.storeId,
+        startDate: filters.month ? `${filters.month}-01` : undefined,
+        endDate: filters.month ? `${filters.month}-31` : undefined,
       });
       
-      if (attendanceSnapshot.empty) {
-        console.warn('⚠️ attendance 컬렉션이 비어있습니다');
-        setAttendanceList([]);
-        setLoading(false);
-        return;
-      }
+      console.log(`✅ 총 근태 기록: ${list.length}건`);
       
-      let list: AttendanceRecord[] = [];
-      attendanceSnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        console.log('📄 문서 데이터:', { id: docSnap.id, data });
-        
-        list.push({
-          id: docSnap.id,
-          userId: data.userId || data.uid,
-          uid: data.uid,
-          name: data.name || data.employeeName || '-',
-          employeeName: data.employeeName || data.name || '-',
-          companyId: data.companyId,
-          storeId: data.storeId,
-          store: data.store || '-',
-          date: data.date || '-',
-          clockIn: data.clockIn,
-          clockOut: data.clockOut,
-          workType: data.workType || '정규근무',
-          status: data.status,
-          workMinutes: data.workMinutes,
-          absentReason: data.absentReason,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
+      // 🔥 근무상태 필터는 직원 status와 조인이 필요하므로 클라이언트에서 처리
+      // (Firestore는 컬렉션 간 JOIN을 지원하지 않음)
+      if (filters.employmentStatus && filters.employmentStatus !== 'all') {
+        // employeeService로 직원 목록 가져오기
+        const employees = await employeeService.getEmployees(companyId, {
+          status: filters.employmentStatus === 'active' ? 'approved' : 'resigned',
         });
-      });
-      
-      console.log('✅ 총 근태 기록:', list.length);
-      
-      // 근무상태 필터를 위해 직원 정보 가져오기
-      const usersQuery = query(
-        collection(db, COLLECTIONS.USERS),
-        where('companyId', '==', companyId)
-      );
-      
-      const usersSnapshot = await getDocs(usersQuery);
-      const employeeStatusMap: Record<string, string> = {};
-      const employeeNamesMap: Record<string, string> = {};
-      
-      usersSnapshot.forEach((docSnap) => {
-        const user = docSnap.data();
-        // status 필드로 재직자/퇴사자 판단
-        employeeStatusMap[docSnap.id] = user.status || 'active';
-        // 이름 매핑
-        employeeNamesMap[docSnap.id] = user.name || '-';
-      });
-      
-      // attendance 데이터에 직원 이름 추가
-      list = list.map(att => ({
-        ...att,
-        employeeName: att.employeeName || att.name || employeeNamesMap[att.uid] || '-',
-      }));
-      
-      // 클라이언트 사이드 필터링: 월 필터
-      if (filters.month) {
-        list = list.filter(att => att.date && att.date.startsWith(filters.month!));
-        console.log(`📅 월 필터 적용 (${filters.month}):`, list.length);
-      }
-      
-      // 매장 필터 (이미 서버에서 필터링됨, 이중 체크)
-      // ✅ FIXED: storeId 기준으로 통일 (store 매장명 → storeId UUID)
-      if (filters.store) {
-        list = list.filter(att => 
-          att.storeId === filters.store || att.store === filters.store // 폴백: 레거시 호환
-        );
-        console.log(`🏪 매장 필터 적용 (${filters.store}):`, list.length);
-      }
-      
-      // 근무상태 필터 적용
-      list = list.filter(att => {
-        const empStatus = employeeStatusMap[att.uid];
         
-        if (filters.employmentStatus === 'active') {
-          // 재직자만
-          return empStatus === 'approved' || empStatus === 'active';
-        } else if (filters.employmentStatus === 'resigned') {
-          // 퇴사자만
-          return empStatus === 'resigned';
-        } else {
-          // 전체 = 재직자 + 퇴사자 모두
-          return true;
-        }
-      });
+        const employeeIds = new Set(employees.map(e => e.id));
+        const filtered = list.filter(att => employeeIds.has(att.userId || att.uid));
+        
+        console.log(`👤 근무상태 필터 적용 (${filters.employmentStatus}): ${list.length} → ${filtered.length}건`);
+        setAttendanceList(filtered);
+      } else {
+        setAttendanceList(list);
+      }
       
-      console.log(`👤 근무상태 필터 적용 (${filters.employmentStatus || '기본:재직자'}):`, list.length);
-      
-      setAttendanceList(list);
       setLoading(false);
 
     } catch (err: any) {
@@ -251,7 +166,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
       setAttendanceList([]);
       setLoading(false);
     }
-  }, [companyId, filters, calculateAttendanceStatus]);
+  }, [companyId, filters]);
 
   /**
    * 관리자 근태 수정
