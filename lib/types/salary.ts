@@ -75,26 +75,26 @@ export interface ContractForSalary {
 
 /**
  * 출퇴근 기록 (급여 계산용)
+ * ✅ FIXED: clockIn/clockOut을 표준으로 사용 (레거시 데이터 표준)
  */
 export interface AttendanceForSalary {
   date: string;                     // YYYY-MM-DD
   uid: string;
-  checkIn?: string;                 // HH:MM
-  clockIn?: string;                 // HH:MM (호환성)
-  checkOut?: string;                // HH:MM
-  clockOut?: string;                // HH:MM (호환성)
+  clockIn?: string;                 // HH:MM (표준)
+  clockOut?: string;                // HH:MM (표준)
   wageIncentive?: number;           // 🆕 Phase 5: 인센티브 시급
 }
 
 /**
  * 출퇴근 상세 (급여 계산 결과에 포함)
+ * ✅ FIXED: clockIn/clockOut으로 통일
  */
 export interface AttendanceDetail {
   date: string;
-  checkIn: string;
-  checkOut: string;
-  adjustedCheckIn: string;          // 조정된 출근시간
-  adjustedCheckOut: string;         // 조정된 퇴근시간
+  clockIn: string;                  // 표준
+  clockOut: string;                 // 표준
+  adjustedClockIn: string;          // 조정된 출근시간
+  adjustedClockOut: string;         // 조정된 퇴근시간
   workHours: string;
   nightHours: string;
   isHoliday: boolean;

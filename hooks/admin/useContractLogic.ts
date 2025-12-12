@@ -77,8 +77,9 @@ export function useContractLogic({ companyId }: UseContractLogicProps) {
       );
 
       // 매장 필터
+      // ✅ FIXED: storeId 기준으로 통일 (store 매장명 → storeId UUID)
       if (filters.store) {
-        q = query(q, where('store', '==', filters.store));
+        q = query(q, where('storeId', '==', filters.store));
       }
 
       // 정렬

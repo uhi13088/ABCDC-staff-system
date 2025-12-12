@@ -225,8 +225,11 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
       }
       
       // 매장 필터 (이미 서버에서 필터링됨, 이중 체크)
+      // ✅ FIXED: storeId 기준으로 통일 (store 매장명 → storeId UUID)
       if (filters.store) {
-        list = list.filter(att => att.store === filters.store);
+        list = list.filter(att => 
+          att.storeId === filters.store || att.store === filters.store // 폴백: 레거시 호환
+        );
         console.log(`🏪 매장 필터 적용 (${filters.store}):`, list.length);
       }
       

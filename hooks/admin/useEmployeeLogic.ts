@@ -107,8 +107,11 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
       }
 
       // 매장 필터 적용 (클라이언트 사이드)
+      // ✅ FIXED: storeId 기준으로 통일 (store 매장명 → storeId UUID)
       if (filters.store) {
-        employeesList = employeesList.filter(emp => emp.store === filters.store);
+        employeesList = employeesList.filter(emp => 
+          emp.storeId === filters.store || emp.store === filters.store // 폴백: 레거시 호환
+        );
       }
 
       console.log(`✅ ${employeesList.length}명의 직원 목록 표시`);

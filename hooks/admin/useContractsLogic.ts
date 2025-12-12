@@ -108,9 +108,10 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
         const data = doc.data();
         
         // 매장 필터 적용
+        // ✅ FIXED: storeId 기준으로 통일 (workStore 매장명 → storeId UUID)
         if (filters.store) {
-          if (data.workStore !== filters.store && data.companyName !== filters.store) {
-            return;
+          if (data.storeId !== filters.store && data.workStore !== filters.store && data.companyName !== filters.store) {
+            return; // 폴백: 레거시 호환
           }
         }
         

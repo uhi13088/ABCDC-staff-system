@@ -204,12 +204,13 @@ export function calculateWeeklySalary(
 // 타입 정의
 // ===========================================
 
+// ✅ FIXED: clockIn/clockOut으로 통일
 export interface AttendanceDetail {
   date: string;
-  checkIn: string;
-  checkOut: string;
-  adjustedCheckIn: string;      // 조정된 출근시간
-  adjustedCheckOut: string;     // 조정된 퇴근시간
+  clockIn: string;              // 표준
+  clockOut: string;             // 표준
+  adjustedClockIn: string;      // 조정된 출근시간
+  adjustedClockOut: string;     // 조정된 퇴근시간
   workHours: string;
   nightHours: string;
   isHoliday: boolean;
@@ -435,11 +436,12 @@ export async function calculateMonthlySalary(
   
   attendances.forEach(att => {
     // 출근 기록이 있으면 처리 (퇴근 안 해도 현재 시간까지 계산)
-    if (!att.clockIn && !att.checkIn) return;
+    // ✅ FIXED: clockIn 표준 사용
+    if (!att.clockIn) return;
     
     // 퇴근 시간이 없으면 현재 시간 사용 (실시간 급여 계산)
-    let checkInTime = att.checkIn || att.clockIn;
-    let checkOutTime = att.checkOut || att.clockOut;
+    let checkInTime = att.clockIn;
+    let checkOutTime = att.clockOut;
     
     if (!checkOutTime) {
       // 퇴근 기록이 없으면 현재 시간 사용
@@ -524,15 +526,15 @@ export async function calculateMonthlySalary(
     
     result.attendanceDetails.push({
       date: att.date,
-      checkIn: checkInTime,
-      checkOut: checkOutTime,
-      adjustedCheckIn: adjustedCheckIn,      // 조정된 출근시간
-      adjustedCheckOut: adjustedCheckOut,    // 조정된 퇴근시간
+      clockIn: checkInTime,               // ✅ FIXED: clockIn 표준
+      clockOut: checkOutTime,             // ✅ FIXED: clockOut 표준
+      adjustedClockIn: adjustedCheckIn,   // 조정된 출근시간
+      adjustedClockOut: adjustedCheckOut, // 조정된 퇴근시간
       workHours: workHours.toFixed(2),
       nightHours: nightHours.toFixed(2),
       isHoliday: isHoliday,
       wageIncentive: att.wageIncentive || 0, // 🆕 Phase 5: 인센티브 시급
-      isRealtime: !att.checkOut && !att.clockOut // 실시간 계산 여부
+      isRealtime: !att.clockOut // 실시간 계산 여부
     });
   });
   
