@@ -46,7 +46,7 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
   const [stores, setStores] = useState<Store[]>([]);
   
   const [filters, setFilters] = useState<ContractFilters>({
-    store: '',
+    storeId: '',
     employmentStatus: 'active',  // 기본: 재직자만
   });
 
@@ -107,11 +107,10 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
       snapshot.forEach(doc => {
         const data = doc.data();
         
-        // 매장 필터 적용
-        // ✅ FIXED: storeId 기준으로 통일 (workStore 매장명 → storeId UUID)
-        if (filters.store) {
-          if (data.storeId !== filters.store && data.workStore !== filters.store && data.companyName !== filters.store) {
-            return; // 폴백: 레거시 호환
+        // 🔥 매장 필터 적용 (표준 필드: storeId)
+        if (filters.storeId) {
+          if (data.storeId !== filters.storeId) {
+            return;
           }
         }
         

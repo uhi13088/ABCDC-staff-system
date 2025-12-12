@@ -53,20 +53,19 @@ export interface ContractInsurance {
 
 /**
  * 계약서 인터페이스 (백업: admin-dashboard.html 라인 9525-9595)
+ * 표준 필드명 준수 (FIELD_NAMING_STANDARD.md 참조)
  */
 export interface Contract {
   id?: string;                    // Firestore 문서 ID (예: C1234567890)
   companyId?: string;             // 회사 ID (멀티테넌트)
   
-  // 직원 정보 (백업: 라인 9529-9533)
-  userId?: string;                // 직원 UID (표준 필드)
-  employeeId?: string;            // 직원 UID (하위 호환성)
-  employeeName: string;           // 직원명
-  employeeBirth: string;          // 생년월일 (YYYY-MM-DD)
+  // 🔥 직원 정보 (표준 필드)
+  userId?: string;                // ✅ 표준: 직원 Firebase UID
+  employeeName: string;           // ✅ 표준: 직원명
+  employeeBirth: string;          // ✅ 표준: 생년월일 (YYMMDD or YYYY-MM-DD)
   employeePhone?: string;         // 전화번호
   employeeAddress?: string;       // 주소
-  employeePosition?: string;      // 직책
-  position?: string;              // 직책 (하위 호환)
+  position?: string;              // ✅ 표준: 직책
   
   // 회사 정보 (백업: 라인 9534-9538)
   companyName?: string;           // 회사명
@@ -75,33 +74,24 @@ export interface Contract {
   companyPhone?: string;          // 회사 전화번호
   companyAddress?: string;        // 회사 주소
   
-  // 계약 정보 (백업: 라인 9539-9542)
+  // 🔥 계약 정보 (표준 필드)
   contractType?: string;          // 계약 유형 (기간제/정규직 등)
-  workStore?: string;             // 근무 매장명
-  storeId?: string;               // 매장 ID
+  storeId?: string;               // ✅ 표준: 매장 UUID
+  storeName?: string;             // ✅ 표준: 매장명 (표시용)
   isAdditional?: boolean;         // 추가 계약서 여부 (백업: 라인 9580)
   
-  // 계약 기간 (백업: 라인 9543-9545)
-  contractStartDate?: string;     // 시작일 (YYYY-MM-DD)
-  contractEndDate?: string;       // 종료일 (YYYY-MM-DD) 또는 '기간의 정함이 없음'
-  startDate?: string;             // 시작일 (하위 호환)
-  endDate?: string;               // 종료일 (하위 호환)
+  // 🔥 계약 기간 (표준 필드)
+  startDate?: string;             // ✅ 표준: 시작일 (YYYY-MM-DD)
+  endDate?: string;               // ✅ 표준: 종료일 (YYYY-MM-DD) 또는 '기간의 정함이 없음'
   
   // 스케줄 정보 (백업: 라인 9549-9556)
-  schedules?: ContractSchedule[]; // 요일별 근무 시간 배열
-  schedule?: {
-    days: string;                 // 근무 요일 (예: "월~금")
-    time: string;                 // 근무 시간 (예: "09:00~18:00")
-    breakTime: string;            // 휴게시간 (예: "1시간")
-  };
-  workDays?: string;              // 근무 요일 (하위 호환)
-  workTime?: string;              // 근무 시간 (하위 호환)
-  breakTime?: string;             // 휴게시간 (하위 호환)
+  schedules?: ContractSchedule[]; // ✅ 표준: 요일별 근무 시간 배열
+  breakTime?: any;                // ✅ 표준: 휴게시간 상세 객체
   
-  // 급여 정보 (백업: 라인 9563-9572)
-  salaryType?: string;            // 급여 타입 (hourly/monthly)
-  salaryAmount?: number | string; // 급여 금액
-  salaryPaymentDay?: string;      // 급여 지급일
+  // 🔥 급여 정보 (표준 필드)
+  salaryType?: string;            // ✅ 표준: 급여 타입 (hourly/monthly)
+  salaryAmount?: number | string; // ✅ 표준: 급여 금액
+  salaryPaymentDay?: string;      // ✅ 표준: 급여 지급일
   salaryCalculationType?: string; // 급여 계산 방식
   salaryCalculationPeriod?: any;  // 급여 계산 기간
   paymentMethod?: string;         // 지급 방법
@@ -147,27 +137,29 @@ export interface ContractGroup {
 
 /**
  * 계약서 필터
+ * 표준 필드명 준수 (FIELD_NAMING_STANDARD.md 참조)
  */
 export interface ContractFilters {
-  store: string;                  // 매장 필터 (전체: '')
+  storeId: string;                // ✅ 표준: 매장 UUID 필터 (전체: '')
   employmentStatus: string;       // 근무 상태 (전체: '', 재직자: 'active', 퇴사자: 'resigned')
 }
 
 /**
  * 계약서 작성 폼 데이터
  * 백업: admin-dashboard.html 라인 9151-9212 (saveContract 함수)
+ * 표준 필드명 준수 (FIELD_NAMING_STANDARD.md 참조)
  */
 export interface ContractFormData {
-  // 직원 정보
-  employeeId?: string;            // 직원 선택 (드롭다운)
-  employeeName: string;
-  employeeBirth: string;
-  employeePhone?: string;
-  employeeAddress?: string;
+  // 🔥 직원 정보 (표준 필드)
+  userId?: string;                // ✅ 표준: Firebase UID (직원 선택)
+  employeeName: string;           // ✅ 표준: 직원명
+  employeeBirth: string;          // ✅ 표준: 생년월일 (YYMMDD)
+  employeePhone?: string;         // 전화번호
+  employeeAddress?: string;       // 주소
   
-  // 회사/매장 정보
-  storeId: string;                // 매장 선택
-  workStore: string;              // 근무 매장명
+  // 🔥 회사/매장 정보 (표준 필드)
+  storeId: string;                // ✅ 표준: 매장 UUID
+  storeName: string;              // ✅ 표준: 매장명 (표시용)
   companyName?: string;
   companyCEO?: string;
   companyBusinessNumber?: string;
@@ -178,35 +170,23 @@ export interface ContractFormData {
   contractType: string;
   isAdditional: boolean;          // 추가 계약서 여부
   
-  // 계약 기간
-  contractStartDate: string;      // startDate
-  contractEndDate: string;        // endDate
+  // 🔥 계약 기간 (표준 필드)
+  startDate: string;              // ✅ 표준: 시작일 (YYYY-MM-DD)
+  endDate: string;                // ✅ 표준: 종료일 (YYYY-MM-DD)
   
   // 직책
-  position: string;
-  
-  // 근무 조건 (간단 입력)
-  workDays: string;               // 예: "월~금"
-  workTime: string;               // 예: "09:00~18:00"
-  breakTime: string;              // 예: "1시간"
+  position: string;               // ✅ 표준: 직책
   
   // 스케줄 (상세 입력)
-  schedules?: ContractSchedule[]; // 요일별 다른 시간
+  schedules?: ContractSchedule[]; // ✅ 표준: 요일별 근무 시간 배열
   
   // 휴게시간 상세
-  breakTimeData?: {
-    hour: string;
-    minute: string;
-    startHour: string;
-    startMinute: string;
-    endHour: string;
-    endMinute: string;
-  };
+  breakTime?: any;                // ✅ 표준: 휴게시간 상세 객체
   
-  // 급여 정보
-  salaryType: string;             // hourly/monthly
-  salaryAmount: string | number;
-  paymentDay: string;             // 급여 지급일
+  // 🔥 급여 정보 (표준 필드)
+  salaryType: string;             // ✅ 표준: hourly/monthly
+  salaryAmount: string | number;  // ✅ 표준: 급여 금액
+  paymentDay: string;             // ✅ 표준: 급여 지급일
   paymentMethod: string;          // 지급 방법
   
   // 급여 지급 항목

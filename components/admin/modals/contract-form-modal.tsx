@@ -288,7 +288,7 @@ export function ContractFormModal({
   };
 
   /**
-   * 계약서 생성
+   * 계약서 생성 (표준 필드명 준수)
    */
   const handleGenerateContract = async () => {
     const validationError = validateForm();
@@ -298,24 +298,83 @@ export function ContractFormModal({
     }
 
     try {
-      // TODO: 계약서 생성 로직 구현
-      console.log('계약서 생성:', {
-        employee: { id: selectedEmployeeId, name: employeeName, birth: employeeBirth },
-        store: { id: selectedStoreId, name: workStore },
-        contract: { type: contractType, startDate, endDate, position },
+      // ✅ 표준 필드명 우선 사용 (FIELD_NAMING_STANDARD.md 참조)
+      const contractData = {
+        // 🔥 표준 필드: userId (Firebase UID)
+        userId: selectedEmployeeId,
+        
+        // 직원 정보
+        employeeName,
+        employeeBirth,
+        employeePhone,
+        employeeAddress,
+        
+        // 회사/매장 정보
+        // 🔥 표준 필드: storeId (UUID), storeName (표시용)
+        storeId: selectedStoreId,
+        storeName: workStore,
+        companyCEO,
+        companyBusinessNumber,
+        companyPhone,
+        companyAddress,
+        
+        // 계약 정보
+        contractType,
+        isAdditional,
+        
+        // 계약 기간
+        // 🔥 표준 필드: startDate, endDate
+        startDate,
+        endDate,
+        
+        // 직책
+        position,
+        
+        // 근무 조건
         schedules,
         breakTime,
-        salary: { type: salaryType, amount: salaryAmount, paymentDay, paymentMethod },
-        allowances: { overtime: allowOvertime, night: allowNight, holiday: allowHoliday },
-        insurance: { type: insuranceType, severancePay: allowSeverancePay },
-        content: contractContent,
-        isAdditional
+        
+        // 급여 조건
+        // 🔥 표준 필드: salaryType, salaryAmount
+        salaryType,
+        salaryAmount: Number(salaryAmount),
+        salaryPaymentDay: paymentDay,
+        paymentMethod,
+        
+        // 수당
+        allowances: {
+          overtime: allowOvertime,
+          night: allowNight,
+          holiday: allowHoliday,
+          weeklyHoliday: false, // 기본값
+        },
+        
+        // 4대보험
+        insurance: {
+          type: insuranceType || 'none',
+          severancePay: allowSeverancePay,
+        },
+        
+        // 계약서 내용
+        contractContent,
+      };
+
+      // Firestore에 저장
+      const { addDoc, collection, Timestamp } = await import('firebase/firestore');
+      const docRef = await addDoc(collection(db, 'contracts'), {
+        ...contractData,
+        companyId,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        status: 'draft',
+        isSigned: false,
       });
-      
+
+      console.log('✅ 계약서 저장 완료:', docRef.id);
       alert('계약서가 생성되었습니다!');
       onClose();
     } catch (error) {
-      console.error('계약서 생성 실패:', error);
+      console.error('❌ 계약서 생성 실패:', error);
       alert('계약서 생성에 실패했습니다.');
     }
   };

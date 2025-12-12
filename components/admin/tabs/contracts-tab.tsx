@@ -224,8 +224,8 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
                 매장
               </label>
               <Select
-                value={filters.store}
-                onValueChange={(value) => updateFilters({ store: value })}
+                value={filters.storeId}
+                onValueChange={(value) => updateFilters({ storeId: value })}
               >
                 <SelectTrigger className="border-slate-300">
                   <SelectValue placeholder="전체" />
@@ -233,7 +233,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
                 <SelectContent>
                   <SelectItem value="">전체</SelectItem>
                   {stores.map(store => (
-                    <SelectItem key={store.id} value={store.name}>
+                    <SelectItem key={store.id} value={store.id}>
                       {store.name}
                     </SelectItem>
                   ))}
