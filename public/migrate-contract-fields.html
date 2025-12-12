@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>계약서 필드명 마이그레이션</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; }
+    .status {
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .info { background: #e3f2fd; border-left: 4px solid #2196f3; }
+    .success { background: #e8f5e9; border-left: 4px solid #4caf50; }
+    .warning { background: #fff3e0; border-left: 4px solid #ff9800; }
+    .error { background: #ffebee; border-left: 4px solid #f44336; }
+    button {
+      background: #2196f3;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover { background: #1976d2; }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .danger { background: #f44336; }
+    .danger:hover { background: #d32f2f; }
+    #log {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      max-height: 500px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 계약서 필드명 마이그레이션</h1>
+    
+    <div class="status info">
+      <strong>ℹ️ 이 도구는 다음 작업을 수행합니다:</strong><br>
+      1. 구 필드명 → 신 필드명 변환<br>
+      &nbsp;&nbsp;&nbsp;• wageType → salaryType<br>
+      &nbsp;&nbsp;&nbsp;• wageAmount → salaryAmount<br>
+      &nbsp;&nbsp;&nbsp;• startDate → contractStartDate<br>
+      &nbsp;&nbsp;&nbsp;• endDate → contractEndDate<br>
+      2. employeeId: "NULL" → 실제 UID 매핑<br>
+      3. employeeId 없는 계약서 → employeeName+Birth로 UID 찾기
+    </div>
+
+    <div class="status warning">
+      <strong>⚠️ 주의사항:</strong><br>
+      • 마이그레이션 전 반드시 백업을 권장합니다<br>
+      • "분석" 버튼으로 먼저 확인 후 "실행" 하세요<br>
+      • 실행 후에는 되돌릴 수 없습니다
+    </div>
+
+    <div id="actionSection" style="margin: 20px 0;">
+      <button onclick="analyzeContracts()">🔍 분석 (읽기 전용)</button>
+      <button onclick="migrateContracts()" class="danger" id="migrateBtn" disabled>⚡ 마이그레이션 실행</button>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+
+  <script>
+    // db는 firebase-config.js에서 이미 선언됨
+    const logEl = document.getElementById('log');
+    
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString('ko-KR');
+      const prefix = {
+        info: 'ℹ️',
+        success: '✅',
+        warning: '⚠️',
+        error: '❌'
+      }[type] || 'ℹ️';
+      
+      logEl.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(message);
+    }
+
+    async function analyzeContracts() {
+      logEl.textContent = '';
+      log('=== 계약서 분석 시작 ===');
+      
+      try {
+        const snapshot = await db.collection('contracts').get();
+        log(`총 ${snapshot.size}개 계약서 발견`);
+        
+        let needMigration = 0;
+        let hasNullEmployeeId = 0;
+        let missingEmployeeId = 0;
+        let okCount = 0;
+        
+        const issues = [];
+        
+        for (const doc of snapshot.docs) {
+          const data = doc.data();
+          const contractId = doc.id;
+          let hasIssue = false;
+          let issueDesc = [];
+          
+          // 1. 구 필드명 사용 확인
+          if (data.wageType && !data.salaryType) {
+            issueDesc.push('wageType → salaryType 필요');
+            hasIssue = true;
+          }
+          if (data.wageAmount && !data.salaryAmount) {
+            issueDesc.push('wageAmount → salaryAmount 필요');
+            hasIssue = true;
+          }
+          if (data.startDate && !data.contractStartDate) {
+            issueDesc.push('startDate → contractStartDate 필요');
+            hasIssue = true;
+          }
+          if (data.endDate && !data.contractEndDate) {
+            issueDesc.push('endDate → contractEndDate 필요');
+            hasIssue = true;
+          }
+          
+          // 2. employeeId 확인
+          if (!data.employeeId || data.employeeId === '') {
+            issueDesc.push('employeeId 없음');
+            missingEmployeeId++;
+            hasIssue = true;
+          } else if (data.employeeId === 'NULL' || data.employeeId === 'null') {
+            issueDesc.push('employeeId: "NULL" → UID 매핑 필요');
+            hasNullEmployeeId++;
+            hasIssue = true;
+          }
+          
+          if (hasIssue) {
+            needMigration++;
+            issues.push({
+              id: contractId,
+              name: data.employeeName || '이름없음',
+              issues: issueDesc
+            });
+          } else {
+            okCount++;
+          }
+        }
+        
+        log('');
+        log('=== 분석 결과 ===', 'success');
+        log(`✅ 정상: ${okCount}개`);
+        log(`⚠️ 마이그레이션 필요: ${needMigration}개`);
+        log(`  - employeeId 없음: ${missingEmployeeId}개`);
+        log(`  - employeeId "NULL": ${hasNullEmployeeId}개`);
+        log('');
+        
+        if (issues.length > 0) {
+          log('=== 상세 내역 ===', 'warning');
+          issues.forEach(issue => {
+            log(`${issue.id} (${issue.name}):`, 'warning');
+            issue.issues.forEach(desc => {
+              log(`  • ${desc}`, 'warning');
+            });
+          });
+          
+          document.getElementById('migrateBtn').disabled = false;
+          log('');
+          log('⚡ "마이그레이션 실행" 버튼이 활성화되었습니다', 'success');
+        } else {
+          log('✅ 모든 계약서가 최신 상태입니다', 'success');
+        }
+        
+      } catch (error) {
+        log(`분석 실패: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    async function migrateContracts() {
+      if (!confirm('⚠️ 계약서 마이그레이션을 실행하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+        return;
+      }
+      
+      logEl.textContent = '';
+      log('=== 마이그레이션 시작 ===');
+      document.getElementById('migrateBtn').disabled = true;
+      
+      try {
+        const snapshot = await db.collection('contracts').get();
+        log(`총 ${snapshot.size}개 계약서 처리 중...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        // users 컬렉션 미리 로드 (employeeId 매핑용)
+        const usersSnapshot = await db.collection('users').get();
+        const usersMap = new Map();
+        usersSnapshot.forEach(doc => {
+          const data = doc.data();
+          const key = `${data.name}_${data.birth}`;
+          usersMap.set(key, doc.id);
+        });
+        log(`users 컬렉션에서 ${usersMap.size}명의 직원 정보 로드 완료`);
+        log('');
+        
+        for (const doc of snapshot.docs) {
+          const data = doc.data();
+          const contractId = doc.id;
+          const updates = {};
+          let needsUpdate = false;
+          
+          log(`처리 중: ${contractId} (${data.employeeName || '이름없음'})`);
+          
+          // 1. 필드명 마이그레이션
+          if (data.wageType && !data.salaryType) {
+            updates.salaryType = data.wageType;
+            log(`  • salaryType = ${data.wageType}`);
+            needsUpdate = true;
+          }
+          if (data.wageAmount && !data.salaryAmount) {
+            updates.salaryAmount = data.wageAmount;
+            log(`  • salaryAmount = ${data.wageAmount}`);
+            needsUpdate = true;
+          }
+          if (data.startDate && !data.contractStartDate) {
+            updates.contractStartDate = data.startDate;
+            log(`  • contractStartDate = ${data.startDate}`);
+            needsUpdate = true;
+          }
+          if (data.endDate && !data.contractEndDate) {
+            updates.contractEndDate = data.endDate;
+            log(`  • contractEndDate = ${data.endDate}`);
+            needsUpdate = true;
+          }
+          
+          // 2. employeeId 수정
+          if (!data.employeeId || data.employeeId === '' || data.employeeId === 'NULL' || data.employeeId === 'null') {
+            if (data.employeeName && data.employeeBirth) {
+              const key = `${data.employeeName}_${data.employeeBirth}`;
+              const uid = usersMap.get(key);
+              
+              if (uid) {
+                updates.userId = uid;         // 🔥 표준 필드
+                updates.employeeId = uid;     // 하위 호환성
+                log(`  • userId & employeeId = ${uid} (${data.employeeName} 매핑 성공)`, 'success');
+                needsUpdate = true;
+              } else {
+                log(`  • employeeId 매핑 실패: users에서 ${data.employeeName} (${data.employeeBirth}) 찾을 수 없음`, 'error');
+              }
+            } else {
+              log(`  • employeeId 매핑 불가: employeeName 또는 employeeBirth 없음`, 'error');
+            }
+          }
+          
+          // 3. 업데이트 실행
+          if (needsUpdate) {
+            try {
+              await db.collection('contracts').doc(contractId).update(updates);
+              log(`  ✅ 업데이트 완료`);
+              successCount++;
+            } catch (error) {
+              log(`  ❌ 업데이트 실패: ${error.message}`, 'error');
+              errorCount++;
+            }
+          } else {
+            log(`  ℹ️ 변경사항 없음`);
+          }
+          
+          log('');
+        }
+        
+        log('=== 마이그레이션 완료 ===', 'success');
+        log(`✅ 성공: ${successCount}개`);
+        log(`❌ 실패: ${errorCount}개`);
+        log('');
+        log('🎉 마이그레이션이 완료되었습니다!', 'success');
+        
+      } catch (error) {
+        log(`마이그레이션 실패: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>

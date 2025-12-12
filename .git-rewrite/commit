@@ -1,0 +1,6 @@
+tree 6b6c94148c52a9c3745588e001cdd499162aa4b9
+parent 75598761f621e9aed82b4eb055a24eb13fef7367
+author uhi13088 <genspark_dev@genspark.ai> 1761808528 +0000
+committer uhi13088 <genspark_dev@genspark.ai> 1761808528 +0000
+
+fix: Firestore 보안 규칙 순환 참조 문제 수정 - 직원 로그인 복구

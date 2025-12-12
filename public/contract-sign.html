@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>계약서 서명 - 맛남살롱</title>
+  
+  <!-- 캐시 방지 메타 태그 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  
+  <link rel="stylesheet" href="css/common.css">
+  <style>
+    body {
+      background: var(--bg-light);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sign-container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: var(--spacing-xl);
+      flex: 1;
+    }
+
+    .sign-header {
+      background: var(--bg-white);
+      padding: var(--spacing-xl);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-md);
+      text-align: center;
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .sign-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary-color);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .sign-header p {
+      color: var(--text-secondary);
+      font-size: 15px;
+    }
+
+    .contract-preview {
+      background: var(--bg-white);
+      padding: var(--spacing-xl);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-md);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .contract-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-xl);
+      letter-spacing: 8px;
+    }
+
+    .contract-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: var(--spacing-lg) 0;
+    }
+
+    .contract-table th,
+    .contract-table td {
+      border: 1px solid var(--border-color);
+      padding: var(--spacing-md);
+      text-align: left;
+    }
+
+    .contract-table th {
+      background: var(--bg-light);
+      font-weight: 600;
+      width: 30%;
+    }
+
+    .sign-section {
+      background: var(--bg-white);
+      padding: var(--spacing-xl);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-md);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .sign-section h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-lg);
+      padding-bottom: var(--spacing-sm);
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .sign-info {
+      background: var(--bg-light);
+      padding: var(--spacing-md);
+      border-radius: var(--border-radius);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .sign-info p {
+      margin: var(--spacing-xs) 0;
+      font-size: 14px;
+    }
+
+    .agreement-check {
+      margin: var(--spacing-lg) 0;
+      padding: var(--spacing-md);
+      background: var(--bg-light);
+      border-radius: var(--border-radius);
+    }
+
+    .agreement-check label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .agreement-check input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: var(--spacing-sm);
+      cursor: pointer;
+    }
+
+    .signature-pad {
+      border: 2px solid var(--border-color);
+      border-radius: var(--border-radius);
+      background: white;
+      margin: var(--spacing-lg) 0;
+      cursor: crosshair;
+    }
+
+    .sign-actions {
+      display: flex;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+    }
+
+    .loading {
+      text-align: center;
+      padding: var(--spacing-xxl);
+    }
+
+    .loading-spinner {
+      border: 4px solid var(--border-color);
+      border-top: 4px solid var(--primary-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--spacing-md);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+      padding: var(--spacing-lg);
+      border-radius: var(--border-radius);
+      text-align: center;
+      margin: var(--spacing-xl) 0;
+    }
+
+    .success-message {
+      background: #efe;
+      border: 1px solid #cfc;
+      color: #3c3;
+      padding: var(--spacing-xl);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+
+    .success-message h2 {
+      font-size: 24px;
+      margin-bottom: var(--spacing-md);
+    }
+  </style>
+</head>
+<body>
+  <div class="sign-container">
+    <!-- 로딩 -->
+    <div id="loadingSection" class="loading">
+      <div class="loading-spinner"></div>
+      <p>계약서를 불러오는 중...</p>
+    </div>
+
+    <!-- 에러 -->
+    <div id="errorSection" style="display: none;">
+      <div class="error-message">
+        <h2>⚠️ 오류</h2>
+        <p id="errorMessage">계약서를 찾을 수 없습니다.</p>
+      </div>
+    </div>
+
+    <!-- 서명 완료 -->
+    <div id="successSection" style="display: none;">
+      <div class="success-message">
+        <h2>✅ 서명이 완료되었습니다!</h2>
+        <p>계약서가 정상적으로 서명되었습니다.</p>
+        <p style="margin-top: var(--spacing-md); font-size: 14px; color: var(--text-secondary);">
+          계약서 ID: <strong id="successContractId"></strong>
+        </p>
+        <div style="margin-top: var(--spacing-xl);">
+          <button class="btn btn-primary" onclick="location.href='employee.html'" style="padding: 12px 32px; font-size: 16px;">
+            🏠 대시보드로 돌아가기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 메인 컨텐츠 -->
+    <div id="mainContent" style="display: none;">
+      <!-- 헤더 -->
+      <div class="sign-header">
+        <h1>📝 근로계약서 서명</h1>
+        <p>아래 계약서 내용을 확인하시고 서명해주세요</p>
+      </div>
+
+      <!-- 계약서 내용 -->
+      <div class="contract-preview">
+        <div class="contract-title">근 로 계 약 서</div>
+        
+        <p><strong><span id="previewCompanyName"></span></strong> (이하 "사용자"라 함)와 <strong id="previewEmployeeName"></strong> (이하 "근로자"라 함)는 다음과 같이 근로계약을 체결한다.</p>
+
+        <table class="contract-table">
+          <tr>
+            <th>근로자 정보</th>
+            <td>
+              <div>성명: <span id="previewName"></span></div>
+              <div>생년월일: <span id="previewBirth"></span></div>
+              <div>주소: <span id="previewAddress"></span></div>
+              <div>연락처: <span id="previewPhone"></span></div>
+            </td>
+          </tr>
+          <tr>
+            <th>사용자 정보</th>
+            <td>
+              <div>회사명: <span id="previewCompany"></span></div>
+              <div>대표자: <span id="previewCEO"></span></div>
+              <div>사업자등록번호: <span id="previewBusinessNumber"></span></div>
+              <div>연락처: <span id="previewCompanyPhone"></span></div>
+              <div>주소: <span id="previewCompanyAddress"></span></div>
+            </td>
+          </tr>
+          <tr>
+            <th>계약 기간</th>
+            <td>
+              <span id="previewStartDate"></span> ~ <span id="previewEndDate"></span>
+            </td>
+          </tr>
+          <tr>
+            <th>근무 장소</th>
+            <td>맛남살롱 <span id="previewStore"></span></td>
+          </tr>
+          <tr>
+            <th>업무 내용</th>
+            <td><span id="previewPosition"></span></td>
+          </tr>
+          <tr>
+            <th>근무 일시</th>
+            <td>
+              <div>근무일: <span id="previewWorkDays"></span></div>
+              <div>근무시간: <span id="previewWorkTime"></span></div>
+              <div>휴게시간: <span id="previewBreakTime"></span></div>
+            </td>
+          </tr>
+          <tr>
+            <th>급여 조건</th>
+            <td>
+              <div><span id="previewWageType"></span>: <span id="previewWageAmount"></span>원</div>
+              <div>지급일: <span id="previewPaymentDay"></span></div>
+              <div>지급방법: <span id="previewPaymentMethod"></span></div>
+            </td>
+          </tr>
+        </table>
+
+        <div id="previewContractBody" style="white-space: pre-line; line-height: 1.8;"></div>
+
+        <p style="text-align: center; margin-top: 40px;">
+          <strong id="previewContractDate"></strong>
+        </p>
+      </div>
+
+      <!-- 서명 섹션 -->
+      <div id="signatureSection" class="sign-section">
+        <h3>✍️ 서명하기</h3>
+        
+        <div class="sign-info">
+          <p><strong>서명자 정보</strong></p>
+          <p>성명: <strong id="signerName"></strong></p>
+          <p>생년월일: <strong id="signerBirth"></strong></p>
+        </div>
+
+        <div class="agreement-check">
+          <label>
+            <input type="checkbox" id="agreeCheck">
+            <span>위 계약서의 내용을 확인하였으며 이에 동의합니다.</span>
+          </label>
+        </div>
+
+        <div>
+          <label style="font-weight: 600; margin-bottom: var(--spacing-sm); display: block;">서명을 그려주세요</label>
+          <canvas id="signaturePad" class="signature-pad" width="650" height="200"></canvas>
+        </div>
+
+        <div class="sign-actions">
+          <button class="btn btn-secondary" onclick="clearSignature()">🗑️ 지우기</button>
+          <button class="btn btn-primary" onclick="submitSignature()" style="flex: 1;">✅ 서명 완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  
+  <!-- Firebase Config -->
+  <script src="js/firebase-config.js"></script>
+  
+  <script src="js/contract-sign.js?v=2"></script>
+</body>
+</html>

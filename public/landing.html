@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ABC Staff System - 스마트한 직원 관리의 시작</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    
+    /* 그라데이션 배경 */
+    .gradient-bg {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    /* 인기 플랜 강조 효과 */
+    .popular-plan {
+      transform: scale(1.05);
+      box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+    }
+    
+    /* 애니메이션 */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .fade-in-up {
+      animation: fadeInUp 0.8s ease-out;
+    }
+    
+    /* 모달 스타일 */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <!-- 네비게이션 -->
+  <nav class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center">
+          <svg class="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/>
+          </svg>
+          <span class="ml-2 text-xl font-bold gradient-text">ABC Staff System</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="admin-login.html" class="text-gray-600 hover:text-gray-900 font-medium">관리자 로그인</a>
+          <a href="employee-login.html" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition font-medium">직원 로그인</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 히어로 섹션 -->
+  <section class="gradient-bg text-white py-20 lg:py-32">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in-up">
+      <h1 class="text-4xl lg:text-6xl font-extrabold mb-6 leading-tight">
+        스마트한 직원 관리의 시작
+        <br />
+        <span class="text-purple-200">ABC Staff System</span>
+      </h1>
+      <p class="text-lg lg:text-xl text-purple-100 mb-10 max-w-2xl mx-auto leading-relaxed">
+        근태 관리부터 급여 계산까지, 직원 관리의 모든 것을 하나의 플랫폼에서 간편하게 처리하세요.
+        클라우드 기반으로 언제 어디서나 접근 가능합니다.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <button onclick="openInviteCodeModal()" class="bg-white text-purple-600 px-8 py-4 rounded-lg hover:bg-gray-100 transition font-bold text-lg shadow-lg">
+          🎟️ 초대 코드로 시작하기
+        </button>
+        <a href="#pricing" class="bg-purple-800 bg-opacity-30 text-white px-8 py-4 rounded-lg hover:bg-opacity-50 transition font-bold text-lg border-2 border-white border-opacity-30">
+          요금제 보기
+        </a>
+      </div>
+      
+      <!-- 주요 기능 아이콘 -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-16 max-w-4xl mx-auto">
+        <div class="bg-white bg-opacity-10 backdrop-blur-sm p-6 rounded-xl">
+          <div class="text-4xl mb-2">⏰</div>
+          <div class="font-semibold">근태 관리</div>
+        </div>
+        <div class="bg-white bg-opacity-10 backdrop-blur-sm p-6 rounded-xl">
+          <div class="text-4xl mb-2">💰</div>
+          <div class="font-semibold">급여 계산</div>
+        </div>
+        <div class="bg-white bg-opacity-10 backdrop-blur-sm p-6 rounded-xl">
+          <div class="text-4xl mb-2">📋</div>
+          <div class="font-semibold">계약 관리</div>
+        </div>
+        <div class="bg-white bg-opacity-10 backdrop-blur-sm p-6 rounded-xl">
+          <div class="text-4xl mb-2">📊</div>
+          <div class="font-semibold">실시간 분석</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 가격 정책표 (동적 렌더링) -->
+  <section id="pricing" class="py-20 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-3xl lg:text-5xl font-extrabold text-gray-900 mb-4">
+          간단하고 투명한 요금제
+        </h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+          초대 코드로 바로 시작하실 수 있습니다. 결제 없이 플랜을 체험해보세요.
+        </p>
+      </div>
+      
+      <!-- 플랜 카드 컨테이너 (Firestore에서 동적 로드) -->
+      <div id="pricingContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <!-- 로딩 스피너 -->
+        <div class="col-span-full text-center py-20">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <p class="mt-4 text-gray-600">요금제를 불러오는 중...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 푸터 -->
+  <footer class="bg-gray-900 text-gray-300 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="mb-4">
+        <svg class="w-10 h-10 text-purple-400 mx-auto" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/>
+        </svg>
+      </div>
+      <p class="text-sm">&copy; 2024 ABC Staff System. All rights reserved.</p>
+      <p class="text-xs text-gray-500 mt-2">스마트한 직원 관리 솔루션</p>
+    </div>
+  </footer>
+
+  <!-- 초대 코드 입력 모달 -->
+  <div id="inviteCodeModal" class="modal-overlay">
+    <div class="modal-content">
+      <button onclick="closeInviteCodeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+      
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">🎟️ 초대 코드 입력</h2>
+      <p class="text-gray-600 mb-6">초대 코드를 입력하시면 자동으로 플랜이 할당됩니다.</p>
+      
+      <form id="inviteCodeForm" onsubmit="verifyInviteCode(event)">
+        <div class="mb-6">
+          <label for="inviteCodeInput" class="block text-sm font-medium text-gray-700 mb-2">초대 코드</label>
+          <input 
+            type="text" 
+            id="inviteCodeInput" 
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-center font-mono text-lg uppercase"
+            placeholder="예: ABC12345"
+            required
+            maxlength="12"
+          />
+          <p class="text-xs text-gray-500 mt-2">※ 관리자로부터 받은 초대 코드를 입력하세요</p>
+        </div>
+        
+        <div id="inviteCodeResult" class="mb-4" style="display: none;"></div>
+        
+        <div class="flex gap-3">
+          <button type="button" onclick="closeInviteCodeModal()" class="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-medium">
+            취소
+          </button>
+          <button type="submit" class="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition font-medium">
+            확인
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  
+  <!-- Firebase 설정 -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCr3Tq2T7oy5rVlK1c33m_G0TlUWv0-g3k",
+      authDomain: "abcdc-staff-system.firebaseapp.com",
+      projectId: "abcdc-staff-system",
+      storageBucket: "abcdc-staff-system.firebasestorage.app",
+      messagingSenderId: "442207878284",
+      appId: "1:442207878284:web:49b157573851b124d28fa9"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+
+  <!-- 랜딩 페이지 JavaScript -->
+  <script>
+    /**
+     * 권한 코드 → 한글 명칭 매핑 (공통 상수)
+     */
+    const PERMISSION_LABELS = {
+      'recipe.print': '🖨️ 레시피 인쇄 모드',
+      'recipe.view_secret': '🔒 레시피 비공개 필드 조회',
+      'recipe.share_external': '🔗 외부 공유 링크',
+      'staff.manage_contract': '📝 근로계약서 보관',
+      'staff.invite_email': '✉️ 이메일 발송 초대',
+      'staff.schedule_manage': '📅 근무 스케줄 관리',
+      'data.export_all': '📊 데이터 엑셀 다운로드',
+      'data.bulk_update': '⚡ 직원 대량 일괄 수정'
+    };
+
+    /**
+     * 권한 → 사람이 읽을 수 있는 기능명 변환
+     */
+    function getPermissionLabel(permission) {
+      return PERMISSION_LABELS[permission] || permission;
+    }
+
+    /**
+     * 동적 가격표 렌더링 (DB 기반)
+     */
+    async function loadPricingPlans() {
+      try {
+        const plansSnapshot = await db.collection('subscription_plans')
+          .where('isActive', '==', true)
+          .orderBy('price', 'asc')
+          .get();
+
+        const container = document.getElementById('pricingContainer');
+        
+        if (plansSnapshot.empty) {
+          container.innerHTML = `
+            <div class="col-span-full text-center py-20">
+              <p class="text-gray-600">현재 제공 중인 요금제가 없습니다.</p>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        
+        // 누적 권한 추적 (상위 플랜일수록 하위 플랜 권한 포함)
+        const allPlans = [];
+        plansSnapshot.forEach(doc => {
+          allPlans.push({ id: doc.id, ...doc.data() });
+        });
+
+        allPlans.forEach((plan, index) => {
+          const isPopular = plan.isPopular === true;
+          const maxUsersText = plan.maxUsers >= 9999 ? '무제한' : `최대 ${plan.maxUsers}명`;
+          const description = plan.description || '';
+          const permissions = Array.isArray(plan.permissions) ? plan.permissions : [];
+          
+          // 기본 기능 (모든 플랜 공통)
+          const baseFeatures = [
+            { text: '✅ 모든 기본 기능 포함', isBold: true },
+            { text: '회사/브랜드/매장 관리', isBold: false },
+            { text: '직원 프로필 관리', isBold: false },
+            { text: '레시피 관리 (기본)', isBold: false },
+            { text: '공지사항 게시판', isBold: false }
+          ];
+
+          // 누적 권한 계산 (현재 플랜까지의 모든 권한)
+          let accumulatedPermissions = [];
+          for (let i = 0; i <= index; i++) {
+            const currentPlanPermissions = Array.isArray(allPlans[i].permissions) ? allPlans[i].permissions : [];
+            accumulatedPermissions = [...new Set([...accumulatedPermissions, ...currentPlanPermissions])];
+          }
+
+          // 신규 권한 (이전 플랜에 없던 권한)
+          let previousPermissions = [];
+          if (index > 0) {
+            for (let i = 0; i < index; i++) {
+              const prevPlanPerms = Array.isArray(allPlans[i].permissions) ? allPlans[i].permissions : [];
+              previousPermissions = [...new Set([...previousPermissions, ...prevPlanPerms])];
+            }
+          }
+          
+          const newPermissions = permissions.filter(p => !previousPermissions.includes(p));
+
+          // 권한을 기능 문구로 변환
+          const permissionFeatures = accumulatedPermissions.map(perm => {
+            const isNew = newPermissions.includes(perm);
+            return {
+              text: getPermissionLabel(perm),
+              isBold: isNew // 신규 기능은 굵게 표시
+            };
+          });
+
+          const allFeatures = [...baseFeatures, ...permissionFeatures];
+
+          // 버튼 텍스트 분기
+          const buttonText = plan.price === 0 ? '무료로 시작하기' : '지금 시작하기';
+          
+          html += `
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden ${isPopular ? 'popular-plan border-4 border-purple-600 relative' : 'border border-gray-200'} transition-all duration-300 hover:shadow-xl">
+              ${isPopular ? '<div class="absolute top-0 left-0 right-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-center py-2 text-sm font-bold">⭐ 추천 플랜</div>' : ''}
+              
+              <div class="p-6 ${isPopular ? 'pt-12' : ''}">
+                <h3 class="text-2xl font-extrabold text-gray-900 mb-1">${plan.name}</h3>
+                <p class="text-sm text-gray-500 mb-4 min-h-[40px]">${description}</p>
+                
+                <div class="mb-4">
+                  <span class="text-4xl font-extrabold ${isPopular ? 'text-purple-600' : 'text-gray-900'}">
+                    ${plan.price === 0 ? '무료' : plan.price.toLocaleString() + '원'}
+                  </span>
+                  <span class="text-gray-600 text-base block mt-1">
+                    ${plan.price === 0 ? '영구 무료' : '/ ' + (plan.billingCycle === 'monthly' ? '월' : '년')}
+                  </span>
+                </div>
+                
+                <div class="mb-4 pb-4 border-b border-gray-200">
+                  <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full text-xs font-semibold">
+                    👥 ${maxUsersText}
+                  </span>
+                </div>
+                
+                <ul class="space-y-2.5 mb-6 min-h-[280px]">
+                  ${allFeatures.map(feature => `
+                    <li class="flex items-start text-sm">
+                      <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                      </svg>
+                      <span class="${feature.isBold ? 'font-bold text-gray-900' : 'text-gray-700'}">${feature.text}</span>
+                    </li>
+                  `).join('')}
+                </ul>
+                
+                <button 
+                  onclick="openInviteCodeModal()" 
+                  class="w-full ${isPopular ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800' : 'bg-gray-900 hover:bg-gray-800'} text-white px-6 py-3 rounded-lg transition-all duration-200 font-bold text-base shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                >
+                  ${buttonText}
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('플랜 로드 실패:', error);
+        document.getElementById('pricingContainer').innerHTML = `
+          <div class="col-span-full text-center py-20">
+            <p class="text-red-600 font-semibold mb-2">요금제를 불러오는데 실패했습니다.</p>
+            <p class="text-sm text-gray-600 mb-4">${error.message}</p>
+            <button onclick="loadPricingPlans()" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">다시 시도</button>
+          </div>
+        `;
+      }
+    }
+
+    /**
+     * 초대 코드 모달 열기
+     */
+    function openInviteCodeModal() {
+      document.getElementById('inviteCodeModal').style.display = 'flex';
+      document.getElementById('inviteCodeInput').focus();
+    }
+
+    /**
+     * 초대 코드 모달 닫기
+     */
+    function closeInviteCodeModal() {
+      document.getElementById('inviteCodeModal').style.display = 'none';
+      document.getElementById('inviteCodeForm').reset();
+      document.getElementById('inviteCodeResult').style.display = 'none';
+    }
+
+    /**
+     * 초대 코드 검증
+     */
+    async function verifyInviteCode(event) {
+      event.preventDefault();
+      
+      const code = document.getElementById('inviteCodeInput').value.trim().toUpperCase();
+      const resultDiv = document.getElementById('inviteCodeResult');
+      
+      if (!code) {
+        resultDiv.innerHTML = '<p class="text-red-600 text-sm">초대 코드를 입력하세요.</p>';
+        resultDiv.style.display = 'block';
+        return;
+      }
+      
+      resultDiv.innerHTML = '<p class="text-blue-600 text-sm">확인 중...</p>';
+      resultDiv.style.display = 'block';
+      
+      try {
+        // Firestore에서 초대 코드 검색
+        const codesSnapshot = await db.collection('invitation_codes')
+          .where('code', '==', code)
+          .limit(1)
+          .get();
+        
+        if (codesSnapshot.empty) {
+          resultDiv.innerHTML = '<p class="text-red-600 text-sm">❌ 유효하지 않은 초대 코드입니다.</p>';
+          return;
+        }
+        
+        const codeDoc = codesSnapshot.docs[0];
+        const codeData = codeDoc.data();
+        
+        // 이미 사용된 코드인지 확인
+        if (codeData.isUsed) {
+          resultDiv.innerHTML = '<p class="text-red-600 text-sm">❌ 이미 사용된 초대 코드입니다.</p>';
+          return;
+        }
+        
+        // 플랜 정보 가져오기
+        const planDoc = await db.collection('subscription_plans').doc(codeData.linkedPlanId).get();
+        
+        if (!planDoc.exists) {
+          resultDiv.innerHTML = '<p class="text-red-600 text-sm">❌ 연결된 플랜을 찾을 수 없습니다.</p>';
+          return;
+        }
+        
+        const planData = planDoc.data();
+        
+        // 초대 코드와 플랜 정보를 로컬 스토리지에 저장
+        localStorage.setItem('inviteCode', code);
+        localStorage.setItem('inviteCodeId', codeDoc.id);
+        localStorage.setItem('planId', codeData.linkedPlanId);
+        localStorage.setItem('planName', planData.name);
+        
+        resultDiv.innerHTML = `<p class="text-green-600 text-sm">✅ 유효한 초대 코드입니다! (플랜: ${planData.name})</p>`;
+        
+        // 2초 후 회원가입 페이지로 이동
+        setTimeout(() => {
+          window.location.href = 'employee-register.html';
+        }, 2000);
+        
+      } catch (error) {
+        console.error('초대 코드 검증 실패:', error);
+        resultDiv.innerHTML = '<p class="text-red-600 text-sm">❌ 오류가 발생했습니다. 다시 시도해주세요.</p>';
+      }
+    }
+
+    // 페이지 로드 시 플랜 목록 로드
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPricingPlans();
+    });
+
+    // 모달 외부 클릭 시 닫기
+    document.getElementById('inviteCodeModal').addEventListener('click', (e) => {
+      if (e.target.id === 'inviteCodeModal') {
+        closeInviteCodeModal();
+      }
+    });
+  </script>
+</body>
+</html>

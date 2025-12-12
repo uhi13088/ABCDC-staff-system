@@ -1,0 +1,2265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>플랫폼 관리자 대시보드</title>
+  
+  <!-- 캐시 방지 메타 태그 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  
+  <link rel="stylesheet" href="css/common.css">
+  
+  <style>
+    /* 플랫폼 대시보드 전용 스타일 */
+    .platform-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 24px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .platform-header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .platform-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin: 24px 0;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border: 1px solid var(--border-color);
+    }
+    
+    .stat-card-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .stat-card-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+    
+    .stat-card-icon {
+      width: 24px;
+      height: 24px;
+      opacity: 0.7;
+    }
+    
+    .companies-table-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    
+    .companies-table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .companies-table-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .company-status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .status-active {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-inactive {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .plan-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .plan-free {
+      background: #e0e0e0;
+      color: #666;
+    }
+    
+    .plan-basic {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    
+    .plan-pro {
+      background: #e8eaf6;
+      color: #3f51b5;
+    }
+    
+    .plan-enterprise {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
+    
+    .users-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    
+    .users-progress-bar {
+      flex: 1;
+      height: 6px;
+      background: #f0f0f0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    
+    .users-progress-fill {
+      height: 100%;
+      transition: width 0.3s ease, background 0.3s ease;
+    }
+    
+    .progress-safe {
+      background: var(--success-color);
+    }
+    
+    .progress-warning {
+      background: #ffc107;
+    }
+    
+    .progress-danger {
+      background: var(--danger);
+    }
+    
+    /* 권한 체크박스 호버 효과 */
+    label:has(.permission-checkbox):hover {
+      background: rgba(102, 126, 234, 0.08) !important;
+    }
+    
+    /* 모달 오버레이 - 숨김 상태가 기본 */
+    #companyManageModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;  /* 기본은 숨김 */
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+      backdrop-filter: blur(4px);
+    }
+    
+    /* 모달이 열릴 때 */
+    #companyManageModal[style*="display: block"] {
+      display: flex !important;
+    }
+    
+    #companyManageModal .modal-content {
+      position: relative;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <!-- 🔒 로딩 화면 (권한 확인 중) -->
+  <div id="loadingScreen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f5f5;">
+    <div style="text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+      <div style="font-size: 18px; color: var(--text-secondary);">권한 확인 중...</div>
+    </div>
+  </div>
+
+  <!-- 메인 화면 (super_admin만 접근 가능) -->
+  <div id="mainScreen" style="display: none;">
+    <!-- 헤더 -->
+    <div class="platform-header">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          플랫폼 관리자 대시보드
+        </h1>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px; font-size: 14px;">
+            <strong id="adminName">슈퍼 어드민</strong>
+          </span>
+          <button class="btn btn-secondary" onclick="logout()" style="background: rgba(255,255,255,0.9); color: #764ba2;">
+            로그아웃
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- 📊 통계 카드 (항상 표시) -->
+      <div class="platform-stats">
+        <div class="stat-card">
+          <div class="stat-card-label">
+            <svg class="stat-card-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+            </svg>
+            총 가입 회사 수
+          </div>
+          <div class="stat-card-value" id="totalCompanies">0</div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-card-label">
+            <svg class="stat-card-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+            </svg>
+            총 사용자 수
+          </div>
+          <div class="stat-card-value" id="totalUsers">0</div>
+        </div>
+      </div>
+
+      <!-- 탭 메뉴 -->
+      <div class="tabs" style="margin-top: 24px; margin-bottom: 0;">
+        <button class="tab" data-tab="plans" onclick="switchPlatformTab('plans')">📦 구독 플랜 관리</button>
+        <button class="tab" data-tab="invites" onclick="switchPlatformTab('invites')">🎟️ 초대 코드 관리</button>
+        <button class="tab active" data-tab="companies" onclick="switchPlatformTab('companies')">📋 가입 회사 목록</button>
+      </div>
+
+      <!-- 📦 구독 플랜 관리 탭 -->
+      <div id="tabPlans" class="tab-content">
+        <div class="companies-table-container">
+          <div class="companies-table-header">
+            <h2>📦 구독 플랜 관리</h2>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-success" onclick="seedInitialPlans()" style="background: #28a745;">
+                🌱 샘플 플랜 4개 생성
+              </button>
+              <button class="btn btn-primary" onclick="openPlanModal()">+ 새 플랜 추가</button>
+            </div>
+          </div>
+          <div style="padding: 24px;">
+            <div id="plansListContainer">
+              <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+                플랜 목록을 불러오는 중...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🎟️ 초대 코드 관리 탭 -->
+      <div id="tabInvites" class="tab-content">
+        <div class="companies-table-container">
+          <div class="companies-table-header">
+            <h2>🎟️ 초대 코드 관리</h2>
+            <button class="btn btn-success" onclick="openInviteCodeGeneratorModal()">+ 코드 생성</button>
+          </div>
+          <div style="padding: 24px;">
+            <div id="inviteCodesListContainer">
+              <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+                초대 코드 목록을 불러오는 중...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 📋 가입 회사 목록 탭 -->
+      <div id="tabCompanies" class="tab-content active">
+      <div class="companies-table-container">
+        <div class="companies-table-header">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <h2>📋 가입 회사 목록</h2>
+            <!-- 대량 작업 버튼 (선택된 항목이 있을 때만 표시) -->
+            <div id="bulkActionsBar" style="display: none; gap: 8px;">
+              <span id="selectedCount" style="font-size: 14px; color: var(--text-secondary);"></span>
+              <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="bulkDelete()">
+                🗑️ 선택 삭제
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
+                선택 해제
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-success" onclick="exportToCSV()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+                <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+              </svg>
+              CSV 다운로드
+            </button>
+            <button class="btn btn-primary" onclick="refreshCompanies()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              </svg>
+              새로고침
+            </button>
+          </div>
+        </div>
+        
+        <!-- 🔍 검색 & 필터 -->
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--border-color); background: #f8f9fa;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: end;">
+            <!-- 검색창 -->
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                🔍 회사명 검색
+              </label>
+              <input 
+                type="text" 
+                id="searchCompanyName" 
+                class="form-control" 
+                placeholder="회사명 입력..." 
+                onkeyup="applyFilters()"
+                style="width: 100%;"
+              />
+            </div>
+            
+            <!-- 플랜 필터 -->
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                📦 플랜 필터
+              </label>
+              <select id="filterPlan" class="form-control" onchange="applyFilters()" style="width: 100%;">
+                <option value="">전체 (All)</option>
+                <option value="free">Free</option>
+                <option value="basic">Basic</option>
+                <option value="pro">Pro</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            
+            <!-- 상태 필터 -->
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                ⚙️ 상태 필터
+              </label>
+              <select id="filterStatus" class="form-control" onchange="applyFilters()" style="width: 100%;">
+                <option value="">전체 (All)</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">
+                  <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" />
+                </th>
+                <th style="cursor: pointer; user-select: none;" onclick="sortTable('name')">
+                  회사명 <span id="sortIcon-name"></span>
+                </th>
+                <th>대표자 이메일</th>
+                <th style="cursor: pointer; user-select: none;" onclick="sortTable('createdAt')">
+                  가입일 <span id="sortIcon-createdAt">↓</span>
+                </th>
+                <th>플랜</th>
+                <th style="cursor: pointer; user-select: none;" onclick="sortTable('employeeCount')">
+                  직원 현황 <span id="sortIcon-employeeCount"></span>
+                </th>
+                <th>상태</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="companiesTableBody">
+              <tr>
+                <td colspan="8" style="text-align: center; padding: 40px;">
+                  <div class="loading-spinner" style="margin: 0 auto;">⏳ 회사 목록을 불러오는 중...</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; flex-wrap: wrap; gap: 16px;">
+          <div style="font-size: 13px; color: var(--text-secondary);">
+            <span id="paginationInfo">0개 회사</span>
+          </div>
+          
+          <!-- 페이지 번호 네비게이션 -->
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <button id="btnFirstPage" class="btn btn-secondary btn-sm" onclick="goToPage(1)" disabled>
+              ⏮️
+            </button>
+            <button id="btnPrevPage" class="btn btn-secondary btn-sm" onclick="goToPage(currentPage - 1)" disabled>
+              ← 이전
+            </button>
+            
+            <!-- 페이지 번호 버튼들 -->
+            <div id="pageNumbers" style="display: flex; gap: 4px;"></div>
+            
+            <button id="btnNextPage" class="btn btn-secondary btn-sm" onclick="goToPage(currentPage + 1)" disabled>
+              다음 →
+            </button>
+            <button id="btnLastPage" class="btn btn-secondary btn-sm" onclick="goToPage(totalPages)" disabled>
+              ⏭️
+            </button>
+          </div>
+          
+          <!-- Go to Page -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-size: 13px; color: var(--text-secondary);">페이지 이동:</span>
+            <input 
+              type="number" 
+              id="gotoPageInput" 
+              min="1" 
+              style="width: 60px; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px;"
+              onkeypress="if(event.key==='Enter') gotoPageByInput()"
+            />
+            <button class="btn btn-sm btn-secondary" onclick="gotoPageByInput()">이동</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🏢 회사 관리 모달 -->
+  <div id="companyManageModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">🏢 회사 관리</h2>
+        <button type="button" class="modal-close" onclick="closeCompanyManageModal()" aria-label="닫기">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="companyManageForm" onsubmit="saveCompanySettings(event)">
+          <!-- 회사명 표시 -->
+          <div class="form-group">
+            <label style="font-weight: 600; color: var(--text-primary);">대상 회사</label>
+            <div id="targetCompanyName" style="font-size: 18px; padding: 12px; background: #f5f5f5; border-radius: 8px; margin-top: 8px;">
+              -
+            </div>
+          </div>
+
+          <!-- 플랜 변경 -->
+          <div class="form-group">
+            <label for="planTypeSelect">플랜 변경</label>
+            <select id="planTypeSelect" class="form-control" required>
+              <option value="free">Free Plan (무료)</option>
+              <option value="basic">Basic Plan (기본)</option>
+              <option value="pro">Pro Plan (프로)</option>
+              <option value="enterprise">Enterprise Plan (기업)</option>
+            </select>
+          </div>
+
+          <!-- 최대 인원 수정 -->
+          <div class="form-group">
+            <label for="maxUsersInput">최대 인원 (Max Users)</label>
+            <input 
+              type="number" 
+              id="maxUsersInput" 
+              class="form-control" 
+              min="1" 
+              max="10000" 
+              required
+              placeholder="최대 직원 수 입력"
+            />
+            <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
+              💡 Free: 5명, Basic: 20명, Pro: 100명, Enterprise: 무제한 (10000명)
+            </small>
+          </div>
+
+          <!-- 상태 변경 -->
+          <div class="form-group">
+            <label>회사 상태</label>
+            <div style="display: flex; gap: 16px; margin-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="radio" name="companyStatus" value="active" checked />
+                <span>✅ Active (활성)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="radio" name="companyStatus" value="suspended" />
+                <span>🚫 Suspended (정지)</span>
+              </label>
+            </div>
+            <small style="color: var(--text-secondary); font-size: 12px; margin-top: 8px; display: block;">
+              ⚠️ 정지 상태 시 해당 회사의 모든 사용자가 로그인할 수 없습니다.
+            </small>
+          </div>
+
+          <input type="hidden" id="targetCompanyId" />
+
+          <!-- 저장/취소 버튼 -->
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">
+              💾 저장
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="closeCompanyManageModal()" style="flex: 1;">
+              취소
+            </button>
+          </div>
+        </form>
+
+        <!-- 위험 구역: 회사 삭제 -->
+        <div style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #f0f0f0;">
+          <h3 style="color: #dc3545; font-size: 14px; font-weight: 600; margin-bottom: 8px;">⚠️ 위험 구역</h3>
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">
+            이 작업은 되돌릴 수 없습니다. 회사와 관련된 모든 데이터(직원, 계약서, 근태 기록 등)가 영구적으로 삭제됩니다.
+          </p>
+          <button 
+            type="button" 
+            class="btn" 
+            onclick="deleteCompanyFromModal()"
+            style="background: #dc3545; color: white; width: 100%; font-weight: 600; border: none;">
+            🗑️ 회사 완전 삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div> <!-- 탭 콘텐츠 닫기: tabCompanies -->
+  </div> <!-- container 닫기 -->
+  </div> <!-- mainScreen 닫기 -->
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+
+  <script>
+    // Firebase 설정
+    const firebaseConfig = {
+      apiKey: "AIzaSyCr3Tq2T7oy5rVlK1c33m_G0TlUWv0-g3k",
+      authDomain: "abcdc-staff-system.firebaseapp.com",
+      projectId: "abcdc-staff-system",
+      storageBucket: "abcdc-staff-system.firebasestorage.app",
+      messagingSenderId: "442207878284",
+      appId: "1:442207878284:web:49b157573851b124d28fa9"
+    };
+
+    // Firebase 초기화
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    
+    // 📄 페이지네이션 & 정렬 & 선택 상태
+    const PAGE_SIZE = 10;  // 페이지당 항목 수
+    let currentPage = 1;
+    let totalPages = 1;
+    let allCompaniesData = [];  // 모든 회사 데이터 (클라이언트 사이드 정렬/페이징용)
+    let filteredCompaniesData = [];  // 필터링된 회사 데이터
+    let selectedCompanies = new Set();  // 선택된 회사 ID Set
+    
+    // 정렬 상태
+    let currentSortField = 'createdAt';  // 기본 정렬: 가입일
+    let currentSortOrder = 'desc';  // desc: 내림차순, asc: 오름차순
+
+    // 🔒 페이지 로드 시 권한 확인
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user) {
+        console.warn('❌ 로그인되지 않음 - index.html로 리다이렉트');
+        window.location.href = 'index.html';
+        return;
+      }
+
+      try {
+        // Firestore에서 사용자 정보 가져오기
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        
+        if (!userDoc.exists) {
+          console.error('❌ 사용자 정보 없음 - index.html로 리다이렉트');
+          alert('사용자 정보를 찾을 수 없습니다.');
+          window.location.href = 'index.html';
+          return;
+        }
+
+        const userData = userDoc.data();
+        currentUser = {
+          uid: user.uid,
+          email: user.email,
+          ...userData
+        };
+
+        // 🔒 super_admin이 아니면 접근 차단
+        if (currentUser.role !== 'super_admin') {
+          console.error('❌ 권한 없음 (role: ' + currentUser.role + ') - index.html로 리다이렉트');
+          alert('⚠️ 접근 권한이 없습니다.\n플랫폼 관리자만 접근할 수 있습니다.');
+          window.location.href = 'index.html';
+          return;
+        }
+
+        console.log('✅ 슈퍼 어드민 인증 성공:', currentUser.email);
+        
+        // 메인 화면 표시
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('mainScreen').style.display = 'block';
+        
+        // 관리자 이름 표시
+        document.getElementById('adminName').textContent = currentUser.name || currentUser.email;
+        
+        // 대시보드 로드
+        await loadPlatformDashboard();
+        
+      } catch (error) {
+        console.error('❌ 권한 확인 실패:', error);
+        alert('권한 확인 중 오류가 발생했습니다.');
+        window.location.href = 'index.html';
+      }
+    });
+
+    /**
+     * 권한 코드 → 한글 명칭 매핑 (공통 상수)
+     */
+    const PERMISSION_LABELS = {
+      'recipe.print': '🖨️ 레시피 인쇄 모드',
+      'recipe.view_secret': '🔒 레시피 비공개 필드 조회',
+      'recipe.share_external': '🔗 외부 공유 링크',
+      'staff.manage_contract': '📝 근로계약서 보관',
+      'staff.invite_email': '✉️ 이메일 발송 초대',
+      'staff.schedule_manage': '📅 근무 스케줄 관리',
+      'data.export_all': '📊 데이터 엑셀 다운로드',
+      'data.bulk_update': '⚡ 직원 대량 일괄 수정'
+    };
+
+    /**
+     * 권한 → 사람이 읽을 수 있는 기능명 변환
+     */
+    function getPermissionLabel(permission) {
+      return PERMISSION_LABELS[permission] || permission;
+    }
+
+    /**
+     * 플랫폼 대시보드 로드
+     */
+    /**
+     * 플랫폼 탭 전환
+     */
+    function switchPlatformTab(tabName) {
+      console.log('🔄 탭 전환:', tabName);
+      
+      // 모든 탭 비활성화
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // 모든 탭 콘텐츠 숨김
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // 선택된 탭 활성화
+      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+      
+      // 선택된 탭 콘텐츠 표시
+      if (tabName === 'plans') {
+        document.getElementById('tabPlans').classList.add('active');
+        loadPlans(); // 플랜 목록 로드
+      } else if (tabName === 'invites') {
+        document.getElementById('tabInvites').classList.add('active');
+        loadInviteCodes(); // 초대 코드 목록 로드
+      } else if (tabName === 'companies') {
+        document.getElementById('tabCompanies').classList.add('active');
+        // 회사 목록은 이미 로드되어 있음
+      }
+    }
+
+    async function loadPlatformDashboard() {
+      console.log('📊 플랫폼 대시보드 로드 시작...');
+      
+      try {
+        // 📊 통계 카운트
+        const companiesSnapshot = await db.collection('companies').get();
+        const usersSnapshot = await db.collection('users').get();
+        
+        document.getElementById('totalCompanies').textContent = companiesSnapshot.size;
+        document.getElementById('totalUsers').textContent = usersSnapshot.size;
+        
+        console.log(`✅ 통계 로드 완료: ${companiesSnapshot.size}개 회사, ${usersSnapshot.size}명 사용자`);
+        
+        // 📋 회사 목록 로드 (기본 탭)
+        await loadCompanies();
+        
+        // 💳 구독 플랜 및 초대 코드는 탭 클릭 시 로드
+        
+      } catch (error) {
+        console.error('❌ 플랫폼 대시보드 로드 실패:', error);
+        alert('대시보드를 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+
+    /**
+     * 회사 목록 로드 (전체 데이터 로드)
+     */
+    async function loadCompanies() {
+      const tbody = document.getElementById('companiesTableBody');
+      
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 40px;">
+            <div class="loading-spinner">
+              <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+              <div>회사 목록을 불러오는 중...</div>
+            </div>
+          </td>
+        </tr>
+      `;
+      
+      try {
+        console.log('📋 회사 목록 전체 로드 시작...');
+        
+        // 🔥 Firestore에서 모든 회사 데이터 가져오기
+        const companiesSnapshot = await db.collection('companies')
+          .orderBy('createdAt', 'desc')
+          .get();
+        
+        if (companiesSnapshot.empty) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                📭 등록된 회사가 없습니다.
+              </td>
+            </tr>
+          `;
+          document.getElementById('paginationInfo').textContent = '0개 회사';
+          allCompaniesData = [];
+          filteredCompaniesData = [];
+          return;
+        }
+        
+        // 각 회사의 직원 수 카운트 및 데이터 수집
+        allCompaniesData = [];
+        
+        for (const doc of companiesSnapshot.docs) {
+          const company = doc.data();
+          const companyId = doc.id;
+          
+          // 해당 회사의 직원 수 카운트 (staff, store_manager, manager만)
+          const employeesSnapshot = await db.collection('users')
+            .where('companyId', '==', companyId)
+            .where('role', 'in', ['staff', 'store_manager', 'manager'])
+            .where('status', 'in', ['active', 'pending', 'approved'])
+            .get();
+          
+          allCompaniesData.push({
+            id: companyId,
+            name: company.name || company.companyName || '(이름 없음)',
+            adminEmail: company.email || company.adminEmail || '(이메일 없음)',
+            createdAt: company.createdAt,
+            subscription: company.subscription || {
+              planType: 'free',
+              status: 'active',
+              maxUsers: 5
+            },
+            employeeCount: employeesSnapshot.size
+          });
+        }
+        
+        console.log(`✅ 전체 ${allCompaniesData.length}개 회사 데이터 로드 완료`);
+        
+        // 정렬 아이콘 초기화
+        updateSortIcons();
+        
+        // 정렬 및 필터링 적용하여 렌더링
+        applySortingAndFiltering();
+        
+      } catch (error) {
+        console.error('❌ 회사 목록 로드 실패:', error);
+        
+        // Firestore 인덱스 필요 에러 처리
+        if (error.code === 'failed-precondition' || error.message.includes('index')) {
+          console.error('🔗 Firestore 인덱스가 필요합니다!');
+          console.error('아래 링크에서 인덱스를 생성하세요:');
+          
+          // 에러 메시지에서 인덱스 생성 링크 추출
+          const indexUrlMatch = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/);
+          if (indexUrlMatch) {
+            console.error('👉 ' + indexUrlMatch[0]);
+          }
+          
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px;">
+                <div style="color: var(--danger); margin-bottom: 16px;">
+                  ❌ Firestore 인덱스가 필요합니다
+                </div>
+                <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;">
+                  필터 검색을 위해 Firestore 복합 인덱스가 필요합니다.<br/>
+                  콘솔에서 인덱스 생성 링크를 확인하세요.
+                </div>
+                ${indexUrlMatch ? `
+                  <a href="${indexUrlMatch[0]}" target="_blank" class="btn btn-primary">
+                    🔗 인덱스 생성하기
+                  </a>
+                ` : ''}
+              </td>
+            </tr>
+          `;
+        } else {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--danger);">
+                ❌ 회사 목록을 불러오는 중 오류가 발생했습니다.<br/>
+                <small style="font-size: 13px; color: var(--text-secondary); margin-top: 8px; display: block;">
+                  ${error.message}
+                </small>
+              </td>
+            </tr>
+          `;
+        }
+      }
+    }
+
+    /**
+     * 회사 관리 모달 열기
+     */
+    function openCompanyManageModal(companyId, companyName, planType, maxUsers, status) {
+      console.log('🏢 회사 관리 모달 열기:', { companyId, companyName, planType, maxUsers, status });
+      
+      // 모달 데이터 설정
+      document.getElementById('targetCompanyId').value = companyId;
+      document.getElementById('targetCompanyName').textContent = companyName;
+      document.getElementById('planTypeSelect').value = planType;
+      document.getElementById('maxUsersInput').value = maxUsers;
+      
+      // 상태 라디오 버튼 설정
+      const statusRadios = document.querySelectorAll('input[name="companyStatus"]');
+      statusRadios.forEach(radio => {
+        radio.checked = radio.value === status;
+      });
+      
+      // 모달 표시
+      document.getElementById('companyManageModal').style.display = 'block';
+    }
+
+    /**
+     * 회사 관리 모달 닫기
+     */
+    function closeCompanyManageModal() {
+      document.getElementById('companyManageModal').style.display = 'none';
+    }
+
+    /**
+     * 회사 설정 저장
+     */
+    async function saveCompanySettings(event) {
+      event.preventDefault();
+      
+      const companyId = document.getElementById('targetCompanyId').value;
+      const planType = document.getElementById('planTypeSelect').value;
+      const maxUsers = parseInt(document.getElementById('maxUsersInput').value);
+      const status = document.querySelector('input[name="companyStatus"]:checked').value;
+      
+      console.log('💾 회사 설정 저장:', { companyId, planType, maxUsers, status });
+      
+      if (!companyId) {
+        alert('❌ 회사 ID가 없습니다.');
+        return;
+      }
+      
+      try {
+        // Firestore 업데이트
+        await db.collection('companies').doc(companyId).update({
+          'subscription.planType': planType,
+          'subscription.maxUsers': maxUsers,
+          'subscription.status': status,
+          'subscription.updatedAt': firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ 회사 설정 업데이트 완료');
+        
+        // 성공 알림
+        alert('✅ 업데이트 완료!\n\n변경 사항이 성공적으로 저장되었습니다.');
+        
+        // 모달 닫기
+        closeCompanyManageModal();
+        
+        // 테이블 새로고침
+        await loadPlatformDashboard();
+        
+      } catch (error) {
+        console.error('❌ 회사 설정 저장 실패:', error);
+        alert('❌ 업데이트 실패!\n\n' + error.message);
+      }
+    }
+
+    /**
+     * 모달에서 회사 완전 삭제
+     */
+    async function deleteCompanyFromModal() {
+      const companyId = document.getElementById('targetCompanyId').value;
+      const companyName = document.getElementById('targetCompanyName').textContent.trim();
+      
+      if (!companyId || companyId === '') {
+        alert('❌ 회사 ID를 확인할 수 없습니다.');
+        return;
+      }
+      
+      // 2단계 확인
+      const confirmMessage = `⚠️ 정말로 "${companyName}"와 모든 관련 데이터를 영구 삭제하시겠습니까?\n\n다음 데이터가 모두 삭제됩니다:\n- 회사 정보\n- 모든 직원 계정 (Firebase Auth 포함)\n- 계약서\n- 근태 기록\n- 스케줄\n\n⚠️ 이 작업은 되돌릴 수 없습니다!`;
+      
+      if (!confirm(confirmMessage)) {
+        console.log('회사 삭제 취소됨');
+        return;
+      }
+      
+      // 추가 확인: "삭제" 입력 받기
+      const userInput = prompt(`정말로 삭제하시려면 "삭제"를 입력하세요.`);
+      if (userInput !== '삭제') {
+        alert('❌ 삭제가 취소되었습니다.');
+        return;
+      }
+      
+      console.log('🗑️ 회사 삭제 시작:', companyId, companyName);
+      
+      try {
+        // Cloud Function 호출
+        const deleteCompanyFunc = firebase.functions().httpsCallable('deleteCompany');
+        const result = await deleteCompanyFunc({ companyId });
+        
+        console.log('✅ 회사 삭제 완료:', result.data);
+        
+        // 삭제 성공 알림
+        const deletedCounts = result.data.deletedCount || {};
+        const totalDeleted = result.data.totalDeleted || 0;
+        
+        alert(`✅ 회사 삭제 완료!\n\n회사명: ${companyName}\n총 삭제된 항목: ${totalDeleted}개\n\n상세:\n- 직원: ${deletedCounts.users || 0}명\n- 근태 기록: ${deletedCounts.attendance || 0}개\n- 계약서: ${deletedCounts.contracts || 0}개\n- 스케줄: ${deletedCounts.schedules || 0}개`);
+        
+        // 모달 닫기
+        closeCompanyManageModal();
+        
+        // 리스트 새로고침
+        await loadPlatformDashboard();
+        
+      } catch (error) {
+        console.error('❌ 회사 삭제 실패:', error);
+        
+        let errorMessage = '❌ 회사 삭제에 실패했습니다.\n\n';
+        if (error.code === 'permission-denied') {
+          errorMessage += '권한이 없습니다. super_admin 권한이 필요합니다.';
+        } else if (error.message) {
+          errorMessage += error.message;
+        } else {
+          errorMessage += '알 수 없는 오류가 발생했습니다.';
+        }
+        
+        alert(errorMessage);
+      }
+    }
+
+    /**
+     * 필터 적용
+     */
+    function applyFilters() {
+      console.log('🔍 필터 적용');
+      currentPage = 1;
+      applySortingAndFiltering();
+    }
+
+    /**
+     * 회사 목록 새로고침
+     */
+    async function refreshCompanies() {
+      console.log('🔄 회사 목록 새로고침...');
+      currentPage = 1;
+      selectedCompanies.clear();
+      await loadPlatformDashboard();
+    }
+
+    /**
+     * 페이지 이동 (번호 클릭)
+     */
+    function goToPage(page) {
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderCurrentPage();
+    }
+
+    /**
+     * 입력란으로 페이지 이동
+     */
+    function gotoPageByInput() {
+      const input = document.getElementById('gotoPageInput');
+      const page = parseInt(input.value);
+      if (page && page >= 1 && page <= totalPages) {
+        goToPage(page);
+        input.value = '';
+      } else {
+        alert(`1~${totalPages} 사이의 페이지 번호를 입력하세요.`);
+      }
+    }
+
+    /**
+     * 테이블 정렬
+     */
+    function sortTable(field) {
+      if (currentSortField === field) {
+        // 같은 컬럼 클릭 시 방향 토글
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        // 다른 컬럼 클릭 시 해당 컬럼으로 오름차순
+        currentSortField = field;
+        currentSortOrder = 'asc';
+      }
+      
+      // 정렬 아이콘 업데이트
+      updateSortIcons();
+      
+      // 데이터 정렬 및 렌더링
+      applySortingAndFiltering();
+    }
+
+    /**
+     * 정렬 아이콘 업데이트
+     */
+    function updateSortIcons() {
+      // 모든 아이콘 초기화
+      document.querySelectorAll('[id^="sortIcon-"]').forEach(icon => {
+        icon.textContent = '';
+      });
+      
+      // 현재 정렬 컬럼에만 아이콘 표시
+      const icon = document.getElementById(`sortIcon-${currentSortField}`);
+      if (icon) {
+        icon.textContent = currentSortOrder === 'asc' ? '↑' : '↓';
+      }
+    }
+
+    /**
+     * 정렬 및 필터링 적용
+     */
+    function applySortingAndFiltering() {
+      // 필터 적용
+      const searchName = document.getElementById('searchCompanyName')?.value.toLowerCase().trim() || '';
+      const filterPlan = document.getElementById('filterPlan')?.value || '';
+      const filterStatus = document.getElementById('filterStatus')?.value || '';
+      
+      filteredCompaniesData = allCompaniesData.filter(company => {
+        // 회사명 검색
+        if (searchName && !company.name.toLowerCase().includes(searchName)) {
+          return false;
+        }
+        
+        // 플랜 필터
+        if (filterPlan && company.subscription.planType !== filterPlan) {
+          return false;
+        }
+        
+        // 상태 필터
+        if (filterStatus && company.subscription.status !== filterStatus) {
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // 정렬 적용
+      filteredCompaniesData.sort((a, b) => {
+        let aVal = a[currentSortField];
+        let bVal = b[currentSortField];
+        
+        // createdAt는 Timestamp 객체
+        if (currentSortField === 'createdAt') {
+          aVal = aVal ? aVal.toDate().getTime() : 0;
+          bVal = bVal ? bVal.toDate().getTime() : 0;
+        }
+        
+        // 문자열 정렬 (회사명)
+        if (currentSortField === 'name') {
+          aVal = (aVal || '').toLowerCase();
+          bVal = (bVal || '').toLowerCase();
+        }
+        
+        // 숫자 정렬 (직원 수)
+        if (currentSortField === 'employeeCount') {
+          aVal = aVal || 0;
+          bVal = bVal || 0;
+        }
+        
+        if (aVal < bVal) return currentSortOrder === 'asc' ? -1 : 1;
+        if (aVal > bVal) return currentSortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+      
+      // 페이지네이션 재계산
+      totalPages = Math.ceil(filteredCompaniesData.length / PAGE_SIZE) || 1;
+      currentPage = Math.min(currentPage, totalPages);  // 현재 페이지가 범위 벗어나면 조정
+      
+      // 렌더링
+      renderCurrentPage();
+    }
+
+    /**
+     * 현재 페이지 렌더링
+     */
+    function renderCurrentPage() {
+      const tbody = document.getElementById('companiesTableBody');
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const endIdx = startIdx + PAGE_SIZE;
+      const pageData = filteredCompaniesData.slice(startIdx, endIdx);
+      
+      // 데이터 없음
+      if (pageData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+              📭 표시할 데이터가 없습니다.
+            </td>
+          </tr>
+        `;
+        document.getElementById('paginationInfo').textContent = '0개 회사';
+        return;
+      }
+      
+      // 테이블 렌더링
+      tbody.innerHTML = pageData.map(company => {
+        const subscription = company.subscription;
+        const planType = subscription.planType || 'free';
+        const status = subscription.status || 'active';
+        const maxUsers = subscription.maxUsers || 5;
+        const currentUsers = company.employeeCount;
+        const isSelected = selectedCompanies.has(company.id);
+        
+        // 가입일 포맷팅
+        let createdAtStr = '-';
+        if (company.createdAt) {
+          try {
+            const date = company.createdAt.toDate();
+            createdAtStr = date.toLocaleDateString('ko-KR');
+          } catch (e) {
+            createdAtStr = '-';
+          }
+        }
+        
+        // 플랜 배지
+        const planNames = { 'free': 'Free', 'basic': 'Basic', 'pro': 'Pro', 'enterprise': 'Enterprise' };
+        const planName = planNames[planType] || planType;
+        const planClass = `plan-${planType}`;
+        
+        // 상태 배지
+        const statusText = status === 'active' ? '활성' : '비활성';
+        const statusClass = status === 'active' ? 'status-active' : 'status-inactive';
+        
+        // 직원 현황 프로그레스 바
+        const usagePercent = maxUsers > 0 ? (currentUsers / maxUsers) * 100 : 0;
+        let progressClass = 'progress-safe';
+        if (usagePercent >= 100) progressClass = 'progress-danger';
+        else if (usagePercent >= 80) progressClass = 'progress-warning';
+        
+        return `
+          <tr>
+            <td><input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelect('${company.id}')" /></td>
+            <td><strong>${company.name}</strong></td>
+            <td>${company.adminEmail}</td>
+            <td>${createdAtStr}</td>
+            <td><span class="plan-badge ${planClass}">${planName}</span></td>
+            <td>
+              <div class="users-progress">
+                <span style="font-weight: 600; min-width: 60px;">${currentUsers} / ${maxUsers}명</span>
+                <div class="users-progress-bar">
+                  <div class="users-progress-fill ${progressClass}" style="width: ${Math.min(usagePercent, 100)}%;"></div>
+                </div>
+              </div>
+            </td>
+            <td><span class="company-status-badge ${statusClass}">${statusText}</span></td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="openCompanyManageModal('${company.id}', '${company.name.replace(/'/g, "\\'")}', '${planType}', ${maxUsers}, '${status}')">
+                ⚙️ 관리
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      // 페이지네이션 정보 업데이트
+      document.getElementById('paginationInfo').textContent = 
+        `${startIdx + 1}-${startIdx + pageData.length} / 전체 ${filteredCompaniesData.length}개 회사`;
+      
+      // 페이지 번호 버튼 렌더링
+      renderPageNumbers();
+      
+      // 선택 상태 업데이트
+      updateSelectAllCheckbox();
+      updateBulkActionsBar();
+    }
+
+    /**
+     * 페이지 번호 버튼 렌더링
+     */
+    function renderPageNumbers() {
+      const container = document.getElementById('pageNumbers');
+      const maxButtons = 5;  // 최대 표시할 버튼 수
+      let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+      let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+      
+      // 끝 페이지 조정
+      if (endPage - startPage < maxButtons - 1) {
+        startPage = Math.max(1, endPage - maxButtons + 1);
+      }
+      
+      let html = '';
+      for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === currentPage;
+        html += `
+          <button 
+            class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'}" 
+            onclick="goToPage(${i})"
+            ${isActive ? 'style="font-weight: bold;"' : ''}
+          >
+            ${i}
+          </button>
+        `;
+      }
+      container.innerHTML = html;
+      
+      // 첫/마지막/이전/다음 버튼 상태
+      document.getElementById('btnFirstPage').disabled = currentPage === 1;
+      document.getElementById('btnPrevPage').disabled = currentPage === 1;
+      document.getElementById('btnNextPage').disabled = currentPage === totalPages;
+      document.getElementById('btnLastPage').disabled = currentPage === totalPages;
+    }
+
+    /**
+     * 체크박스 선택/해제
+     */
+    function toggleSelect(companyId) {
+      if (selectedCompanies.has(companyId)) {
+        selectedCompanies.delete(companyId);
+      } else {
+        selectedCompanies.add(companyId);
+      }
+      updateSelectAllCheckbox();
+      updateBulkActionsBar();
+    }
+
+    /**
+     * 전체 선택/해제
+     */
+    function toggleSelectAll() {
+      const checkbox = document.getElementById('selectAllCheckbox');
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const endIdx = startIdx + PAGE_SIZE;
+      const pageData = filteredCompaniesData.slice(startIdx, endIdx);
+      
+      if (checkbox.checked) {
+        pageData.forEach(company => selectedCompanies.add(company.id));
+      } else {
+        pageData.forEach(company => selectedCompanies.delete(company.id));
+      }
+      
+      renderCurrentPage();
+    }
+
+    /**
+     * 전체 선택 체크박스 상태 업데이트
+     */
+    function updateSelectAllCheckbox() {
+      const checkbox = document.getElementById('selectAllCheckbox');
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const endIdx = startIdx + PAGE_SIZE;
+      const pageData = filteredCompaniesData.slice(startIdx, endIdx);
+      
+      const allSelected = pageData.length > 0 && pageData.every(company => selectedCompanies.has(company.id));
+      checkbox.checked = allSelected;
+    }
+
+    /**
+     * 대량 작업 바 업데이트
+     */
+    function updateBulkActionsBar() {
+      const bar = document.getElementById('bulkActionsBar');
+      const countSpan = document.getElementById('selectedCount');
+      
+      if (selectedCompanies.size > 0) {
+        bar.style.display = 'flex';
+        countSpan.textContent = `${selectedCompanies.size}개 선택됨`;
+      } else {
+        bar.style.display = 'none';
+      }
+    }
+
+    /**
+     * 선택 해제
+     */
+    function clearSelection() {
+      selectedCompanies.clear();
+      renderCurrentPage();
+    }
+
+    /**
+     * 선택 항목 삭제 (Cloud Functions 호출)
+     */
+    async function bulkDelete() {
+      if (selectedCompanies.size === 0) return;
+      
+      const companyNames = Array.from(selectedCompanies).map(id => {
+        const company = allCompaniesData.find(c => c.id === id);
+        return company ? company.name : id;
+      }).join(', ');
+      
+      const confirmMessage = `선택한 ${selectedCompanies.size}개 회사를 정말 삭제하시겠습니까?\n\n` +
+        `회사: ${companyNames}\n\n` +
+        `⚠️ 경고: 이 작업은 되돌릴 수 없습니다!\n` +
+        `⚠️ 모든 직원, 출퇴근 기록, 계약서 등이 함께 삭제됩니다.\n\n` +
+        `계속하려면 "삭제"를 입력하세요.`;
+      
+      const userInput = prompt(confirmMessage);
+      
+      if (userInput !== '삭제') {
+        alert('삭제가 취소되었습니다.');
+        return;
+      }
+      
+      try {
+        // 로딩 표시
+        const tbody = document.getElementById('companiesTableBody');
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px;">
+              <div class="loading-spinner">
+                <div style="font-size: 48px; margin-bottom: 16px;">🗑️</div>
+                <div>회사 삭제 중... (이 작업은 시간이 걸릴 수 있습니다)</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        
+        const deleteCompany = firebase.functions().httpsCallable('deleteCompany');
+        const results = [];
+        let successCount = 0;
+        let failCount = 0;
+        
+        // 각 회사를 순차적으로 삭제
+        for (const companyId of selectedCompanies) {
+          try {
+            console.log(`🗑️ 회사 삭제 시작: ${companyId}`);
+            const result = await deleteCompany({ companyId });
+            console.log(`✅ 회사 삭제 완료:`, result.data);
+            results.push({
+              companyId,
+              success: true,
+              data: result.data
+            });
+            successCount++;
+          } catch (error) {
+            console.error(`❌ 회사 삭제 실패 (${companyId}):`, error);
+            results.push({
+              companyId,
+              success: false,
+              error: error.message
+            });
+            failCount++;
+          }
+        }
+        
+        // 결과 요약
+        let summaryMessage = `삭제 완료!\n\n`;
+        summaryMessage += `✅ 성공: ${successCount}개\n`;
+        if (failCount > 0) {
+          summaryMessage += `❌ 실패: ${failCount}개\n`;
+        }
+        
+        // 삭제 통계 표시 (첫 번째 성공 케이스)
+        const successResult = results.find(r => r.success);
+        if (successResult && successResult.data.deletedCount) {
+          const counts = successResult.data.deletedCount;
+          summaryMessage += `\n[삭제된 데이터]\n`;
+          summaryMessage += `- 사용자: ${counts.users}명\n`;
+          summaryMessage += `- Auth 계정: ${counts.authAccounts}개\n`;
+          summaryMessage += `- 출퇴근 기록: ${counts.attendance}건\n`;
+          summaryMessage += `- 계약서: ${counts.contracts}건\n`;
+          summaryMessage += `- 스케줄: ${counts.schedules}건\n`;
+          summaryMessage += `- 매장: ${counts.stores}개\n`;
+          summaryMessage += `- 브랜드: ${counts.brands}개\n`;
+          summaryMessage += `- 초대 코드: ${counts.invites}개\n`;
+        }
+        
+        alert(summaryMessage);
+        
+        // 선택 해제 및 새로고침
+        selectedCompanies.clear();
+        await loadPlatformDashboard();
+        
+      } catch (error) {
+        console.error('❌ 삭제 중 오류:', error);
+        alert(`삭제 중 오류가 발생했습니다.\n\n${error.message}`);
+        await loadPlatformDashboard();
+      }
+    }
+
+    /**
+     * CSV 내보내기
+     */
+    function exportToCSV() {
+      if (filteredCompaniesData.length === 0) {
+        alert('내보낼 데이터가 없습니다.');
+        return;
+      }
+      
+      // CSV 헤더
+      const headers = ['회사명', '대표자 이메일', '가입일', '플랜', '현재 직원 수', '최대 직원 수', '상태'];
+      
+      // CSV 데이터
+      const rows = filteredCompaniesData.map(company => {
+        const subscription = company.subscription || {};
+        const createdAt = company.createdAt ? company.createdAt.toDate().toLocaleDateString('ko-KR') : '-';
+        const planNames = { 'free': 'Free', 'basic': 'Basic', 'pro': 'Pro', 'enterprise': 'Enterprise' };
+        
+        return [
+          company.name,
+          company.adminEmail,
+          createdAt,
+          planNames[subscription.planType] || subscription.planType || 'Free',
+          company.employeeCount || 0,
+          subscription.maxUsers || 5,
+          subscription.status === 'active' ? '활성' : '비활성'
+        ];
+      });
+      
+      // CSV 문자열 생성
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      // UTF-8 BOM 추가 (한글 깨짐 방지)
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // 다운로드
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `회사목록_${timestamp}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log(`✅ CSV 내보내기 완료: ${filteredCompaniesData.length}개 회사`);
+    }
+
+    /**
+     * 로그아웃
+     */
+    function logout() {
+      if (confirm('로그아웃 하시겠습니까?')) {
+        firebase.auth().signOut().then(() => {
+          console.log('✅ 로그아웃 성공');
+          window.location.href = 'index.html';
+        }).catch((error) => {
+          console.error('❌ 로그아웃 실패:', error);
+          alert('로그아웃 중 오류가 발생했습니다.');
+        });
+      }
+    }
+
+    // 모달 외부 클릭 시 닫기
+    window.onclick = function(event) {
+      const modal = document.getElementById('companyManageModal');
+      if (event.target === modal) {
+        closeCompanyManageModal();
+      }
+    };
+  </script>
+  <div id="planModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;" id="planModalTitle">📦 새 플랜 추가</h2>
+        <button class="modal-close" onclick="closePlanModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="planForm" onsubmit="savePlan(event)">
+          <input type="hidden" id="planId" />
+
+          <div class="form-group">
+            <label for="planName">플랜 이름 *</label>
+            <input type="text" id="planName" placeholder="예: Starter, Pro, Enterprise" required />
+          </div>
+
+          <div class="form-group">
+            <label for="planPrice">가격 (월) *</label>
+            <input type="number" id="planPrice" placeholder="예: 29000" min="0" required />
+            <small style="color: var(--text-secondary);">원 단위로 입력하세요 (무료는 0 입력)</small>
+          </div>
+
+          <div class="form-group">
+            <label for="planBillingCycle">청구 주기 *</label>
+            <select id="planBillingCycle" required>
+              <option value="monthly">월간 (Monthly)</option>
+              <option value="yearly">연간 (Yearly)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="planFeatures">기능 리스트 (랜딩 페이지 표시용, 한 줄에 하나씩)</label>
+            <textarea id="planFeatures" rows="4" placeholder="예:&#10;최대 10명의 팀원&#10;무제한 프로젝트&#10;24/7 고객 지원"></textarea>
+            <small style="color: var(--text-secondary);">각 기능을 줄바꿈으로 구분하세요 (마케팅 문구)</small>
+          </div>
+
+          <!-- 📋 권한 선택 (Optional Permissions) -->
+          <div class="form-group" style="border-top: 2px solid var(--border-color); padding-top: 20px; margin-top: 20px;">
+            <label style="font-weight: 600; font-size: 16px; margin-bottom: 8px; display: block; color: var(--text-primary);">
+              🔐 선택적 권한 설정
+            </label>
+            <small style="color: var(--text-secondary); display: block; margin-bottom: 20px; line-height: 1.5;">
+              ℹ️ 기본 기능(직원 조회/수정, 레시피 관리 등)은 모든 플랜에 포함됩니다. 아래는 부가 기능입니다.
+            </small>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+              <!-- Group A: 레시피 활용 및 보안 -->
+              <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">
+                  📚 레시피 활용 및 보안
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="recipe.print" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">🖨️ 레시피 인쇄 모드</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="recipe.view_secret" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">🔒 레시피 비공개 필드 조회</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="recipe.share_external" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">🔗 외부 공유 링크</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Group B: 인사 관리 고도화 -->
+              <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">
+                  👥 인사 관리 고도화
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="staff.manage_contract" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">📝 근로계약서 보관</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="staff.invite_email" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">✉️ 이메일 발송 초대</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="staff.schedule_manage" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">📅 근무 스케줄 관리</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Group C: 데이터 소유 및 대량 작업 -->
+              <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">
+                  📊 데이터 소유 및 대량 작업
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="data.export_all" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">📊 데이터 엑셀 다운로드</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                    <input type="checkbox" class="permission-checkbox" data-permission="data.bulk_update" style="flex-shrink: 0;" />
+                    <span style="font-size: 13px; line-height: 1.4; white-space: nowrap;">⚡ 직원 대량 일괄 수정</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="planIsActive" checked />
+              <span>활성 상태 (랜딩 페이지에 표시)</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="planIsPopular" />
+              <span>인기 플랜으로 표시 (강조 표시)</span>
+            </label>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closePlanModal()">취소</button>
+            <button type="submit" class="btn btn-primary">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🎟️ 초대 코드 생성 모달 (새 버전) -->
+  <div id="inviteCodeGeneratorModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">🎟️ 초대 코드 생성</h2>
+        <button class="modal-close" onclick="closeInviteCodeGeneratorModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="inviteCodeForm" onsubmit="generateInviteCodes(event)">
+          <div class="form-group">
+            <label for="inviteLinkedPlanId">연결할 플랜 *</label>
+            <select id="inviteLinkedPlanId" required>
+              <option value="">플랜을 선택하세요</option>
+            </select>
+            <small style="color: var(--text-secondary);">이 코드로 가입한 사용자에게 자동 할당될 플랜입니다</small>
+          </div>
+
+          <div class="form-group">
+            <label for="inviteCodeCount">생성할 코드 개수 *</label>
+            <input type="number" id="inviteCodeCount" min="1" max="100" value="1" required />
+            <small style="color: var(--text-secondary);">한 번에 최대 100개까지 생성 가능합니다</small>
+          </div>
+
+          <div class="form-group">
+            <label for="inviteCodeLength">코드 길이</label>
+            <select id="inviteCodeLength">
+              <option value="6">6자리</option>
+              <option value="8" selected>8자리</option>
+              <option value="10">10자리</option>
+            </select>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeInviteCodeGeneratorModal()">취소</button>
+            <button type="submit" class="btn btn-success">생성</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📦 구독 관리 JavaScript -->
+  <script>
+    // ========================================
+    // 플랜 관리 (CRUD)
+    // ========================================
+
+    /**
+     * 플랜 목록 로드
+     */
+    async function loadPlans() {
+      try {
+        const plansSnapshot = await db.collection('subscription_plans')
+          .orderBy('createdAt', 'desc')
+          .get();
+
+        const container = document.getElementById('plansListContainer');
+        
+        if (plansSnapshot.empty) {
+          container.innerHTML = `
+            <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+              등록된 플랜이 없습니다. 새 플랜을 추가하세요.
+            </p>
+          `;
+          return;
+        }
+
+        let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">';
+        
+        plansSnapshot.forEach(doc => {
+          const plan = { id: doc.id, ...doc.data() };
+          const features = Array.isArray(plan.features) ? plan.features : [];
+          
+          html += `
+            <div class="card" style="margin: 0; ${plan.isPopular ? 'border: 2px solid var(--primary-color); box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.15);' : ''}">
+              <div class="card-header" style="background: ${plan.isPopular ? 'var(--primary-color)' : 'var(--bg-secondary)'}; color: ${plan.isPopular ? 'white' : 'var(--text-primary)'};">
+                <h4 style="margin: 0; font-size: 18px;">
+                  ${plan.isPopular ? '⭐ ' : ''}${plan.name}
+                </h4>
+                <span style="background: ${plan.isActive ? '#28a745' : '#dc3545'}; color: white; font-size: 11px; padding: 4px 8px; border-radius: 12px;">
+                  ${plan.isActive ? '활성' : '비활성'}
+                </span>
+              </div>
+              <div class="card-body">
+                <div style="font-size: 32px; font-weight: 700; margin-bottom: 8px; color: var(--primary-color);">
+                  ${plan.price === 0 ? '무료' : plan.price.toLocaleString() + '원'}
+                  <span style="font-size: 14px; font-weight: 400; color: var(--text-secondary);">
+                    / ${plan.billingCycle === 'monthly' ? '월' : '년'}
+                  </span>
+                </div>
+                
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                  <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">마케팅 설명:</h5>
+                  <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: var(--text-primary);">
+                    ${features.length > 0 ? features.map(f => `<li style="margin-bottom: 4px;">${f}</li>`).join('') : '<li style="color: var(--text-secondary);">없음</li>'}
+                  </ul>
+                </div>
+                
+                ${plan.permissions && plan.permissions.length > 0 ? `
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                  <h5 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">🔐 부가 권한 (${plan.permissions.length}개):</h5>
+                  <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    ${plan.permissions.map(p => {
+                      return `<span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${getPermissionLabel(p)}</span>`;
+                    }).join('')}
+                  </div>
+                </div>
+                ` : ''}
+                
+                <div style="display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                  <button class="btn btn-sm btn-primary" onclick="editPlan('${plan.id}')" style="flex: 1;">수정</button>
+                  <button class="btn btn-sm btn-danger" onclick="deletePlan('${plan.id}', '${plan.name}')" style="flex: 1;">삭제</button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('플랜 로드 실패:', error);
+        alert('플랜 목록을 불러오는데 실패했습니다.');
+      }
+    }
+
+    /**
+     * 플랜 모달 열기 (신규)
+     */
+    function openPlanModal() {
+      document.getElementById('planModalTitle').textContent = '📦 새 플랜 추가';
+      document.getElementById('planForm').reset();
+      document.getElementById('planId').value = '';
+      document.getElementById('planIsActive').checked = true;
+      document.getElementById('planIsPopular').checked = false;
+      
+      // 권한 체크박스 초기화
+      document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      
+      document.getElementById('planModal').style.display = 'flex';
+    }
+
+    /**
+     * 플랜 수정 모달 열기
+     */
+    async function editPlan(planId) {
+      try {
+        const doc = await db.collection('subscription_plans').doc(planId).get();
+        if (!doc.exists) {
+          alert('플랜을 찾을 수 없습니다.');
+          return;
+        }
+        
+        const plan = doc.data();
+        document.getElementById('planModalTitle').textContent = '📦 플랜 수정';
+        document.getElementById('planId').value = planId;
+        document.getElementById('planName').value = plan.name || '';
+        document.getElementById('planPrice').value = plan.price || 0;
+        document.getElementById('planBillingCycle').value = plan.billingCycle || 'monthly';
+        document.getElementById('planFeatures').value = Array.isArray(plan.features) ? plan.features.join('\n') : '';
+        document.getElementById('planIsActive').checked = plan.isActive !== false;
+        document.getElementById('planIsPopular').checked = plan.isPopular === true;
+        
+        // 권한 체크박스 초기화
+        document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
+          checkbox.checked = false;
+        });
+        
+        // 저장된 권한 체크
+        if (Array.isArray(plan.permissions)) {
+          plan.permissions.forEach(permission => {
+            const checkbox = document.querySelector(`.permission-checkbox[data-permission="${permission}"]`);
+            if (checkbox) {
+              checkbox.checked = true;
+            }
+          });
+        }
+        
+        document.getElementById('planModal').style.display = 'flex';
+        
+      } catch (error) {
+        console.error('플랜 로드 실패:', error);
+        alert('플랜 정보를 불러오는데 실패했습니다.');
+      }
+    }
+
+    /**
+     * 플랜 저장 (생성 또는 수정)
+     */
+    async function savePlan(event) {
+      event.preventDefault();
+      
+      const planId = document.getElementById('planId').value;
+      
+      // 선택된 권한 수집
+      const permissions = [];
+      document.querySelectorAll('.permission-checkbox:checked').forEach(checkbox => {
+        permissions.push(checkbox.dataset.permission);
+      });
+      
+      const planData = {
+        name: document.getElementById('planName').value.trim(),
+        price: parseInt(document.getElementById('planPrice').value) || 0,
+        billingCycle: document.getElementById('planBillingCycle').value,
+        features: document.getElementById('planFeatures').value
+          .split('\n')
+          .map(f => f.trim())
+          .filter(f => f.length > 0),
+        permissions: permissions, // 권한 배열 추가
+        isActive: document.getElementById('planIsActive').checked,
+        isPopular: document.getElementById('planIsPopular').checked,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      
+      console.log('💾 플랜 저장 데이터:', planData);
+      
+      try {
+        if (planId) {
+          // 수정
+          await db.collection('subscription_plans').doc(planId).update(planData);
+          alert('✅ 플랜이 수정되었습니다.');
+        } else {
+          // 신규 생성
+          planData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          await db.collection('subscription_plans').add(planData);
+          alert('✅ 새 플랜이 생성되었습니다.');
+        }
+        
+        closePlanModal();
+        loadPlans();
+        
+      } catch (error) {
+        console.error('플랜 저장 실패:', error);
+        alert('❌ 플랜 저장에 실패했습니다.\n\n' + error.message);
+      }
+    }
+
+    /**
+     * 플랜 삭제
+     */
+    async function deletePlan(planId, planName) {
+      if (!confirm(`정말로 "${planName}" 플랜을 삭제하시겠습니까?\n\n⚠️ 이 플랜과 연결된 초대 코드도 함께 영향을 받습니다.`)) {
+        return;
+      }
+      
+      try {
+        await db.collection('subscription_plans').doc(planId).delete();
+        alert('✅ 플랜이 삭제되었습니다.');
+        loadPlans();
+        
+      } catch (error) {
+        console.error('플랜 삭제 실패:', error);
+        alert('❌ 플랜 삭제에 실패했습니다.\n\n' + error.message);
+      }
+    }
+
+    /**
+     * 샘플 플랜 4개 생성 (Starter, Basic, Pro, Master)
+     */
+    async function seedInitialPlans() {
+      const confirmMessage = 
+        '🌱 다음 4개의 샘플 플랜을 생성합니다:\n\n' +
+        '1. 새싹 (Starter) - 0원/월 (최대 5명)\n' +
+        '2. 카페/매장 (Basic) - 9,900원/월 (최대 15명)\n' +
+        '3. 성장하는 기업 (Pro) - 29,000원/월 (최대 50명) ⭐ 인기\n' +
+        '4. 프랜차이즈 (Master) - 59,000원/월 (최대 9,999명)\n\n' +
+        '계속하시겠습니까?';
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      const samplePlans = [
+        {
+          id: 'plan_free',
+          name: '새싹 (Starter)',
+          price: 0,
+          billingCycle: 'monthly',
+          maxUsers: 5,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 관리 (기본)',
+            '대시보드 (기본 통계)',
+            '공지사항 게시판'
+          ],
+          description: '개인 또는 소규모 팀을 위한 무료 플랜',
+          permissions: [],
+          isActive: true,
+          isPopular: false
+        },
+        {
+          id: 'plan_basic',
+          name: '카페/매장 (Basic)',
+          price: 9900,
+          billingCycle: 'monthly',
+          maxUsers: 15,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 인쇄 📄',
+            '레시피 외부 공유 🔗',
+            '대시보드 (상세 통계)',
+            '공지사항 게시판'
+          ],
+          description: '1~2개 매장을 운영하는 카페/베이커리',
+          permissions: ['recipe.print', 'recipe.share_external'],
+          isActive: true,
+          isPopular: false
+        },
+        {
+          id: 'plan_pro',
+          name: '성장하는 기업 (Pro)',
+          price: 29000,
+          billingCycle: 'monthly',
+          maxUsers: 50,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 인쇄 📄 + 외부 공유 🔗',
+            '계약서 관리 📝',
+            '스케줄 관리 📅',
+            '이메일 초대 ✉️',
+            '대시보드 (고급 분석)',
+            '공지사항 게시판'
+          ],
+          description: '다수의 매장과 직원을 관리하는 중소기업',
+          permissions: [
+            'recipe.print',
+            'recipe.share_external',
+            'staff.manage_contract',
+            'staff.schedule_manage',
+            'staff.invite_email'
+          ],
+          isActive: true,
+          isPopular: true
+        },
+        {
+          id: 'plan_enterprise',
+          name: '프랜차이즈 (Master)',
+          price: 59000,
+          billingCycle: 'monthly',
+          maxUsers: 9999,
+          features: [
+            '직원 기본 정보 관리',
+            '레시피 인쇄 📄 + 외부 공유 🔗',
+            '레시피 비공개 필드 조회 🔒',
+            '계약서 관리 📝',
+            '스케줄 관리 📅',
+            '이메일 초대 ✉️',
+            '데이터 전체 내보내기 📊',
+            '일괄 업데이트 ⚡',
+            '대시보드 (커스텀 리포트)',
+            '공지사항 게시판'
+          ],
+          description: '프랜차이즈 또는 대규모 체인 운영',
+          permissions: [
+            'recipe.print',
+            'recipe.share_external',
+            'recipe.view_secret',
+            'staff.manage_contract',
+            'staff.schedule_manage',
+            'staff.invite_email',
+            'data.export_all',
+            'data.bulk_update'
+          ],
+          isActive: true,
+          isPopular: false
+        }
+      ];
+
+      try {
+        let successCount = 0;
+        let skipCount = 0;
+
+        for (const plan of samplePlans) {
+          // 중복 체크
+          const existing = await db.collection('subscription_plans').doc(plan.id).get();
+          if (existing.exists) {
+            console.log(`⏭️ 플랜 "${plan.name}"은 이미 존재합니다. 건너뜁니다.`);
+            skipCount++;
+            continue;
+          }
+
+          // 생성
+          await db.collection('subscription_plans').doc(plan.id).set({
+            ...plan,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          console.log(`✅ 플랜 생성 완료: ${plan.name}`);
+          successCount++;
+        }
+
+        if (successCount > 0) {
+          alert(`✅ 샘플 플랜 ${successCount}개가 생성되었습니다.\n${skipCount > 0 ? `⏭️ ${skipCount}개는 이미 존재하여 건너뛰었습니다.` : ''}`);
+          loadPlans(); // 목록 새로고침
+        } else {
+          alert('ℹ️ 모든 샘플 플랜이 이미 존재합니다.');
+        }
+
+      } catch (error) {
+        console.error('❌ 샘플 플랜 생성 실패:', error);
+        alert('❌ 샘플 플랜 생성에 실패했습니다.\n\n' + error.message);
+      }
+    }
+
+    /**
+     * 플랜 모달 닫기
+     */
+    function closePlanModal() {
+      document.getElementById('planModal').style.display = 'none';
+      document.getElementById('planForm').reset();
+    }
+
+    // ========================================
+    // 초대 코드 관리
+    // ========================================
+
+    /**
+     * 초대 코드 목록 로드
+     */
+    async function loadInviteCodes() {
+      try {
+        const codesSnapshot = await db.collection('invitation_codes')
+          .orderBy('createdAt', 'desc')
+          .limit(100)
+          .get();
+
+        const container = document.getElementById('inviteCodesListContainer');
+        
+        if (codesSnapshot.empty) {
+          container.innerHTML = `
+            <p style="text-align: center; color: var(--text-secondary); padding: 40px;">
+              생성된 초대 코드가 없습니다.
+            </p>
+          `;
+          return;
+        }
+
+        // 플랜 정보 가져오기
+        const plansSnapshot = await db.collection('subscription_plans').get();
+        const plans = {};
+        plansSnapshot.forEach(doc => {
+          plans[doc.id] = doc.data().name;
+        });
+
+        let html = `
+          <table>
+            <thead>
+              <tr>
+                <th>코드</th>
+                <th>연결 플랜</th>
+                <th>생성일</th>
+                <th>상태</th>
+                <th>사용자</th>
+                <th>작업</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        codesSnapshot.forEach(doc => {
+          const code = { id: doc.id, ...doc.data() };
+          const planName = plans[code.linkedPlanId] || '(삭제된 플랜)';
+          const createdAt = code.createdAt?.toDate().toLocaleDateString('ko-KR') || '-';
+          const statusBadge = code.isUsed 
+            ? '<span class="badge" style="background: #dc3545;">사용됨</span>'
+            : '<span class="badge" style="background: #28a745;">사용 가능</span>';
+          const usedBy = code.usedBy || '-';
+          
+          html += `
+            <tr>
+              <td><code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${code.code}</code></td>
+              <td>${planName}</td>
+              <td>${createdAt}</td>
+              <td>${statusBadge}</td>
+              <td style="font-size: 12px; color: var(--text-secondary);">${usedBy}</td>
+              <td>
+                <button class="btn btn-sm btn-info" onclick="copyInviteCode('${code.code}')">📋 복사</button>
+                ${!code.isUsed ? `<button class="btn btn-sm btn-danger" onclick="deleteInviteCode('${code.id}', '${code.code}')">삭제</button>` : ''}
+              </td>
+            </tr>
+          `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        
+      } catch (error) {
+        console.error('초대 코드 로드 실패:', error);
+        alert('초대 코드 목록을 불러오는데 실패했습니다.');
+      }
+    }
+
+    /**
+     * 초대 코드 생성 모달 열기
+     */
+    async function openInviteCodeGeneratorModal() {
+      try {
+        // 플랜 목록 로드하여 드롭다운에 추가
+        const plansSnapshot = await db.collection('subscription_plans')
+          .where('isActive', '==', true)
+          .get();
+        
+        const select = document.getElementById('inviteLinkedPlanId');
+        select.innerHTML = '<option value="">플랜을 선택하세요</option>';
+        
+        plansSnapshot.forEach(doc => {
+          const plan = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.textContent = `${plan.name} (${plan.price === 0 ? '무료' : plan.price.toLocaleString() + '원'})`;
+          select.appendChild(option);
+        });
+        
+        document.getElementById('inviteCodeGeneratorModal').style.display = 'flex';
+        
+      } catch (error) {
+        console.error('플랜 로드 실패:', error);
+        alert('플랜 목록을 불러오는데 실패했습니다.');
+      }
+    }
+
+    /**
+     * 초대 코드 생성 모달 닫기
+     */
+    function closeInviteCodeGeneratorModal() {
+      document.getElementById('inviteCodeGeneratorModal').style.display = 'none';
+      document.getElementById('inviteCodeForm').reset();
+    }
+
+    /**
+     * 초대 코드 생성 (랜덤 문자열)
+     */
+    function generateRandomCode(length = 8) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < length; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    /**
+     * 초대 코드 일괄 생성
+     */
+    async function generateInviteCodes(event) {
+      event.preventDefault();
+      
+      const linkedPlanId = document.getElementById('inviteLinkedPlanId').value;
+      const count = parseInt(document.getElementById('inviteCodeCount').value) || 1;
+      const length = parseInt(document.getElementById('inviteCodeLength').value) || 8;
+      
+      if (!linkedPlanId) {
+        alert('플랜을 선택하세요.');
+        return;
+      }
+      
+      if (count < 1 || count > 100) {
+        alert('생성 개수는 1~100 사이여야 합니다.');
+        return;
+      }
+      
+      try {
+        const batch = db.batch();
+        const codes = [];
+        
+        for (let i = 0; i < count; i++) {
+          const code = generateRandomCode(length);
+          const docRef = db.collection('invitation_codes').doc();
+          
+          batch.set(docRef, {
+            code: code,
+            linkedPlanId: linkedPlanId,
+            isUsed: false,
+            usedBy: null,
+            usedAt: null,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid
+          });
+          
+          codes.push(code);
+        }
+        
+        await batch.commit();
+        
+        alert(`✅ ${count}개의 초대 코드가 생성되었습니다!\n\n생성된 코드:\n${codes.join('\n')}`);
+        
+        closeInviteCodeGeneratorModal();
+        loadInviteCodes();
+        
+      } catch (error) {
+        console.error('초대 코드 생성 실패:', error);
+        alert('❌ 초대 코드 생성에 실패했습니다.\n\n' + error.message);
+      }
+    }
+
+    /**
+     * 초대 코드 복사
+     */
+    function copyInviteCode(code) {
+      navigator.clipboard.writeText(code).then(() => {
+        alert(`✅ 초대 코드가 복사되었습니다!\n\n코드: ${code}`);
+      }).catch(err => {
+        console.error('복사 실패:', err);
+        alert('❌ 복사에 실패했습니다.');
+      });
+    }
+
+    /**
+     * 초대 코드 삭제
+     */
+    async function deleteInviteCode(codeId, code) {
+      if (!confirm(`초대 코드 "${code}"를 삭제하시겠습니까?`)) {
+        return;
+      }
+      
+      try {
+        await db.collection('invitation_codes').doc(codeId).delete();
+        alert('✅ 초대 코드가 삭제되었습니다.');
+        loadInviteCodes();
+        
+      } catch (error) {
+        console.error('초대 코드 삭제 실패:', error);
+        alert('❌ 삭제에 실패했습니다.\n\n' + error.message);
+      }
+    }
+
+  </script>
+</body>
+</html>

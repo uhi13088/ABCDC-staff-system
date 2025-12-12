@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>직원 포털</title>
+  
+  <!-- 캐시 방지 메타 태그 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  
+  <link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+  <!-- 메인 화면 -->
+  <div id="mainScreen">
+    <!-- 상단 바 -->
+    <div class="top-bar">
+      <div class="user-info">
+        <div>
+          <div class="user-name" id="displayName">로딩 중...</div>
+          <div class="user-store" id="displayStore">로딩 중...</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="handleLogout()">로그아웃</button>
+    </div>
+
+    <div class="container">
+      <!-- 현재 상태 -->
+      <div class="current-status" id="currentStatus">
+        <div class="status-title">현재 상태</div>
+        <div class="status-value" id="statusValue">퇴근 전</div>
+        <div class="status-time" id="statusTime">좋은 하루 되세요!</div>
+      </div>
+
+      <!-- 공지사항 -->
+      <div class="notice-section" id="noticeSection" style="display: none;">
+        <!-- 통합 공지사항 -->
+        <div class="card">
+          <div class="card-header">
+            <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 11v2h4v-2h-4zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61zM20.4 5.6c-.4-.53-.8-1.07-1.2-1.6-.99.74-2.24 1.68-3.2 2.4.4.53.8 1.07 1.2 1.6.96-.72 2.21-1.65 3.2-2.4zM4 9c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1v4h2v-4h1l5 3V6L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34z"/></svg>공지사항</h3>
+          </div>
+          <div class="card-body">
+            <div id="unifiedNoticeList">
+              <!-- 공지사항이 동적으로 추가됩니다 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 공지사항 없을 때 -->
+        <div id="noNoticeMessage" style="display: none;">
+          <div class="card">
+            <div class="card-body">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg>
+              <p>등록된 공지사항이 없습니다</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 퀵 액션 -->
+      <div class="quick-actions">
+        <div class="quick-action-card" onclick="showClockIn()">
+          <div class="quick-action-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
+          <div class="quick-action-title">출근하기</div>
+          <div class="quick-action-desc">근무 시작 기록</div>
+        </div>
+
+        <div class="quick-action-card" onclick="showClockOut()">
+          <div class="quick-action-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="fill: #ef4444;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+          <div class="quick-action-title">퇴근하기</div>
+          <div class="quick-action-desc">근무 종료 기록</div>
+        </div>
+
+        <div class="quick-action-card" onclick="showTab('attendance')">
+          <div class="quick-action-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+          <div class="quick-action-title">근무내역</div>
+          <div class="quick-action-desc">나의 근무기록</div>
+        </div>
+
+        <div class="quick-action-card" onclick="showTab('salary')">
+          <div class="quick-action-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div>
+          <div class="quick-action-title">급여조회</div>
+          <div class="quick-action-desc">월별 급여</div>
+        </div>
+      </div>
+
+      <!-- 탭 네비게이션 -->
+      <div class="tabs">
+        <button class="tab active" data-tab="attendance" onclick="showTab('attendance')">근무내역</button>
+        <button class="tab" data-tab="schedule" onclick="showTab('schedule')">내 스케줄</button>
+        <button class="tab" data-tab="salary" onclick="showTab('salary')">급여조회</button>
+        <button class="tab" data-tab="approvals" onclick="showTab('approvals')">문서승인</button>
+        <button class="tab" data-tab="contract" onclick="showTab('contract')">계약서</button>
+      </div>
+
+      <!-- 탭 컨텐츠: 근무내역 -->
+      <div id="tabAttendance" class="tab-content active">
+        <div class="card">
+          <div class="card-header">
+            <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>근무내역</h3>
+          </div>
+
+          <!-- 필터 -->
+          <div class="filters">
+            <div class="filter-group">
+              <label>조회 월</label>
+              <input type="month" id="filterMonth" value="">
+            </div>
+            <div class="filter-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="loadAttendance()">조회</button>
+            </div>
+          </div>
+
+          <!-- 테이블 -->
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>날짜</th>
+                  <th>근무타입</th>
+                  <th>출근시간</th>
+                  <th>퇴근시간</th>
+                  <th>근무시간</th>
+                  <th>상태</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceTableBody">
+                <tr>
+                  <td colspan="7" class="empty-state">데이터를 불러오는 중...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 급여조회 -->
+      <div id="tabSalary" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>급여조회</h3>
+          </div>
+
+          <!-- 필터 -->
+          <div class="filters">
+            <div class="filter-group">
+              <label>조회 월</label>
+              <input type="month" id="salaryFilterMonth" value="">
+            </div>
+            <div class="filter-group">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" onclick="loadSalary()">조회</button>
+            </div>
+          </div>
+
+          <!-- 급여 요약 -->
+          <div id="salaryContent">
+            <div class="alert alert-info">
+              조회할 월을 선택하고 조회 버튼을 클릭하세요.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 내 스케줄 -->
+      <div id="tabSchedule" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>내 스케줄</h3>
+            <!-- 토글 스위치: 매장 전체보기 -->
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 14px; font-weight: 500;">매장 전체보기</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showStoreScheduleToggle" onchange="toggleEmployeeScheduleView()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <!-- 주차 네비게이션 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-light); border-radius: var(--border-radius);">
+              <button class="btn btn-secondary btn-sm" onclick="changeEmployeeWeek(-1)">◀ 이전 주</button>
+              <div style="font-size: 15px; font-weight: 600;" id="employeeWeekDisplay"></div>
+              <button class="btn btn-secondary btn-sm" onclick="changeEmployeeWeek(1)">다음 주 ▶</button>
+            </div>
+            
+            <!-- 주간 스케줄 표시 -->
+            <div id="employeeScheduleContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 문서 승인 -->
+      <div id="tabApprovals" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>문서 승인 신청</h3>
+            <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+              <button class="btn btn-primary btn-sm" onclick="showPurchaseRequestModal()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>구매 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showDisposalRequestModal()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>폐기 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showAbsenceRequestModal()" style="background: #ff6b6b;"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>결근 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showResignationRequestModal()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>퇴직서 신청</button>
+              <button class="btn btn-primary btn-sm" onclick="showShiftRequestModal()" style="background: var(--info-color);">교대근무 신청</button>
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <table>
+              <thead>
+                <tr>
+                  <th>유형</th>
+                  <th>제목/내용</th>
+                  <th>신청일</th>
+                  <th>상태</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="myApprovalsTableBody">
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    신청 내역을 불러오는 중...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 컨텐츠: 계약서 -->
+      <div id="tabContract" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>근로계약서</h3>
+          </div>
+
+          <div id="contractContent">
+            <div class="alert alert-info">
+              계약서 정보를 불러오는 중...
+            </div>
+          </div>
+        </div>
+
+        <!-- 통장사본 정보 -->
+        <div class="card" style="margin-top: var(--spacing-lg);">
+          <div class="card-header">
+            <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-4.5-9L2 6v2h19V6l-9.5-5z"/></svg>통장사본</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bankName">은행명</label>
+                <input type="text" id="bankName" placeholder="예: 국민은행">
+              </div>
+              <div class="form-group">
+                <label for="accountNumber">계좌번호</label>
+                <input type="text" id="accountNumber" placeholder="예: 123456-01-123456">
+              </div>
+              <div class="form-group">
+                <label for="accountHolder">예금주</label>
+                <input type="text" id="accountHolder" placeholder="예: 홍길동">
+              </div>
+            </div>
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+              <button class="btn btn-primary" onclick="saveBankAccount()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>저장</button>
+              <span id="bankSaveStatus" style="display: inline-flex; align-items: center; color: var(--success-color); font-size: 14px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 보건증 정보 -->
+        <div class="card" style="margin-top: var(--spacing-lg);">
+          <div class="card-header">
+            <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/></svg>보건증</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="healthCertImage">보건증 이미지</label>
+              <input type="file" id="healthCertImage" accept="image/*" onchange="previewHealthCert(event)">
+              <small style="color: var(--text-secondary); display: block; margin-top: 4px;">
+                <svg style="width: 14px; height: 14px; fill: var(--text-secondary); vertical-align: middle; margin-right: 2px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16 9V4l1 0c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1l-1 0zM2 9h1V4H2C.9 4 0 4.9 0 6v1c0 1.1.9 2 2 2zm19 5c1.1 0 2-.9 2-2v-1c0-1.1-.9-2-2-2h-1v5h1zM3 19l1 0c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1l-1 0v5zM19 12h-2l0 1.5-.75 0c-.41 0-.75.34-.75.75v2.5c0 .41.34.75.75.75h2.5c.41 0 .75-.34.75-.75V13c0-.55-.45-1-1-1zm-.5 4h-1v-2h1v2z"/></svg>JPG, PNG 형식 (자동으로 저용량 압축됩니다)
+              </small>
+            </div>
+
+            <!-- 이미지 미리보기 -->
+            <div id="healthCertPreview" style="display: none; margin-top: var(--spacing-md);">
+              <label>미리보기</label>
+              <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); background: var(--bg-light);">
+                <img id="healthCertImg" style="max-width: 100%; max-height: 300px; display: block; margin: 0 auto;">
+                <p id="imageSizeInfo" style="text-align: center; margin-top: var(--spacing-xs); font-size: 12px; color: var(--text-secondary);"></p>
+              </div>
+            </div>
+
+            <div class="form-row" style="margin-top: var(--spacing-lg);">
+              <div class="form-group">
+                <label for="healthCertYear">유효기간 (년)</label>
+                <select id="healthCertYear">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="healthCertMonth">유효기간 (월)</label>
+                <select id="healthCertMonth">
+                  <option value="">선택</option>
+                  <option value="01">1월</option>
+                  <option value="02">2월</option>
+                  <option value="03">3월</option>
+                  <option value="04">4월</option>
+                  <option value="05">5월</option>
+                  <option value="06">6월</option>
+                  <option value="07">7월</option>
+                  <option value="08">8월</option>
+                  <option value="09">9월</option>
+                  <option value="10">10월</option>
+                  <option value="11">11월</option>
+                  <option value="12">12월</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="healthCertDay">유효기간 (일)</label>
+                <select id="healthCertDay">
+                  <option value="">선택</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+              <button class="btn btn-primary" onclick="saveHealthCert()"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>저장</button>
+              <span id="healthSaveStatus" style="display: inline-flex; align-items: center; color: var(--success-color); font-size: 14px;"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 구매 신청 모달 -->
+  <div id="purchaseRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>구매 신청</h3>
+        <button class="modal-close" onclick="closePurchaseRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="purchaseItems">
+          <div class="purchase-item" data-index="0">
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
+                <label>구매 물품 <span style="color: var(--danger-color);">*</span></label>
+                <input type="text" class="purchase-item-name" placeholder="예: 커피원두">
+              </div>
+              <div class="form-group">
+                <label>구매처 <span style="color: var(--danger-color);">*</span></label>
+                <input type="text" class="purchase-item-vendor" placeholder="예: ABC 무역">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>구매 금액 (원) <span style="color: var(--danger-color);">*</span></label>
+                <input type="number" class="purchase-item-price" placeholder="50000" min="0">
+              </div>
+              <div class="form-group">
+                <label>수량 <span style="color: var(--danger-color);">*</span></label>
+                <input type="number" class="purchase-item-quantity" placeholder="10" min="1" value="1">
+              </div>
+            </div>
+            <hr style="margin: var(--spacing-md) 0; border: none; border-top: 1px dashed var(--border-color);">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="addPurchaseItem()" style="margin-top: var(--spacing-sm);">+ 항목 추가</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePurchaseRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitPurchaseRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 폐기 신청 모달 -->
+  <div id="disposalRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>폐기 신청</h3>
+        <button class="modal-close" onclick="closeDisposalRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>폐기 카테고리 <span style="color: var(--danger-color);">*</span></label>
+          <select id="disposalCategory">
+            <option value="">선택하세요</option>
+            <option value="케이크">케이크</option>
+            <option value="음료">음료</option>
+            <option value="식자재">식자재</option>
+            <option value="도구">도구</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>상세 내용 <span style="color: var(--danger-color);">*</span></label>
+          <textarea id="disposalDetails" rows="5" placeholder="폐기할 물품과 사유를 상세히 작성해주세요.&#10;&#10;예시:&#10;- 티라미수 케이크 3개: 유통기한 경과 (2024-01-15)&#10;- 아메리카노 원두 500g: 보관 상태 불량&#10;- 비고: 냉장고 온도 이상으로 인한 변질"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDisposalRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitDisposalRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결근 신청 모달 -->
+  <div id="absenceRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>결근 신청</h3>
+        <button class="modal-close" onclick="closeAbsenceRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" style="margin-bottom: var(--spacing-md);">
+          <strong>💡 안내</strong><br>
+          결근 신청은 관리자의 승인이 필요합니다. 승인 시 대타 모집 공고가 자동으로 생성될 수 있습니다.
+        </div>
+        
+        <div class="form-group">
+          <label>결근 날짜 <span style="color: var(--danger-color);">*</span></label>
+          <input type="date" id="absenceDate" style="width: 100%;">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>시작 시간 <span style="color: var(--danger-color);">*</span></label>
+            <input type="time" id="absenceStartTime" style="width: 100%;">
+          </div>
+          <div class="form-group">
+            <label>종료 시간 <span style="color: var(--danger-color);">*</span></label>
+            <input type="time" id="absenceEndTime" style="width: 100%;">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>결근 사유 <span style="color: var(--danger-color);">*</span></label>
+          <textarea id="absenceReason" rows="4" placeholder="결근 사유를 상세히 작성해주세요.&#10;&#10;예시:&#10;- 개인 사정으로 인한 결근&#10;- 병원 진료 예약&#10;- 가족 경조사"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAbsenceRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitAbsenceRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 퇴직서 신청 모달 -->
+  <div id="resignationRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>퇴직서 신청</h3>
+        <button class="modal-close" onclick="closeResignationRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>성함 <span style="color: var(--danger-color);">*</span></label>
+          <input type="text" id="resignationName" readonly>
+        </div>
+        <div class="form-group">
+          <label>희망 퇴직일자 <span style="color: var(--danger-color);">*</span></label>
+          <div style="display: flex; gap: var(--spacing-sm);">
+            <select id="resignationYear" style="flex: 1;">
+              <option value="">년</option>
+            </select>
+            <select id="resignationMonth" style="flex: 1;">
+              <option value="">월</option>
+              <option value="01">1월</option>
+              <option value="02">2월</option>
+              <option value="03">3월</option>
+              <option value="04">4월</option>
+              <option value="05">5월</option>
+              <option value="06">6월</option>
+              <option value="07">7월</option>
+              <option value="08">8월</option>
+              <option value="09">9월</option>
+              <option value="10">10월</option>
+              <option value="11">11월</option>
+              <option value="12">12월</option>
+            </select>
+            <select id="resignationDay" style="flex: 1;">
+              <option value="">일</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>퇴직 사유</label>
+          <textarea id="resignationReason" rows="3" placeholder="개인사정">개인사정</textarea>
+        </div>
+        <div class="form-group">
+          <label>직원 서명 <span style="color: var(--danger-color);">*</span></label>
+          <div style="border: 2px dashed var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); text-align: center;">
+            <canvas id="resignationSignaturePad" style="border: 1px solid var(--border-color); border-radius: var(--border-radius); cursor: crosshair; max-width: 100%;"></canvas>
+            <div style="margin-top: var(--spacing-sm);">
+              <button class="btn btn-secondary btn-sm" onclick="clearResignationSignature()">지우기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeResignationRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitResignationRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 교대근무 신청 모달 -->
+  <div id="shiftRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>교대근무 신청</h3>
+        <button class="modal-close" onclick="closeShiftRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" style="margin-bottom: var(--spacing-lg);">
+          <strong><svg style="width: 16px; height: 16px; fill: #f59e0b; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>교대근무란?</strong><br>
+          부득이한 사정으로 출근이 어려울 때, 같은 매장의 다른 직원에게 대타 근무를 요청할 수 있습니다.<br>
+          <small style="color: var(--text-secondary);">
+            • 승인되면 원래 근무자는 결근 처리되지 않습니다 (급여 없음)<br>
+            • 승인한 직원은 해당 시간에 출근해야 하며, 정상 급여가 지급됩니다
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label>교대 희망 날짜 <span style="color: var(--danger-color);">*</span></label>
+          <input type="date" id="shiftRequestDate" onchange="loadMyScheduleForDate()" required>
+        </div>
+        
+        <!-- 근무시간 선택 (해당 날짜에 여러 근무가 있을 경우) -->
+        <div class="form-group" id="shiftScheduleSelectGroup" style="display: none;">
+          <label>근무시간 선택 <span style="color: var(--danger-color);">*</span></label>
+          <select id="shiftScheduleSelect" onchange="fillScheduleTime()" required>
+            <option value="">근무시간을 선택하세요</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>근무 시작 시간 <span style="color: var(--danger-color);">*</span></label>
+          <input type="time" id="shiftRequestStartTime" readonly style="background-color: #f5f5f5; cursor: not-allowed;" required>
+          <small style="color: var(--text-secondary); font-size: 12px;"><svg style="width: 12px; height: 12px; fill: var(--text-secondary); vertical-align: middle; margin-right: 2px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16 9V4l1 0c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1l-1 0zM2 9h1V4H2C.9 4 0 4.9 0 6v1c0 1.1.9 2 2 2zm19 5c1.1 0 2-.9 2-2v-1c0-1.1-.9-2-2-2h-1v5h1zM3 19l1 0c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1l-1 0v5zM19 12h-2l0 1.5-.75 0c-.41 0-.75.34-.75.75v2.5c0 .41.34.75.75.75h2.5c.41 0 .75-.34.75-.75V13c0-.55-.45-1-1-1zm-.5 4h-1v-2h1v2z"/></svg>선택한 날짜의 본인 근무시간이 자동으로 표시됩니다</small>
+        </div>
+        
+        <div class="form-group">
+          <label>근무 종료 시간 <span style="color: var(--danger-color);">*</span></label>
+          <input type="time" id="shiftRequestEndTime" readonly style="background-color: #f5f5f5; cursor: not-allowed;" required>
+        </div>
+        
+        <div class="form-group">
+          <label>사유</label>
+          <textarea id="shiftRequestReason" rows="3" placeholder="교대근무가 필요한 사유를 간단히 입력해주세요 (선택사항)">개인사정</textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeShiftRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitShiftRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 근무시간 수정 모달 -->
+  <div id="editAttendanceModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">✏️ 근무시간 수정</h2>
+        <button class="modal-close" onclick="closeEditAttendanceModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>날짜</label>
+          <input type="text" id="editDate" readonly style="background: #f5f5f5;">
+        </div>
+        <div class="form-group">
+          <label>출근시간 *</label>
+          <input type="time" id="editClockIn" required>
+        </div>
+        <div class="form-group">
+          <label>퇴근시간 *</label>
+          <input type="time" id="editClockOut" required>
+        </div>
+        <div class="form-group">
+          <label>수정 사유 * <span style="color: var(--danger-color); font-size: 12px;">(필수)</span></label>
+          <textarea id="editReason" rows="3" placeholder="근무시간을 수정하는 이유를 입력해주세요" required></textarea>
+        </div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 12px;">
+          <svg style="width: 14px; height: 14px; fill: #f59e0b; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>수정 사유는 관리자가 확인할 수 있습니다.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEditAttendanceModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitAttendanceEdit()">수정 완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 근무기록 상세 모달 -->
+  <div id="attendanceDetailModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;"><svg style="width: 22px; height: 22px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>근무기록 상세</h2>
+        <button class="modal-close" onclick="closeAttendanceDetailModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- 기본 정보 -->
+        <div style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);"><svg style="width: 18px; height: 18px; fill: var(--primary-color); vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>직원 정보</h3>
+          <div style="display: grid; grid-template-columns: 1fr; gap: var(--spacing-md);">
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">이름</div>
+              <div style="font-size: 16px; font-weight: 600;" id="empDetailEmployeeName">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 근무 정보 -->
+        <div style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);"><svg style="width: 18px; height: 18px; fill: var(--primary-color); vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>근무 정보</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-md);">
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">날짜</div>
+              <div style="font-size: 16px; font-weight: 600;" id="empDetailDate">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">근무타입</div>
+              <div style="font-size: 16px; font-weight: 600;" id="empDetailWorkType">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">출근시간</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--success-color);" id="empDetailClockIn">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">퇴근시간</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--danger-color);" id="empDetailClockOut">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">근무시간</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--primary-color);" id="empDetailWorkHours">-</div>
+            </div>
+            <div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">상태</div>
+              <div style="font-size: 16px; font-weight: 600;" id="empDetailStatus">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 수정 이력 -->
+        <div id="empDetailEditHistory" style="background: var(--bg-light); padding: var(--spacing-lg); border-radius: var(--border-radius); display: none;">
+          <h3 style="font-size: 16px; margin-bottom: var(--spacing-md); color: var(--primary-color);">수정 이력</h3>
+          <div id="empDetailEditHistoryContent" style="font-size: 14px;">
+            <!-- 수정 이력이 여기 표시됩니다 -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAttendanceDetailModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 관리자 수정 알림 모달 -->
+  <div id="adminEditNotificationModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;"><svg style="width: 22px; height: 22px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>관리자 근무시간 수정 알림</h2>
+        <button class="modal-close" onclick="closeAdminEditNotificationModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: #fff3cd; padding: var(--spacing-lg); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <p style="margin: 0; color: #856404; font-size: 14px;">
+            <svg style="width: 18px; height: 18px; fill: #f59e0b; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>관리자가 귀하의 근무시간을 수정하였습니다. 아래 내용을 확인해주세요.
+          </p>
+        </div>
+
+        <!-- 수정 이력 목록 -->
+        <div id="adminEditList" style="display: grid; gap: var(--spacing-md);">
+          <!-- JavaScript로 동적 생성됩니다 -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeAdminEditNotificationModal()">확인했습니다</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <!-- HTML2PDF 라이브러리 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- 교대근무 요청 알림 모달 (실시간 팝업) -->
+  <div id="shiftRequestNotificationModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div style="background: var(--info-color); color: white; padding: 20px; border-radius: 12px 12px 0 0;">
+          <h3 style="margin: 0; font-size: 18px;">대타근무 구함</h3>
+        </div>
+        <div style="padding: 24px;">
+          <div id="shiftNotificationContent" style="margin-bottom: 24px; line-height: 1.8; font-size: 15px;">
+            <!-- 동적으로 생성 -->
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <button class="btn btn-secondary" onclick="rejectShiftRequest()" style="flex: 1;">거절</button>
+            <button class="btn btn-primary" onclick="acceptShiftRequest()" style="flex: 1; background: var(--success-color);"><svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>승인하기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 즉시 사유 입력 모달 (지각/조퇴/초과근무/조기출근) -->
+  <div id="immediateReasonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10001; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: var(--border-radius); width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div style="padding: var(--spacing-lg); border-bottom: 2px solid var(--border-color); background: #fff3cd;">
+          <h3 id="immediateReasonTitle" style="margin: 0; font-size: 18px; font-weight: 700; color: #856404;"></h3>
+          <p id="immediateReasonDesc" style="margin: 8px 0 0 0; font-size: 13px; color: #856404;"></p>
+        </div>
+        <div style="padding: var(--spacing-lg);">
+          <div id="immediateReasonInfo" style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: #f8f9fa; border-radius: 6px; border-left: 4px solid var(--primary-color);"></div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px;">사유</label>
+          <textarea 
+            id="immediateReasonInput" 
+            placeholder="사유를 상세히 입력해주세요."
+            style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; resize: vertical; font-family: inherit;"
+          ></textarea>
+          <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+            <svg style="width: 14px; height: 14px; fill: #f59e0b; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>입력한 사유는 관리자에게 전달됩니다.
+          </div>
+        </div>
+        <div style="padding: var(--spacing-lg); border-top: 1px solid var(--border-color); display: flex; gap: 12px;">
+          <button class="btn btn-primary" onclick="submitImmediateReason()" style="flex: 1;">확인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결근 사유 입력 모달 -->
+  <div id="absentReasonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9999; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: white; border-radius: var(--border-radius); width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        
+        <!-- 모달 헤더 -->
+        <div style="padding: var(--spacing-lg); border-bottom: 2px solid var(--border-color); background: #fff3cd;">
+          <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #856404;"><svg style="width: 20px; height: 20px; fill: #f59e0b; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>결근 사유 입력 필수</h3>
+          <p style="margin: 8px 0 0 0; font-size: 13px; color: #856404;">결근 사유를 입력하지 않으면 페이지를 사용할 수 없습니다.</p>
+        </div>
+        
+        <!-- 모달 바디 -->
+        <div style="padding: var(--spacing-lg);">
+          <div id="absentReasonInfo" style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: #f8f9fa; border-radius: 6px; border-left: 4px solid var(--primary-color);">
+            <!-- 결근 날짜 정보 동적 생성 -->
+          </div>
+          
+          <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px;">결근 사유</label>
+          <textarea 
+            id="absentReasonInput" 
+            placeholder="결근 사유를 상세히 입력해주세요.&#10;예) 몸이 아파서 병원 방문, 가족 경조사 등"
+            style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; resize: vertical; font-family: inherit;"
+          ></textarea>
+          
+          <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+            <svg style="width: 14px; height: 14px; fill: #f59e0b; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>입력한 사유는 관리자에게 전달됩니다.
+          </div>
+        </div>
+        
+        <!-- 모달 푸터 -->
+        <div style="padding: var(--spacing-lg); border-top: 2px solid var(--border-color); text-align: right;">
+          <button class="btn btn-primary" onclick="submitAbsentReason()" style="width: 100%; padding: 12px; font-size: 15px;">
+            <svg style="width: 16px; height: 16px; fill: currentColor; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>제출하기
+          </button>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+
+  <!-- 교대근무 신청 모달 -->
+  <div id="shiftRequestModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2 style="margin: 0;">교대근무 신청</h2>
+        <button class="modal-close" onclick="closeShiftRequestModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" style="margin-bottom: var(--spacing-lg);">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <svg style="width: 18px; height: 18px; fill: #f59e0b; flex-shrink: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>
+            <strong style="font-size: 15px;">교대근무란?</strong>
+          </div>
+          <div style="padding-left: 24px; line-height: 1.6;">
+            • 출근하지 못할 원래 날짜를 선택하세요<br>
+            • 승인되면 원래 날짜는 결근 처리되지 않습니다<br>
+            <span style="color: var(--text-secondary); font-size: 13px;">(극의 없음)</span>
+          </div>
+          <div style="padding-left: 24px; line-height: 1.6; margin-top: 8px;">
+            • 승인한 직원은 해당 시간에 출근해 하며, 정상 급여가 지급됩니다
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="shiftRequestDate">근무 날짜 *</label>
+          <input type="date" id="shiftRequestDate" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="shiftRequestSchedule">근무 시간 *</label>
+          <select id="shiftRequestSchedule" required>
+            <option value="">선택하세요</option>
+          </select>
+          <small style="color: var(--text-secondary); display: block; margin-top: 4px;">
+            해당 날짜의 본인 스케줄이 자동으로 표시됩니다.
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label for="shiftRequestReason">사유</label>
+          <textarea id="shiftRequestReason" placeholder="교대근무가 필요한 사유를 입력하세요... (선택사항)" rows="4"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeShiftRequestModal()">취소</button>
+        <button class="btn btn-primary" onclick="submitShiftRequest()">신청하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 교대근무 요청 알림 모달 (다른 직원들에게 표시) -->
+  <div id="shiftNotificationModal" class="modal-overlay" style="display: none; z-index: 10000;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header" style="background: var(--info-color); color: white;">
+        <h2 style="margin: 0;"><svg style="width: 22px; height: 22px; fill: white; vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>대타근무 요청</h2>
+      </div>
+      <div class="modal-body">
+        <div style="text-align: center; padding: var(--spacing-lg); background: var(--bg-light); border-radius: var(--border-radius); margin-bottom: var(--spacing-lg);">
+          <div style="margin-bottom: var(--spacing-md);"><svg style="width: 48px; height: 48px; fill: var(--primary-color);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0-2c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm7.5 15c0 .83-.67 1.5-1.5 1.5H6c-.83 0-1.5-.67-1.5-1.5 0-2.5 3.97-4 7.5-4s7.5 1.5 7.5 4zM14 4l-1.25 3.75L10 9l2.75 1.25L14 14l1.25-3.75L19 9l-3.75-1.25L14 4z"/></svg></div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: var(--spacing-sm);" id="shiftNotifRequester"></div>
+          <div style="font-size: 14px; color: var(--text-secondary);">님이 대타근무를 요청했습니다</div>
+        </div>
+        
+        <div style="background: white; border: 2px solid var(--info-color); border-radius: var(--border-radius); padding: var(--spacing-lg); margin-bottom: var(--spacing-lg);">
+          <div style="display: grid; grid-template-columns: 80px 1fr; gap: var(--spacing-sm); font-size: 14px;">
+            <div style="font-weight: 600;"><svg style="width: 16px; height: 16px; fill: var(--text-primary); vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>날짜:</div>
+            <div id="shiftNotifDate"></div>
+            
+            <div style="font-weight: 600;"><svg style="width: 16px; height: 16px; fill: var(--text-primary); vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>시간:</div>
+            <div id="shiftNotifTime"></div>
+            
+            <div style="font-weight: 600;"><svg style="width: 16px; height: 16px; fill: var(--text-primary); vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>사유:</div>
+            <div id="shiftNotifReason" style="color: var(--text-secondary);"></div>
+          </div>
+        </div>
+        
+        <div class="alert alert-warning" style="font-size: 13px;">
+          <svg style="width: 16px; height: 16px; fill: #f59e0b; vertical-align: middle; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>승인 시 해당 날짜/시간에 출근하지 않으면 결근 처리됩니다.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="rejectShiftRequest()">거절</button>
+        <button class="btn btn-primary" onclick="acceptShiftRequest()">승인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <!-- 매장 스케줄표 모달 -->
+  <div id="storeScheduleModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 1400px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3><svg style="width: 20px; height: 20px; fill: var(--primary-color); vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg>매장 스케줄표</h3>
+        <button class="modal-close" onclick="closeStoreScheduleModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- 주차 네비게이션 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-light); border-radius: var(--border-radius);">
+          <button class="btn btn-secondary btn-sm" onclick="changeStoreScheduleWeek(-1)">◀ 이전 주</button>
+          <div style="font-size: 15px; font-weight: 600;" id="storeScheduleWeekDisplay"></div>
+          <button class="btn btn-secondary btn-sm" onclick="changeStoreScheduleWeek(1)">다음 주 ▶</button>
+        </div>
+        
+        <!-- 타임라인 스케줄 -->
+        <div id="storeScheduleTimeline" style="overflow-x: auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 예정 외 출근 확인 모달 -->
+  <div id="unscheduledClockInModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3><svg style="width: 20px; height: 20px; fill: #f59e0b; vertical-align: middle; margin-right: 6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>예정된 출근시간이 아닙니다</h3>
+        <button class="modal-close" onclick="closeUnscheduledClockInModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; margin-bottom: 20px; border-radius: 4px;">
+          <p style="margin: 0 0 8px 0; font-weight: 600; color: #856404;">
+            <i class="fas fa-exclamation-triangle"></i> 오늘 예정된 근무시간이 없습니다.
+          </p>
+          <p id="unscheduledWarningText" style="margin: 0; font-size: 14px; color: #856404;"></p>
+        </div>
+        
+        <div class="form-group">
+          <label for="unscheduledReason">출근 사유 <span style="color: var(--danger-color);">*</span></label>
+          <textarea 
+            id="unscheduledReason" 
+            rows="4" 
+            placeholder="예정된 근무시간이 아닌데 출근하는 이유를 입력해주세요.&#10;예: 긴급 업무, 교대 근무 등"
+            style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; font-family: inherit; resize: vertical;"
+          ></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+          <button class="btn btn-secondary" style="flex: 1;" onclick="closeUnscheduledClockInModal()">
+            취소
+          </button>
+          <button class="btn btn-primary" style="flex: 1;" onclick="confirmUnscheduledClockIn()">
+            출근하기
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 캐시 방지를 위한 버전 관리 -->
+  <script>
+    // 현재 날짜를 버전으로 사용 (YYYYMMDDHH 형식)
+    const VERSION = new Date().toISOString().slice(0,13).replace(/[-:T]/g, '');
+  </script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <!-- 급여 계산 모듈 (관리자 페이지와 동일한 로직 사용) -->
+  <script src="js/salary-calculator.js"></script>
+  
+  <!-- PDF Generator (전역 PDF 생성 모듈) -->
+  <script src="js/pdf-generator.js"></script>
+  
+  <!-- 계약서 상세보기 공통 모듈 (관리자/직원 페이지 공용) -->
+  <script src="js/contract-viewer.js"></script>
+  <!-- 스케줄 뷰어 공통 모듈 (관리자/직원 페이지 공용, 간트차트 전용) -->
+  <script src="js/schedule-viewer.js"></script>
+  
+  <!-- PDF 다운로드 함수 오버라이드 (pdf-generator.js 사용) -->
+  <script>
+    window.downloadContractPDF = function(contractId) {
+      window.generateContractPDF(contractId, { pageType: 'employee' });
+    };
+  </script>
+  <script>
+    // 동적으로 버전이 포함된 스크립트 로드
+    document.write('<script src="js/employee.js?v=' + VERSION + '"><\/script>');
+    // employee-contract-modal.js 제거 - contract-viewer.js 공통 모듈 사용
+  </script>
+</body>
+</html>

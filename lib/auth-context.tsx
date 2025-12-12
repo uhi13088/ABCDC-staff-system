@@ -1,0 +1,98 @@
+'use client';
+
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { 
+  User as FirebaseUser, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  setPersistence,
+  browserLocalPersistence
+} from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
+import { User } from './types';
+
+interface AuthContextType {
+  user: User | null;
+  firebaseUser: FirebaseUser | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Set persistence
+    setPersistence(auth, browserLocalPersistence);
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setFirebaseUser(firebaseUser);
+        
+        // Fetch user data from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            setUser({
+              uid: firebaseUser.uid,
+              ...userDoc.data()
+            } as User);
+          } else {
+            console.error('User document not found');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setUser(null);
+        }
+      } else {
+        setFirebaseUser(null);
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      throw new Error(error.message || '로그인에 실패했습니다.');
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setFirebaseUser(null);
+    } catch (error: any) {
+      console.error('Sign out error:', error);
+      throw new Error(error.message || '로그아웃에 실패했습니다.');
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, firebaseUser, loading, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
