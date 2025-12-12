@@ -11,7 +11,8 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { calculateMonthlySalary, SalaryCalculationResult } from '@/lib/utils/salary-calculator';
 import { COLLECTIONS } from '@/lib/constants';
-import { storeService, salaryService } from '@/services';
+import * as storeService from '@/services/storeService';
+import * as salaryService from '@/services/salaryService';
 
 export interface SalaryWithStatus extends SalaryCalculationResult {
   status: 'unconfirmed' | 'confirmed' | 'paid';

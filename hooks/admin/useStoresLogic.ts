@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import type { StoreFormData } from '@/components/admin/modals/store-form-modal';
 import { COLLECTIONS } from '@/lib/constants';
-import { storeService } from '@/services';
+import * as storeService from '@/services/storeService';
 
 interface UseStoresLogicProps {
   companyId: string;

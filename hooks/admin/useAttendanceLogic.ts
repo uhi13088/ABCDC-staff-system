@@ -25,7 +25,9 @@ import type {
   AttendanceFilterOptions, 
   AttendanceStatusResult 
 } from '@/lib/types/attendance';
-import { storeService, attendanceService } from '@/services';
+import * as storeService from '@/services/storeService';
+import * as attendanceService from '@/services/attendanceService';
+import * as employeeService from '@/services/employeeService';
 
 interface UseAttendanceLogicProps {
   companyId: string;
