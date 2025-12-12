@@ -1,23 +1,17 @@
 /**
  * 직원 관리 Custom Hook
- * 기존 admin-dashboard.html의 Employee 탭 로직을 React Hook으로 변환
+ * Service Layer 기반 리팩토링
  */
 
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  doc, 
-  updateDoc, 
-  deleteDoc,
-  Timestamp 
-} from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { COLLECTIONS, USER_ROLES, USER_STATUS } from '@/lib/constants';
+import { COLLECTIONS } from '@/lib/constants';
+import * as employeeService from '@/services/employeeService';
+import * as contractService from '@/services/contractService';
+import * as storeService from '@/services/storeService';
 import type { Employee, EmployeeFilterOptions, EmployeeStats } from '@/lib/types/employee';
 
 interface UseEmployeeLogicProps {
@@ -44,62 +38,14 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
     setError(null);
 
     try {
-      console.log('📋 직원 목록 로드 시작...');
-      console.log(`📍 컬렉션: users, 조건: role in [staff, store_manager, manager], companyId: ${companyId}`);
+      console.log('📋 직원 목록 로드 시작 (Service Layer)...');
 
-      // Firestore users 컬렉션에서 직원 데이터 가져오기
-      let q = query(
-        collection(db, COLLECTIONS.USERS),
-        where('role', 'in', [USER_ROLES.STAFF, USER_ROLES.STORE_MANAGER, USER_ROLES.MANAGER]),
-        where('companyId', '==', companyId)
-      );
-
-      // 상태 필터 적용
-      if (filters.status) {
-        q = query(q, where('status', '==', filters.status));
-      }
-
-      const usersSnapshot = await getDocs(q);
-      console.log(`📊 조회 결과: ${usersSnapshot.size}명의 직원`);
-
-      if (usersSnapshot.empty) {
-        setEmployees([]);
-        setLoading(false);
-        return;
-      }
-
-      let employeesList: Employee[] = [];
-      usersSnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        console.log(`✅ 직원 로드: ${data.name} (${docSnap.id}), status: ${data.status || 'active'}`);
-        
-        employeesList.push({
-          id: docSnap.id,
-          uid: docSnap.id,
-          email: data.email || '',
-          name: data.name || '-',
-          displayName: data.displayName,
-          phone: data.phone || '-',
-          birth: data.birth || '-',
-          address: data.address || '-',
-          role: data.role,
-          status: data.status || 'active',
-          companyId: data.companyId,
-          storeId: data.storeId,
-          storeName: data.store || '-',
-          store: data.store || '-',
-          position: data.position || '-',
-          employmentStatus: data.employmentStatus || (data.status === 'resigned' ? 'resigned' : 'active'),
-          hireDate: data.hireDate,
-          resignDate: data.resignDate,
-          baseSalary: data.baseSalary,
-          hourlyWage: data.hourlyWage,
-          contractId: data.contractId,
-          contractType: data.contractType,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-        });
+      // 🔥 Service Layer 사용
+      let employeesList = await employeeService.getEmployees(companyId, {
+        status: filters.status,
       });
+
+      console.log(`📊 조회 결과: ${employeesList.length}명의 직원`);
 
       // 필터가 없으면 resigned 제외 (재직자만 표시)
       if (!filters.status && !filters.employmentStatus) {
@@ -108,27 +54,23 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
       }
 
       // 매장 필터 적용 (클라이언트 사이드)
-      // ✅ FIXED: storeId 기준으로 통일 (store 매장명 → storeId UUID)
-      if (filters.store) {
-        employeesList = employeesList.filter(emp => 
-          emp.storeId === filters.store || emp.store === filters.store // 폴백: 레거시 호환
-        );
+      if (filters.storeId) {
+        employeesList = employeesList.filter(emp => emp.storeId === filters.storeId);
       }
 
       console.log(`✅ ${employeesList.length}명의 직원 목록 표시`);
 
-      // Firestore에서 모든 계약서 가져오기
-      const contractsSnapshot = await getDocs(collection(db, COLLECTIONS.CONTRACTS));
+      // 🔥 계약서 수 조회 (Service Layer)
+      const contracts = await contractService.getContracts(companyId);
       const contractsMapTemp = new Map<string, number>();
 
-      contractsSnapshot.forEach((docSnap) => {
-        const contract = docSnap.data();
+      contracts.forEach((contract) => {
         const key = `${contract.employeeName}_${contract.employeeBirth}`;
         contractsMapTemp.set(key, (contractsMapTemp.get(key) || 0) + 1);
       });
 
       setContractsMap(contractsMapTemp);
-      console.log(`📄 계약서 총 ${contractsSnapshot.size}건 조회 완료`);
+      console.log(`📄 계약서 총 ${contracts.length}건 조회 완료`);
 
       setEmployees(employeesList);
       setLoading(false);
@@ -141,37 +83,17 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
   }, [companyId, filters]);
 
   /**
-   * 직원 삭제 (퇴사 처리) - 기존 deleteEmployee 함수
+   * 직원 삭제 (퇴사 처리) - Service Layer
    */
   const deleteEmployee = useCallback(async (uid: string, name: string) => {
     try {
       console.log(`🔄 퇴사 처리 시작: ${name}`);
 
-      // 1. Firestore users 문서의 status를 resigned로 업데이트
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'resigned',
-        resignDate: Timestamp.now(),
-      });
+      // 🔥 Service Layer 사용
+      const today = new Date().toISOString().split('T')[0];
+      await employeeService.resignEmployee(uid, today);
 
       console.log(`✅ Firestore status 업데이트 완료`);
-
-      // 2. employee_docs 컬렉션에서 서류 삭제
-      try {
-        await deleteDoc(doc(db, 'employee_docs', uid));
-        console.log(`✅ Firestore 서류 삭제 완료`);
-      } catch (error: any) {
-        console.warn(`⚠️ Firestore 서류 삭제 실패 (없을 수 있음):`, error.message);
-      }
-
-      // 3. employees 컬렉션도 status 업데이트 (있다면)
-      try {
-        await updateDoc(doc(db, 'employees', uid), {
-          status: 'resigned',
-        });
-        console.log(`✅ employees 컬렉션 status 업데이트 완료`);
-      } catch (error: any) {
-        console.warn(`⚠️ employees 컬렉션 업데이트 실패 (없을 수 있음):`, error.message);
-      }
 
       // 직원 목록 새로고침
       await loadEmployees();
@@ -185,14 +107,12 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
   }, [loadEmployees]);
 
   /**
-   * 직원 승인 - 기존 approveEmployee 함수
+   * 직원 승인 (Service Layer)
    */
   const approveEmployee = useCallback(async (uid: string, name: string) => {
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'approved',
-      });
-
+      // 🔥 Service Layer 사용
+      await employeeService.approveEmployee(uid);
       await loadEmployees();
       return { success: true, message: `✅ ${name}님이 승인되었습니다.` };
 
@@ -203,14 +123,12 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
   }, [loadEmployees]);
 
   /**
-   * 직원 거부 - 기존 rejectEmployee 함수
+   * 직원 거부 (Service Layer)
    */
   const rejectEmployee = useCallback(async (uid: string, name: string) => {
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'rejected',
-      });
-
+      // 🔥 Service Layer 사용
+      await employeeService.rejectEmployee(uid);
       await loadEmployees();
       return { success: true, message: `❌ ${name}님의 가입이 거부되었습니다.` };
 
@@ -278,16 +196,13 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
     if (!companyId) return;
     
     try {
-      const storesSnapshot = await getDocs(
-        query(collection(db, COLLECTIONS.STORES), where('companyId', '==', companyId))
-      );
+      // 🔥 Service Layer 사용
+      const storesList = await storeService.getStores(companyId);
       
-      const storesList = storesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name || doc.data().storeName || '매장',
-      }));
-      
-      setStores(storesList);
+      setStores(storesList.map(store => ({
+        id: store.id!,
+        name: store.name || store.storeName || '매장',
+      })));
     } catch (err) {
       console.error('매장 목록 로드 실패:', err);
     }

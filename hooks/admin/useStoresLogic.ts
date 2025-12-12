@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import type { StoreFormData } from '@/components/admin/modals/store-form-modal';
 import { COLLECTIONS } from '@/lib/constants';
+import { storeService } from '@/services';
 
 interface UseStoresLogicProps {
   companyId: string;
@@ -34,16 +35,8 @@ export function useStoresLogic({ companyId }: UseStoresLogicProps) {
 
     setLoading(true);
     try {
-      const q = query(
-        collection(db, COLLECTIONS.STORES),
-        where('companyId', '==', companyId)
-      );
-      const snapshot = await getDocs(q);
-      
-      const storeList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // 🔥 Service Layer 사용
+      const storeList = await storeService.getStores(companyId);
       
       // 브랜드 정보 조회
       for (const store of storeList) {

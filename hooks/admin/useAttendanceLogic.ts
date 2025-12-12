@@ -25,6 +25,7 @@ import type {
   AttendanceFilterOptions, 
   AttendanceStatusResult 
 } from '@/lib/types/attendance';
+import { storeService, attendanceService } from '@/services';
 
 interface UseAttendanceLogicProps {
   companyId: string;
@@ -92,34 +93,23 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
     try {
       console.log('📍 근무기록 매장 필터 로드:');
       
-      const storesQuery = query(
-        collection(db, COLLECTIONS.STORES),
-        where('companyId', '==', companyId)
-      );
+      // 🔥 Service Layer 사용
+      const storesList = await storeService.getStores(companyId);
       
-      const snapshot = await getDocs(storesQuery);
+      const stores = storesList.map(store => ({
+        id: store.id!,
+        name: store.name || store.storeName || '매장',
+      }));
       
-      const storesList = snapshot.docs.map((docSnap, index) => {
-        const store = docSnap.data();
-        const storeId = docSnap.id;
-        
-        console.log(`  - 매장: "${store.name}" (ID: ${storeId})`);
-        
-        return {
-          id: storeId,
-          name: store.name || store.storeName || '매장',
-        };
-      });
-      
-      setStores(storesList);
+      setStores(stores);
       
       // 🔥 첫 번째 매장을 자동 선택
-      if (storesList.length > 0) {
-        setFilters(prev => ({ ...prev, storeId: storesList[0].id }));
-        console.log(`✅ 첫 번째 매장 자동 선택: ${storesList[0].id}`);
+      if (stores.length > 0) {
+        setFilters(prev => ({ ...prev, storeId: stores[0].id }));
+        console.log(`✅ 첫 번째 매장 자동 선택: ${stores[0].id}`);
       }
       
-      console.log('✅ 근무기록 매장 필터 로드 완료:', snapshot.size, '개 매장');
+      console.log('✅ 근무기록 매장 필터 로드 완료:', stores.length, '개 매장');
     } catch (err) {
       console.error('❌ 근무기록 매장 필터 로드 실패:', err);
     }

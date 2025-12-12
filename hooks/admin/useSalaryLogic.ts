@@ -11,6 +11,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { calculateMonthlySalary, SalaryCalculationResult } from '@/lib/utils/salary-calculator';
 import { COLLECTIONS } from '@/lib/constants';
+import { storeService, salaryService } from '@/services';
 
 export interface SalaryWithStatus extends SalaryCalculationResult {
   status: 'unconfirmed' | 'confirmed' | 'paid';
@@ -54,22 +55,15 @@ export function useSalaryLogic() {
     const loadStores = async () => {
       try {
         const companyId = user.companyId || 'default-company';
-        const storesQuery = query(
-          collection(db, COLLECTIONS.STORES),
-          where('companyId', '==', companyId)
-        );
         
-        const snapshot = await getDocs(storesQuery);
-        const storesList: Store[] = [];
-        snapshot.forEach(doc => {
-          storesList.push({
-            id: doc.id,
-            name: doc.data().name,
-            companyId: doc.data().companyId
-          });
-        });
+        // 🔥 Service Layer 사용
+        const storesList = await storeService.getStores(companyId);
+        setStores(storesList.map(s => ({
+          id: s.id!,
+          name: s.name || s.storeName || '',
+          companyId: s.companyId || companyId,
+        })));
         
-        setStores(storesList);
         console.log('✅ 매장 목록 로딩 완료:', storesList.length);
       } catch (error) {
         console.error('❌ 매장 목록 로딩 실패:', error);

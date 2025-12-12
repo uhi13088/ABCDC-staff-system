@@ -13,21 +13,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  doc, 
-  getDoc,
-  deleteDoc,
-  writeBatch,
-  Timestamp
-} from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { COLLECTIONS } from '@/lib/constants';
 import { Contract, ContractFilters, ContractGroup } from '@/lib/types/contract';
 import { useAuth } from '@/lib/auth-context';
-import { COLLECTIONS } from '@/lib/constants';
+import * as contractService from '@/services/contractService';
+import * as storeService from '@/services/storeService';
+import * as employeeService from '@/services/employeeService';
 
 interface UseContractsLogicProps {
   companyId: string;
@@ -52,22 +45,18 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
   });
 
   /**
-   * 매장 목록 로드
+   * 매장 목록 로드 (Service Layer)
    */
   const loadStores = async () => {
     if (!companyId) return;
     
     try {
-      const storesQuery = query(
-        collection(db, COLLECTIONS.STORES),
-        where('companyId', '==', companyId)
-      );
-      const snapshot = await getDocs(storesQuery);
-      const storesList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name || doc.data().storeName || '',
-      }));
-      setStores(storesList);
+      // 🔥 Service Layer 사용
+      const storesList = await storeService.getStores(companyId);
+      setStores(storesList.map(s => ({
+        id: s.id!,
+        name: s.name || s.storeName || '',
+      })));
     } catch (error) {
       console.error('❌ 매장 로드 실패:', error);
     }
@@ -82,61 +71,32 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
     
     setLoading(true);
     try {
+      // 🔥 Service Layer 사용
       // 1. 직원 정보 가져오기 (status 매핑용)
-      const usersQuery = query(
-        collection(db, COLLECTIONS.USERS),
-        where('companyId', '==', companyId)
-      );
-      const usersSnapshot = await getDocs(usersQuery);
+      const employees = await employeeService.getEmployees(companyId);
       
       const employeeStatusMap: Record<string, string> = {};
-      usersSnapshot.forEach(doc => {
-        const user = doc.data();
-        const key = `${user.name}_${user.birth}`;
-        employeeStatusMap[key] = user.status || 'approved';
+      employees.forEach(emp => {
+        const key = `${emp.name}_${emp.birth}`;
+        employeeStatusMap[key] = emp.status || 'approved';
       });
 
       // 2. 계약서 가져오기
-      const contractsQuery = query(
-        collection(db, COLLECTIONS.CONTRACTS),
-        where('companyId', '==', companyId)
-      );
-      const snapshot = await getDocs(contractsQuery);
+      let allContracts = await contractService.getContracts(companyId, {
+        storeId: filters.storeId || undefined,
+      });
       
-      const allContracts: Contract[] = [];
-      
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        
-        // 🔥 매장 필터 적용 (표준 필드: storeId)
-        if (filters.storeId) {
-          if (data.storeId !== filters.storeId) {
-            return;
-          }
-        }
-        
-        // 근무상태 필터 적용
-        const empKey = `${data.employeeName}_${data.employeeBirth}`;
+      // 근무상태 필터 적용 (클라이언트 사이드)
+      allContracts = allContracts.filter(contract => {
+        const empKey = `${contract.employeeName}_${contract.employeeBirth}`;
         const empStatus = employeeStatusMap[empKey] || 'approved';
         
         if (filters.employmentStatus === 'active') {
-          if (empStatus !== 'approved' && empStatus !== 'active') {
-            return;
-          }
+          return empStatus === 'approved' || empStatus === 'active';
         } else if (filters.employmentStatus === 'resigned') {
-          if (empStatus !== 'resigned') {
-            return;
-          }
+          return empStatus === 'resigned';
         }
-        
-        // 계약서 추가
-        allContracts.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate?.() || data.createdAt,
-          updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
-          signedAt: data.signedAt?.toDate?.() || data.signedAt,
-        } as Contract);
+        return true;
       });
       
       setContracts(allContracts);
@@ -209,40 +169,9 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
     }
     
     try {
-      // 1. 연관 스케줄 삭제 (기본 스케줄만)
-      console.log(`🗑️ 계약서 ${contractId}의 기본 스케줄 삭제 시작...`);
+      // 🔥 Service Layer 사용
+      await contractService.deleteContract(contractId, companyId!);
       
-      const schedulesQuery = query(
-        collection(db, COLLECTIONS.SCHEDULES),
-        where('companyId', '==', companyId),
-        where('contractId', '==', contractId)
-      );
-      const schedulesSnapshot = await getDocs(schedulesQuery);
-      
-      if (!schedulesSnapshot.empty) {
-        const batch = writeBatch(db);
-        let deleteCount = 0;
-        
-        schedulesSnapshot.forEach(doc => {
-          const scheduleData = doc.data();
-          // 추가계약서/대체근무 스케줄은 제외
-          if (!scheduleData.isAdditionalContract && !scheduleData.isSubstitute) {
-            batch.delete(doc.ref);
-            deleteCount++;
-          }
-        });
-        
-        if (deleteCount > 0) {
-          await batch.commit();
-          console.log(`✅ 기본 스케줄 ${deleteCount}개 삭제 완료`);
-        }
-      }
-      
-      // 2. 계약서 삭제
-      await deleteDoc(doc(db, 'contracts', contractId));
-      console.log(`✅ 계약서 ${contractId} 삭제 완료`);
-      
-      // 3. 목록 새로고침
       alert('계약서가 삭제되었습니다.');
       await loadContracts();
       
@@ -257,21 +186,8 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
    */
   const getContract = async (contractId: string): Promise<Contract | null> => {
     try {
-      const docRef = doc(db, 'contracts', contractId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          createdAt: data.createdAt?.toDate?.() || data.createdAt,
-          updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
-          signedAt: data.signedAt?.toDate?.() || data.signedAt,
-        } as Contract;
-      }
-      
-      return null;
+      // 🔥 Service Layer 사용
+      return await contractService.getContractById(contractId);
     } catch (error) {
       console.error('❌ 계약서 조회 실패:', error);
       return null;
