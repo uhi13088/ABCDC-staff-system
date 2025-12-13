@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
+import { todayKST } from '@/lib/utils/timezone';
 
 interface UseDashboardLogicProps {
   companyId: string;
@@ -45,7 +46,7 @@ export function useDashboardLogic({ companyId }: UseDashboardLogicProps) {
       );
 
       // 오늘 출근
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayKST(); // KST 기준 오늘 날짜
       const attendanceSnapshot = await getDocs(
         query(
           collection(db, COLLECTIONS.ATTENDANCE),

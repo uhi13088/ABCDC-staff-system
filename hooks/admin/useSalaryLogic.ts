@@ -13,6 +13,7 @@ import { calculateMonthlySalary, SalaryCalculationResult } from '@/lib/utils/sal
 import { COLLECTIONS } from '@/lib/constants';
 import * as storeService from '@/services/storeService';
 import * as salaryService from '@/services/salaryService';
+import { nowKST, nowISOKST, yearKST, monthKST } from '@/lib/utils/timezone';
 
 export interface SalaryWithStatus extends SalaryCalculationResult {
   status: 'unconfirmed' | 'confirmed' | 'paid';
@@ -43,8 +44,8 @@ export function useSalaryLogic() {
   
   // 필터 상태
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // KST 기준 현재 월
+    return `${yearKST()}-${String(monthKST()).padStart(2, '0')}`;
   });
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [employmentStatusFilter, setEmploymentStatusFilter] = useState<string>('active');
@@ -348,7 +349,7 @@ export function useSalaryLogic() {
         netPay,
         status: 'confirmed',
         paid: false,
-        confirmedAt: new Date().toISOString(),
+        confirmedAt: nowISOKST(), // KST 기준
         confirmedBy: user.uid
       });
       
@@ -374,7 +375,7 @@ export function useSalaryLogic() {
       await updateDoc(salaryDocRef, {
         status: 'paid',
         paid: true,
-        paidAt: new Date().toISOString(),
+        paidAt: nowISOKST(), // KST 기준
         paidBy: user?.uid
       });
       

@@ -16,7 +16,6 @@ import {
   Timestamp,
   serverTimestamp,
   QueryConstraint,
-} serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
@@ -47,22 +46,22 @@ export async function getSchedules(
     constraints.push(where('userId', '==', filters.userId));
   }
 
+  // 🔥 날짜 범위 필터링 (서버 쿼리로 이동)
+  if (filters?.startDate) {
+    constraints.push(where('date', '>=', filters.startDate));
+  }
+  
+  if (filters?.endDate) {
+    constraints.push(where('date', '<=', filters.endDate));
+  }
+
   const q = query(collection(db, COLLECTIONS.SCHEDULES), ...constraints);
   const snapshot = await getDocs(q);
 
-  let schedules = snapshot.docs.map((doc) => ({
+  const schedules = snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   } as Schedule));
-
-  // 날짜 범위 필터링 (클라이언트)
-  if (filters?.startDate || filters?.endDate) {
-    schedules = schedules.filter(schedule => {
-      if (filters.startDate && schedule.date < filters.startDate) return false;
-      if (filters.endDate && schedule.date > filters.endDate) return false;
-      return true;
-    });
-  }
 
   return schedules;
 }

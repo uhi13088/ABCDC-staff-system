@@ -13,6 +13,7 @@ import * as employeeService from '@/services/employeeService';
 import * as contractService from '@/services/contractService';
 import * as storeService from '@/services/storeService';
 import type { Employee, EmployeeFilterOptions, EmployeeStats } from '@/lib/types/employee';
+import { todayKST } from '@/lib/utils/timezone';
 
 interface UseEmployeeLogicProps {
   companyId: string;
@@ -90,7 +91,7 @@ export function useEmployeeLogic({ companyId, userRole }: UseEmployeeLogicProps)
       console.log(`🔄 퇴사 처리 시작: ${name}`);
 
       // 🔥 Service Layer 사용
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayKST(); // KST 기준 오늘 날짜
       await employeeService.resignEmployee(uid, today);
 
       console.log(`✅ Firestore status 업데이트 완료`);

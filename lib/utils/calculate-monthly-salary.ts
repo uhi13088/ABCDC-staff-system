@@ -250,9 +250,9 @@ export async function calculateMonthlySalary(
       console.log(`🎉 공휴일 근무 감지: ${att.date}, ${workHours.toFixed(2)}시간`);
     }
     
-    // 🆕 Phase 5: 인센티브 수당 계산 (wageIncentive × 근무시간)
+    // 🆕 Phase 5: 인센티브 수당 계산 (wageIncentive × 근무시간) - 즉시 반올림
     if (att.wageIncentive && att.wageIncentive > 0) {
-      const incentiveAmount = att.wageIncentive * workHours;
+      const incentiveAmount = Math.round(att.wageIncentive * workHours);
       totalIncentiveAmount += incentiveAmount;
       console.log(`💰 인센티브 수당 감지: ${att.date}, ${att.wageIncentive.toLocaleString()}원/시간 × ${workHours.toFixed(2)}시간 = ${incentiveAmount.toLocaleString()}원`);
     }
@@ -355,7 +355,7 @@ export async function calculateMonthlySalary(
   try {
     if (contract.startDate) {
       const contractStartDate = new Date(contract.startDate);
-      const now = new Date();
+      const now = nowKST(); // KST 기준
       const daysDiff = Math.floor((now.getTime() - contractStartDate.getTime()) / (1000 * 60 * 60 * 24));
       const yearsDiff = daysDiff / 365;
       

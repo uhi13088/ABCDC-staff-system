@@ -16,7 +16,6 @@ import {
   Timestamp,
   serverTimestamp,
   QueryConstraint,
-} serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';

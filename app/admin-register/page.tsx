@@ -71,10 +71,11 @@ export default function AdminRegisterPage() {
       return;
     }
 
+    let user = null;
     try {
       // 1. Firebase Auth 계정 생성
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const user = userCredential.user;
+      user = userCredential.user;
 
       // 2. Company ID 생성
       const companyId = generateCompanyId(formData.companyName);
@@ -127,6 +128,17 @@ export default function AdminRegisterPage() {
 
     } catch (err: any) {
       console.error('Registration error:', err);
+      
+      // 🚨 Rollback: Firestore 쓰기 실패 시 Auth 계정 삭제
+      if (user && err.code !== 'auth/email-already-in-use' && err.code !== 'auth/weak-password') {
+        try {
+          await user.delete();
+          console.log('🔄 Rollback: Orphan Auth 계정 삭제 완료');
+        } catch (deleteErr) {
+          console.error('❌ Rollback 실패:', deleteErr);
+        }
+      }
+      
       let msg = '가입 중 오류가 발생했습니다.';
       if (err.code === 'auth/email-already-in-use') msg = '이미 사용 중인 이메일입니다.';
       if (err.code === 'auth/weak-password') msg = '비밀번호는 6자 이상이어야 합니다.';
