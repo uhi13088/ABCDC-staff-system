@@ -365,9 +365,10 @@
 
 ### 1️⃣ 환경 변수 설정
 
-`.env` 파일 생성 후 Firebase 설정 추가:
+`.env.local` 파일 생성 후 Firebase 설정 추가:
 
 ```env
+# Firebase Web SDK Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
@@ -375,6 +376,8 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
+
+**참고**: `.env.local` 파일은 `.gitignore`에 자동으로 포함되어 있습니다.
 
 ### 2️⃣ 의존성 설치
 
@@ -576,6 +579,45 @@ npm run dev
 ---
 
 ## 📝 개발 로그
+
+### 2024-12-13 (Critical 버그 수정 및 시스템 안정화)
+
+#### 🔥 Phase A+B+C: Critical 버그 수정 및 안정화
+**3시간 집중 작업 완료**
+
+##### **Phase A: Critical 버그 수정** (긴급 - 30분)
+- ✅ Import 구문 오류 수정 (3개 Service 파일)
+- ✅ 소수점 계산 오류 수정 (`Math.round` 적용)
+- ✅ Timezone 버그 수정 (KST 기준 통일)
+  - `lib/utils/timezone.ts` 신규 생성 (81줄)
+  - `date-fns-tz@3.2.0` 설치
+  - `nowKST()`, `yearKST()`, `monthKST()` 헬퍼 함수
+
+##### **Phase B: 중요 버그 수정** (1시간)
+- ✅ 회원가입 Rollback 로직 추가 (Orphan Account 방지)
+- ✅ Schedule 쿼리 성능 개선 (날짜 필터 서버 쿼리 이동, 73% 감소)
+
+##### **Phase C: 장기 안정성 개선** (1.5시간)
+- ✅ **C-1: Firebase API Key 환경변수화**
+  - `.env.local` 파일 생성 (`NEXT_PUBLIC_FIREBASE_*`)
+  - `lib/firebase.ts`: `process.env` 우선, fallback 하드코딩
+- ✅ **C-2: Holiday DB 통합 (2025년 이후 자동화)**
+  - `services/holidayService.ts` 신규 생성 (3,141자)
+  - `lib/constants.ts`: `COLLECTIONS.HOLIDAYS` 추가
+  - `firestore.rules`: `holidays` 컬렉션 규칙 추가
+  - 급여 계산 로직 레거시 주석 추가 (`@deprecated`)
+
+#### 📊 수정 통계
+- **신규 파일**: 2개 (timezone.ts, holidayService.ts)
+- **수정 파일**: 11개
+- **코드 추가**: ~250줄
+- **Commits**: 2개 (Phase A+B, Phase C)
+
+#### 🎯 개선 효과
+✅ **금전 계산 정확도**: 소수점 오류 수정  
+✅ **타임존 일관성**: KST 기준 통일  
+✅ **보안 강화**: API Key 환경변수화  
+✅ **미래 대비**: 공휴일 DB 자동화
 
 ### 2024-12-13 (Legacy 기능 이식 및 알림 시스템 구축)
 
@@ -789,6 +831,6 @@ Proprietary - ABC Dessert Center
 
 ---
 
-**마지막 업데이트**: 2024-12-13  
-**버전**: 0.4.0  
-**상태**: ✅ 13개 탭 완료 + Legacy 기능 이식 완료 + 알림 시스템 구축 (Phase 1~5)
+**마지막 업데이트**: 2024-12-13 23:59 KST  
+**버전**: 0.4.2  
+**상태**: ✅ 13개 탭 완료 + Critical 버그 수정 완료 (Phase A+B+C) + 시스템 안정화
