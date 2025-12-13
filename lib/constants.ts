@@ -18,6 +18,7 @@ export const COLLECTIONS = {
   BRANDS: 'brands',
   STORES: 'stores',
   INVITES: 'invites',
+  OPEN_SHIFTS: 'open_shifts', // 긴급 근무 모집
 } as const;
 
 /**

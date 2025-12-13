@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, FileText, Edit } from 'lucide-react';
 import { useAttendanceLogic } from '@/hooks/admin/useAttendanceLogic';
+import { EmergencyRecruitmentModal } from '@/components/admin/modals/emergency-recruitment-modal';
+import { useAuth } from '@/lib/auth-context';
 
 /**
  * 근무기록 관리 탭 (Shadcn Blue Theme 완벽 적용)
@@ -34,6 +36,7 @@ interface AttendanceTabProps {
 }
 
 export default function AttendanceTab({ companyId }: AttendanceTabProps) {
+  const { user } = useAuth();
   const {
     attendanceList,
     loading,
@@ -43,6 +46,9 @@ export default function AttendanceTab({ companyId }: AttendanceTabProps) {
     loadAttendanceList,
     calculateAttendanceStatus,
   } = useAttendanceLogic({ companyId });
+
+  // 긴급 근무 모집 모달 상태
+  const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
 
   useEffect(() => {
     if (companyId && filters.storeId) {
@@ -82,7 +88,7 @@ export default function AttendanceTab({ companyId }: AttendanceTabProps) {
             </CardTitle>
             <Button 
               className="bg-red-600 hover:bg-red-700 text-white"
-              disabled
+              onClick={() => setEmergencyModalOpen(true)}
             >
               <AlertCircle className="w-4 h-4 mr-2" />
               긴급 근무 모집
@@ -241,6 +247,23 @@ export default function AttendanceTab({ companyId }: AttendanceTabProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* 긴급 근무 모집 모달 */}
+      {user && (
+        <EmergencyRecruitmentModal
+          isOpen={emergencyModalOpen}
+          onClose={() => {
+            setEmergencyModalOpen(false);
+            // 모집 공고 등록 후 근무기록 새로고침
+            if (companyId && filters.storeId) {
+              loadAttendanceList();
+            }
+          }}
+          companyId={companyId}
+          currentUserId={user.uid}
+          currentUserName={user.displayName || user.name || user.email || '관리자'}
+        />
+      )}
     </div>
   );
 }

@@ -29,3 +29,6 @@ export * from './noticeService';
 
 // Approval Service
 export * from './approvalService';
+
+// Open Shift Service (긴급 근무 모집)
+export * from './openShiftService';
