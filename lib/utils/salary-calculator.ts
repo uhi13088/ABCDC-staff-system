@@ -11,6 +11,7 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import type { Employee, Contract, Attendance } from '@/lib/types';
+import * as holidayService from '@/services/holidayService';
 
 // ===========================================
 // 공휴일 데이터 (2025년)
@@ -296,6 +297,39 @@ export async function calculateMonthlySalary(
   // yearMonth 파싱 (YYYY-MM 형식)
   const [year, month] = yearMonth.split('-').map(Number);
   
+  // 🆕 Phase F: 공휴일 자동 동기화 (DB에 없으면 API에서 가져오기)
+  let holidays: holidayService.Holiday[] = [];
+  try {
+    // 1. DB에서 해당 연도 공휴일 조회
+    holidays = await holidayService.getHolidays(year);
+    
+    // 2. DB에 공휴일이 없으면 API에서 자동 동기화
+    if (holidays.length === 0) {
+      console.log(`📅 ${year}년 공휴일이 DB에 없습니다. API에서 자동 동기화 시도...`);
+      const syncCount = await holidayService.syncHolidaysFromAPI(year);
+      
+      if (syncCount > 0) {
+        // 3. 동기화 성공 시 다시 조회
+        holidays = await holidayService.getHolidays(year);
+        console.log(`✅ ${year}년 공휴일 ${syncCount}개 자동 동기화 완료!`);
+      } else {
+        // 4. API 실패 시 하드코딩된 2025년 데이터로 Fallback
+        console.warn(`⚠️ API 동기화 실패. ${year === 2025 ? '2025년 하드코딩 데이터' : '빈 배열'} 사용`);
+        if (year === 2025) {
+          holidays = publicHolidays2025.map(date => ({ date, name: '공휴일', year: 2025 }));
+        }
+      }
+    } else {
+      console.log(`✅ ${year}년 공휴일 ${holidays.length}개 DB에서 조회 완료`);
+    }
+  } catch (error) {
+    console.error('❌ 공휴일 조회/동기화 실패:', error);
+    // Fallback: 2025년이면 하드코딩 데이터 사용
+    if (year === 2025) {
+      holidays = publicHolidays2025.map(date => ({ date, name: '공휴일', year: 2025 }));
+    }
+  }
+  
   // 매장의 출퇴근 허용시간 설정 가져오기
   let thresholds = {
     earlyClockIn: 15,    // 기본값: 15분 이상 일찍 출근해야 수당 적용
@@ -490,7 +524,8 @@ export async function calculateMonthlySalary(
     
     const workHours = calculateWorkHours(adjustedCheckIn, adjustedCheckOut);
     const nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
-    const isHoliday = isPublicHoliday(att.date);
+    // 🆕 Phase F: DB 기반 공휴일 체크 (자동 동기화된 holidays 배열 사용)
+    const isHoliday = holidays.some(h => h.date === att.date);
     
     totalWorkHours += workHours;
     result.workDays++;
