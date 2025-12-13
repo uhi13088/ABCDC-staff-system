@@ -321,6 +321,65 @@ service cloud.firestore {
     }
     
     // ====================================
+    // 12. Shift Requests (교대근무 요청)
+    // ====================================
+    match /shift_requests/{shiftId} {
+      // 읽기: 같은 회사
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      
+      // 생성: 인증된 사용자
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['companyId'])
+        && isSameCompany(request.resource.data.companyId);
+      
+      // 수정: Manager 이상
+      allow update: if isManager() && isSameCompany(resource.data.companyId);
+      
+      // 삭제: Manager 이상
+      allow delete: if isManager() && isSameCompany(resource.data.companyId);
+    }
+    
+    // ====================================
+    // 13. Simulators (스케줄 시뮬레이터)
+    // ====================================
+    match /simulators/{simulatorId} {
+      // 읽기: 인증된 사용자 (모든 시뮬레이터 조회 가능)
+      allow read: if isAuthenticated();
+      
+      // 생성: Store Manager 이상
+      allow create: if isStoreManager()
+        && request.resource.data.keys().hasAll(['name', 'createdAt']);
+      
+      // 수정: Store Manager 이상
+      allow update: if isStoreManager();
+      
+      // 삭제: Store Manager 이상
+      allow delete: if isStoreManager();
+    }
+    
+    // ====================================
+    // 14. Signed Contracts (서명된 계약서)
+    // ====================================
+    match /signedContracts/{contractId} {
+      // 읽기: 같은 회사 + Store Manager 이상 또는 본인
+      allow read: if isAuthenticated()
+        && ((isStoreManager() && isSameCompany(resource.data.companyId))
+        || isOwner(resource.data.userId));
+      
+      // 생성: 본인만 (직원이 서명)
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['userId', 'companyId'])
+        && isOwner(request.resource.data.userId)
+        && isSameCompany(request.resource.data.companyId);
+      
+      // 수정: 금지 (서명 후 수정 불가)
+      allow update: if false;
+      
+      // 삭제: Admin만
+      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
+    }
+    
+    // ====================================
     // 기본 규칙: 모든 다른 경로는 차단
     // ====================================
     match /{document=**} {

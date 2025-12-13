@@ -180,14 +180,14 @@ export function SimulatorModal({
             {/* 상단 컨트롤 */}
             <div className="flex gap-2 items-center mt-4">
               <Select
-                value={currentSimulatorId || ''}
-                onValueChange={(value) => loadSimulator(value)}
+                value={currentSimulatorId || 'new'}
+                onValueChange={(value) => loadSimulator(value === 'new' ? '' : value)}
               >
                 <SelectTrigger className="flex-1 max-w-[300px]">
                   <SelectValue placeholder="새 시뮬레이터" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">새 시뮬레이터</SelectItem>
+                  <SelectItem value="new">새 시뮬레이터</SelectItem>
                   {simulatorList.map(sim => (
                     <SelectItem key={sim.id} value={sim.id!}>
                       {sim.name}
