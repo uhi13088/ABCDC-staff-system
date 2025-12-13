@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Settings as SettingsIcon, Calendar, Plus, Trash2, Edit } from 'lucide-react';
+import { Settings as SettingsIcon, Calendar, Plus, Trash2, Edit, RefreshCcw } from 'lucide-react';
 import { HolidayFormModal } from '../modals/holiday-form-modal';
 import * as holidayService from '@/services/holidayService';
 import type { Holiday } from '@/services/holidayService';
@@ -111,6 +111,31 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
     }
   };
 
+  // 공공 API에서 공휴일 동기화
+  const handleSyncFromAPI = async () => {
+    if (!confirm(`${selectedYear}년 공휴일을 행정안전부 API에서 불러와 동기화하시겠습니까?`)) return;
+
+    setLoading(true);
+    try {
+      const count = await holidayService.syncHolidaysFromAPI(selectedYear);
+      if (count > 0) {
+        alert(`✅ ${selectedYear}년 공휴일 ${count}개가 추가되었습니다.`);
+        await loadHolidays();
+      } else {
+        alert('⚠️ API에서 공휴일을 불러올 수 없습니다.\n환경변수 NEXT_PUBLIC_HOLIDAY_API_KEY를 설정하세요.');
+      }
+    } catch (error: any) {
+      console.error('API 동기화 실패:', error);
+      if (error.code === 'permission-denied') {
+        alert('❌ 권한이 없습니다. Admin만 공휴일을 추가할 수 있습니다.');
+      } else {
+        alert('❌ API 동기화 중 오류가 발생했습니다.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <Card>
@@ -150,6 +175,15 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
                     2025년 일괄 추가
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSyncFromAPI}
+                  disabled={loading}
+                >
+                  <RefreshCcw className="w-4 h-4 mr-2" />
+                  공공 API 동기화
+                </Button>
                 <Button
                   size="sm"
                   onClick={() => {

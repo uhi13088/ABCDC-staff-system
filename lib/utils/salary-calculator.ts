@@ -16,15 +16,6 @@ import type { Employee, Contract, Attendance } from '@/lib/types';
 // 공휴일 데이터 (2025년)
 // ===========================================
 
-/**
- * 🔥 Phase C-2: 공휴일 DB 통합
- * 2025년 이후 공휴일을 Firestore에서 조회하도록 개선
- * 
- * @deprecated publicHolidays2025 상수는 레거시입니다. 
- * 새 코드는 holidayService.getHolidays()를 사용하세요.
- * 
- * Fallback: DB 조회 실패 시 2025년 공휴일 사용
- */
 export const publicHolidays2025 = [
   '2025-01-01', // 신정
   '2025-01-28', '2025-01-29', '2025-01-30', // 설날 연휴
@@ -41,12 +32,9 @@ export const publicHolidays2025 = [
 ];
 
 /**
- * 해당 날짜가 공휴일인지 확인 (레거시 함수)
+ * 해당 날짜가 공휴일인지 확인
  * @param dateStr - "YYYY-MM-DD" 형식
  * @returns 공휴일 여부
- * 
- * @deprecated 이 함수는 2025년 하드코딩 데이터를 사용합니다.
- * 새 코드는 holidayService.isHoliday()를 사용하세요.
  */
 export function isPublicHoliday(dateStr: string): boolean {
   return publicHolidays2025.includes(dateStr);
@@ -308,21 +296,6 @@ export async function calculateMonthlySalary(
   // yearMonth 파싱 (YYYY-MM 형식)
   const [year, month] = yearMonth.split('-').map(Number);
   
-  // 🔥 Phase D: 공휴일 DB 조회 (연도별 캐싱)
-  let holidays: { date: string; name: string }[] = [];
-  try {
-    const { getHolidays } = await import('@/services/holidayService');
-    const companyId = employee.companyId || contract.companyId;
-    holidays = await getHolidays(year, companyId);
-    console.log(`📅 ${year}년 공휴일 ${holidays.length}개 로드 완료`);
-  } catch (error) {
-    console.warn('⚠️ 공휴일 DB 조회 실패, 레거시 하드코딩 사용:', error);
-    // Fallback: 2025년 하드코딩 데이터
-    if (year === 2025) {
-      holidays = publicHolidays2025.map(date => ({ date, name: '공휴일' }));
-    }
-  }
-  
   // 매장의 출퇴근 허용시간 설정 가져오기
   let thresholds = {
     earlyClockIn: 15,    // 기본값: 15분 이상 일찍 출근해야 수당 적용
@@ -516,36 +489,57 @@ export async function calculateMonthlySalary(
     }
     
     const workHours = calculateWorkHours(adjustedCheckIn, adjustedCheckOut);
-    let nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
-    
-    // 🔒 휴게시간이 야간 시간대(22:00~06:00)에 포함되면 차감
-    if (contract.breakTime && nightHours > 0) {
-      const breakStart = `${String(contract.breakTime.startHour || 0).padStart(2, '0')}:${String(contract.breakTime.startMinute || 0).padStart(2, '0')}`;
-      const breakEnd = `${String(contract.breakTime.endHour || 0).padStart(2, '0')}:${String(contract.breakTime.endMinute || 0).padStart(2, '0')}`;
-      const breakNightHours = calculateNightHours(breakStart, breakEnd);
-      
-      if (breakNightHours > 0) {
-        nightHours = Math.max(0, nightHours - breakNightHours);
-        console.log(`⏰ 야간 휴게시간 ${breakNightHours.toFixed(2)}시간 차감 (${breakStart}~${breakEnd})`);
-      }
-    }
-    
-    // 🔥 Phase D: DB 기반 공휴일 체크
-    const isHoliday = holidays.some(h => h.date === att.date);
+    const nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
+    const isHoliday = isPublicHoliday(att.date);
     
     totalWorkHours += workHours;
     result.workDays++;
     
     // 야간 근무 시간
     if (contract.allowances?.night && nightHours > 0) {
-      totalNightHours += nightHours;
+      // 🆕 Phase E: 휴게시간이 야간시간(22:00~06:00)에 겹치면 차감
+      if (contract.breakTime) {
+        const breakStart = contract.breakTime.startHour * 60 + (contract.breakTime.startMinute || 0);
+        const breakEnd = contract.breakTime.endHour * 60 + (contract.breakTime.endMinute || 0);
+        const nightStart = 22 * 60; // 22:00
+        const nightEnd = 6 * 60;   // 06:00 (다음날)
+        
+        // 휴게시간이 야간시간과 겹치는 부분 계산
+        let breakNightMinutes = 0;
+        
+        // Case 1: 휴게시간이 22:00~24:00 사이에 겹침
+        if (breakStart < 24 * 60 && breakEnd < 24 * 60) {
+          const overlapStart = Math.max(breakStart, nightStart);
+          const overlapEnd = Math.min(breakEnd, 24 * 60);
+          if (overlapStart < overlapEnd) {
+            breakNightMinutes += overlapEnd - overlapStart;
+          }
+        }
+        
+        // Case 2: 휴게시간이 00:00~06:00 사이에 겹침
+        if (breakEnd > 0 && breakEnd <= nightEnd) {
+          const overlapStart = Math.max(breakStart, 0);
+          const overlapEnd = Math.min(breakEnd, nightEnd);
+          if (overlapStart < overlapEnd) {
+            breakNightMinutes += overlapEnd - overlapStart;
+          }
+        }
+        
+        const adjustedNightHours = Math.max(0, nightHours - breakNightMinutes / 60);
+        totalNightHours += adjustedNightHours;
+        
+        if (breakNightMinutes > 0) {
+          console.log(`🌙 야간 휴게시간 차감: ${nightHours.toFixed(2)}시간 - ${(breakNightMinutes / 60).toFixed(2)}시간 = ${adjustedNightHours.toFixed(2)}시간`);
+        }
+      } else {
+        totalNightHours += nightHours;
+      }
     }
     
     // 공휴일 근무 시간
     if (isHoliday && contract.allowances?.holiday) {
       totalHolidayHours += workHours;
-      const holidayInfo = holidays.find(h => h.date === att.date);
-      console.log(`🎉 공휴일 근무 감지: ${att.date} (${holidayInfo?.name}), ${workHours.toFixed(2)}시간`);
+      console.log(`🎉 공휴일 근무 감지: ${att.date}, ${workHours.toFixed(2)}시간`);
     }
     
     // 🆕 Phase 5: 인센티브 수당 계산 (wageIncentive × 근무시간)
@@ -636,8 +630,7 @@ export async function calculateMonthlySalary(
       }
       
       if (weekHours >= 15) {
-        // 🔒 법원 판결 기준: 주휴수당 시간 = 주 근무시간 ÷ 5 (최대 8시간 제한)
-        // 주 40시간 초과 시 연장수당으로 처리되므로 주휴수당은 8시간 상한
+        // 법원 판결 기준: 주휴수당 시간 = 주 근무시간 ÷ 5 (최대 8시간)
         const weekHolidayHours = Math.min(weekHours / 5, 8);
         weeklyHolidayHours += weekHolidayHours;
         console.log(`✅ ${weekKey}: 주휴수당 적용 (근무시간: ${weekHours.toFixed(2)}시간, 주휴수당 시간: ${weekHolidayHours.toFixed(2)}시간, 금액: ${Math.round(result.hourlyWage * weekHolidayHours).toLocaleString()}원)`);

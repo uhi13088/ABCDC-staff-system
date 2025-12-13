@@ -103,6 +103,98 @@ export function isHoliday(dateStr: string, holidays: Holiday[]): boolean {
 }
 
 /**
+ * 행정안전부 공공 API에서 공휴일 정보 가져오기
+ * @param year - 연도 (예: 2025)
+ * @param apiKey - 공공데이터포털 인증키 (환경변수: NEXT_PUBLIC_HOLIDAY_API_KEY)
+ */
+export async function fetchHolidaysFromAPI(
+  year: number,
+  apiKey?: string
+): Promise<Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[]> {
+  // API 키가 없으면 빈 배열 반환
+  const key = apiKey || process.env.NEXT_PUBLIC_HOLIDAY_API_KEY;
+  if (!key) {
+    console.warn('⚠️ 공휴일 API 키가 설정되지 않았습니다. 환경변수 NEXT_PUBLIC_HOLIDAY_API_KEY를 설정하세요.');
+    return [];
+  }
+
+  try {
+    const url = `http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&numOfRows=50&ServiceKey=${key}&_type=json`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    // API 응답 구조 확인
+    const items = data?.response?.body?.items?.item;
+    if (!items) {
+      console.error('❌ 공휴일 API 응답 오류:', data);
+      return [];
+    }
+    
+    // 배열로 변환 (단일 항목인 경우 배열로 감싸기)
+    const itemsArray = Array.isArray(items) ? items : [items];
+    
+    // Holiday 형식으로 변환
+    const holidays: Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[] = itemsArray.map((item: any) => {
+      const dateStr = String(item.locdate); // YYYYMMDD 형식
+      const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+      
+      return {
+        date: formattedDate,
+        name: item.dateName || '공휴일',
+        year: year,
+      };
+    });
+    
+    console.log(`✅ ${year}년 공휴일 ${holidays.length}개 불러옴 (공공 API)`);
+    return holidays;
+  } catch (error) {
+    console.error('❌ 공휴일 API 호출 실패:', error);
+    return [];
+  }
+}
+
+/**
+ * 공공 API에서 공휴일을 불러와 Firestore에 저장
+ * @param year - 연도
+ * @param apiKey - API 인증키 (선택사항)
+ */
+export async function syncHolidaysFromAPI(year: number, apiKey?: string): Promise<number> {
+  const holidays = await fetchHolidaysFromAPI(year, apiKey);
+  
+  if (holidays.length === 0) {
+    console.warn(`⚠️ ${year}년 공휴일을 불러올 수 없습니다.`);
+    return 0;
+  }
+  
+  let createdCount = 0;
+  
+  for (const holiday of holidays) {
+    try {
+      // 중복 체크 (날짜로 조회)
+      const q = query(
+        collection(db, COLLECTIONS.HOLIDAYS),
+        where('date', '==', holiday.date)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        await createHoliday(holiday);
+        createdCount++;
+        console.log(`✅ 공휴일 추가: ${holiday.date} - ${holiday.name}`);
+      } else {
+        console.log(`⏭️ 이미 존재: ${holiday.date} - ${holiday.name}`);
+      }
+    } catch (error) {
+      console.error(`❌ 공휴일 추가 실패: ${holiday.date}`, error);
+    }
+  }
+  
+  console.log(`✅ ${year}년 공휴일 동기화 완료: ${createdCount}개 추가`);
+  return createdCount;
+}
+
+/**
  * 2025년 공휴일 초기 데이터 (마이그레이션용)
  */
 export const HOLIDAYS_2025: Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[] = [

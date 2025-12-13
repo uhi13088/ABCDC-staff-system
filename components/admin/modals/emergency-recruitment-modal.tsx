@@ -3,11 +3,12 @@
  * 긴급 근무 모집 모달
  * 
  * 백업: admin-dashboard.html 라인 7757-7902
+ * 🆕 Phase F: React.forwardRef 적용으로 Dialog ref 경고 해결
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,13 +45,8 @@ interface Store {
   name: string;
 }
 
-export function EmergencyRecruitmentModal({
-  isOpen,
-  onClose,
-  companyId,
-  currentUserId,
-  currentUserName,
-}: EmergencyRecruitmentModalProps) {
+export const EmergencyRecruitmentModal = forwardRef<HTMLDivElement, EmergencyRecruitmentModalProps>(
+  ({ isOpen, onClose, companyId, currentUserId, currentUserName }, ref) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -280,4 +276,7 @@ export function EmergencyRecruitmentModal({
       </DialogContent>
     </Dialog>
   );
-}
+});
+
+// displayName 설정 (React DevTools에서 컴포넌트 이름 표시용)
+EmergencyRecruitmentModal.displayName = 'EmergencyRecruitmentModal';
