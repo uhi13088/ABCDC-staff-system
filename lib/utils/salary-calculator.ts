@@ -516,7 +516,19 @@ export async function calculateMonthlySalary(
     }
     
     const workHours = calculateWorkHours(adjustedCheckIn, adjustedCheckOut);
-    const nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
+    let nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
+    
+    // 🔒 휴게시간이 야간 시간대(22:00~06:00)에 포함되면 차감
+    if (contract.breakTime && nightHours > 0) {
+      const breakStart = `${String(contract.breakTime.startHour || 0).padStart(2, '0')}:${String(contract.breakTime.startMinute || 0).padStart(2, '0')}`;
+      const breakEnd = `${String(contract.breakTime.endHour || 0).padStart(2, '0')}:${String(contract.breakTime.endMinute || 0).padStart(2, '0')}`;
+      const breakNightHours = calculateNightHours(breakStart, breakEnd);
+      
+      if (breakNightHours > 0) {
+        nightHours = Math.max(0, nightHours - breakNightHours);
+        console.log(`⏰ 야간 휴게시간 ${breakNightHours.toFixed(2)}시간 차감 (${breakStart}~${breakEnd})`);
+      }
+    }
     
     // 🔥 Phase D: DB 기반 공휴일 체크
     const isHoliday = holidays.some(h => h.date === att.date);
@@ -624,8 +636,9 @@ export async function calculateMonthlySalary(
       }
       
       if (weekHours >= 15) {
-        // 법원 판결 기준: 주휴수당 시간 = 주 근무시간 ÷ 5
-        const weekHolidayHours = weekHours / 5;
+        // 🔒 법원 판결 기준: 주휴수당 시간 = 주 근무시간 ÷ 5 (최대 8시간 제한)
+        // 주 40시간 초과 시 연장수당으로 처리되므로 주휴수당은 8시간 상한
+        const weekHolidayHours = Math.min(weekHours / 5, 8);
         weeklyHolidayHours += weekHolidayHours;
         console.log(`✅ ${weekKey}: 주휴수당 적용 (근무시간: ${weekHours.toFixed(2)}시간, 주휴수당 시간: ${weekHolidayHours.toFixed(2)}시간, 금액: ${Math.round(result.hourlyWage * weekHolidayHours).toLocaleString()}원)`);
       } else {

@@ -110,9 +110,13 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.role in ['admin', 'manager', 'store_manager', 'employee', 'staff']
         && (
-          // 본인 가입
-          request.auth.uid == request.resource.data.userId
-          // 또는 Manager가 추가
+          // 🔒 보안 강화: 본인 가입 시 companyId 검증
+          // Case 1: Admin 회원가입 (회사를 동시에 생성하는 경우)
+          (request.auth.uid == request.resource.data.userId 
+            && request.resource.data.role == 'admin'
+            && exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId))
+            && get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.createdBy == request.auth.uid)
+          // Case 2: Manager가 직원 추가
           || (isManager() && isSameCompany(request.resource.data.companyId))
         );
       
