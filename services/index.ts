@@ -32,3 +32,6 @@ export * from './approvalService';
 
 // Open Shift Service (긴급 근무 모집)
 export * from './openShiftService';
+
+// Notification Service (알림)
+export * from './notificationService';
