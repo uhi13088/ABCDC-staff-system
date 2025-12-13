@@ -244,7 +244,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
                   <SelectValue placeholder="전체" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">전체</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
                   {stores.map(store => (
                     <SelectItem key={store.id} value={store.id}>
                       {store.name}
@@ -266,7 +266,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">전체</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
                   <SelectItem value="active">재직자</SelectItem>
                   <SelectItem value="resigned">퇴사자</SelectItem>
                 </SelectContent>

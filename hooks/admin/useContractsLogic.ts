@@ -40,7 +40,7 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
   const [stores, setStores] = useState<Store[]>([]);
   
   const [filters, setFilters] = useState<ContractFilters>({
-    storeId: '',
+    storeId: 'all',
     employmentStatus: 'active',  // 기본: 재직자만
   });
 
@@ -83,7 +83,7 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
 
       // 2. 계약서 가져오기
       let allContracts = await contractService.getContracts(companyId, {
-        storeId: filters.storeId || undefined,
+        storeId: filters.storeId === 'all' || !filters.storeId ? undefined : filters.storeId,
       });
       
       // 근무상태 필터 적용 (클라이언트 사이드)
@@ -95,6 +95,8 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
           return empStatus === 'approved' || empStatus === 'active';
         } else if (filters.employmentStatus === 'resigned') {
           return empStatus === 'resigned';
+        } else if (filters.employmentStatus === 'all' || !filters.employmentStatus) {
+          return true; // 전체 표시
         }
         return true;
       });
