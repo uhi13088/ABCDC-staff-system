@@ -16,6 +16,15 @@ import type { Employee, Contract, Attendance } from '@/lib/types';
 // 공휴일 데이터 (2025년)
 // ===========================================
 
+/**
+ * 🔥 Phase C-2: 공휴일 DB 통합
+ * 2025년 이후 공휴일을 Firestore에서 조회하도록 개선
+ * 
+ * @deprecated publicHolidays2025 상수는 레거시입니다. 
+ * 새 코드는 holidayService.getHolidays()를 사용하세요.
+ * 
+ * Fallback: DB 조회 실패 시 2025년 공휴일 사용
+ */
 export const publicHolidays2025 = [
   '2025-01-01', // 신정
   '2025-01-28', '2025-01-29', '2025-01-30', // 설날 연휴
@@ -32,9 +41,12 @@ export const publicHolidays2025 = [
 ];
 
 /**
- * 해당 날짜가 공휴일인지 확인
+ * 해당 날짜가 공휴일인지 확인 (레거시 함수)
  * @param dateStr - "YYYY-MM-DD" 형식
  * @returns 공휴일 여부
+ * 
+ * @deprecated 이 함수는 2025년 하드코딩 데이터를 사용합니다.
+ * 새 코드는 holidayService.isHoliday()를 사용하세요.
  */
 export function isPublicHoliday(dateStr: string): boolean {
   return publicHolidays2025.includes(dateStr);

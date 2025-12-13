@@ -380,6 +380,24 @@ service cloud.firestore {
     }
     
     // ====================================
+    // 15. Holidays (공휴일)
+    // ====================================
+    match /holidays/{holidayId} {
+      // 읽기: 인증된 모든 사용자 (공휴일은 전국 공통 또는 회사별)
+      allow read: if isAuthenticated();
+      
+      // 생성: Admin만 (회사별 공휴일 추가 가능)
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasAll(['date', 'name', 'year']);
+      
+      // 수정: Admin만
+      allow update: if isAdmin();
+      
+      // 삭제: Admin만
+      allow delete: if isAdmin();
+    }
+    
+    // ====================================
     // 기본 규칙: 모든 다른 경로는 차단
     // ====================================
     match /{document=**} {

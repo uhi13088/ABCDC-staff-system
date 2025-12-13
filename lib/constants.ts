@@ -21,6 +21,7 @@ export const COLLECTIONS = {
   INVITES: 'invites',
   OPEN_SHIFTS: 'open_shifts', // 긴급 근무 모집
   NOTIFICATIONS: 'notifications', // 알림
+  HOLIDAYS: 'holidays', // 공휴일 (Phase C-2)
 } as const;
 
 /**
