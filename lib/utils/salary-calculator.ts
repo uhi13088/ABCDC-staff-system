@@ -308,6 +308,21 @@ export async function calculateMonthlySalary(
   // yearMonth 파싱 (YYYY-MM 형식)
   const [year, month] = yearMonth.split('-').map(Number);
   
+  // 🔥 Phase D: 공휴일 DB 조회 (연도별 캐싱)
+  let holidays: { date: string; name: string }[] = [];
+  try {
+    const { getHolidays } = await import('@/services/holidayService');
+    const companyId = employee.companyId || contract.companyId;
+    holidays = await getHolidays(year, companyId);
+    console.log(`📅 ${year}년 공휴일 ${holidays.length}개 로드 완료`);
+  } catch (error) {
+    console.warn('⚠️ 공휴일 DB 조회 실패, 레거시 하드코딩 사용:', error);
+    // Fallback: 2025년 하드코딩 데이터
+    if (year === 2025) {
+      holidays = publicHolidays2025.map(date => ({ date, name: '공휴일' }));
+    }
+  }
+  
   // 매장의 출퇴근 허용시간 설정 가져오기
   let thresholds = {
     earlyClockIn: 15,    // 기본값: 15분 이상 일찍 출근해야 수당 적용
@@ -502,7 +517,9 @@ export async function calculateMonthlySalary(
     
     const workHours = calculateWorkHours(adjustedCheckIn, adjustedCheckOut);
     const nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
-    const isHoliday = isPublicHoliday(att.date);
+    
+    // 🔥 Phase D: DB 기반 공휴일 체크
+    const isHoliday = holidays.some(h => h.date === att.date);
     
     totalWorkHours += workHours;
     result.workDays++;
@@ -515,7 +532,8 @@ export async function calculateMonthlySalary(
     // 공휴일 근무 시간
     if (isHoliday && contract.allowances?.holiday) {
       totalHolidayHours += workHours;
-      console.log(`🎉 공휴일 근무 감지: ${att.date}, ${workHours.toFixed(2)}시간`);
+      const holidayInfo = holidays.find(h => h.date === att.date);
+      console.log(`🎉 공휴일 근무 감지: ${att.date} (${holidayInfo?.name}), ${workHours.toFixed(2)}시간`);
     }
     
     // 🆕 Phase 5: 인센티브 수당 계산 (wageIncentive × 근무시간)
