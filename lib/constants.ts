@@ -10,6 +10,7 @@ export const COLLECTIONS = {
   USERS: 'users',
   COMPANIES: 'companies',
   CONTRACTS: 'contracts',
+  SIGNED_CONTRACTS: 'signedContracts', // 서명 완료된 계약서
   ATTENDANCE: 'attendance',
   SCHEDULES: 'schedules',
   SALARY: 'salary',
