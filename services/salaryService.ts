@@ -14,7 +14,9 @@ import {
   updateDoc,
   deleteDoc,
   Timestamp,
+  serverTimestamp,
   QueryConstraint,
+} serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
@@ -119,8 +121,8 @@ export async function createSalary(
   const docRef = await addDoc(collection(db, COLLECTIONS.SALARY), {
     ...data,
     status: data.status || 'pending',
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 
   return docRef.id;
@@ -136,7 +138,7 @@ export async function updateSalary(
   const docRef = doc(db, COLLECTIONS.SALARY, salaryId);
   await updateDoc(docRef, {
     ...data,
-    updatedAt: Timestamp.now(),
+    updatedAt: serverTimestamp(),
   });
 }
 
@@ -154,7 +156,7 @@ export async function deleteSalary(salaryId: string): Promise<void> {
 export async function confirmSalary(salaryId: string): Promise<void> {
   await updateSalary(salaryId, {
     status: 'confirmed',
-    confirmedAt: Timestamp.now(),
+    confirmedAt: serverTimestamp(),
   });
 }
 
@@ -164,7 +166,7 @@ export async function confirmSalary(salaryId: string): Promise<void> {
 export async function paySalary(salaryId: string): Promise<void> {
   await updateSalary(salaryId, {
     status: 'paid',
-    paidAt: Timestamp.now(),
+    paidAt: serverTimestamp(),
   });
 }
 

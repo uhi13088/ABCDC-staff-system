@@ -51,7 +51,8 @@ export default function AttendanceTab({ companyId }: AttendanceTabProps) {
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
 
   useEffect(() => {
-    if (companyId && filters.storeId) {
+    if (!companyId) return; // Phase 3: companyId 로딩 보호
+    if (filters.storeId) {
       loadAttendanceList();
     }
   }, [companyId, filters.storeId]);

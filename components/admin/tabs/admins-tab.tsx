@@ -22,6 +22,19 @@ export default function AdminsTab({ companyId }: AdminsTabProps) {
     }
   }, [companyId]);
 
+  // 🔒 companyId 로딩 보호
+  if (!companyId) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <Skeleton className="h-8 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>

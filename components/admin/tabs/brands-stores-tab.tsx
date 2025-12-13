@@ -65,6 +65,19 @@ export function BrandsStoresTab({ companyId }: BrandsStoresTabProps) {
     }
   }, [companyId]);
 
+  // 🔒 companyId 로딩 보호
+  if (!companyId) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <Skeleton className="h-8 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   /**
    * 브랜드 추가
    */

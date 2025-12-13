@@ -14,6 +14,7 @@ import {
   updateDoc,
   deleteDoc,
   Timestamp,
+  serverTimestamp,
   orderBy,
   QueryConstraint,
 } from 'firebase/firestore';
@@ -124,8 +125,8 @@ export async function createAttendance(
 ): Promise<string> {
   const docRef = await addDoc(collection(db, COLLECTIONS.ATTENDANCE), {
     ...data,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 
   return docRef.id;
@@ -141,7 +142,7 @@ export async function updateAttendance(
   const docRef = doc(db, COLLECTIONS.ATTENDANCE, attendanceId);
   await updateDoc(docRef, {
     ...data,
-    updatedAt: Timestamp.now(),
+    updatedAt: serverTimestamp(),
   });
 }
 

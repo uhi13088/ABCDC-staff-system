@@ -14,6 +14,7 @@ import {
   updateDoc,
   deleteDoc,
   Timestamp,
+  serverTimestamp,
   orderBy,
   QueryConstraint,
 } from 'firebase/firestore';
@@ -107,8 +108,8 @@ export async function getContractsByEmployee(
 export async function createContract(data: Omit<Contract, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   const docRef = await addDoc(collection(db, COLLECTIONS.CONTRACTS), {
     ...data,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
     status: data.status || 'draft',
     isSigned: false,
   });
@@ -126,7 +127,7 @@ export async function updateContract(
   const docRef = doc(db, COLLECTIONS.CONTRACTS, contractId);
   await updateDoc(docRef, {
     ...data,
-    updatedAt: Timestamp.now(),
+    updatedAt: serverTimestamp(),
   });
 }
 
@@ -144,7 +145,7 @@ export async function deleteContract(contractId: string): Promise<void> {
 export async function signContract(contractId: string, signedBy: string): Promise<void> {
   await updateContract(contractId, {
     isSigned: true,
-    signedAt: Timestamp.now(),
+    signedAt: serverTimestamp(),
     signedBy,
     status: '서명완료',
   });

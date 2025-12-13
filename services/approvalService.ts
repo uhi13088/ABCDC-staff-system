@@ -15,7 +15,9 @@ import {
   deleteDoc,
   orderBy,
   Timestamp,
+  serverTimestamp,
   QueryConstraint,
+} serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS, APPROVAL_STATUS } from '@/lib/constants';
@@ -108,7 +110,7 @@ export async function createApprovalRequest(
   const docRef = await addDoc(collection(db, COLLECTIONS.APPROVALS), {
     ...data,
     status: APPROVAL_STATUS.PENDING,
-    createdAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
   });
 
   return docRef.id;
@@ -124,7 +126,7 @@ export async function updateApprovalRequest(
   const docRef = doc(db, COLLECTIONS.APPROVALS, approvalId);
   await updateDoc(docRef, {
     ...data,
-    updatedAt: Timestamp.now(),
+    updatedAt: serverTimestamp(),
   });
 }
 
@@ -146,7 +148,7 @@ export async function approveRequest(
   await updateApprovalRequest(approvalId, {
     status: APPROVAL_STATUS.APPROVED,
     reviewedBy,
-    reviewedAt: Timestamp.now(),
+    reviewedAt: serverTimestamp(),
   });
 }
 
@@ -160,7 +162,7 @@ export async function rejectRequest(
   await updateApprovalRequest(approvalId, {
     status: APPROVAL_STATUS.REJECTED,
     reviewedBy,
-    reviewedAt: Timestamp.now(),
+    reviewedAt: serverTimestamp(),
   });
 }
 

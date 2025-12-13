@@ -83,6 +83,19 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
     }
   }, [companyId]);
 
+  // 🔒 companyId 로딩 보호
+  if (!companyId) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <Skeleton className="h-8 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const days: DayOfWeek[] = ['월', '화', '수', '목', '금', '토', '일'];
 
   /**

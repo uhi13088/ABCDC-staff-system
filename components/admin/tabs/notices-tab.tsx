@@ -41,9 +41,8 @@ export function NoticesTab({ companyId }: NoticesTabProps) {
   const [selectedNotice, setSelectedNotice] = useState<Notice | undefined>(undefined);
 
   useEffect(() => {
-    if (companyId) {
-      loadNotices();
-    }
+    if (!companyId) return; // Phase 3: companyId 로딩 보호
+    loadNotices();
   }, [companyId, loadNotices]);
 
   /**

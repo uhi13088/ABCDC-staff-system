@@ -15,6 +15,8 @@ import {
   deleteDoc,
   orderBy,
   Timestamp,
+  serverTimestamp,
+} serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
@@ -64,7 +66,7 @@ export async function createNotice(
   const docRef = await addDoc(collection(db, COLLECTIONS.NOTICES), {
     ...data,
     important: data.important || false,
-    createdAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
   });
 
   return docRef.id;
@@ -80,7 +82,7 @@ export async function updateNotice(
   const docRef = doc(db, COLLECTIONS.NOTICES, noticeId);
   await updateDoc(docRef, {
     ...data,
-    updatedAt: Timestamp.now(),
+    updatedAt: serverTimestamp(),
   });
 }
 

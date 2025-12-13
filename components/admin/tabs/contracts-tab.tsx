@@ -80,6 +80,19 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
     }
   }, [companyId]);
 
+  // 🔒 companyId 로딩 보호
+  if (!companyId) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <Skeleton className="h-8 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   /**
    * 계약서 선택 변경 (드롭다운)
    */

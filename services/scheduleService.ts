@@ -14,7 +14,9 @@ import {
   deleteDoc,
   writeBatch,
   Timestamp,
+  serverTimestamp,
   QueryConstraint,
+} serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
@@ -98,8 +100,8 @@ export async function createSchedule(
 ): Promise<string> {
   const docRef = await addDoc(collection(db, COLLECTIONS.SCHEDULES), {
     ...data,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 
   return docRef.id;
@@ -115,7 +117,7 @@ export async function updateSchedule(
   const docRef = doc(db, COLLECTIONS.SCHEDULES, scheduleId);
   await updateDoc(docRef, {
     ...data,
-    updatedAt: Timestamp.now(),
+    updatedAt: serverTimestamp(),
   });
 }
 
@@ -139,8 +141,8 @@ export async function createSchedulesBatch(
     const docRef = doc(collection(db, COLLECTIONS.SCHEDULES));
     batch.set(docRef, {
       ...schedule,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
   });
 

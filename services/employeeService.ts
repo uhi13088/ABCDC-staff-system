@@ -16,6 +16,7 @@ import {
   deleteDoc,
   Timestamp,
   QueryConstraint,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS, USER_ROLES, USER_STATUS } from '@/lib/constants';
@@ -81,8 +82,8 @@ export async function getEmployeeById(userId: string): Promise<Employee | null> 
 export async function createEmployee(data: Partial<Employee>): Promise<string> {
   const docRef = await addDoc(collection(db, COLLECTIONS.USERS), {
     ...data,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 
   return docRef.id;
@@ -98,7 +99,7 @@ export async function updateEmployee(
   const docRef = doc(db, COLLECTIONS.USERS, userId);
   await updateDoc(docRef, {
     ...data,
-    updatedAt: Timestamp.now(),
+    updatedAt: serverTimestamp(),
   });
 }
 

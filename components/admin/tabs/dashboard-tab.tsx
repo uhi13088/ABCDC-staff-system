@@ -24,6 +24,19 @@ export default function DashboardTab({ companyId }: DashboardTabProps) {
     }
   }, [companyId]);
 
+  // 🔒 companyId 로딩 보호
+  if (!companyId) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <Skeleton className="h-8 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
