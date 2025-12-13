@@ -71,13 +71,17 @@
 - [x] 급여 목록 테이블 (직원명, 매장, 기본급, 총 지급액, 실수령액, 상태)
 - [x] **급여 상세 모달** (기본급, 수당, 공제 항목 전체 표시)
   - 기본급 (시급/월급 자동 계산)
-  - 수당 (연장근로, 야간근로, 휴일근로, 주휴수당)
+  - 수당 (연장근로, 야간근로, 휴일근로, **주휴수당 과지급 방지**)
   - 공제 (4대보험, 소득세)
   - 실수령액 계산
 - [x] **급여 확인 및 지급 처리**
   - 확인 버튼 (상태: pending → confirmed)
   - 지급 버튼 (상태: confirmed → paid)
   - 상태별 뱃지 표시
+- [x] **완전 자동화** ⭐
+  - 공휴일 자동 동기화 (행정안전부 API)
+  - 주휴수당 최대 8시간 제한
+  - 야간수당 휴게시간 자동 차감
 - [x] 날짜 필터 (월별 조회)
 - [x] 매장 필터
 
@@ -175,6 +179,12 @@
 - [x] 회사 정보 수정
 - [x] 구독 플랜 관리
 - [x] 시스템 설정
+- [x] **공휴일 관리** ⭐
+  - 공휴일 목록 테이블 (날짜, 공휴일명)
+  - 연도별 필터 (2024~2026년)
+  - 공휴일 추가/수정/삭제
+  - "2025년 일괄 추가" 버튼 (16개 자동 생성)
+  - "공공 API 동기화" 버튼 (행정안전부 API 연동)
 
 ---
 
@@ -336,6 +346,24 @@
 }
 ```
 
+### Holidays (공휴일) ⭐ NEW
+```typescript
+{
+  id: string;
+  date: string;              // "YYYY-MM-DD" 형식
+  name: string;              // 공휴일 이름 (예: "설날", "추석")
+  year: number;              // 연도 (쿼리 최적화용)
+  companyId?: string;        // 회사별 공휴일 (선택사항, 없으면 전국 공통)
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+**특징**:
+- 행정안전부 공공 API 자동 동기화
+- 급여 계산 시 자동으로 DB에서 조회 (없으면 API 호출)
+- 연도별 캐싱으로 API 사용량 최소화
+
 ---
 
 ## 🛠️ 기술 스택
@@ -375,6 +403,10 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+# 공공데이터포털 특일정보 API 인증키 (선택사항)
+# https://www.data.go.kr/tcs/dss/selectApiDataDetailView.do?publicDataPk=15012690
+NEXT_PUBLIC_HOLIDAY_API_KEY=your_api_key
 ```
 
 **참고**: `.env.local` 파일은 `.gitignore`에 자동으로 포함되어 있습니다.
@@ -580,7 +612,70 @@ npm run dev
 
 ## 📝 개발 로그
 
-### 2024-12-13 (Critical 버그 수정 및 시스템 안정화)
+### 2024-12-13 (Phase E+F 완료 - 급여 계산 완전 자동화)
+
+#### 🔥 Phase E: 급여 계산 Critical 버그 수정
+**관리자 대시보드 작동 오류 긴급 해결 + 주휴수당/야간수당 과지급 방지**
+
+##### **E-1: 관리자 대시보드 탭 작동 오류 해결**
+- ✅ `salary-calculator.ts` 파일 손상 복구 (Phase D 커밋에서 복원)
+- ✅ 모든 탭 정상 작동 확인
+
+##### **E-2: 주휴수당 과지급 방지**
+- ✅ `lib/utils/salary-calculator.ts` (628줄) 수정
+- ✅ 주휴수당 시간 계산: `Math.min(weekHours / 5, 8)` 적용
+- ✅ 최대 8시간으로 제한 (근로기준법 준수)
+- **예시**: 주 45시간 근무 → 주휴 9시간 → **8시간으로 제한**
+
+##### **E-3: 야간수당 휴게시간 차감**
+- ✅ `contract.breakTime` 기반 자동 차감 로직 추가
+- ✅ 휴게시간이 야간시간(22:00~06:00)에 겹치면 자동 차감
+- **예시**: 22:00~06:00 근무, 01:00~02:00 휴게 → 야간 8시간 - 1시간 = **7시간**
+
+#### 🔥 Phase F: 공휴일 완전 자동화
+**행정안전부 API 연동 + 급여 계산 시 자동 동기화**
+
+##### **F-1: 공공 API 연동**
+- ✅ `services/holidayService.ts`에 API 함수 추가
+  - `fetchHolidaysFromAPI(year, apiKey)` - 행정안전부 API 호출
+  - `syncHolidaysFromAPI(year, apiKey)` - DB 자동 동기화
+- ✅ `.env.local`에 `NEXT_PUBLIC_HOLIDAY_API_KEY` 추가
+- ✅ Settings Tab에 "공공 API 동기화" 버튼 추가
+
+##### **F-2: 완전 자동 동기화**
+- ✅ `calculateMonthlySalary` 함수에 자동 동기화 로직 통합
+- ✅ 급여 계산 시 DB에 공휴일 없으면 **자동으로 API 호출**
+- ✅ API 실패 시 2025년 하드코딩 데이터로 Fallback
+- ✅ **관리자가 수동으로 버튼 누를 필요 없음**
+
+**동작 방식**:
+```
+급여 계산 → DB 조회 → 없으면 API 호출 → DB 저장 → 급여 계산 완료
+```
+
+##### **F-3: Dialog ref 경고 수정**
+- ✅ `emergency-recruitment-modal.tsx`에 `React.forwardRef` 적용
+- ✅ Console Warning 제거 (예방 차원)
+
+#### 📊 수정 통계
+- **신규 파일**: 1개 (scripts/migrate-holidays.mjs)
+- **수정 파일**: 5개
+  - services/holidayService.ts
+  - lib/utils/salary-calculator.ts
+  - components/admin/tabs/settings-tab.tsx
+  - components/admin/modals/emergency-recruitment-modal.tsx
+  - .env.local
+- **코드 추가**: ~210줄
+- **Commits**: 3개 (Phase E, Phase E+F, 자동 동기화)
+
+#### 🎯 개선 효과
+✅ **주휴수당 정확도**: 최대 8시간 제한 (과지급 방지)  
+✅ **야간수당 정확도**: 휴게시간 자동 차감 (과지급 방지)  
+✅ **공휴일 자동화**: 급여 계산 시 자동으로 API에서 가져오기  
+✅ **관리 부담 제로**: 관리자가 아무것도 안 해도 자동으로 작동  
+✅ **비용 절감**: 연도당 API 1회 호출 (캐싱 효과)
+
+### 2024-12-13 (Phase A+B+C+D - Critical 버그 수정 및 시스템 안정화)
 
 #### 🔥 Phase A+B+C: Critical 버그 수정 및 안정화
 **3시간 집중 작업 완료**
@@ -607,17 +702,25 @@ npm run dev
   - `firestore.rules`: `holidays` 컬렉션 규칙 추가
   - 급여 계산 로직 레거시 주석 추가 (`@deprecated`)
 
+##### **Phase D: 공휴일 관리 UI 추가**
+- ✅ `holiday-form-modal.tsx` 생성 (공휴일 추가/수정 모달)
+- ✅ `settings-tab.tsx` 완전 재작성 (공휴일 관리 UI)
+- ✅ 연도별 필터 (2024~2026년)
+- ✅ "2025년 일괄 추가" 버튼 (16개 공휴일 자동 생성)
+- ✅ 공휴일 목록 테이블 (날짜, 공휴일명, 수정/삭제)
+
 #### 📊 수정 통계
-- **신규 파일**: 2개 (timezone.ts, holidayService.ts)
-- **수정 파일**: 11개
-- **코드 추가**: ~250줄
-- **Commits**: 2개 (Phase A+B, Phase C)
+- **신규 파일**: 3개 (timezone.ts, holidayService.ts, holiday-form-modal.tsx)
+- **수정 파일**: 13개
+- **코드 추가**: ~450줄
+- **Commits**: 3개 (Phase A+B, Phase C, Phase D)
 
 #### 🎯 개선 효과
 ✅ **금전 계산 정확도**: 소수점 오류 수정  
 ✅ **타임존 일관성**: KST 기준 통일  
 ✅ **보안 강화**: API Key 환경변수화  
-✅ **미래 대비**: 공휴일 DB 자동화
+✅ **미래 대비**: 공휴일 DB 자동화  
+✅ **UI 개선**: 공휴일 관리 기능 추가
 
 ### 2024-12-13 (Legacy 기능 이식 및 알림 시스템 구축)
 
@@ -832,5 +935,5 @@ Proprietary - ABC Dessert Center
 ---
 
 **마지막 업데이트**: 2024-12-13 23:59 KST  
-**버전**: 0.4.2  
-**상태**: ✅ 13개 탭 완료 + Critical 버그 수정 완료 (Phase A+B+C) + 시스템 안정화
+**버전**: 0.5.1  
+**상태**: ✅ 13개 탭 완료 + 급여 계산 완전 자동화 (Phase E+F) + 공휴일 자동 동기화
