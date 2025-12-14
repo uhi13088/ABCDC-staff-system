@@ -169,13 +169,33 @@ service cloud.firestore {
         // clockIn/clockOut 표준 필드 (옵션)
         && (!request.resource.data.keys().hasAny(['clockIn']) || request.resource.data.clockIn is string)
         && (!request.resource.data.keys().hasAny(['clockOut']) || request.resource.data.clockOut is string)
+        // 🔒 출퇴근 시간 조작 방지 (Phase G)
+        // clockIn이 있으면 서버 시간(request.time)과 ±2분 이내인지 검증
+        // Timestamp는 .toMillis()로 비교 (1분 = 60,000ms)
+        && (!request.resource.data.keys().hasAny(['clockIn']) 
+          || (request.resource.data.clockIn is timestamp 
+            && request.resource.data.clockIn.toMillis() >= request.time.toMillis() - 120000  // -2분
+            && request.resource.data.clockIn.toMillis() <= request.time.toMillis() + 120000) // +2분
+        )
         && (
           isOwner(request.resource.data.userId)
           || (isStoreManager() && isSameCompany(request.resource.data.companyId))
         );
       
-      // 수정: Store Manager 이상
-      allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
+      // 수정: Store Manager 이상 또는 본인 (퇴근 시간 기록 시)
+      allow update: if isAuthenticated()
+        && (
+          // Case 1: Store Manager는 모든 수정 가능
+          (isStoreManager() && isSameCompany(resource.data.companyId))
+          // Case 2: 직원 본인은 퇴근 시간만 수정 가능 (시간 조작 방지)
+          || (isOwner(resource.data.userId)
+            && request.resource.data.keys().hasAny(['clockOut'])  // clockOut 필드만 수정
+            && request.resource.data.clockOut is timestamp
+            // 🔒 퇴근 시간 조작 방지: 서버 시간 ±2분 이내
+            && request.resource.data.clockOut.toMillis() >= request.time.toMillis() - 120000
+            && request.resource.data.clockOut.toMillis() <= request.time.toMillis() + 120000
+          )
+        );
       
       // 삭제: Manager 이상
       allow delete: if isManager() && isSameCompany(resource.data.companyId);
