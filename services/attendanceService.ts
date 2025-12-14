@@ -148,13 +148,14 @@ export async function updateAttendance(
 
 /**
  * 출근 처리
+ * 🔒 Phase G: 서버 시간 자동 할당 (시간 조작 방지)
+ * clockInTime 파라미터 제거 → serverTimestamp() 사용
  */
 export async function clockIn(
   userId: string,
   companyId: string,
   storeId: string,
   date: string,
-  clockInTime: string,
   location?: { latitude: number; longitude: number }
 ): Promise<string> {
   return createAttendance({
@@ -162,7 +163,7 @@ export async function clockIn(
     companyId,
     storeId,
     date,
-    clockIn: clockInTime,
+    clockIn: serverTimestamp() as any,  // 서버 시간 자동 할당
     status: 'present',
     location,
   });
@@ -170,13 +171,14 @@ export async function clockIn(
 
 /**
  * 퇴근 처리
+ * 🔒 Phase G: 서버 시간 자동 할당 (시간 조작 방지)
+ * clockOutTime 파라미터 제거 → serverTimestamp() 사용
  */
 export async function clockOut(
-  attendanceId: string,
-  clockOutTime: string
+  attendanceId: string
 ): Promise<void> {
   await updateAttendance(attendanceId, {
-    clockOut: clockOutTime,
+    clockOut: serverTimestamp() as any,  // 서버 시간 자동 할당
   });
 }
 
