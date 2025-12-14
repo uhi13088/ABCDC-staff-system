@@ -80,8 +80,14 @@ export default function AdminRegisterPage() {
       // 2. Company ID 생성
       const companyId = generateCompanyId(formData.companyName);
 
-      // 3. Firestore - companies 컬렉션 저장 (구독 정보 포함)
-      await setDoc(doc(db, 'companies', companyId), {
+      // 🆕 3. Firestore Batch Write (원자성 보장)
+      // Companies + Users를 하나의 트랜잭션으로 처리 → "닭과 달걀" 문제 해결
+      const { writeBatch } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+
+      // 3-1. Companies 문서 생성
+      const companyRef = doc(db, 'companies', companyId);
+      batch.set(companyRef, {
         companyId: companyId,
         companyName: formData.companyName,
         businessNumber: formData.businessNumber || '',
@@ -101,8 +107,9 @@ export default function AdminRegisterPage() {
         }
       });
 
-      // 4. Firestore - users 컬렉션 저장
-      await setDoc(doc(db, 'users', user.uid), {
+      // 3-2. Users 문서 생성
+      const userRef = doc(db, 'users', user.uid);
+      batch.set(userRef, {
         uid: user.uid,
         email: formData.email,
         name: formData.displayName,
@@ -119,6 +126,9 @@ export default function AdminRegisterPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      // 3-3. Batch 커밋 (원자적 실행)
+      await batch.commit();
 
       // 5. 프로필 업데이트
       await updateProfile(user, { displayName: formData.displayName });

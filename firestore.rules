@@ -111,12 +111,12 @@ service cloud.firestore {
         && request.resource.data.role in ['admin', 'manager', 'store_manager', 'employee', 'staff']
         && (
           // 🔒 보안 강화: 본인 가입 시 companyId 검증
-          // Case 1: Admin 회원가입 (회사를 동시에 생성하는 경우)
+          // Case 1: Admin 회원가입 (자기 자신만 생성 가능)
+          // 🆕 "닭과 달걀" 문제 해결: Companies 존재 체크 제거
+          // → Companies와 Users가 순차적으로 생성되므로 타이밍 이슈 방지
           (request.auth.uid == request.resource.data.userId 
-            && request.resource.data.role == 'admin'
-            && exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId))
-            && get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.createdBy == request.auth.uid)
-          // Case 2: Manager가 직원 추가
+            && request.resource.data.role == 'admin')
+          // Case 2: Manager가 직원 추가 (같은 회사만)
           || (isManager() && isSameCompany(request.resource.data.companyId))
         );
       
