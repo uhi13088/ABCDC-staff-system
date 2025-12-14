@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import type { BaseUser } from '@/lib/types/common';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,11 +16,13 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-// SSR 비활성화 (속도 최적화)
-const DashboardTab = dynamic(() => import('@/components/admin/tabs/dashboard-tab'), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
-const EmployeesTab = dynamic(() => import('@/components/admin/tabs/employees-tab'), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
+// 자주 사용하는 탭 (일반 import - 깜빡임 방지)
+import DashboardTab from '@/components/admin/tabs/dashboard-tab';
+import EmployeesTab from '@/components/admin/tabs/employees-tab';
+import { SalaryTab } from '@/components/admin/tabs/salary-tab';
+
+// 나머지 탭 (Dynamic import - 번들 크기 최적화)
 const AttendanceTab = dynamic(() => import('@/components/admin/tabs/attendance-tab'), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
-const SalaryTab = dynamic(() => import('@/components/admin/tabs/salary-tab').then(mod => mod.SalaryTab), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
 const SchedulesTab = dynamic(() => import('@/components/admin/tabs/schedules-tab').then(mod => ({ default: mod.SchedulesTab })), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
 const ContractsTab = dynamic(() => import('@/components/admin/tabs/contracts-tab').then(mod => ({ default: mod.ContractsTab })), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
 const ApprovalsTab = dynamic(() => import('@/components/admin/tabs/approvals-tab').then(mod => mod.ApprovalsTab), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
@@ -32,7 +35,7 @@ const SettingsTab = dynamic(() => import('@/components/admin/tabs/settings-tab')
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<BaseUser | null>(null);
   const [companyId, setCompanyId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('dashboard');
 

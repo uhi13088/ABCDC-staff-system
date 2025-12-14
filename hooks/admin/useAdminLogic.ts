@@ -51,8 +51,9 @@ export function useAdminLogic({ companyId }: UseAdminLogicProps) {
       });
       setAdmins(adminsList);
       setLoading(false);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '관리자 목록 조회 중 오류가 발생했습니다.';
+      setError(errorMessage);
       setLoading(false);
     }
   }, [companyId]);
@@ -63,8 +64,9 @@ export function useAdminLogic({ companyId }: UseAdminLogicProps) {
         await updateDoc(doc(db, 'users', uid), { status: 'approved', updatedAt: Timestamp.now() });
         await loadAdmins();
         return { success: true, message: `${name}님이 승인되었습니다.` };
-      } catch (err: any) {
-        return { success: false, message: err.message };
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '승인 처리 중 오류가 발생했습니다.';
+        return { success: false, message: errorMessage };
       }
     },
     [loadAdmins]
@@ -76,8 +78,9 @@ export function useAdminLogic({ companyId }: UseAdminLogicProps) {
         await updateDoc(doc(db, 'users', uid), { status: 'resigned', updatedAt: Timestamp.now() });
         await loadAdmins();
         return { success: true, message: `${name}님이 삭제되었습니다.` };
-      } catch (err: any) {
-        return { success: false, message: err.message };
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '삭제 처리 중 오류가 발생했습니다.';
+        return { success: false, message: errorMessage };
       }
     },
     [loadAdmins]
