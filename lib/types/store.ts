@@ -42,6 +42,14 @@ export interface Store {
   earlyClockInThreshold?: number; // 분
   earlyClockOutThreshold?: number; // 분
   lateClockInThreshold?: number; // 분
+  // QR 출퇴근 설정 (Phase T)
+  qrCode?: string;           // QR 코드 데이터 (JSON string)
+  qrCodeExpiry?: Date | any; // QR 코드 만료 시간
+  location?: {               // 매장 GPS 위치
+    latitude: number;
+    longitude: number;
+    radius?: number;         // 허용 반경 (미터)
+  };
   createdAt?: Date | any;
   updatedAt?: Date | any;
 }

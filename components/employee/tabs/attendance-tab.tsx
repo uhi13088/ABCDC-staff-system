@@ -50,7 +50,7 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
-  const [showQRModal, setShowQRModal] = useState(false)
+  const [showQRScanner, setShowQRScanner] = useState(false)
 
   // 출근 기록 로드
   const loadAttendanceRecords = async () => {

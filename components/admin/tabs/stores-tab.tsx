@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Store as StoreIcon, Trash2 } from 'lucide-react';
+import { Store as StoreIcon, Trash2, QrCode } from 'lucide-react';
 import { useStoreLogic } from '@/hooks/admin/useStoreLogic';
+import { GenerateQRModal } from '@/components/admin/modals/generate-qr-modal';
+import type { Store } from '@/lib/types/store';
 
 interface StoresTabProps {
   companyId: string;
@@ -75,6 +77,21 @@ export default function StoresTab({ companyId }: StoresTabProps) {
           </Table>
         )}
       </CardContent>
+
+      {/* QR 코드 생성 모달 */}
+      {selectedStore && (
+        <GenerateQRModal
+          isOpen={showQRModal}
+          onClose={() => {
+            setShowQRModal(false);
+            setSelectedStore(null);
+          }}
+          store={selectedStore}
+          onSuccess={() => {
+            loadStores(); // QR 저장 후 목록 새로고침
+          }}
+        />
+      )}
     </Card>
   );
 }
