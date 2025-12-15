@@ -68,7 +68,20 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) return <div className="h-screen w-full flex items-center justify-center bg-slate-50"><Skeleton className="h-12 w-12 rounded-full" /></div>;
+  // 🔒 Phase H: Race Condition 방지
+  // companyId가 유효하지 않으면 렌더링 차단
+  if (loading || !companyId) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <div className="text-center space-y-4">
+          <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+          {!loading && !companyId && (
+            <p className="text-sm text-red-600">회사 정보를 불러올 수 없습니다. 다시 로그인해주세요.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const tabs = [
     { id: 'dashboard', label: '대시보드', icon: BarChart3 },

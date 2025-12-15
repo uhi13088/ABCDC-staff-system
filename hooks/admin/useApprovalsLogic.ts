@@ -31,14 +31,15 @@ export function useApprovalsLogic() {
    * @source /home/user/webapp-backup/admin-dashboard.html (lines 4446~4661)
    */
   const loadApprovals = async () => {
-    if (!user?.uid) return;
+    // 🔒 Phase H: Race Condition 방지 (companyId 검증)
+    if (!user?.uid || !user?.companyId) return;
     
     setLoading(true);
     
     try {
       console.log('✔️ 승인 목록 조회 시작...');
       
-      const companyId = user.companyId || 'default-company';
+      const companyId = user.companyId;
       let allApprovals: Approval[] = [];
       
       // 교대근무 승인 조회 (shift_requests 컬렉션)

@@ -112,6 +112,9 @@ export function useSimulatorLogic(companyId: string) {
    * 시뮬레이터 목록 로드
    */
   const loadSimulatorList = useCallback(async () => {
+    // 🔒 Phase H: Race Condition 방지 (companyId 검증)
+    if (!companyId) return;
+    
     try {
       setState(prev => ({ ...prev, loading: true }));
       

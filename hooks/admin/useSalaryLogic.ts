@@ -52,11 +52,12 @@ export function useSalaryLogic() {
   
   // 매장 목록 로딩
   useEffect(() => {
-    if (!user?.uid) return;
+    // 🔒 Phase H: Race Condition 방지 (companyId 검증)
+    if (!user?.uid || !user?.companyId) return;
     
     const loadStores = async () => {
       try {
-        const companyId = user.companyId || 'default-company';
+        const companyId = user.companyId;
         
         // 🔥 Service Layer 사용
         const storesList = await storeService.getStores(companyId);
@@ -85,14 +86,15 @@ export function useSalaryLogic() {
       return;
     }
     
-    if (!user?.uid) return;
+    // 🔒 Phase H: Race Condition 방지 (companyId 검증)
+    if (!user?.uid || !user?.companyId) return;
     
     setLoading(true);
     
     try {
       console.log('💰 급여 조회 시작:', selectedMonth);
       
-      const companyId = user.companyId || 'default-company';
+      const companyId = user.companyId;
       
       // 🔒 companyId 조건 추가 (필수!)
       let employeesQuery = query(
