@@ -1312,14 +1312,20 @@ Proprietary - ABC Dessert Center
   8. Profile Tab (프로필, 계좌, 건강진단서)
 
 ### 🔄 진행 중
-- 없음 (Phase L 완료!)
+- 없음 (Phase M 완료!)
 
 ### 📌 보류/대기
 - 신규 대형 작업 없음
 
+### ✅ 최근 완료 (v0.8.1)
+- [x] **관리자 직원 승인/거부 기능 (Phase M)**
+  - 승인/거부 시 직원에게 알림 전송
+  - 알림 타입 추가: EMPLOYEE_APPROVED, EMPLOYEE_REJECTED
+  - employeeService 알림 통합 완료
+  - 기존 UI 활용 (employees-tab.tsx pending 상태 버튼)
+
 ### 🎯 다음 우선순위
-1. 관리자 직원 승인 기능 (status: pending → active) - High
-2. 초대 코드 생성 UI 개선 - Medium
+1. 초대 코드 생성 UI 개선 - Medium
 3. 모바일 앱 개발 (React Native) - Medium
 4. 직원 QR 체크인 기능 완성 - Medium
 5. 급여명세서 PDF 다운로드 - Low
@@ -1328,6 +1334,6 @@ Proprietary - ABC Dessert Center
 ---
 
 **마지막 업데이트**: 2024-12-15  
-**버전**: 0.8.0  
-**Git Commit**: `1e33729b`  
-**상태**: ✅ Phase L 완료 - 직원 회원가입 시스템 완전 구현 (관리자 13 탭 + 직원 8 탭 + 회원가입)
+**버전**: 0.8.1  
+**Git Commit**: `25999fff`  
+**상태**: ✅ Phase M 완료 - 직원 승인/거부 + 알림 시스템 통합 (관리자 13 탭 + 직원 8 탭 + 회원가입 + 승인)
