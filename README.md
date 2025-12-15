@@ -259,6 +259,190 @@
 
 ---
 
+## 🛠️ 개발 가이드라인
+
+### ⚠️ **신규 기능 개발 시 필수 체크리스트**
+
+**모든 작업 시작 전에 아래 항목을 반드시 확인하고 진행해주세요:**
+
+#### 1️⃣ **기존 Services 확인**
+```bash
+# Services 폴더 구조 확인
+ls -la services/
+
+# 사용 가능한 Service 함수 확인
+grep "export" services/*.ts
+```
+
+**확인 항목:**
+- 사용할 컬렉션에 대한 Service가 이미 있는지?
+- CRUD 함수가 이미 구현되어 있는지?
+- 필터 옵션이 무엇이 있는지?
+
+#### 2️⃣ **Firestore Collections 구조 검토**
+```typescript
+// lib/constants.ts에서 컬렉션 이름 확인
+import { COLLECTIONS } from '@/lib/constants'
+
+// 사용 가능한 컬렉션
+COLLECTIONS.USERS          // 사용자
+COLLECTIONS.EMPLOYEES      // 직원
+COLLECTIONS.CONTRACTS      // 계약서
+COLLECTIONS.ATTENDANCE     // 출퇴근
+COLLECTIONS.SALARY         // 급여
+COLLECTIONS.SCHEDULES      // 스케줄
+COLLECTIONS.STORES         // 매장
+COLLECTIONS.BRANDS         // 브랜드
+COLLECTIONS.APPROVALS      // 결재
+COLLECTIONS.NOTICES        // 공지사항
+COLLECTIONS.NOTIFICATIONS  // 알림
+COLLECTIONS.INVITES        // 초대 코드
+COLLECTIONS.OPEN_SHIFTS    // 긴급 근무
+```
+
+#### 3️⃣ **타입 정의 확인**
+```typescript
+// lib/types/ 폴더에서 타입 확인
+import { User } from '@/lib/types/user'
+import { Contract } from '@/lib/types/contract'
+import { Attendance } from '@/lib/types/attendance'
+// ... 등등
+
+// 또는 Services에서 인터페이스 확인
+// services/employeeService.ts
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  companyId: string;
+  storeId: string;
+  role: string;
+  status: string;
+  // ...
+}
+```
+
+#### 4️⃣ **필드명 일관성 유지**
+
+**✅ 반드시 사용해야 하는 표준 필드:**
+```typescript
+// 공통 필드 (모든 문서)
+companyId: string;        // 회사 ID (Multi-tenant)
+createdAt: Timestamp;     // 생성 시간
+updatedAt: Timestamp;     // 수정 시간
+
+// 직원 관련 필드
+userId: string;           // 사용자 ID (Firebase Auth UID)
+employeeId: string;       // 직원 ID (userId와 동일)
+employeeName: string;     // 직원 이름
+
+// 매장 관련 필드
+storeId: string;          // 매장 ID
+storeName: string;        // 매장 이름
+
+// 상태 필드
+status: string;           // 상태 (pending, approved, rejected 등)
+role: string;             // 역할 (admin, employee 등)
+```
+
+**❌ 절대 사용하지 말 것:**
+- `user_id` (스네이크 케이스)
+- `UserId` (파스칼 케이스)
+- `USERID` (대문자)
+- 약어 사용 (`empId`, `stId` 등)
+
+#### 5️⃣ **Service 함수 사용 패턴**
+
+**✅ 올바른 사용:**
+```typescript
+import { getEmployees } from '@/services/employeeService'
+
+// Service 함수 사용
+const employees = await getEmployees({
+  companyId: 'ABC-2024-xxx',
+  storeId: 'store-001',     // 옵션
+  status: 'active'          // 옵션
+})
+```
+
+**❌ 잘못된 사용:**
+```typescript
+// Service 없이 직접 Firestore 호출 (금지!)
+const employeesRef = collection(db, 'employees')
+const snapshot = await getDocs(employeesRef)
+```
+
+#### 6️⃣ **Timestamp 처리**
+
+**✅ 안전한 Timestamp 처리:**
+```typescript
+import { safeToDate, safeToLocaleDateString } from '@/lib/utils/timestamp'
+
+// Timestamp → Date 변환 (null-safe)
+const date = safeToDate(data.createdAt)
+
+// Timestamp → 날짜 문자열 (한국어)
+const dateStr = safeToLocaleDateString(data.createdAt)  // "2024년 1월 15일"
+```
+
+**❌ 위험한 처리:**
+```typescript
+// 직접 toDate() 호출 (TypeError 가능)
+const date = data.createdAt.toDate()  // ❌
+```
+
+#### 7️⃣ **상수 사용**
+
+**✅ 올바른 사용:**
+```typescript
+import { 
+  COLLECTIONS, 
+  USER_ROLES, 
+  USER_STATUS,
+  CONTRACT_STATUS 
+} from '@/lib/constants'
+
+// 컬렉션 이름
+collection(db, COLLECTIONS.USERS)
+
+// 상태 값
+if (user.role === USER_ROLES.EMPLOYEE) { ... }
+if (user.status === USER_STATUS.ACTIVE) { ... }
+```
+
+**❌ 잘못된 사용:**
+```typescript
+// 하드코딩 (금지!)
+collection(db, 'users')              // ❌
+if (user.role === 'employee') { ... } // ❌
+```
+
+---
+
+### 📋 개발 체크리스트 요약
+
+**새로운 기능 개발 전:**
+- [ ] 기존 Services 폴더 확인
+- [ ] `lib/constants.ts` 컬렉션 이름 확인
+- [ ] `lib/types/` 타입 정의 확인
+- [ ] 표준 필드명 확인 (camelCase, 공통 필드)
+- [ ] Timestamp 처리 유틸리티 사용
+- [ ] 상수 사용 (하드코딩 금지)
+
+**코드 작성 중:**
+- [ ] Service 함수 최대한 활용
+- [ ] 직접 Firestore 호출 최소화
+- [ ] 타입 정의 사용 (any 금지)
+- [ ] 에러 핸들링 추가
+
+**완료 후:**
+- [ ] Build 테스트 (`npm run build`)
+- [ ] PM2 재시작 테스트
+- [ ] 실제 데이터로 테스트
+- [ ] Git Commit & Push
+
+---
+
 ## 🗂️ Firestore 데이터 구조
 
 ### Companies (회사)
