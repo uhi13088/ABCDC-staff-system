@@ -4,6 +4,35 @@
 
 ---
 
+## ⚠️ 개발 시작 전 필독 사항
+
+**모든 작업 시작 전 반드시 다음 문서들을 읽고 시작하세요!**
+
+1. 📘 **[FIRESTORE_COLLECTIONS.md](./FIRESTORE_COLLECTIONS.md)** - Firestore 컬렉션명 명세서
+   - 모든 컬렉션명과 상수명 확인
+   - 컬렉션 구조와 필드명 확인
+   - 하드코딩 금지, 반드시 `COLLECTIONS.XXX` 상수 사용
+
+2. 📗 **[FIELD_NAMING_STANDARD.md](./FIELD_NAMING_STANDARD.md)** - 필드명 규칙
+   - 일관된 필드명 사용 규칙
+   - camelCase 표기법
+   - 금지된 필드명 목록
+
+3. 📙 **개발 가이드라인** (아래 섹션 참고)
+   - 기존 Services 확인
+   - Firestore Collections 구조 검토
+   - 타입 정의 확인
+   - 필드명 일관성 체크
+
+**📋 작업 전 체크리스트**
+- [ ] FIRESTORE_COLLECTIONS.md 읽음
+- [ ] 컬렉션명 상수 확인 (`lib/constants.ts`)
+- [ ] 타입 정의 확인 (`lib/types/`)
+- [ ] 기존 Service 함수 확인 (`services/`)
+- [ ] 필드명 일관성 확인
+
+---
+
 ## 📋 프로젝트 개요
 
 **ABC Staff System**은 ABC 디저트 센터와 맛남살롱 체인점을 위한 통합 직원 관리 솔루션입니다.
@@ -265,6 +294,18 @@
 
 **모든 작업 시작 전에 아래 항목을 반드시 확인하고 진행해주세요:**
 
+#### 📘 **0️⃣ 필수 문서 읽기 (최우선!)**
+```bash
+# 작업 시작 전 반드시 읽어야 할 문서들
+cat FIRESTORE_COLLECTIONS.md   # Firestore 컬렉션 명세서
+cat FIELD_NAMING_STANDARD.md   # 필드명 규칙
+```
+
+**⚠️ 중요:**
+- **FIRESTORE_COLLECTIONS.md**: 모든 컬렉션명, 상수명, 데이터 구조 확인
+- **FIELD_NAMING_STANDARD.md**: 필드명 규칙, 금지된 필드명 확인
+- **반드시 읽고 시작!** 컬렉션명/필드명 오류로 인한 버그 방지
+
 #### 1️⃣ **기존 Services 확인**
 ```bash
 # Services 폴더 구조 확인
@@ -281,24 +322,33 @@ grep "export" services/*.ts
 
 #### 2️⃣ **Firestore Collections 구조 검토**
 ```typescript
+// ⚠️ FIRESTORE_COLLECTIONS.md 참고!
 // lib/constants.ts에서 컬렉션 이름 확인
 import { COLLECTIONS } from '@/lib/constants'
 
 // 사용 가능한 컬렉션
-COLLECTIONS.USERS          // 사용자
-COLLECTIONS.EMPLOYEES      // 직원
-COLLECTIONS.CONTRACTS      // 계약서
-COLLECTIONS.ATTENDANCE     // 출퇴근
-COLLECTIONS.SALARY         // 급여
-COLLECTIONS.SCHEDULES      // 스케줄
-COLLECTIONS.STORES         // 매장
-COLLECTIONS.BRANDS         // 브랜드
-COLLECTIONS.APPROVALS      // 결재
-COLLECTIONS.NOTICES        // 공지사항
-COLLECTIONS.NOTIFICATIONS  // 알림
-COLLECTIONS.INVITES        // 초대 코드
-COLLECTIONS.OPEN_SHIFTS    // 긴급 근무
+COLLECTIONS.USERS               // 사용자
+COLLECTIONS.COMPANIES           // 회사
+COLLECTIONS.CONTRACTS           // 계약서
+COLLECTIONS.SIGNED_CONTRACTS    // 서명 완료 계약서
+COLLECTIONS.ATTENDANCE          // 출퇴근
+COLLECTIONS.SALARY              // 급여
+COLLECTIONS.SCHEDULES           // 스케줄
+COLLECTIONS.STORES              // 매장
+COLLECTIONS.BRANDS              // 브랜드
+COLLECTIONS.APPROVALS           // 결재
+COLLECTIONS.NOTICES             // 공지사항
+COLLECTIONS.NOTIFICATIONS       // 알림
+COLLECTIONS.COMPANY_INVITES     // 직원 초대 코드 ⭐
+COLLECTIONS.INVITATION_CODES    // 플랫폼 가입 초대
+COLLECTIONS.OPEN_SHIFTS         // 긴급 근무
+COLLECTIONS.HOLIDAYS            // 공휴일
 ```
+
+**🚨 주의사항:**
+- **절대 하드코딩 금지!** ❌ `'company_invites'` ✅ `COLLECTIONS.COMPANY_INVITES`
+- 컬렉션명 오타 주의 (예: `INVITES` vs `COMPANY_INVITES`)
+- 상수를 사용하면 타입 체크 가능
 
 #### 3️⃣ **타입 정의 확인**
 ```typescript
