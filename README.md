@@ -4,6 +4,24 @@
 
 ---
 
+## 🚨 보안 경고 (SECURITY ALERT)
+
+**⚠️ CRITICAL: `_legacy/` 폴더의 파일을 절대 `public/` 폴더로 복사하지 마세요!**
+
+### 왜 위험한가?
+- **인증 우회**: `public/` 폴더의 HTML 파일은 Next.js 인증을 무시하고 누구나 접근 가능
+- **Firebase 키 노출**: 레거시 HTML에 Firebase SDK + Config가 포함되어 있어 DB 직접 접근 가능
+- **Firestore Rules 취약점**: 레거시 코드 + 느슨한 Rules = 데이터 열람/수정/삭제 위험
+
+### 안전한 사용법
+- ✅ **참고용으로만 사용**: 로컬에서 코드 확인 (`_legacy/README.md` 참조)
+- ✅ **Next.js로 재구현**: React 컴포넌트로 마이그레이션
+- ❌ **절대 금지**: `cp _legacy/*.html public/`
+
+📖 **자세한 내용**: [_legacy/README.md](./_legacy/README.md)
+
+---
+
 ## ⚠️ 개발 시작 전 필독 사항
 
 **모든 작업 시작 전 반드시 다음 문서들을 읽고 시작하세요!**
