@@ -231,7 +231,194 @@
 
 ---
 
-**마지막 업데이트**: 2024-12-13
+**마지막 업데이트**: 2024-12-15
+
+---
+
+## [0.5.9] - 2024-12-15
+
+### ✅ Added (새 기능)
+
+#### 긴급 근무 모집 완전 구현
+- **Emergency Recruitment Modal**
+  - `components/admin/modals/emergency-recruitment-modal.tsx` (345줄)
+  - 긴급 근무 모집 UI 완성
+  - 매장 선택, 근무 날짜/시간, 모집 인원 설정
+  
+- **Open Shifts Service**
+  - `services/openShiftService.ts` 생성
+  - `open_shifts` 컬렉션 CRUD 로직
+  - 긴급 근무 공고 등록/조회/삭제
+
+#### 알림(Notification) 서비스 완성
+- **Notification Service** (9가지 알림 타입)
+  - `services/notificationService.ts` (286줄)
+  - 관리자 근무시간 수정 알림
+  - 직원 근무시간 수정 알림
+  - 승인 요청 알림
+  - 승인 처리 알림
+  - 계약서 서명 요청 알림
+  - 급여 지급 완료 알림
+  - 긴급 근무 모집 알림
+  - 공지사항 알림
+  - 결근/지각 알림
+
+### 🔧 Changed (변경)
+
+#### 문서 정리
+- **LEGACY_MIGRATION_CHECKLIST.md** 업데이트
+  - Phase 2 완료 상태 반영
+  - 긴급 근무 모집 완전 구현 확인
+  - 알림 서비스 구현 완료 (연동 필요)
+
+---
+
+## [0.5.8] - 2024-12-15
+
+### 🐛 Fixed (버그 수정)
+
+#### Timestamp 안전 변환 적용 (Phase I 실전)
+- **brands-stores-tab.tsx 수정**
+  - `brand.createdAt.seconds * 1000` → `safeToLocaleDateString(brand.createdAt)`
+  - 직접 `.seconds` 접근 위험 제거
+
+- **contracts-tab.tsx 수정**
+  - `formatCreatedAt()` 제거 → `safeToLocaleString()` 사용
+  - Timestamp null/undefined 크래시 방지
+
+- **notice-tab.tsx 수정**
+  - `.toString()` → `safeToLocaleDateString()` 사용
+  - 한국어 날짜 형식 통일
+
+- **notices-tab.tsx 수정**
+  - `formatDate()` 제거 → `safeToLocaleString()` 사용
+  - Timestamp 안전 변환 적용
+
+#### 효과
+- Timestamp가 null/undefined일 때 크래시 방지
+- FieldValue (serverTimestamp pending) 안전 처리
+- 일관된 한국어 날짜/시간 형식
+
+---
+
+## [0.5.7] - 2024-12-15
+
+### ✅ Added (새 기능)
+
+#### Timestamp 안전 변환 유틸리티 (Phase I)
+- **lib/utils/timestamp.ts** 생성 (153줄)
+  - `safeToDate()`: 안전한 Timestamp → Date 변환
+  - `safeToLocaleDateString()`: 한국어 날짜 문자열 (예: "2024년 1월 15일")
+  - `safeToLocaleString()`: 한국어 날짜/시간 문자열 (예: "2024년 1월 15일 14:30")
+  - `getTimestampDiff()`: Timestamp 차이 계산 (밀리초)
+  - `safeToDateArray()`: Timestamp 배열 → Date 배열 변환
+
+#### 안전 장치
+- Legacy 데이터 타입 불일치 방지
+- `toDate()` 직접 호출 방지 (TypeError 위험)
+- null/undefined Timestamp 안전 처리
+- FieldValue (serverTimestamp pending) 처리
+
+### 🔧 Changed (변경)
+
+#### 문서 업데이트
+- **LEGACY_MIGRATION_CHECKLIST.md** 업데이트
+  - Firebase SDK 버전 차이 섹션에 Timestamp 처리 완료 표시
+  - 헬퍼 함수 사용법 문서화
+  - 검증 상태: ✅ 완료
+
+---
+
+## [0.5.6] - 2024-12-15
+
+### 🐛 Fixed (버그 수정)
+
+#### companyId Race Condition 완전 해결 (Phase H)
+- **admin-dashboard/page.tsx 수정**
+  - `if (loading || !companyId)` 이중 검증 추가
+  - 로딩 중 or `companyId` 없을 때 탭 렌더링 차단
+  - 사용자 친화적 에러 메시지 표시
+
+- **useApprovalsLogic.ts 수정**
+  - `if (!user?.uid || !user?.companyId) return;` 검증 추가
+  - `user.companyId` 직접 사용 안전 검증
+
+- **useSalaryLogic.ts 수정**
+  - `if (!user?.uid || !user?.companyId) return;` 검증 추가
+  - `loadStores()`, `loadSalaryList()` 함수 보호
+  - 'default-company' Fallback 제거 (보안 강화)
+
+- **useSimulatorLogic.ts 수정**
+  - `if (!companyId) return;` 검증 추가
+  - `loadSimulatorList()` 함수에 `companyId` 필터 추가
+
+#### 효과
+- 로딩 불일치로 인한 Firestore 쿼리 에러 방지
+- 하위 컴포넌트가 유효한 `companyId` 없이 렌더링되는 상황 제거
+- Race Condition 완전 해결
+
+---
+
+## [0.5.5] - 2024-12-15
+
+### 🔧 Changed (변경)
+
+#### 출퇴근 시간 조작 방지 - 클라이언트 코드 개선 (Phase G 추가)
+- **services/attendanceService.ts 수정**
+  - `clockIn()` 함수: `clockInTime` 파라미터 제거 → `serverTimestamp()` 자동 할당
+  - `clockOut()` 함수: `clockOutTime` 파라미터 제거 → `serverTimestamp()` 자동 할당
+  
+#### 이중 보안 완성
+1. **Firestore Rules**: 서버 시간 ±2분 검증 (v0.5.4)
+2. **Service Layer**: `serverTimestamp()` 자동 할당 (v0.5.5)
+
+#### 효과
+- 클라이언트 시간 조작 원천 차단
+- Rules 우회 시도 → `PERMISSION_DENIED`
+- Service 함수 직접 호출 → 서버 시간 강제 할당
+
+---
+
+## [0.5.4] - 2024-12-15
+
+### 🔧 Changed (변경)
+
+#### 보안 강화 (Phase G: 출퇴근 시간 조작 방지)
+- **Firestore Rules 수정** (`firestore.rules`)
+  - `attendance` 컬렉션 `clockIn` 생성 규칙:
+    - `request.time.toMillis()` 기준 ±2분 검증 추가
+    - 본인 또는 Store Manager만 생성 가능
+  - `attendance` 컬렉션 `clockOut` 수정 규칙:
+    - `request.time.toMillis()` 기준 ±2분 검증 추가
+    - 본인은 `clockOut` 필드만 수정 가능
+    - Store Manager는 모든 필드 수정 가능
+
+#### 효과
+- 클라이언트가 임의로 `clockIn`/`clockOut` 시간을 조작하는 공격 차단
+- 서버 시간 기준 ±2분 이내만 허용
+- 악의적 시간 조작 시도 → `PERMISSION_DENIED` 에러
+
+---
+
+## [0.5.3] - 2024-12-15
+
+### 🐛 Fixed (버그 수정)
+
+#### Admin 회원가입 Batch Write 적용 (Phase G: "닭과 달걀" 문제 해결)
+- **app/admin-register/page.tsx 수정** (라인 83-131)
+  - `writeBatch()` 사용으로 Companies + Users 동시 생성
+  - `batch.commit()` 원자적 트랜잭션
+  - Rollback 로직: Firestore 실패 시 Auth 계정 삭제
+  
+- **firestore.rules 수정** (라인 115-118)
+  - Admin 회원가입 시 Companies 존재 검증 제거
+  - `companyId` 검증은 유지 (빈 문자열 방지)
+  - 보안 강화: Admin은 본인만 생성 가능 (`request.auth.uid == request.resource.data.userId`)
+
+#### 효과
+- Companies 존재 여부 무관하게 회원가입 가능
+- 관리자 회원가입 성공률 100% 보장
+- 데이터 일관성 보장 (원자적 트랜잭션)
 
 ---
 

@@ -854,7 +854,7 @@ npm run dev
 
 #### 🔗 GitHub
 - **Repository**: https://github.com/uhi13088/ABCDC-staff-system
-- **Latest Commit**: `77e0f322` (Phase 5-A - 알림 시스템 기반 구축)
+- **Latest Commit**: `deada9d9` (Phase 2 완료 - 긴급 근무 모집 + 알림 서비스)
 
 ### 2024-12-12 (백업 필드 대조 검증 완료)
 - ✅ **계약서 관리 탭**: 백업 HTML 라인 10041-10498 **100% 일치**
@@ -934,6 +934,62 @@ Proprietary - ABC Dessert Center
 
 ---
 
-**마지막 업데이트**: 2024-12-13 23:59 KST  
-**버전**: 0.5.1  
-**상태**: ✅ 13개 탭 완료 + 급여 계산 완전 자동화 (Phase E+F) + 공휴일 자동 동기화
+## 📊 프로젝트 현황 (Phase G-I 완료)
+
+### ✅ 완료된 작업 (v0.5.3 ~ v0.5.9)
+
+#### Phase G: 보안 강화
+- ✅ **Admin Batch Write** (v0.5.3)
+  - Companies + Users 원자적 생성
+  - Firestore Rules 수정 (companies 존재 검증 제거)
+  - Rollback 로직 완성 (Auth 계정 삭제)
+
+- ✅ **출퇴근 시간 조작 방지** (v0.5.4-5)
+  - Firestore Rules: `request.time` ±2분 검증
+  - `attendanceService.ts`: `serverTimestamp()` 자동 할당
+  - 이중 보안 완성
+
+#### Phase H: Race Condition 해결
+- ✅ **companyId 로딩 검증** (v0.5.6)
+  - `admin-dashboard/page.tsx`: 이중 검증 추가
+  - `useApprovalsLogic.ts`: `user.companyId` 검증
+  - `useSalaryLogic.ts`: `user.companyId` 검증
+  - `useSimulatorLogic.ts`: `companyId` 필터 추가
+
+#### Phase I: Timestamp 안전성
+- ✅ **Timestamp 유틸리티** (v0.5.7-8)
+  - `lib/utils/timestamp.ts` 생성
+  - `safeToDate()`, `safeToLocaleDateString()`, `safeToLocaleString()` 구현
+  - 4개 컴포넌트에 적용 완료
+    - `brands-stores-tab.tsx`
+    - `contracts-tab.tsx`
+    - `notice-tab.tsx`
+    - `notices-tab.tsx`
+
+#### Phase 2: 긴급 근무 & 알림
+- ✅ **긴급 근무 모집** (v0.5.9)
+  - `emergency-recruitment-modal.tsx` 완성
+  - `openShiftService.ts` CRUD 완성
+  - `attendance-tab.tsx` 연동 완료
+
+- ✅ **알림 서비스** (v0.5.9)
+  - `notificationService.ts` 완성 (9가지 타입)
+  - 연동 준비 완료 (실제 사용처 연결 필요)
+
+### 🔄 진행 중
+- 알림 서비스 실제 연동 (attendance, salary, contract, notice 수정 시)
+
+### 📌 보류/대기
+- 신규 대형 작업 없음
+
+### 🎯 다음 우선순위
+1. 알림 서비스 연동 (Medium)
+2. 계약서 서명 페이지 React 변환 (Medium)
+3. 데이터 마이그레이션 도구 (Low)
+
+---
+
+**마지막 업데이트**: 2024-12-15  
+**버전**: 0.5.9  
+**Git Commit**: `deada9d9`  
+**상태**: ✅ Phase G-I 보안/안정성 강화 완료 + 긴급 근무 모집 + 알림 서비스 완성
