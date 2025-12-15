@@ -21,21 +21,32 @@
 
 ### 📱 Production (Sandbox)
 
+**관리자 시스템**
 - **홈페이지**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai
 - **관리자 로그인**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/admin-login
 - **관리자 회원가입**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/admin-register
 - **관리자 대시보드**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/admin-dashboard
 - **플랫폼 대시보드**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/platform
 
+**직원 시스템** ⭐ **NEW**
+- **직원 로그인**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/employee-login
+- **직원 대시보드**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/employee-dashboard
+
 ---
 
 ## ✅ 완료된 핵심 기능
 
 ### 🔐 인증 시스템
-- [x] 관리자 회원가입 (Firebase Auth + Firestore)
-- [x] 관리자 로그인 (이메일/비밀번호, Remember Me)
-- [x] 세션 관리 (AuthProvider)
-- [x] 권한 체크 (admin, manager, store_manager)
+- [x] **관리자 시스템**
+  - 회원가입 (Firebase Auth + Firestore)
+  - 로그인 (이메일/비밀번호, Remember Me)
+  - 세션 관리 (AuthProvider)
+  - 권한 체크 (admin, manager, store_manager)
+- [x] **직원 시스템** ⭐ **NEW (Phase K)**
+  - 직원 로그인 (Firebase Auth)
+  - 로그인 유지 (localStorage, SSR 안전)
+  - 초대 코드 입력
+  - 직원 권한 검증 (`role === 'employee'`)
 
 ### 📊 관리자 대시보드 (13개 탭)
 
@@ -185,6 +196,66 @@
   - 공휴일 추가/수정/삭제
   - "2025년 일괄 추가" 버튼 (16개 자동 생성)
   - "공공 API 동기화" 버튼 (행정안전부 API 연동)
+
+---
+
+### 👨‍💼 직원 포털 (Employee Portal) ⭐ **NEW (Phase K - v0.7.0)**
+
+#### **직원 로그인** (`/employee-login`)
+- [x] Email/Password 로그인
+- [x] 로그인 유지 기능 (localStorage, SSR 안전)
+- [x] 초대 코드 입력 (선택 사항)
+- [x] 직원 권한 검증
+- [x] Firebase Auth 연동
+
+#### **직원 대시보드** (`/employee-dashboard`)
+- [x] 8개 탭 완전 구현
+- [x] 헤더 (직원명, 소속 매장명, 로그아웃)
+- [x] Firebase Auth 세션 관리
+- [x] 미인증 자동 리다이렉트
+
+#### **1. Dashboard Tab**
+- [x] 오늘의 출퇴근 상태 (출근 전/근무 중/퇴근 완료)
+- [x] 출근/퇴근 버튼 (실시간 상태 반영)
+- [x] 이번 달 통계 (근무일수, 총 근무시간, 예상 급여)
+
+#### **2. Attendance Tab (출퇴근)**
+- [x] QR 코드 체크인/체크아웃 (모바일 앱 예정)
+- [x] 월별 근무 내역 테이블
+- [x] 월 선택 필터 (최근 12개월)
+- [x] 총 근무일수 및 승인 건수 요약
+
+#### **3. Salary Tab (급여)**
+- [x] 월별 급여 조회 테이블
+- [x] 급여 명세서 상세 모달
+- [x] PDF 다운로드 (추후 구현)
+
+#### **4. Schedule Tab (스케줄)**
+- [x] 주간 캘린더 (월~일)
+- [x] 주 단위 네비게이션
+- [x] "매장 전체 보기" 토글
+- [x] 내 스케줄 하이라이트
+
+#### **5. Approvals Tab (결재)**
+- [x] 결재 신청서 작성 (휴가/연장근무/결근/근무조정)
+- [x] 신청 내역 테이블
+- [x] 상태별 배지
+
+#### **6. Notices Tab (공지사항)**
+- [x] 공지사항 목록
+- [x] 중요 공지 상단 고정
+- [x] 상세 모달
+
+#### **7. Notifications Tab (알림)**
+- [x] 알림 목록 (읽음/안읽음)
+- [x] 알림 타입별 배지
+- [x] 전체 읽음 처리
+- [x] notificationService 연동
+
+#### **8. Profile Tab (프로필)**
+- [x] 개인정보 수정
+- [x] 계좌 정보 입력
+- [x] 건강진단서 만료일
 
 ---
 
@@ -976,20 +1047,42 @@ Proprietary - ABC Dessert Center
   - `notificationService.ts` 완성 (9가지 타입)
   - 연동 준비 완료 (실제 사용처 연결 필요)
 
+#### Phase K: 직원 포털 구현 ⭐ **NEW**
+- ✅ **직원 로그인** (v0.7.0)
+  - `employee-login/page.tsx` 완성
+  - Firebase Auth 연동
+  - 로그인 유지 (localStorage, SSR 안전)
+  
+- ✅ **직원 대시보드** (v0.7.0)
+  - `employee-dashboard/page.tsx` 완성
+  - 8개 탭 완전 구현
+  - 헤더, 권한 검증, 세션 관리
+
+- ✅ **8개 직원 탭** (v0.7.0)
+  1. Dashboard Tab (출퇴근 상태, 통계)
+  2. Attendance Tab (QR 체크인, 근무 내역)
+  3. Salary Tab (급여 조회, 명세서)
+  4. Schedule Tab (주간 캘린더, 매장 전체 보기)
+  5. Approvals Tab (결재 신청, 내역)
+  6. Notices Tab (공지사항 목록, 상세)
+  7. Notifications Tab (알림, 전체 읽음)
+  8. Profile Tab (프로필, 계좌, 건강진단서)
+
 ### 🔄 진행 중
-- 알림 서비스 실제 연동 (attendance, salary, contract, notice 수정 시)
+- 없음 (Phase K 완료!)
 
 ### 📌 보류/대기
 - 신규 대형 작업 없음
 
 ### 🎯 다음 우선순위
-1. 알림 서비스 연동 (Medium)
-2. 계약서 서명 페이지 React 변환 (Medium)
-3. 데이터 마이그레이션 도구 (Low)
+1. 모바일 앱 개발 (React Native) - Medium
+2. 직원 QR 체크인 기능 완성 - Medium
+3. 급여명세서 PDF 다운로드 - Low
+4. 건강진단서 이미지 업로드 - Low
 
 ---
 
 **마지막 업데이트**: 2024-12-15  
-**버전**: 0.5.9  
-**Git Commit**: `deada9d9`  
-**상태**: ✅ Phase G-I 보안/안정성 강화 완료 + 긴급 근무 모집 + 알림 서비스 완성
+**버전**: 0.7.0  
+**Git Commit**: `817ee43b`  
+**상태**: ✅ Phase K 완료 - 직원 포털 8개 탭 완전 구현 (관리자 13 탭 + 직원 8 탭)

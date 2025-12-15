@@ -6,6 +6,147 @@
 
 ---
 
+## [0.7.0] - 2024-12-15
+
+### ✅ Added (새 기능)
+
+#### Phase K: 직원 포털 구현
+
+- **직원 로그인 페이지** (`/employee-login`)
+  - Email/Password 로그인
+  - "로그인 유지" 기능 (localStorage, SSR 안전)
+  - 초대 코드 입력 (선택 사항)
+  - 직원 권한 검증
+  - Firebase Auth 연동
+
+- **직원 대시보드** (`/employee-dashboard`)
+  - 8개 탭 완전 구현
+  - 헤더 (직원명, 소속 매장명, 로그아웃)
+  - Firebase Auth 세션 관리
+  - 미인증 자동 리다이렉트
+
+#### 8개 직원 탭 상세 기능
+
+**1. Dashboard Tab** (`components/employee/tabs/dashboard-tab.tsx`)
+- 오늘의 출퇴근 상태 (출근 전/근무 중/퇴근 완료)
+- 출근/퇴근 버튼 (실시간 상태 반영)
+- 이번 달 통계
+  - 근무일수
+  - 총 근무시간
+  - 예상 급여 (시급 기준 자동 계산)
+
+**2. Attendance Tab** (`components/employee/tabs/attendance-tab.tsx`)
+- QR 코드 체크인/체크아웃 (모바일 앱 예정)
+- 월별 근무 내역 테이블
+  - 날짜, 출근 시간, 퇴근 시간
+  - 근무시간 자동 계산
+  - 위치, 상태 (승인/대기/반려)
+- 월 선택 필터 (최근 12개월)
+- 총 근무일수 및 승인 건수 요약
+
+**3. Salary Tab** (`components/employee/tabs/salary-tab.tsx`)
+- 월별 급여 조회 테이블
+- 급여 명세서 상세 모달
+  - 기본급
+  - 수당 (연장/야간/휴일/주휴)
+  - 공제 (세금/4대보험)
+  - 실수령액 하이라이트
+- PDF 다운로드 버튼 (추후 구현)
+- 급여 지급 상태 (대기/확정/지급완료)
+
+**4. Schedule Tab** (`components/employee/tabs/schedule-tab.tsx`)
+- 주간 캘린더 (월~일)
+- 주 단위 네비게이션 (이전/다음/이번 주)
+- "매장 전체 보기" 토글 스위치
+- 내 스케줄 하이라이트
+- 오늘 날짜 강조 표시
+- 주간 근무 요약 (근무일 수, 전체 근무자 수)
+
+**5. Approvals Tab** (`components/employee/tabs/approvals-tab.tsx`)
+- 결재 신청서 작성 모달
+  - 신청 유형 (휴가/연장근무/결근/근무조정)
+  - 날짜, 시작/종료 시간
+  - 상세 사유 입력
+- 신청 내역 테이블
+- 상태별 배지 (승인/대기/반려)
+- Firestore 실시간 동기화
+
+**6. Notices Tab** (`components/employee/tabs/notices-tab.tsx`)
+- 공지사항 목록
+- 중요 공지 상단 고정 (빨간 배지)
+- 공지사항 상세 모달
+- 작성자 및 작성 일시 표시
+
+**7. Notifications Tab** (`components/employee/tabs/notifications-tab.tsx`)
+- 알림 목록 (읽음/안읽음)
+- 알림 타입별 배지
+  - 출퇴근, 급여, 결재, 계약, 공지, 스케줄, 일반
+- 읽지 않은 알림 강조 (파란 배경)
+- 전체 읽음 처리 버튼
+- 읽지 않은 알림 카운트
+- notificationService 연동
+
+**8. Profile Tab** (`components/employee/tabs/profile-tab.tsx`)
+- 개인정보 수정
+  - 이름, 연락처
+  - 이메일 (읽기 전용)
+- 계좌 정보 입력
+  - 은행명, 계좌번호, 예금주
+  - 급여 지급용 필수 안내
+- 건강진단서 만료일 입력
+- 이미지 업로드 (추후 구현)
+- Firestore 실시간 저장
+
+### 🔧 Changed (변경 사항)
+
+- **ecosystem.config.cjs**: 포트 3005 → 3000 변경
+- **employee-login**: `useState` → `useEffect` 변경 (localStorage SSR 에러 수정)
+- **employee-login**: `typeof window !== 'undefined'` 체크 추가
+
+### 🆕 New Components (신규 컴포넌트)
+
+- `components/ui/switch.tsx` - Shadcn/UI Switch 컴포넌트 추가
+- `components/employee/tabs/` - 8개 직원 탭 컴포넌트
+
+### ✅ Technical Details (기술 상세)
+
+- Firebase Auth: 직원 권한 검증 (`role === 'employee'`)
+- Firestore Services: `attendanceService`, `salaryService`, `notificationService` 활용
+- 실시간 데이터: `onSnapshot` 대신 `getDocs` + 주기적 새로고침
+- 날짜 처리: `date-fns`, `safeToDate` 유틸리티
+- 상태 관리: React `useState`, `useEffect`
+- 빌드: Next.js 정적 페이지 생성 (SSR 안전)
+
+### 📦 Files Changed (변경 파일)
+
+**신규 파일 (13개)**
+- `app/employee-login/page.tsx`
+- `app/employee-dashboard/page.tsx`
+- `components/employee/tabs/dashboard-tab.tsx`
+- `components/employee/tabs/attendance-tab.tsx`
+- `components/employee/tabs/salary-tab.tsx`
+- `components/employee/tabs/schedule-tab.tsx`
+- `components/employee/tabs/approvals-tab.tsx`
+- `components/employee/tabs/notices-tab.tsx`
+- `components/employee/tabs/notifications-tab.tsx`
+- `components/employee/tabs/profile-tab.tsx`
+- `components/ui/switch.tsx`
+
+**수정 파일 (1개)**
+- `ecosystem.config.cjs`
+
+### ✅ Tests (테스트)
+
+- Build: ✅ 성공 (npm run build)
+- PM2 Restart: ✅ 성공
+- Health Check: ✅ HTTP 200
+- Git Commit: ✅ 817ee43b
+- GitHub Push: ✅ main branch
+
+---
+
+## [0.6.0] - 2024-12-15
+
 ## [0.1.0] - 2024-12-10
 
 ### ✅ Added (새 기능)
