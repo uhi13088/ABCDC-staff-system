@@ -13,10 +13,27 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { FileDown } from 'lucide-react';
 import { useSalaryLogic } from '@/hooks/admin/useSalaryLogic';
 import { SalaryDetailModal } from '@/components/admin/modals/salary-detail-modal';
+import { generateSalaryPDF, loadJsPDFScript } from '@/lib/utils/pdf-generator';
+import { useEffect, useState } from 'react';
 
 export function SalaryTab() {
+  const [pdfReady, setPdfReady] = useState(false);
+
+  // jsPDF CDN 로드
+  useEffect(() => {
+    loadJsPDFScript()
+      .then(() => {
+        setPdfReady(true);
+        console.log('✅ jsPDF 로드 완료');
+      })
+      .catch((error) => {
+        console.error('❌ jsPDF 로드 실패:', error);
+      });
+  }, []);
+
   const {
     salaries,
     stores,

@@ -22,6 +22,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
+      <head>
+        {/* jsPDF CDN for PDF generation */}
+        <script
+          src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          async
+        />
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ReactQueryProvider>
           <AuthProvider>
