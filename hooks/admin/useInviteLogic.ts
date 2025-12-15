@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { InvitationCode, InviteGenerateOptions } from '@/lib/types/invite';
+import { CompanyInvite, CompanyInviteCreateOptions } from '@/lib/types/invite';
 import { Store } from '@/lib/types/common';
 import { COLLECTIONS } from '@/lib/constants';
+import {
+  getCompanyInvites,
+  createCompanyInvite,
+  updateInviteStatus,
+} from '@/services/inviteService';
 
 /**
  * Invite 관리 Hook
@@ -11,7 +16,7 @@ import { COLLECTIONS } from '@/lib/constants';
  * 기존 함수: loadInvites, createInviteCode, toggleInviteStatus, copyInviteUrl
  */
 export const useInviteLogic = (companyId: string) => {
-  const [invites, setInvites] = useState<InvitationCode[]>([]);
+  const [invites, setInvites] = useState<CompanyInvite[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,33 +29,7 @@ export const useInviteLogic = (companyId: string) => {
 
     setIsLoading(true);
     try {
-      const invitesQuery = query(
-        collection(db, 'company_invites'),
-        where('companyId', '==', companyId),
-        orderBy('createdAt', 'desc')
-      );
-
-      const snapshot = await getDocs(invitesQuery);
-      const loadedInvites: InvitationCode[] = [];
-
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        loadedInvites.push({
-          id: doc.id,
-          code: data.code,
-          companyId: data.companyId,
-          storeId: data.storeId,
-          storeName: data.storeName,
-          role: data.role,
-          status: data.status,
-          maxUses: data.maxUses,
-          usedCount: data.usedCount || 0,
-          createdAt: data.createdAt,
-          expiresAt: data.expiresAt,
-          inviteUrl: data.inviteUrl,
-        });
-      });
-
+      const loadedInvites = await getCompanyInvites(companyId);
       setInvites(loadedInvites);
       console.log(`✅ ${loadedInvites.length}개 초대 코드 로드 완료`);
     } catch (error) {
@@ -95,40 +74,27 @@ export const useInviteLogic = (companyId: string) => {
   };
 
   // ==================== 초대 코드 생성 ====================
-  const createInviteCode = async (options: InviteGenerateOptions) => {
+  const createInviteCode = async (options: CompanyInviteCreateOptions) => {
     if (!companyId) throw new Error('companyId가 없습니다.');
 
     try {
-      // 초대 코드 생성 (6자리 랜덤 영문+숫자)
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-
       // 매장명 가져오기
       const selectedStore = stores.find(s => s.id === options.storeId);
       if (!selectedStore) throw new Error('매장을 선택해주세요.');
 
-      // Firestore에 저장
-      const inviteData = {
-        code,
+      // Service 함수 사용
+      const invite = await createCompanyInvite({
+        ...options,
         companyId,
-        storeId: options.storeId,
         storeName: selectedStore.name,
-        role: options.role,
-        status: 'active' as const,
-        maxUses: options.maxUses,
-        usedCount: 0,
-        createdAt: new Date(),
-        expiresAt: options.expiresAt || null,
-        inviteUrl: `${window.location.origin}/register?code=${code}`, // 실제 가입 URL
-      };
+      });
 
-      await addDoc(collection(db, 'company_invites'), inviteData);
-
-      console.log('✅ 초대 코드 생성 완료:', code);
+      console.log('✅ 초대 코드 생성 완료:', invite.code);
       
       // 목록 새로고침
       await loadInvites();
 
-      return code;
+      return invite.code;
     } catch (error) {
       console.error('❌ 초대 코드 생성 실패:', error);
       throw error;
@@ -139,11 +105,9 @@ export const useInviteLogic = (companyId: string) => {
   const toggleInviteStatus = async (inviteId: string, currentStatus: 'active' | 'inactive') => {
     try {
       const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      const inviteRef = doc(db, 'company_invites', inviteId);
-
-      await updateDoc(inviteRef, {
-        status: newStatus,
-      });
+      
+      // Service 함수 사용
+      await updateInviteStatus(inviteId, newStatus);
 
       console.log(`✅ 초대 코드 상태 변경 완료: ${currentStatus} → ${newStatus}`);
       

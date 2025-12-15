@@ -18,7 +18,11 @@ export const COLLECTIONS = {
   NOTICES: 'notices',
   BRANDS: 'brands',
   STORES: 'stores',
-  INVITES: 'invites',
+  
+  // 초대 코드 (2가지 시스템)
+  INVITATION_CODES: 'invitation_codes', // 플랫폼 가입용 (회사 가입)
+  COMPANY_INVITES: 'company_invites',   // 직원 초대용 (관리자가 직원 초대) ⭐
+  
   OPEN_SHIFTS: 'open_shifts', // 긴급 근무 모집
   NOTIFICATIONS: 'notifications', // 알림
   HOLIDAYS: 'holidays', // 공휴일 (Phase C-2)

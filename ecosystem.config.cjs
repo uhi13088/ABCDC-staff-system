@@ -3,11 +3,11 @@ module.exports = {
     {
       name: 'admin-dashboard',
       script: 'npm',
-      args: 'run dev -- -p 3000',
+      args: 'run dev -- -p 3005',
       cwd: '/home/user/webapp',
       env: {
         NODE_ENV: 'development',
-        PORT: 3000
+        PORT: 3005
       },
       watch: false,
       instances: 1,

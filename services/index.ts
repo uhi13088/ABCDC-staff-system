@@ -35,3 +35,6 @@ export * from './openShiftService';
 
 // Notification Service (알림)
 export * from './notificationService';
+
+// Invite Service (초대 코드)
+export * from './inviteService';
