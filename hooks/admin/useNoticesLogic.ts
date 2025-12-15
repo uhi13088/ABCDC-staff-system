@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import type { Notice, NoticeFormData } from '@/lib/types/notice';
 import { COLLECTIONS } from '@/lib/constants';
+import { safeToDate } from '@/lib/utils/timestamp';
 
 interface UseNoticesLogicProps {
   companyId: string;
@@ -40,8 +41,9 @@ export function useNoticesLogic({ companyId }: UseNoticesLogicProps) {
         noticeList.push({
           id: docSnap.id,
           ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || undefined,
+          // 🔒 Phase I: Timestamp 안전 변환
+          createdAt: safeToDate(data.createdAt, new Date()),
+          updatedAt: safeToDate(data.updatedAt, undefined) || undefined,
         } as Notice);
       });
       

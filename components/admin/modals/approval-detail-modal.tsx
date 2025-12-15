@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Approval, ApprovalType } from '@/lib/types/approval';
+import { safeToLocaleString } from '@/lib/utils/timestamp';
 
 interface ApprovalDetailModalProps {
   open: boolean;
@@ -24,15 +25,14 @@ interface ApprovalDetailModalProps {
 export function ApprovalDetailModal({ open, onClose, approval, onApprove, onReject }: ApprovalDetailModalProps) {
   if (!approval) return null;
   
-  const createdDate = approval.createdAt?.toDate?.() 
-    ? approval.createdAt.toDate().toLocaleString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : 'N/A';
+  // 🔒 Phase I: Timestamp 안전 변환
+  const createdDate = safeToLocaleString(approval.createdAt, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
   
   const getStatusBadge = () => {
     if (approval.status === 'approved') {

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { COLLECTIONS } from '@/lib/constants';
+import { safeToLocaleDateString } from '@/lib/utils/timestamp';
 
 interface CompanyManagementProps {
   onStatsUpdate: (stats: any) => void;
@@ -169,7 +170,7 @@ export default function CompanyManagement({ onStatsUpdate }: CompanyManagementPr
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">
-                        {company.createdAt?.toDate().toLocaleDateString('ko-KR')}
+                        {safeToLocaleDateString(company.createdAt)}
                       </div>
                     </td>
                   </tr>

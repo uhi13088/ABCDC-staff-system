@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { safeToLocaleDateString } from '@/lib/utils/timestamp';
 
 export default function InviteCodeManagement() {
   const [codes, setCodes] = useState<InvitationCode[]>([]);
@@ -222,12 +223,12 @@ export default function InviteCodeManagement() {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">
-                          {code.createdAt?.toDate().toLocaleDateString('ko-KR')}
+                          {safeToLocaleDateString(code.createdAt)}
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">
-                          {code.usedAt ? code.usedAt.toDate().toLocaleDateString('ko-KR') : '-'}
+                          {safeToLocaleDateString(code.usedAt)}
                         </div>
                       </td>
                     </tr>

@@ -77,26 +77,38 @@
 
 ## ⚠️ **검증 필요한 기능** (Risk Analysis)
 
-### 1. ⚠️ **Firebase SDK 버전 차이**
+### 1. ✅ **Firebase SDK 버전 차이** (Phase I 완료)
 
-#### **Timestamp 처리**
+#### **Timestamp 처리** ✅
 - **Legacy**: `createdAt.toDate()` (firebase-compat)
 - **React**: `Timestamp.toDate()` (modular SDK)
-- **위험**: 날짜 포맷팅 에러, undefined 에러
-- **점검 파일**:
-  - `hooks/admin/useEmployeeLogic.ts`
-  - `hooks/admin/useContractsLogic.ts`
-  - `hooks/admin/useAttendanceLogic.ts`
-- **검증 방법**: 실제 데이터 로드 시 console 에러 확인
+- **해결**: `lib/utils/timestamp.ts` 헬퍼 함수 생성
+  - `safeToDate()`: 안전한 Timestamp → Date 변환
+  - `safeToLocaleDateString()`: 한국어 날짜 문자열
+  - `safeToLocaleString()`: 한국어 날짜/시간 문자열
+  - `getTimestampDiff()`: Timestamp 차이 계산
+  - `safeToDateArray()`: Timestamp 배열 변환
+
+#### **사용법**
+```typescript
+// ❌ 위험: 직접 toDate() 호출
+const date = data.createdAt.toDate();  // TypeError 가능
+
+// ✅ 안전: safeToDate() 사용
+import { safeToDate } from '@/lib/utils/timestamp';
+const date = safeToDate(data.createdAt);  // null-safe
+const dateStr = safeToLocaleDateString(data.createdAt);  // "2024년 1월 15일"
+```
+
+#### **검증 상태**
+- ✅ 현재 코드베이스에 `.toDate()` 직접 호출 없음 (안전)
+- ✅ 헬퍼 함수 완비 (`lib/utils/timestamp.ts`)
+- ⚠️ 향후 개발 시 `safeToDate()` 사용 권장
 
 #### **ServerTimestamp**
 - **Legacy**: `firebase.firestore.FieldValue.serverTimestamp()`
 - **React**: `import { serverTimestamp } from 'firebase/firestore'`
-- **위험**: 저장 시 timestamp가 null로 저장될 수 있음
-- **점검 파일**:
-  - `services/employeeService.ts`
-  - `services/contractService.ts`
-  - 모든 `createX`, `updateX` 함수
+- **상태**: 정상 사용 중 (`services/employeeService.ts` 등)
 - **검증 방법**: Firestore Console에서 `createdAt`, `updatedAt` 필드 확인
 
 ### 2. ⚠️ **전역 상태 관리 (companyId 로딩)**

@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useApprovalsLogic } from '@/hooks/admin/useApprovalsLogic';
 import { ApprovalDetailModal } from '@/components/admin/modals/approval-detail-modal';
 import type { Approval, ApprovalType } from '@/lib/types/approval';
+import { safeToLocaleString } from '@/lib/utils/timestamp';
 
 const TYPE_EMOJI: Record<ApprovalType, string> = {
   'purchase': '💳',
@@ -189,9 +190,8 @@ export function ApprovalsTab() {
                 </TableRow>
               ) : (
                 approvals.map((approval) => {
-                  const createdDate = approval.createdAt?.toDate?.() 
-                    ? approval.createdAt.toDate().toLocaleString('ko-KR') 
-                    : '-';
+                  // 🔒 Phase I: Timestamp 안전 변환
+                  const createdDate = safeToLocaleString(approval.createdAt);
                   
                   return (
                     <TableRow key={approval.id} className="hover:bg-slate-50">
