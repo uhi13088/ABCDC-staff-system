@@ -57,7 +57,8 @@
 - **관리자 대시보드**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/admin-dashboard
 - **플랫폼 대시보드**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/platform
 
-**직원 시스템** ⭐ **NEW**
+**직원 시스템** ⭐ **NEW (v0.8.0)**
+- **직원 회원가입**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/employee-register
 - **직원 로그인**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/employee-login
 - **직원 대시보드**: https://3005-iqaenljjzk6jv0c4l69ca-5185f4aa.sandbox.novita.ai/employee-dashboard
 
@@ -71,10 +72,18 @@
   - 로그인 (이메일/비밀번호, Remember Me)
   - 세션 관리 (AuthProvider)
   - 권한 체크 (admin, manager, store_manager)
-- [x] **직원 시스템** ⭐ **NEW (Phase K)**
-  - 직원 로그인 (Firebase Auth)
+- [x] **직원 시스템** ⭐ **NEW (Phase K + L)**
+  - **직원 회원가입** (Phase L v0.8.0)
+    - 3단계 프로세스 (초대 코드 → 정보 입력 → 완료)
+    - 초대 코드 검증 (상태, 사용횟수, 만료일)
+    - URL 파라미터 자동 입력 (?code=ABC123)
+    - 주민등록번호 자동 포맷팅
+    - Firebase Auth 계정 생성
+    - Firestore Batch Write
+    - Multi-tenant 지원 (companyId, storeId)
+    - 승인 대기 상태 (status: 'pending')
+  - 직원 로그인 (Firebase Auth, Phase K)
   - 로그인 유지 (localStorage, SSR 안전)
-  - 초대 코드 입력
   - 직원 권한 검증 (`role === 'employee'`)
 
 ### 📊 관리자 대시보드 (13개 탭)
@@ -1303,20 +1312,22 @@ Proprietary - ABC Dessert Center
   8. Profile Tab (프로필, 계좌, 건강진단서)
 
 ### 🔄 진행 중
-- 없음 (Phase K 완료!)
+- 없음 (Phase L 완료!)
 
 ### 📌 보류/대기
 - 신규 대형 작업 없음
 
 ### 🎯 다음 우선순위
-1. 모바일 앱 개발 (React Native) - Medium
-2. 직원 QR 체크인 기능 완성 - Medium
-3. 급여명세서 PDF 다운로드 - Low
-4. 건강진단서 이미지 업로드 - Low
+1. 관리자 직원 승인 기능 (status: pending → active) - High
+2. 초대 코드 생성 UI 개선 - Medium
+3. 모바일 앱 개발 (React Native) - Medium
+4. 직원 QR 체크인 기능 완성 - Medium
+5. 급여명세서 PDF 다운로드 - Low
+6. 건강진단서 이미지 업로드 - Low
 
 ---
 
 **마지막 업데이트**: 2024-12-15  
-**버전**: 0.7.0  
-**Git Commit**: `817ee43b`  
-**상태**: ✅ Phase K 완료 - 직원 포털 8개 탭 완전 구현 (관리자 13 탭 + 직원 8 탭)
+**버전**: 0.8.0  
+**Git Commit**: `1e33729b`  
+**상태**: ✅ Phase L 완료 - 직원 회원가입 시스템 완전 구현 (관리자 13 탭 + 직원 8 탭 + 회원가입)
