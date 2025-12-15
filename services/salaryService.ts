@@ -161,12 +161,58 @@ export async function confirmSalary(salaryId: string): Promise<void> {
 
 /**
  * 급여 지급 처리
+ * 🔔 Phase J: 알림 연동 - 급여 지급 시 직원에게 알림
  */
-export async function paySalary(salaryId: string): Promise<void> {
+export async function paySalary(
+  salaryId: string,
+  options?: {
+    sendNotification?: boolean;
+    payerId?: string;
+    payerName?: string;
+    payerRole?: string;
+  }
+): Promise<void> {
+  // 급여 데이터 가져오기
+  const salaryDoc = await getDoc(doc(db, COLLECTIONS.SALARY, salaryId));
+  if (!salaryDoc.exists()) {
+    throw new Error('급여 기록을 찾을 수 없습니다');
+  }
+  
+  const salaryData = salaryDoc.data() as SalaryRecord;
+  
+  // 급여 지급 처리
   await updateSalary(salaryId, {
     status: 'paid',
     paidAt: serverTimestamp(),
   });
+
+  // 알림 전송 (급여 지급 완료 시 직원에게 알림)
+  if (options?.sendNotification) {
+    try {
+      const { createNotification } = await import('./notificationService');
+      
+      await createNotification({
+        companyId: salaryData.companyId,
+        userId: salaryData.userId,
+        type: 'salary_paid',
+        title: '급여가 지급되었습니다',
+        message: `${salaryData.yearMonth} 급여 ${salaryData.netSalary.toLocaleString()}원이 지급되었습니다.`,
+        relatedId: salaryId,
+        relatedType: 'salary',
+        senderId: options.payerId,
+        senderName: options.payerName,
+        senderRole: options.payerRole,
+        storeId: salaryData.storeId,
+        storeName: salaryData.storeName,
+        actionUrl: `/employee-dashboard?tab=salary&id=${salaryId}`,
+        actionLabel: '급여 명세서 확인',
+      });
+      console.log('✅ 급여 지급 알림 전송 완료');
+    } catch (error) {
+      console.error('❌ 급여 지급 알림 전송 실패:', error);
+      // 알림 실패해도 메인 기능은 성공 처리
+    }
+  }
 }
 
 /**

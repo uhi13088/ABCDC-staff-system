@@ -134,16 +134,57 @@ export async function createAttendance(
 
 /**
  * 출퇴근 기록 수정
+ * 🔔 Phase J: 알림 연동 - 관리자가 수정 시 직원에게 알림
  */
 export async function updateAttendance(
   attendanceId: string,
-  data: Partial<AttendanceRecord>
+  data: Partial<AttendanceRecord>,
+  options?: {
+    sendNotification?: boolean;
+    editorId?: string;
+    editorName?: string;
+    editorRole?: string;
+  }
 ): Promise<void> {
   const docRef = doc(db, COLLECTIONS.ATTENDANCE, attendanceId);
   await updateDoc(docRef, {
     ...data,
     updatedAt: serverTimestamp(),
   });
+
+  // 알림 전송 (관리자가 직원 출퇴근 기록 수정 시)
+  if (options?.sendNotification && options?.editorId) {
+    try {
+      // 원본 데이터 가져오기
+      const originalDoc = await getDoc(docRef);
+      if (originalDoc.exists()) {
+        const originalData = originalDoc.data() as AttendanceRecord;
+        
+        // notificationService는 dynamic import로 처리 (순환 참조 방지)
+        const { createNotification } = await import('./notificationService');
+        
+        await createNotification({
+          companyId: originalData.companyId,
+          userId: originalData.userId,
+          type: 'attendance_edited_by_admin',
+          title: '출퇴근 기록이 수정되었습니다',
+          message: `${options.editorName || '관리자'}님이 ${originalData.date} 출퇴근 기록을 수정했습니다.`,
+          relatedId: attendanceId,
+          relatedType: 'attendance',
+          senderId: options.editorId,
+          senderName: options.editorName,
+          senderRole: options.editorRole,
+          storeId: originalData.storeId,
+          actionUrl: `/employee-dashboard?tab=attendance&id=${attendanceId}`,
+          actionLabel: '확인하기',
+        });
+        console.log('✅ 출퇴근 수정 알림 전송 완료');
+      }
+    } catch (error) {
+      console.error('❌ 출퇴근 수정 알림 전송 실패:', error);
+      // 알림 실패해도 메인 기능은 성공 처리
+    }
+  }
 }
 
 /**

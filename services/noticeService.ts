@@ -58,9 +58,16 @@ export async function getNoticeById(noticeId: string): Promise<Notice | null> {
 
 /**
  * 공지사항 생성
+ * 🔔 Phase J: 알림 연동 - 공지사항 등록 시 전체 직원에게 알림
  */
 export async function createNotice(
-  data: Omit<Notice, 'id' | 'createdAt' | 'updatedAt'>
+  data: Omit<Notice, 'id' | 'createdAt' | 'updatedAt'>,
+  options?: {
+    sendNotification?: boolean;
+    authorId?: string;
+    authorName?: string;
+    authorRole?: string;
+  }
 ): Promise<string> {
   const docRef = await addDoc(collection(db, COLLECTIONS.NOTICES), {
     ...data,
@@ -68,7 +75,40 @@ export async function createNotice(
     createdAt: serverTimestamp(),
   });
 
-  return docRef.id;
+  const noticeId = docRef.id;
+
+  // 알림 전송 (공지사항 등록 시 전체 직원에게 알림)
+  if (options?.sendNotification) {
+    try {
+      const { getCompanyEmployees, createNotifications } = await import('./notificationService');
+      
+      // 회사 전체 직원 조회
+      const employeeIds = await getCompanyEmployees(data.companyId);
+      
+      if (employeeIds.length > 0) {
+        // 전체 직원에게 알림 전송
+        await createNotifications(employeeIds, {
+          companyId: data.companyId,
+          type: 'new_notice',
+          title: data.important ? '🔔 중요 공지사항' : '새 공지사항',
+          message: data.title,
+          relatedId: noticeId,
+          relatedType: 'notice',
+          senderId: options.authorId,
+          senderName: options.authorName,
+          senderRole: options.authorRole,
+          actionUrl: `/employee-dashboard?tab=notices&id=${noticeId}`,
+          actionLabel: '공지사항 확인',
+        });
+        console.log(`✅ 공지사항 알림 전송 완료 (${employeeIds.length}명)`);
+      }
+    } catch (error) {
+      console.error('❌ 공지사항 알림 전송 실패:', error);
+      // 알림 실패해도 메인 기능은 성공 처리
+    }
+  }
+
+  return noticeId;
 }
 
 /**

@@ -104,8 +104,17 @@ export async function getContractsByEmployee(
 
 /**
  * 계약서 생성
+ * 🔔 Phase J: 알림 연동 - 계약서 서명 요청 시 직원에게 알림
  */
-export async function createContract(data: Omit<Contract, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function createContract(
+  data: Omit<Contract, 'id' | 'createdAt' | 'updatedAt'>,
+  options?: {
+    sendNotification?: boolean;
+    creatorId?: string;
+    creatorName?: string;
+    creatorRole?: string;
+  }
+): Promise<string> {
   const docRef = await addDoc(collection(db, COLLECTIONS.CONTRACTS), {
     ...data,
     createdAt: serverTimestamp(),
@@ -114,7 +123,37 @@ export async function createContract(data: Omit<Contract, 'id' | 'createdAt' | '
     isSigned: false,
   });
 
-  return docRef.id;
+  const contractId = docRef.id;
+
+  // 알림 전송 (계약서 서명 요청 시 직원에게 알림)
+  if (options?.sendNotification && data.userId) {
+    try {
+      const { createNotification } = await import('./notificationService');
+      
+      await createNotification({
+        companyId: data.companyId,
+        userId: data.userId,
+        type: 'contract_signature_request',
+        title: '계약서 서명 요청',
+        message: `${options.creatorName || '관리자'}님이 ${data.contractType || '근로'} 계약서 서명을 요청했습니다.`,
+        relatedId: contractId,
+        relatedType: 'contract',
+        senderId: options.creatorId,
+        senderName: options.creatorName,
+        senderRole: options.creatorRole,
+        storeId: data.storeId,
+        storeName: data.storeName,
+        actionUrl: `/contract-sign/${contractId}`,
+        actionLabel: '계약서 확인 및 서명',
+      });
+      console.log('✅ 계약서 서명 요청 알림 전송 완료');
+    } catch (error) {
+      console.error('❌ 계약서 서명 요청 알림 전송 실패:', error);
+      // 알림 실패해도 메인 기능은 성공 처리
+    }
+  }
+
+  return contractId;
 }
 
 /**
