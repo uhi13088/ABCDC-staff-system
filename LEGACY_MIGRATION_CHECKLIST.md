@@ -45,25 +45,36 @@
 
 ---
 
-## ❌ **구현되지 않은 기능** (Critical)
+## ✅ **구현 완료 (Phase 2)** / ⚠️ **미연동 기능**
 
-### 1. ❌ **긴급 근무 모집 (Emergency Recruitment)**
-- **파일**: `components/admin/tabs/attendance-tab.tsx` (버튼만 존재, `disabled` 상태)
-- **상태**: **미구현**
-- **Legacy 위치**: `admin-dashboard.html` 라인 7757-7870
-- **필요한 구현**:
-  - `showEmergencyRecruitmentModal()` 함수
-  - `createOpenShift()` 함수 → `open_shifts` 컬렉션 생성
-  - 결근 발생 시 대타 구하는 UI 모달
-- **우선순위**: **🔴 High** (실제 운영 시 필요한 기능)
+### 1. ✅ **긴급 근무 모집 (Emergency Recruitment)** - Phase 2 완료
+- **파일**: 
+  - `components/admin/modals/emergency-recruitment-modal.tsx` ✅
+  - `components/admin/tabs/attendance-tab.tsx` (연동 완료) ✅
+  - `services/openShiftService.ts` (CRUD 완료) ✅
+- **상태**: **완전 구현 완료**
+- **기능**:
+  - 긴급 근무 모집 모달 UI ✅
+  - `open_shifts` 컬렉션 생성 ✅
+  - 매장별 근무 공고 등록 ✅
+- **우선순위**: ~~🔴 High~~ → **✅ 완료**
 
-### 2. ❌ **알림(Notification) 로직**
-- **현황**: 관리자가 근무시간 수정 시 직원에게 알림 전송 기능 없음
-- **Legacy 위치**: `submitAdminAttendanceEdit` 함수 내 `notifications` 컬렉션 추가
-- **필요한 구현**:
-  - 근무시간 수정 모달에 알림 전송 로직 추가
-  - `notifications` 컬렉션 write
-- **우선순위**: **🟡 Medium** (UX 개선)
+### 2. ⚠️ **알림(Notification) 로직** - 서비스 완료, 연동 필요
+- **파일**: 
+  - `services/notificationService.ts` ✅ (9가지 알림 타입 지원)
+  - `lib/types/notification.ts` ✅
+- **상태**: **서비스 구현 완료, 실제 사용처 연동 필요**
+- **구현된 기능**:
+  - `createNotification()`: 단일 알림 생성 ✅
+  - `createBulkNotifications()`: 대량 알림 생성 ✅
+  - `getNotifications()`: 알림 조회 ✅
+  - `markAsRead()`, `deleteNotification()` ✅
+- **미연동 위치**:
+  - ⚠️ 관리자가 근무시간 수정 시 (attendance 수정)
+  - ⚠️ 급여 지급 완료 시 (salary 지급)
+  - ⚠️ 계약서 서명 요청 시 (contract 링크 전송)
+  - ⚠️ 공지사항 등록 시 (notice 작성)
+- **우선순위**: **🟡 Medium** (서비스 완료, 연동만 필요)
 
 ### 3. ❌ **데이터 마이그레이션 도구**
 - **현황**: Settings 탭에 관리자용 유틸리티 없음
