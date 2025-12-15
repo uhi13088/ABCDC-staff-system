@@ -21,6 +21,8 @@ import {
 import { db } from '@/lib/firebase';
 import { COLLECTIONS, USER_ROLES, USER_STATUS } from '@/lib/constants';
 import type { Employee } from '@/lib/types/employee';
+import { createNotification } from '@/services/notificationService';
+import { NOTIFICATION_TEMPLATES } from '@/lib/types/notification';
 
 /**
  * 직원 목록 조회
@@ -115,18 +117,65 @@ export async function deleteEmployee(userId: string): Promise<void> {
  * 직원 승인
  */
 export async function approveEmployee(userId: string): Promise<void> {
+  // 1. 상태 업데이트
   await updateEmployee(userId, {
     status: USER_STATUS.APPROVED,
   });
+
+  // 2. 직원 정보 조회
+  const employee = await getEmployeeById(userId);
+  if (!employee) {
+    throw new Error('직원 정보를 찾을 수 없습니다.');
+  }
+
+  // 3. 알림 전송
+  try {
+    const template = NOTIFICATION_TEMPLATES.EMPLOYEE_APPROVED;
+    await createNotification({
+      companyId: employee.companyId,
+      userId: employee.uid,
+      type: 'EMPLOYEE_APPROVED',
+      title: template.title,
+      message: template.message(employee.companyName || '회사'),
+      actionUrl: '/employee-login',
+      actionLabel: template.actionLabel,
+    });
+    console.log('✅ 직원 승인 알림 전송 완료:', employee.name);
+  } catch (error) {
+    console.error('⚠️ 알림 전송 실패 (무시하고 진행):', error);
+  }
 }
 
 /**
  * 직원 거부
  */
 export async function rejectEmployee(userId: string): Promise<void> {
+  // 1. 상태 업데이트
   await updateEmployee(userId, {
     status: USER_STATUS.REJECTED,
   });
+
+  // 2. 직원 정보 조회
+  const employee = await getEmployeeById(userId);
+  if (!employee) {
+    throw new Error('직원 정보를 찾을 수 없습니다.');
+  }
+
+  // 3. 알림 전송
+  try {
+    const template = NOTIFICATION_TEMPLATES.EMPLOYEE_REJECTED;
+    await createNotification({
+      companyId: employee.companyId,
+      userId: employee.uid,
+      type: 'EMPLOYEE_REJECTED',
+      title: template.title,
+      message: template.message(employee.companyName || '회사'),
+      actionLabel: template.actionLabel,
+    });
+    console.log('✅ 직원 거부 알림 전송 완료:', employee.name);
+  } catch (error) {
+    console.error('⚠️ 알림 전송 실패 (무시하고 진행):', error);
+  }
 }
 
 /**

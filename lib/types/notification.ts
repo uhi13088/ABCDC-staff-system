@@ -12,7 +12,9 @@ export type NotificationType =
   | 'SALARY_PAID'                      // 급여 지급 완료
   | 'EMERGENCY_SHIFT_POSTED'           // 긴급 근무 모집
   | 'NOTICE_CREATED'                   // 새 공지사항
-  | 'ATTENDANCE_ALERT';                // 결근/지각 알림
+  | 'ATTENDANCE_ALERT'                 // 결근/지각 알림
+  | 'EMPLOYEE_APPROVED'                // 직원 가입 승인 ⭐
+  | 'EMPLOYEE_REJECTED';               // 직원 가입 거부 ⭐
 
 export interface Notification {
   id?: string;
@@ -130,5 +132,17 @@ export const NOTIFICATION_TEMPLATES = {
     message: (date: string, status: string) =>
       `${date} ${status} - 출근 확인이 필요합니다.`,
     actionLabel: '출근 확인',
+  },
+  EMPLOYEE_APPROVED: {
+    title: '가입 승인 완료',
+    message: (companyName: string) =>
+      `${companyName}의 직원으로 승인되었습니다. 로그인하여 서비스를 이용하실 수 있습니다.`,
+    actionLabel: '로그인하기',
+  },
+  EMPLOYEE_REJECTED: {
+    title: '가입 요청 거부',
+    message: (companyName: string) =>
+      `${companyName}의 직원 가입 요청이 거부되었습니다. 자세한 사항은 관리자에게 문의하세요.`,
+    actionLabel: '문의하기',
   },
 } as const;
