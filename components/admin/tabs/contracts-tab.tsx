@@ -47,6 +47,7 @@ import {
 import { useContractsLogic } from '@/hooks/admin/useContractsLogic';
 import { Contract } from '@/lib/types/contract';
 import { ContractFormModal } from '@/components/admin/modals/contract-form-modal';
+import { safeToLocaleString } from '@/lib/utils/timestamp';
 import { ContractDetailModal } from '@/components/admin/modals/contract-detail-modal';
 import { ContractLinkModal } from '@/components/admin/modals/contract-link-modal';
 
@@ -125,15 +126,15 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
   /**
    * 작성일 포맷
    */
-  const formatCreatedAt = (createdAt: Date | any) => {
-    const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
-    return new Intl.DateTimeFormat('ko-KR', {
+  // 🔒 Phase I: Timestamp 안전 변환
+  const formatCreatedAt = (createdAt: any) => {
+    return safeToLocaleString(createdAt, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(date);
+    });
   };
 
   /**

@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bell, Plus, Edit, Trash2, Star } from 'lucide-react';
 import { useNoticesLogic } from '@/hooks/admin/useNoticesLogic';
+import { safeToLocaleString } from '@/lib/utils/timestamp';
 import { NoticeFormModal } from '@/components/admin/modals/notice-form-modal';
 import type { Notice } from '@/lib/types/notice';
 
@@ -92,15 +93,15 @@ export function NoticesTab({ companyId }: NoticesTabProps) {
   /**
    * 날짜 포맷
    */
-  const formatDate = (date: Date | any) => {
-    const d = date instanceof Date ? date : new Date(date);
-    return new Intl.DateTimeFormat('ko-KR', {
+  // 🔒 Phase I: Timestamp 안전 변환
+  const formatDate = (date: any) => {
+    return safeToLocaleString(date, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(d);
+    });
   };
 
   return (

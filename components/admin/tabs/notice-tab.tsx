@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Bell, Trash2, Edit } from 'lucide-react';
 import { useNoticeLogic } from '@/hooks/admin/useNoticeLogic';
+import { safeToLocaleDateString } from '@/lib/utils/timestamp';
 
 interface NoticeTabProps {
   companyId: string;
@@ -77,7 +78,7 @@ export default function NoticeTab({ companyId }: NoticeTabProps) {
                   <TableRow key={notice.id}>
                     <TableCell className="font-medium">{notice.title}</TableCell>
                     <TableCell>{notice.authorName}</TableCell>
-                    <TableCell>{notice.createdAt?.toString()}</TableCell>
+                    <TableCell>{safeToLocaleDateString(notice.createdAt)}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="ghost" className="text-red-600" onClick={() => deleteNotice(notice.id)}>
                         <Trash2 className="w-4 h-4" />

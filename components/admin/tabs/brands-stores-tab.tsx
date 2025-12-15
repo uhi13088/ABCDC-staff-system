@@ -24,6 +24,7 @@ import { useBrandsLogic } from '@/hooks/admin/useBrandsLogic';
 import { useStoresLogic } from '@/hooks/admin/useStoresLogic';
 import { BrandFormModal, BrandFormData } from '@/components/admin/modals/brand-form-modal';
 import { StoreFormModal, StoreFormData } from '@/components/admin/modals/store-form-modal';
+import { safeToLocaleDateString } from '@/lib/utils/timestamp';
 
 interface BrandsStoresTabProps {
   companyId: string;
@@ -280,9 +281,7 @@ export function BrandsStoresTab({ companyId }: BrandsStoresTabProps) {
                           <Badge variant="secondary">{brand.storeCount || 0}개</Badge>
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          {brand.createdAt
-                            ? new Date(brand.createdAt.seconds * 1000).toLocaleDateString('ko-KR')
-                            : '-'}
+                          {safeToLocaleDateString(brand.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
@@ -386,9 +385,7 @@ export function BrandsStoresTab({ companyId }: BrandsStoresTabProps) {
                           )}
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          {store.createdAt
-                            ? new Date(store.createdAt.seconds * 1000).toLocaleDateString('ko-KR')
-                            : '-'}
+                          {safeToLocaleDateString(store.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
