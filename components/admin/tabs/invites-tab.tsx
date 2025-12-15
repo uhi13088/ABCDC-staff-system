@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,13 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserPlus, Copy } from 'lucide-react';
 import { useInviteLogic } from '@/hooks/admin/useInviteLogic';
+import CreateInviteModal from '@/components/admin/modals/create-invite-modal';
 
 interface InvitesTabProps {
   companyId: string;
 }
 
 export default function InvitesTab({ companyId }: InvitesTabProps) {
-  const { invites, isLoading, loadInvites, copyInviteUrl, toggleInviteStatus } = useInviteLogic(companyId);
+  const { invites, stores, isLoading, loadInvites, createInviteCode, copyInviteUrl, toggleInviteStatus } = useInviteLogic(companyId);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     if (companyId) {
@@ -46,7 +48,7 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
             </CardTitle>
             <CardDescription>직원 초대 코드 생성 및 관리</CardDescription>
           </div>
-          <Button>+ 초대 코드 생성</Button>
+          <Button onClick={() => setShowCreateModal(true)}>+ 초대 코드 생성</Button>
         </div>
       </CardHeader>
       <CardContent>
