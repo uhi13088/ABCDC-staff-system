@@ -73,6 +73,14 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    /**
+     * Super Admin 확인 (플랫폼 관리자)
+     * 플랜 관리, 초대 코드 관리, 회사 관리 등
+     */
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserRole() == 'super_admin';
+    }
+    
     // ====================================
     // 1. Companies (회사)
     // ====================================
@@ -419,6 +427,96 @@ service cloud.firestore {
       
       // 삭제: Admin만
       allow delete: if isAdmin();
+    }
+    
+    // ====================================
+    // 16. Subscription Plans (구독 플랜) [플랫폼]
+    // ====================================
+    match /subscription_plans/{planId} {
+      // 읽기: 전체 공개 (Landing Page에서 플랜 목록 표시)
+      // 🔥 인증 불필요 - 공개 페이지에서 접근
+      allow read: if true;
+      
+      // 생성/수정/삭제: Super Admin만
+      // 🔥 플랫폼 관리자만 플랜 관리 가능
+      allow create: if isSuperAdmin()
+        && request.resource.data.keys().hasAll(['name', 'price', 'features'])
+        && request.resource.data.name is string
+        && request.resource.data.price is number
+        && request.resource.data.features is list;
+      
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // ====================================
+    // 17. Invitation Codes (플랫폼 초대 코드) [플랫폼]
+    // ====================================
+    match /invitation_codes/{codeId} {
+      // 읽기: Super Admin만 (API Route는 Admin SDK 사용하므로 Rules 우회)
+      // 🔒 보안 강화: 일반 사용자는 접근 불가, API Route만 Admin SDK로 접근
+      allow read: if isSuperAdmin();
+      
+      // 생성/수정/삭제: Super Admin만
+      // 🔥 플랫폼 관리자만 초대 코드 관리 가능
+      allow create: if isSuperAdmin()
+        && request.resource.data.keys().hasAll(['code', 'planId', 'isUsed'])
+        && request.resource.data.code is string
+        && request.resource.data.planId is string
+        && request.resource.data.isUsed is bool;
+      
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // ====================================
+    // 18. Open Shifts (긴급 구인)
+    // ====================================
+    match /open_shifts/{shiftId} {
+      // 읽기: 같은 회사
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      
+      // 생성: Store Manager 이상
+      allow create: if isStoreManager()
+        && request.resource.data.keys().hasAll(['companyId', 'storeId', 'date', 'startTime', 'endTime'])
+        && request.resource.data.companyId is string
+        && request.resource.data.storeId is string
+        && request.resource.data.date is string
+        && request.resource.data.startTime is string
+        && request.resource.data.endTime is string
+        && isSameCompany(request.resource.data.companyId);
+      
+      // 수정: Store Manager 이상
+      allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
+      
+      // 삭제: Store Manager 이상
+      allow delete: if isStoreManager() && isSameCompany(resource.data.companyId);
+    }
+    
+    // ====================================
+    // 19. Notifications (알림)
+    // ====================================
+    match /notifications/{notifId} {
+      // 읽기: 본인 또는 Manager 이상
+      allow read: if isAuthenticated()
+        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
+      
+      // 생성: Manager 이상 (직원에게 알림 생성)
+      allow create: if isManager()
+        && request.resource.data.keys().hasAll(['userId', 'companyId', 'title', 'message'])
+        && request.resource.data.userId is string
+        && request.resource.data.companyId is string
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && isSameCompany(request.resource.data.companyId);
+      
+      // 수정: 본인 또는 Manager (읽음 처리)
+      allow update: if isAuthenticated()
+        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
+      
+      // 삭제: 본인 또는 Manager
+      allow delete: if isAuthenticated()
+        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
     }
     
     // ====================================

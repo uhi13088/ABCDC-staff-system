@@ -24,6 +24,7 @@
 | `stores` | `COLLECTIONS.STORES` | 매장 정보 | 브랜드별 매장 |
 | `company_invites` | `COLLECTIONS.COMPANY_INVITES` | 직원 초대 코드 | **관리자가 직원 초대용** |
 | `invitation_codes` | `COLLECTIONS.INVITATION_CODES` | 플랫폼 가입 초대 | **플랫폼 가입용 (회사)** |
+| `subscription_plans` | `COLLECTIONS.SUBSCRIPTION_PLANS` | 구독 플랜 | 플랫폼 가격/기능 관리 |
 | `open_shifts` | `COLLECTIONS.OPEN_SHIFTS` | 긴급 근무 모집 | 대타 근무 |
 | `notifications` | `COLLECTIONS.NOTIFICATIONS` | 알림 | 푸시 알림 |
 | `holidays` | `COLLECTIONS.HOLIDAYS` | 공휴일 | 법정 공휴일 |
@@ -343,6 +344,117 @@ interface Salary {
 
 ---
 
+### 8. `subscription_plans` - 구독 플랜 [플랫폼]
+**컬렉션명**: `subscription_plans`  
+**상수명**: `COLLECTIONS.SUBSCRIPTION_PLANS`
+
+```typescript
+interface SubscriptionPlan {
+  id: string;
+  name: string;                   // 플랜명 (예: Free, Basic, Premium)
+  price: number;                  // 월 가격 (원)
+  
+  // 기능 제한
+  maxUsers: number;               // 최대 직원 수
+  maxStores: number;              // 최대 매장 수
+  features: string[];             // 기능 목록
+  
+  // 상태
+  isActive: boolean;              // 활성 상태
+  displayOrder: number;           // 표시 순서
+  
+  // 스타일링
+  color?: string;                 // 플랜 색상
+  icon?: string;                  // 플랜 아이콘
+  
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+```
+
+**주의사항**:
+- **Landing Page에서 전체 공개 조회** (`allow read: if true`)
+- **Super Admin만 생성/수정/삭제** 가능
+- `isActive: true`인 플랜만 Landing Page에 표시
+
+---
+
+### 9. `open_shifts` - 긴급 구인 (대타 근무)
+**컬렉션명**: `open_shifts`  
+**상수명**: `COLLECTIONS.OPEN_SHIFTS`
+
+```typescript
+interface OpenShift {
+  id: string;
+  companyId: string;
+  storeId: string;
+  storeName: string;
+  
+  // 근무 일정
+  date: string;                   // YYYY-MM-DD
+  startTime: string;              // HH:mm
+  endTime: string;                // HH:mm
+  
+  // 모집 정보
+  position?: string;              // 필요 직책
+  count: number;                  // 모집 인원
+  description?: string;           // 상세 설명
+  
+  // 지원자 정보
+  applicants?: Array<{
+    userId: string;
+    userName: string;
+    appliedAt: Timestamp;
+  }>;
+  
+  // 상태
+  status: 'open' | 'closed' | 'cancelled';
+  
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+```
+
+**주의사항**:
+- **Store Manager 이상**만 생성/수정/삭제 가능
+- 같은 회사 직원만 조회 가능
+
+---
+
+### 10. `notifications` - 알림
+**컬렉션명**: `notifications`  
+**상수명**: `COLLECTIONS.NOTIFICATIONS`
+
+```typescript
+interface Notification {
+  id: string;
+  userId: string;                 // 수신자 UID
+  companyId: string;
+  
+  // 알림 내용
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  
+  // 링크 정보 (선택)
+  link?: string;                  // 클릭 시 이동 경로
+  
+  // 읽음 상태
+  isRead: boolean;
+  readAt?: Timestamp;
+  
+  createdBy?: string;             // 발송자 UID
+  createdAt: Timestamp;
+}
+```
+
+**주의사항**:
+- **Manager 이상**만 생성 가능 (직원에게 알림 발송)
+- 본인 알림만 조회 및 수정(읽음 처리) 가능
+
+---
+
 ## 🎯 작업 시 체크리스트
 
 **모든 작업 시작 전 반드시 확인:**
@@ -396,3 +508,4 @@ const invites: CompanyInvite[] = [];
 | 날짜 | 버전 | 변경 내용 |
 |------|------|-----------|
 | 2024-12-15 | v1.0.0 | 최초 작성 - 전체 컬렉션 명세 정리 |
+| 2024-12-16 | v1.1.0 | Priority 1-B: 컬렉션 3개 추가 (subscription_plans, open_shifts, notifications) |

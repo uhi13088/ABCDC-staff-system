@@ -1,8 +1,11 @@
 /**
- * 초대 코드 검증 API Route (Priority 1: 보안 강화)
+ * 초대 코드 검증 API Route (Priority 1-B: Admin SDK 전환)
  * 
- * 목적: 클라이언트에서 직접 Firestore 조회 → 서버 측 검증으로 변경
- * 보안: invitation_codes 컬렉션 열거 공격(Enumeration Attack) 차단
+ * 목적: 클라이언트 SDK → Firebase Admin SDK 전환
+ * 보안: 
+ *   1. Firestore Rules 우회 (완전한 서버 권한)
+ *   2. invitation_codes 컬렉션 열거 공격(Enumeration Attack) 차단
+ *   3. Rate Limiting으로 무차별 대입 공격 방지
  * 
  * POST /api/verify-invite-code
  * Request Body: { code: string }
@@ -10,8 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { COLLECTIONS } from '@/lib/constants';
 
 // Rate limiting을 위한 간단한 메모리 캐시 (프로덕션에서는 Redis 권장)
@@ -96,12 +98,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Firestore에서 초대 코드 검색
-    const codesQuery = query(
-      collection(db, COLLECTIONS.INVITATION_CODES),
-      where('code', '==', trimmedCode)
-    );
-    const codesSnapshot = await getDocs(codesQuery);
+    // Admin SDK로 Firestore 조회 (Rules 우회)
+    const codesSnapshot = await adminDb
+      .collection(COLLECTIONS.INVITATION_CODES)
+      .where('code', '==', trimmedCode)
+      .limit(1)
+      .get();
 
     if (codesSnapshot.empty) {
       return NextResponse.json(
@@ -123,6 +125,7 @@ export async function POST(request: NextRequest) {
 
     // 만료일 확인 (있는 경우)
     if (codeData.expiryDate) {
+      // Admin SDK Timestamp는 toDate() 메서드 제공
       const expiryDate = codeData.expiryDate.toDate();
       if (expiryDate < new Date()) {
         return NextResponse.json(
@@ -140,11 +143,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 플랜 정보 가져오기
-    const planDocRef = doc(db, COLLECTIONS.SUBSCRIPTION_PLANS, codeData.linkedPlanId || codeData.planId);
-    const planDoc = await getDoc(planDocRef);
+    // 플랜 정보 가져오기 (Admin SDK)
+    const planDoc = await adminDb
+      .collection(COLLECTIONS.SUBSCRIPTION_PLANS)
+      .doc(codeData.linkedPlanId || codeData.planId)
+      .get();
 
-    if (!planDoc.exists()) {
+    if (!planDoc.exists) {
       return NextResponse.json(
         { success: false, error: '연결된 플랜을 찾을 수 없습니다.' },
         { status: 404 }
