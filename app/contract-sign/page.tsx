@@ -4,10 +4,14 @@
  * Contract Signature Page
  * 계약서 서명 페이지 (React 변환)
  * Phase J: Legacy HTML → React 변환
+ * 
+ * ✅ Firebase Hosting (Static Export) 대응:
+ * - Query Parameter 방식으로 변경 (/contract-sign?id=xxx)
+ * - useSearchParams로 ID 추출
  */
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import SignatureCanvas from 'react-signature-canvas';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -52,10 +56,10 @@ interface ContractData {
   signatureData?: string;
 }
 
-export default function ContractSignPage() {
-  const params = useParams();
+function ContractSignContent() {
   const router = useRouter();
-  const contractId = params.id as string;
+  const searchParams = useSearchParams();
+  const contractId = searchParams.get('id') || '';
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -389,5 +393,21 @@ export default function ContractSignPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Suspense boundary로 감싸기 (useSearchParams 필수)
+export default function ContractSignPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">계약서 로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <ContractSignContent />
+    </Suspense>
   );
 }

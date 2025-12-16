@@ -171,7 +171,7 @@ export async function notifyContractSignRequested(params: {
     message: template.message(params.companyName),
     relatedId: params.contractId,
     relatedType: 'contract',
-    actionUrl: `/contract-sign/${params.contractId}`,
+    actionUrl: `/contract-sign?id=${params.contractId}`,
     actionLabel: template.actionLabel,
   });
   

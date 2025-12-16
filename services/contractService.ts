@@ -143,7 +143,7 @@ export async function createContract(
         senderRole: options.creatorRole,
         storeId: data.storeId,
         storeName: data.storeName,
-        actionUrl: `/contract-sign/${contractId}`,
+        actionUrl: `/contract-sign?id=${contractId}`,
         actionLabel: '계약서 확인 및 서명',
       });
       console.log('✅ 계약서 서명 요청 알림 전송 완료');
