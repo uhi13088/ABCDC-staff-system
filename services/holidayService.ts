@@ -21,6 +21,17 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
+import type { TimestampInput } from '@/lib/utils/timestamp';
+
+/**
+ * 공공 API 응답 아이템 타입
+ */
+interface HolidayAPIItem {
+  locdate: number | string;  // YYYYMMDD 형식 숫자 또는 문자열
+  dateName: string;          // 공휴일 이름
+  isHoliday?: string;        // 휴일 여부 (Y/N)
+  seq?: number;              // 순번
+}
 
 export interface Holiday {
   id?: string;
@@ -28,8 +39,8 @@ export interface Holiday {
   name: string;        // 공휴일 이름 (예: "설날", "추석")
   year: number;        // 연도 (쿼리 최적화용)
   companyId?: string;  // 회사별 공휴일 (선택사항, 없으면 전국 공통)
-  createdAt?: any;
-  updatedAt?: any;
+  createdAt?: TimestampInput;
+  updatedAt?: TimestampInput;
 }
 
 /**
@@ -135,7 +146,7 @@ export async function fetchHolidaysFromAPI(
     const itemsArray = Array.isArray(items) ? items : [items];
     
     // Holiday 형식으로 변환
-    const holidays: Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[] = itemsArray.map((item: any) => {
+    const holidays: Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[] = itemsArray.map((item: HolidayAPIItem) => {
       const dateStr = String(item.locdate); // YYYYMMDD 형식
       const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
       

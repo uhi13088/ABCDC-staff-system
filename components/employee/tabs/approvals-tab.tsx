@@ -54,7 +54,7 @@ interface ApprovalRequest {
   requestDate: string
   status: 'pending' | 'approved' | 'rejected'
   reason: string
-  details: any
+  details: unknown
 }
 
 type RequestType = 'vacation' | 'overtime' | 'absence' | 'shift_change'
@@ -151,7 +151,7 @@ export default function ApprovalsTab({ employeeData }: ApprovalsTabProps) {
       setShowRequestModal(false)
       resetForm()
       await loadApprovalRequests()
-    } catch (error: any) {
+    } catch (error) {
       console.error('결재 요청 제출 실패:', error)
       alert(error.message || '결재 요청 제출 중 오류가 발생했습니다.')
     } finally {

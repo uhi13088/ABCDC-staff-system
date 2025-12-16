@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
+import type { TimestampInput } from '@/lib/utils/timestamp';
 
 export interface SalaryRecord {
   id?: string;
@@ -46,10 +47,10 @@ export interface SalaryRecord {
   workDays?: number;
   workHours?: number;
   status: 'pending' | 'confirmed' | 'paid';
-  confirmedAt?: any;
-  paidAt?: any;
-  createdAt?: any;
-  updatedAt?: any;
+  confirmedAt?: TimestampInput;
+  paidAt?: TimestampInput;
+  createdAt?: TimestampInput;
+  updatedAt?: TimestampInput;
 }
 
 /**

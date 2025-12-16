@@ -16,13 +16,14 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-// 자주 사용하는 탭 (일반 import - 깜빡임 방지)
+// 자주 사용하는 탭 (일반 import - 깜빡임 방지, 초기 로딩 속도 개선)
+// Priority 2-A: Dashboard, 직원, 출퇴근, 급여는 매일 사용하므로 일반 import
 import DashboardTab from '@/components/admin/tabs/dashboard-tab';
 import EmployeesTab from '@/components/admin/tabs/employees-tab';
+import AttendanceTab from '@/components/admin/tabs/attendance-tab';
 import { SalaryTab } from '@/components/admin/tabs/salary-tab';
 
-// 나머지 탭 (Dynamic import - 번들 크기 최적화)
-const AttendanceTab = dynamic(() => import('@/components/admin/tabs/attendance-tab'), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
+// 자주 사용하지 않는 탭 (Dynamic import - 번들 크기 최적화)
 const SchedulesTab = dynamic(() => import('@/components/admin/tabs/schedules-tab').then(mod => ({ default: mod.SchedulesTab })), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
 const ContractsTab = dynamic(() => import('@/components/admin/tabs/contracts-tab').then(mod => ({ default: mod.ContractsTab })), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
 const ApprovalsTab = dynamic(() => import('@/components/admin/tabs/approvals-tab').then(mod => mod.ApprovalsTab), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });

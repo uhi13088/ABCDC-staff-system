@@ -287,9 +287,9 @@ export interface SalaryCalculationResult {
  * @returns 급여 상세 내역
  */
 export async function calculateMonthlySalary(
-  employee: any,
-  contract: any,
-  attendances: any[],
+  employee: Employee,
+  contract: Contract,
+  attendances: Attendance[],
   yearMonth: string
 ): Promise<SalaryCalculationResult> {
   console.log('💰 급여 계산 시작:', employee.name, yearMonth);

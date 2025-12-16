@@ -193,7 +193,7 @@ function EmployeeRegisterForm() {
         router.push('/employee-login');
       }, 3000);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('❌ 가입 실패:', err);
 
       let errorMsg = '가입에 실패했습니다.';

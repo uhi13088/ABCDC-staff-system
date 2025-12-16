@@ -196,6 +196,56 @@ export const WEEKDAYS_EN = {
 } as const;
 
 /**
+ * 구독 플랜 권한 라벨 (사람이 읽기 쉬운 형태)
+ */
+export const PERMISSION_LABELS = {
+  'recipe.print': '🖨️ 레시피 인쇄 모드',
+  'recipe.view_secret': '🔒 레시피 비공개 필드 조회',
+  'recipe.share_external': '🔗 외부 공유 링크',
+  'staff.manage_contract': '📝 근로계약서 보관',
+  'staff.invite_email': '✉️ 이메일 발송 초대',
+  'staff.schedule_manage': '📅 근무 스케줄 관리',
+  'data.export_all': '📊 데이터 엑셀 다운로드',
+  'data.bulk_update': '⚡ 직원 대량 일괄 수정',
+} as const;
+
+/**
+ * 권한 카테고리 (플랜 관리 UI용)
+ */
+export const PERMISSION_CATEGORIES = {
+  recipe: {
+    label: '레시피 관리',
+    permissions: [
+      'recipe.print',
+      'recipe.view_secret',
+      'recipe.share_external',
+    ],
+  },
+  staff: {
+    label: '직원 관리',
+    permissions: [
+      'staff.manage_contract',
+      'staff.invite_email',
+      'staff.schedule_manage',
+    ],
+  },
+  data: {
+    label: '데이터 관리',
+    permissions: [
+      'data.export_all',
+      'data.bulk_update',
+    ],
+  },
+} as const;
+
+/**
+ * 권한 코드 → 사람이 읽을 수 있는 이름 변환
+ */
+export function getPermissionLabel(permission: string): string {
+  return PERMISSION_LABELS[permission as keyof typeof PERMISSION_LABELS] || permission;
+}
+
+/**
  * 타입 추론 헬퍼
  */
 export type Collection = typeof COLLECTIONS[keyof typeof COLLECTIONS];

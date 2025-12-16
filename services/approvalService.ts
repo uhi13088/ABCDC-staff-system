@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS, APPROVAL_STATUS } from '@/lib/constants';
+import type { TimestampInput } from '@/lib/utils/timestamp';
 
 export interface ApprovalRequest {
   id?: string;
@@ -34,9 +35,9 @@ export interface ApprovalRequest {
   reason?: string;
   status: 'pending' | 'approved' | 'rejected';
   reviewedBy?: string;
-  reviewedAt?: any;
-  createdAt?: any;
-  updatedAt?: any;
+  reviewedAt?: TimestampInput;
+  createdAt?: TimestampInput;
+  updatedAt?: TimestampInput;
 }
 
 /**

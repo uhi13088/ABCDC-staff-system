@@ -10,8 +10,15 @@ import { Button } from '@/components/ui/button';
 import { COLLECTIONS } from '@/lib/constants';
 import { safeToLocaleDateString } from '@/lib/utils/timestamp';
 
+interface PlatformStats {
+  totalCompanies: number;
+  activeCompanies: number;
+  suspendedCompanies: number;
+  totalUsers: number;
+}
+
 interface CompanyManagementProps {
-  onStatsUpdate: (stats: any) => void;
+  onStatsUpdate: (stats: PlatformStats) => void;
 }
 
 export default function CompanyManagement({ onStatsUpdate }: CompanyManagementProps) {

@@ -136,7 +136,7 @@ export default function AdminRegisterPage() {
       alert('✅ 관리자 계정이 생성되었습니다! 로그인 페이지로 이동합니다.');
       router.push('/admin-login');
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('Registration error:', err);
       
       // 🚨 Rollback: Firestore 쓰기 실패 시 Auth 계정 삭제

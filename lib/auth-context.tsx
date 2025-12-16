@@ -65,9 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '로그인에 실패했습니다.';
       console.error('Sign in error:', error);
-      throw new Error(error.message || '로그인에 실패했습니다.');
+      throw new Error(errorMessage);
     }
   };
 
@@ -76,9 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await firebaseSignOut(auth);
       setUser(null);
       setFirebaseUser(null);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '로그아웃에 실패했습니다.';
       console.error('Sign out error:', error);
-      throw new Error(error.message || '로그아웃에 실패했습니다.');
+      throw new Error(errorMessage);
     }
   };
 

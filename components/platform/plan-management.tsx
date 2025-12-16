@@ -14,8 +14,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+interface PlanStats {
+  totalPlans: number;
+  activePlans: number;
+  [key: string]: number;
+}
+
 interface PlanManagementProps {
-  onStatsUpdate: (stats: any) => void;
+  onStatsUpdate: (stats: PlanStats | ((prev: PlanStats) => PlanStats)) => void;
 }
 
 export default function PlanManagement({ onStatsUpdate }: PlanManagementProps) {
@@ -57,7 +63,7 @@ export default function PlanManagement({ onStatsUpdate }: PlanManagementProps) {
       setPlans(plansData);
 
       // 통계 업데이트
-      onStatsUpdate((prev: any) => ({
+      onStatsUpdate((prev: PlanStats) => ({
         ...prev,
         totalPlans: plansData.length,
       }));

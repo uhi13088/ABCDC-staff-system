@@ -5,6 +5,8 @@
  * @source /home/user/webapp-backup/admin-dashboard.html (lines 4446~4645)
  */
 
+import type { TimestampInput } from '@/lib/utils/timestamp';
+
 export type ApprovalType = 'purchase' | 'disposal' | 'resignation' | 'absence' | 'shift';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -55,7 +57,7 @@ export interface Approval {
   type: ApprovalType;
   applicantName: string;
   status: ApprovalStatus;
-  createdAt: any; // Firebase Timestamp
+  createdAt: TimestampInput;
   companyId?: string;
   data: PurchaseData | DisposalData | ResignationData | AbsenceData | ShiftData;
 }
@@ -73,8 +75,8 @@ export interface ShiftRequest {
   approvedByAdmin: boolean;
   status: string;
   companyId?: string;
-  matchedAt?: any;
-  createdAt?: any;
+  matchedAt?: TimestampInput;
+  createdAt?: TimestampInput;
 }
 
 // 승인 필터

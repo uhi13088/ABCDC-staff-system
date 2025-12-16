@@ -159,7 +159,7 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
       alert('출근 처리되었습니다.')
       await loadDashboardStats() // 통계 새로고침
-    } catch (error: any) {
+    } catch (error) {
       console.error('출근 처리 실패:', error)
       alert(error.message || '출근 처리 중 오류가 발생했습니다.')
     } finally {
@@ -182,7 +182,7 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
       alert('퇴근 처리되었습니다.')
       await loadDashboardStats() // 통계 새로고침
-    } catch (error: any) {
+    } catch (error) {
       console.error('퇴근 처리 실패:', error)
       alert(error.message || '퇴근 처리 중 오류가 발생했습니다.')
     } finally {

@@ -12,12 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SalaryCalculationResult } from '@/lib/utils/salary-calculator';
 import { formatHoursAndMinutes } from '@/lib/utils/salary-calculator';
+import type { Contract } from '@/lib/types/contract';
 
 interface SalaryDetailModalProps {
   open: boolean;
   onClose: () => void;
   salary: SalaryCalculationResult | null;
-  contract: any;
+  contract: Contract | null;
   onConfirm?: () => void;
 }
 

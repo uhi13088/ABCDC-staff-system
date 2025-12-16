@@ -61,9 +61,10 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
       }
       await loadHolidays();
       setEditingHoliday(null);
-    } catch (error: any) {
+    } catch (error) {
       console.error('공휴일 저장 실패:', error);
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === 'permission-denied') {
         alert('❌ 권한이 없습니다. Admin만 공휴일을 추가/수정할 수 있습니다.');
       } else {
         throw error;
@@ -99,9 +100,10 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
       }
       alert('✅ 2025년 공휴일 16개가 추가되었습니다.');
       await loadHolidays();
-    } catch (error: any) {
+    } catch (error) {
       console.error('일괄 추가 실패:', error);
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === 'permission-denied') {
         alert('❌ 권한이 없습니다. Admin만 공휴일을 추가할 수 있습니다.');
       } else {
         alert('❌ 일괄 추가 중 오류가 발생했습니다.');
@@ -124,9 +126,10 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
       } else {
         alert('⚠️ API에서 공휴일을 불러올 수 없습니다.\n환경변수 NEXT_PUBLIC_HOLIDAY_API_KEY를 설정하세요.');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('API 동기화 실패:', error);
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === 'permission-denied') {
         alert('❌ 권한이 없습니다. Admin만 공휴일을 추가할 수 있습니다.');
       } else {
         alert('❌ API 동기화 중 오류가 발생했습니다.');

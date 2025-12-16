@@ -87,7 +87,7 @@ export function ApprovalDetailModal({ open, onClose, approval, onApprove, onReje
               <CardContent className="pt-6 space-y-4">
                 <div>
                   <div className="text-sm font-medium text-slate-700 mb-2">구매 물품 목록</div>
-                  {(approval.data as any).items?.map((item: any, idx: number) => (
+                  {(approval.data as { items?: Array<{ item: string; vendor?: string; price?: string | number; quantity?: number }> }).items?.map((item, idx: number) => (
                     <div key={idx} className="border border-slate-200 rounded-lg p-3 mb-2 bg-white">
                       <div className="font-semibold text-slate-800 mb-2">{idx + 1}. {item.item}</div>
                       <div className="text-sm text-slate-600 space-y-1">

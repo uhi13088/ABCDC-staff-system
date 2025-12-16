@@ -47,7 +47,7 @@ import {
 import { useContractsLogic } from '@/hooks/admin/useContractsLogic';
 import { Contract } from '@/lib/types/contract';
 import { ContractFormModal } from '@/components/admin/modals/contract-form-modal';
-import { safeToLocaleString } from '@/lib/utils/timestamp';
+import { safeToLocaleString, type TimestampInput } from '@/lib/utils/timestamp';
 import { ContractDetailModal } from '@/components/admin/modals/contract-detail-modal';
 import { ContractLinkModal } from '@/components/admin/modals/contract-link-modal';
 
@@ -127,7 +127,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
    * 작성일 포맷
    */
   // 🔒 Phase I: Timestamp 안전 변환
-  const formatCreatedAt = (createdAt: any) => {
+  const formatCreatedAt = (createdAt: TimestampInput) => {
     return safeToLocaleString(createdAt, {
       year: 'numeric',
       month: '2-digit',

@@ -19,6 +19,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import type { BreakTimeDetail } from '@/lib/types/contract';
 import {
   Select,
   SelectContent,
@@ -101,7 +102,7 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
   /**
    * 근무 시간 포맷
    */
-  const formatWorkTime = (startTime: string, endTime: string, breakTime?: any) => {
+  const formatWorkTime = (startTime: string, endTime: string, breakTime?: BreakTimeDetail) => {
     if (breakTime) {
       return (
         <div className="text-xs">
@@ -223,7 +224,7 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
   /**
    * 가상 인원 저장
    */
-  const handleSavePerson = (personId: string, updates: any) => {
+  const handleSavePerson = (personId: string, updates: Partial<{ name: string; position: string; workHours: string }>) => {
     simulatorLogic.updatePerson(personId, updates);
   };
 

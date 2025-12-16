@@ -11,16 +11,23 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { SimulatorGanttChart } from '../simulator-gantt-chart';
-import { SimulatorPerson, DayOfWeek } from '@/lib/types/schedule';
+import { SimulatorPerson, DayOfWeek, SimulatorSchedule } from '@/lib/types/schedule';
+
+interface SimulatorListItem {
+  id: string;
+  name: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
 
 interface SimulatorModalProps {
   open: boolean;
   onClose: () => void;
   // useSimulatorLogic 훅에서 제공하는 props
-  simulatorList: any[];
+  simulatorList: SimulatorListItem[];
   currentSimulatorId: string | null;
   persons: SimulatorPerson[];
-  schedules: any;
+  schedules: SimulatorSchedule;
   currentWeek: Date;
   loading: boolean;
   // 함수들

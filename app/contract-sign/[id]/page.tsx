@@ -12,6 +12,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
+import type { TimestampInput } from '@/lib/utils/timestamp';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,9 +45,9 @@ interface ContractData {
   bonusType?: string;
   bonusAmount?: number;
   insuranceType?: string;
-  createdAt: any;
+  createdAt: TimestampInput;
   isSigned: boolean;
-  signedAt?: any;
+  signedAt?: TimestampInput;
   signedBy?: string;
   signatureData?: string;
 }
@@ -97,7 +98,7 @@ export default function ContractSignPage() {
       }
 
       setContract(data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('계약서 로드 실패:', err);
       setError(err.message || '계약서를 불러오는데 실패했습니다');
     } finally {
@@ -147,7 +148,7 @@ export default function ContractSignPage() {
         router.push('/employee-dashboard?tab=contracts');
       }, 3000);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('서명 제출 실패:', err);
       setError(err.message || '서명 제출에 실패했습니다');
     } finally {

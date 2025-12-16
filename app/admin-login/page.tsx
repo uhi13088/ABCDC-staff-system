@@ -62,7 +62,7 @@ export default function AdminLoginPage() {
       // 4. 대시보드로 이동
       router.push('/admin-dashboard');
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('Login failed:', err);
       let message = '로그인 중 오류가 발생했습니다.';
       

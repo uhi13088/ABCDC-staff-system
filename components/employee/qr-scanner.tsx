@@ -176,7 +176,7 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
       await stopScanner();
       onSuccess?.();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('QR 처리 실패:', error);
       setError(error.message || 'QR 코드 처리에 실패했습니다.');
     } finally {

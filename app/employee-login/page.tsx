@@ -58,7 +58,7 @@ export default function EmployeeLoginPage() {
 
       // 직원 대시보드로 이동
       router.push('/employee-dashboard')
-    } catch (err: any) {
+    } catch (err) {
       console.error('로그인 에러:', err)
       
       // Firebase 에러 메시지 한글화

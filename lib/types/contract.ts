@@ -4,6 +4,26 @@
  */
 
 import { Timestamp } from 'firebase/firestore';
+import type { TimestampInput } from '@/lib/utils/timestamp';
+
+/**
+ * 휴게시간 상세 객체 타입
+ */
+export interface BreakTimeDetail {
+  hours?: number;
+  minutes?: number;
+  isPaid?: boolean;
+  description?: string;
+}
+
+/**
+ * 급여 계산 기간 타입
+ */
+export interface SalaryCalculationPeriod {
+  startDay: number;  // 시작일 (1-31)
+  endDay: number;    // 종료일 (1-31)
+  type?: 'monthly' | 'custom';
+}
 
 /**
  * 계약 유형
@@ -86,14 +106,14 @@ export interface Contract {
   
   // 스케줄 정보 (백업: 라인 9549-9556)
   schedules?: ContractSchedule[]; // ✅ 표준: 요일별 근무 시간 배열
-  breakTime?: any;                // ✅ 표준: 휴게시간 상세 객체
+  breakTime?: BreakTimeDetail;    // ✅ 표준: 휴게시간 상세 객체
   
   // 🔥 급여 정보 (표준 필드)
   salaryType?: string;            // ✅ 표준: 급여 타입 (hourly/monthly)
   salaryAmount?: number | string; // ✅ 표준: 급여 금액
   salaryPaymentDay?: string;      // ✅ 표준: 급여 지급일
   salaryCalculationType?: string; // 급여 계산 방식
-  salaryCalculationPeriod?: any;  // 급여 계산 기간
+  salaryCalculationPeriod?: SalaryCalculationPeriod;  // 급여 계산 기간
   paymentMethod?: string;         // 지급 방법
   
   // 급여 지급 항목 (백업: 라인 9582-9588)
@@ -181,7 +201,7 @@ export interface ContractFormData {
   schedules?: ContractSchedule[]; // ✅ 표준: 요일별 근무 시간 배열
   
   // 휴게시간 상세
-  breakTime?: any;                // ✅ 표준: 휴게시간 상세 객체
+  breakTime?: BreakTimeDetail;    // ✅ 표준: 휴게시간 상세 객체
   
   // 🔥 급여 정보 (표준 필드)
   salaryType: string;             // ✅ 표준: hourly/monthly

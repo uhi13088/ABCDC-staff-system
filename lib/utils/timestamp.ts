@@ -12,6 +12,22 @@
 import { Timestamp } from 'firebase/firestore';
 
 /**
+ * 허용되는 Timestamp 입력 타입
+ * - Firestore Timestamp 객체
+ * - Date 객체
+ * - ISO 문자열 (Legacy 데이터)
+ * - Unix timestamp (숫자, 밀리초)
+ * - null/undefined (fallback 사용)
+ */
+export type TimestampInput = 
+  | Timestamp 
+  | Date 
+  | string 
+  | number 
+  | null 
+  | undefined;
+
+/**
  * Firestore Timestamp를 안전하게 Date로 변환
  * 
  * @param value - Firestore Timestamp 또는 null/undefined
@@ -29,7 +45,7 @@ import { Timestamp } from 'firebase/firestore';
  * ```
  */
 export function safeToDate(
-  value: any,
+  value: TimestampInput,
   fallback: Date | null = new Date()
 ): Date | null {
   // null/undefined 체크
@@ -93,7 +109,7 @@ export function safeToDate(
  * ```
  */
 export function safeToLocaleDateString(
-  value: any,
+  value: TimestampInput,
   options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',
@@ -128,7 +144,7 @@ export function safeToLocaleDateString(
  * ```
  */
 export function safeToLocaleString(
-  value: any,
+  value: TimestampInput,
   options: Intl.DateTimeFormatOptions = {}
 ): string {
   const date = safeToDate(value, null);
@@ -158,7 +174,7 @@ export function safeToLocaleString(
  * const hours = diff / (1000 * 60 * 60);  // 시간 단위
  * ```
  */
-export function getTimestampDiff(start: any, end: any): number {
+export function getTimestampDiff(start: TimestampInput, end: TimestampInput): number {
   const startDate = safeToDate(start, null);
   const endDate = safeToDate(end, null);
 
@@ -180,7 +196,7 @@ export function getTimestampDiff(start: any, end: any): number {
  * const dates = safeToDateArray(docs.map(doc => doc.data().createdAt));
  * ```
  */
-export function safeToDateArray(values: any[]): Date[] {
+export function safeToDateArray(values: TimestampInput[]): Date[] {
   return values
     .map(v => safeToDate(v, null))
     .filter((d): d is Date => d !== null);

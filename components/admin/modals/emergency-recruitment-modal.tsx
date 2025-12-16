@@ -143,7 +143,7 @@ export const EmergencyRecruitmentModal = forwardRef<HTMLDivElement, EmergencyRec
       
       // 모집 현황 새로고침은 부모 컴포넌트에서 처리
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ 긴급 모집 제출 실패:', error);
       alert('❌ 공고 등록에 실패했습니다: ' + error.message);
     } finally {

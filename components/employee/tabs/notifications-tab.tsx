@@ -93,7 +93,7 @@ export default function NotificationsTab({ employeeData }: NotificationsTabProps
       await markAllAsRead(employeeData.uid)
       await loadNotifications() // 새로고침
       alert('모든 알림이 읽음 처리되었습니다.')
-    } catch (error: any) {
+    } catch (error) {
       console.error('전체 읽음 처리 실패:', error)
       alert(error.message || '전체 읽음 처리 중 오류가 발생했습니다.')
     }

@@ -90,7 +90,7 @@ export default function ProfileTab({ employeeData }: ProfileTabProps) {
       })
 
       alert('프로필이 저장되었습니다.')
-    } catch (error: any) {
+    } catch (error) {
       console.error('프로필 저장 실패:', error)
       alert(error.message || '프로필 저장 중 오류가 발생했습니다.')
     } finally {

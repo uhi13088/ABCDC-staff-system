@@ -24,6 +24,7 @@ import { useBrandsLogic } from '@/hooks/admin/useBrandsLogic';
 import { useStoresLogic } from '@/hooks/admin/useStoresLogic';
 import { BrandFormModal, BrandFormData } from '@/components/admin/modals/brand-form-modal';
 import { StoreFormModal, StoreFormData } from '@/components/admin/modals/store-form-modal';
+import type { Brand, Store } from '@/lib/types/store';
 import { safeToLocaleDateString } from '@/lib/utils/timestamp';
 
 interface BrandsStoresTabProps {
@@ -90,7 +91,7 @@ export function BrandsStoresTab({ companyId }: BrandsStoresTabProps) {
   /**
    * 브랜드 수정
    */
-  const handleEditBrand = (brand: any) => {
+  const handleEditBrand = (brand: Brand) => {
     setSelectedBrand({
       id: brand.id,
       name: brand.name,
@@ -135,7 +136,7 @@ export function BrandsStoresTab({ companyId }: BrandsStoresTabProps) {
   /**
    * 매장 수정
    */
-  const handleEditStore = (store: any) => {
+  const handleEditStore = (store: Store) => {
     setSelectedStore({
       id: store.id,
       name: store.name,
