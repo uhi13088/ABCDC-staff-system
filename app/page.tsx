@@ -22,6 +22,7 @@ import { Clock, DollarSign, FileText, BarChart3, Check, Loader2, Ticket } from '
 // Firebase imports
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { COLLECTIONS } from '@/lib/constants';
 
 interface SubscriptionPlan {
   id: string;
@@ -94,45 +95,29 @@ function LandingPageContent() {
       setInviteError('');
       setInviteSuccess('');
 
-      // Firestore에서 초대 코드 검색
-      const codesQuery = query(
-        collection(db, 'invitation_codes'),
-        where('code', '==', code)
-      );
-      const codesSnapshot = await getDocs(codesQuery);
+      // ✅ 보안 개선: 서버 측 API Route로 검증 (Enumeration Attack 차단)
+      const response = await fetch('/api/verify-invite-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code }),
+      });
 
-      if (codesSnapshot.empty) {
-        setInviteError('❌ 유효하지 않은 초대 코드입니다.');
+      const data = await response.json();
+
+      if (!data.success) {
+        setInviteError(`❌ ${data.error}`);
         return;
       }
-
-      const codeDoc = codesSnapshot.docs[0];
-      const codeData = codeDoc.data();
-
-      if (codeData.isUsed) {
-        setInviteError('❌ 이미 사용된 초대 코드입니다.');
-        return;
-      }
-
-      // 플랜 정보 가져오기
-      const planDoc = await getDocs(
-        query(collection(db, 'subscription_plans'), where('__name__', '==', codeData.linkedPlanId))
-      );
-
-      if (planDoc.empty) {
-        setInviteError('❌ 연결된 플랜을 찾을 수 없습니다.');
-        return;
-      }
-
-      const planData = planDoc.docs[0].data();
 
       // localStorage에 저장
-      localStorage.setItem('inviteCode', code);
-      localStorage.setItem('inviteCodeId', codeDoc.id);
-      localStorage.setItem('planId', codeData.linkedPlanId);
-      localStorage.setItem('planName', planData.name);
+      localStorage.setItem('inviteCode', data.code);
+      localStorage.setItem('inviteCodeId', data.codeId);
+      localStorage.setItem('planId', data.planId);
+      localStorage.setItem('planName', data.planName);
 
-      setInviteSuccess(`✅ 유효한 초대 코드입니다! (플랜: ${planData.name})`);
+      setInviteSuccess(`✅ 유효한 초대 코드입니다! (플랜: ${data.planName})`);
 
       // 2초 후 관리자 회원가입 페이지로 이동
       setTimeout(() => {
