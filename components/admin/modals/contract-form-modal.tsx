@@ -703,6 +703,21 @@ export function ContractFormModal({
                 <div className="space-y-4 pt-4 border-t">
                   <h4 className="font-semibold text-slate-700">휴게시간 (선택사항)</h4>
                   
+                  {/* ⚠️ 법정 휴게시간 경고 메시지 */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <strong>근로기준법 제54조 (휴게시간)</strong>
+                        <ul className="mt-1 space-y-0.5 text-xs">
+                          <li>• 4시간 이상 근무 시 <strong>30분 이상</strong> 휴게시간 필수</li>
+                          <li>• 8시간 이상 근무 시 <strong>1시간 이상</strong> 휴게시간 필수</li>
+                          <li>• 휴게시간 미준수 시 <strong>법적 제재</strong> 대상이 될 수 있습니다</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>휴게시간 길이</Label>

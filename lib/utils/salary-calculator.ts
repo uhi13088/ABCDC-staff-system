@@ -619,15 +619,59 @@ export async function calculateMonthlySalary(
     result.basePay = result.monthlyWage;
   }
   
-  // 연장근로수당 (주 40시간 초과분) - 계약서에 설정된 경우만
+  // 연장근로수당 계산 (1일 8시간 초과 + 주 40시간 초과) - 계약서에 설정된 경우만
   if (contract.allowances?.overtime) {
-    Object.values(weeklyWorkHours).forEach(weekHours => {
-      if (weekHours > 40) {
-        totalOvertimeHours += (weekHours - 40);
+    let totalDailyOvertimeHours = 0; // 일별 연장 누적
+    let totalWeeklyOvertimeHours = 0; // 주별 연장 누적
+    const dailyOvertimeByWeek: Record<string, number> = {}; // 주차별 일 연장 합계
+    
+    // Step 1: 일별 연장근로 계산 (각 출근일마다 8시간 초과 체크)
+    result.attendanceDetails.forEach(detail => {
+      const dailyWork = parseFloat(detail.workHours) || 0;
+      const dailyOvertime = Math.max(dailyWork - 8, 0);
+      
+      if (dailyOvertime > 0) {
+        totalDailyOvertimeHours += dailyOvertime;
+        
+        // 🚨 1일 12시간 초과 경고 (법정 한도)
+        if (dailyWork > 12) {
+          console.warn(`⚠️ [${detail.date}] 1일 12시간 초과 근무 감지: ${dailyWork.toFixed(2)}시간 (법정 한도: 12시간)`);
+        }
+        
+        // 주차별로 일 연장시간 누적
+        const date = new Date(detail.date);
+        const weekKey = getWeekOfMonth(date);
+        dailyOvertimeByWeek[weekKey] = (dailyOvertimeByWeek[weekKey] || 0) + dailyOvertime;
+        
+        console.log(`📊 [${detail.date}] 일별 연장근로: ${dailyWork.toFixed(2)}시간 - 8시간 = ${dailyOvertime.toFixed(2)}시간`);
       }
     });
+    
+    // Step 2: 주별 연장근로 계산 (주 40시간 초과 체크)
+    Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
+      const weeklyOvertime = Math.max(weekHours - 40, 0);
+      
+      if (weeklyOvertime > 0) {
+        totalWeeklyOvertimeHours += weeklyOvertime;
+        
+        // 🚨 주 52시간 초과 경고 (법정 한도)
+        if (weekHours > 52) {
+          console.warn(`⚠️ [${weekKey}] 주 52시간 초과 근무 감지: ${weekHours.toFixed(2)}시간 (법정 한도: 52시간)`);
+        }
+        
+        console.log(`📊 [${weekKey}] 주별 연장근로: ${weekHours.toFixed(2)}시간 - 40시간 = ${weeklyOvertime.toFixed(2)}시간`);
+      }
+    });
+    
+    // Step 3: 중복 제거 (법적으로 유리한 쪽 적용)
+    // 근로기준법: "1일 8시간 초과" 또는 "주 40시간 초과" 중 큰 값 적용
+    // 단, 동일한 시간을 중복 지급하지 않도록 처리
+    totalOvertimeHours = Math.max(totalDailyOvertimeHours, totalWeeklyOvertimeHours);
+    
     result.overtimeHours = totalOvertimeHours;
     result.overtimePay = Math.round(result.hourlyWage * 1.5 * totalOvertimeHours);
+    
+    console.log(`💰 연장근로수당 최종: 일별 ${totalDailyOvertimeHours.toFixed(2)}h vs 주별 ${totalWeeklyOvertimeHours.toFixed(2)}h → 최종 ${totalOvertimeHours.toFixed(2)}h × ${result.hourlyWage}원 × 1.5 = ${result.overtimePay.toLocaleString()}원`);
   }
   
   // 야간근로수당 - 계약서에 설정된 경우만
