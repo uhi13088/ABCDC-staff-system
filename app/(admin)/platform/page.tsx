@@ -2,15 +2,13 @@
 
 /**
  * 플랫폼 관리자 대시보드
- * 기존 platform-dashboard.html을 Shadcn/UI Zinc 테마로 완전히 재구축
- * 로직은 100% 보존, UI는 100% 새로 그림
  */
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -20,9 +18,10 @@ import {
   TicketIcon,
   LogOut,
   RefreshCw,
+  Loader2 // 로딩 아이콘 추가
 } from 'lucide-react';
 
-// 비즈니스 로직 import
+// ... (기존 import 유지)
 import {
   loadCompanies,
   loadPlans,
@@ -33,10 +32,13 @@ import {
   type InvitationCode,
 } from '@/lib/platform-logic';
 
-// 하위 컴포넌트 import
 import CompanyListTab from '@/components/platform/company-list-tab';
 import PlanManagementTab from '@/components/platform/plan-management-tab';
 import InviteCodeTab from '@/components/platform/invite-code-tab';
+
+// ✅ Firebase 로그아웃 함수 import (없으면 firebase.ts에서 가져와야 함)
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function PlatformDashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -49,7 +51,7 @@ export default function PlatformDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('companies');
 
-  // 통계
+  // 통계 계산 로직 유지...
   const stats = companies.length > 0 ? calculateCompanyStats(companies) : {
     totalCompanies: 0,
     totalUsers: 0,
@@ -57,19 +59,20 @@ export default function PlatformDashboard() {
     suspendedCompanies: 0,
   };
 
-  // 권한 체크
+  // ✅ 1. 권한 체크 및 데이터 로드 통합
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'super_admin')) {
-      router.push('/admin-login');
-    }
-  }, [user, authLoading, router]);
+    // 인증 로딩 중이면 대기
+    if (authLoading) return;
 
-  // 초기 데이터 로드
-  useEffect(() => {
-    if (user?.role === 'super_admin') {
-      loadAllData();
+    // 비로그인 또는 슈퍼관리자가 아니면 즉시 추방
+    if (!user || user.role !== 'super_admin') {
+      router.replace('/admin-login'); // replace가 push보다 기록을 안 남겨서 보안상 좋음
+      return;
     }
-  }, [user]);
+
+    // 슈퍼관리자 맞으면 데이터 로드
+    loadAllData();
+  }, [user, authLoading, router]);
 
   const loadAllData = async () => {
     try {
@@ -93,28 +96,37 @@ export default function PlatformDashboard() {
     loadAllData();
   };
 
+  // ✅ 2. 확실한 로그아웃 처리
   const handleLogout = async () => {
-    // TODO: Firebase logout
-    router.push('/admin-login');
+    try {
+      await signOut(auth); // Firebase 세션 삭제
+      router.replace('/admin-login');
+    } catch (error) {
+      console.error('로그아웃 실패:', error);
+    }
   };
 
-  // 로딩 중
+  // ✅ 3. 로딩 상태 처리 강화 (인증 중이거나 데이터 로딩 중이면 화면 보여주지 않음)
   if (authLoading || loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-50">
         <div className="text-center space-y-4">
-          <RefreshCw className="h-12 w-12 animate-spin mx-auto text-zinc-400" />
-          <p className="text-sm text-zinc-600">로딩 중...</p>
+          <Loader2 className="h-12 w-12 animate-spin mx-auto text-zinc-400" />
+          <p className="text-sm text-zinc-600">
+            {authLoading ? '인증 확인 중...' : '데이터 불러오는 중...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  // 권한 없음
+  // ✅ 4. 렌더링 가드 (화면 깜빡임 방지용 최종 방어선)
+  // useEffect에서 redirect 시켰더라도, React가 잠깐 렌더링하는 것을 막음
   if (!user || user.role !== 'super_admin') {
     return null;
   }
 
+  // ... (이하 JSX return 부분은 기존 코드와 동일하게 유지)
   return (
     <div className="min-h-screen bg-zinc-50">
       {/* 헤더 - Shadcn/UI Zinc 스타일 */}
@@ -140,14 +152,14 @@ export default function PlatformDashboard() {
             
             <div className="flex items-center gap-2 text-sm text-zinc-600">
               <span>{user.email}</span>
-              <Badge variant="secondary">super_admin</Badge>
+              <Badge variant="secondary" className="bg-zinc-100 text-zinc-800 hover:bg-zinc-200">super_admin</Badge>
             </div>
 
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="gap-2"
+              className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
             >
               <LogOut className="h-4 w-4" />
               로그아웃
@@ -158,7 +170,7 @@ export default function PlatformDashboard() {
 
       {/* 메인 컨텐츠 */}
       <main className="container py-6 space-y-6">
-        {/* 통계 카드 - Shadcn Card 컴포넌트 활용 */}
+        {/* 통계 카드 */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -229,18 +241,18 @@ export default function PlatformDashboard() {
           </Card>
         </div>
 
-        {/* 탭 메뉴 - Shadcn Tabs 컴포넌트 */}
+        {/* 탭 메뉴 */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="companies">
+          <TabsList className="grid w-full grid-cols-3 bg-zinc-100">
+            <TabsTrigger value="companies" className="data-[state=active]:bg-white">
               <Building2 className="h-4 w-4 mr-2" />
               회사 목록
             </TabsTrigger>
-            <TabsTrigger value="plans">
+            <TabsTrigger value="plans" className="data-[state=active]:bg-white">
               <Package className="h-4 w-4 mr-2" />
               구독 플랜 관리
             </TabsTrigger>
-            <TabsTrigger value="invites">
+            <TabsTrigger value="invites" className="data-[state=active]:bg-white">
               <TicketIcon className="h-4 w-4 mr-2" />
               초대 코드 관리
             </TabsTrigger>
