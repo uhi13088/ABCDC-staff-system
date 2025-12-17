@@ -1,18 +1,17 @@
-```yaml
 name: Deploy to Firebase Hosting
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch: # 수동 실행 가능
+  workflow_dispatch:
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 Checkout
         uses: actions/checkout@v4
       
       - name: 🟢 Setup Node.js
@@ -24,33 +23,28 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
       
-      - name: 🔧 Create .env.local from secrets
+      - name: 🔧 Create .env.local
         run: |
           cat << EOF > .env.local
-          # Firebase Web SDK Configuration
           NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          
-          # Public Holiday API Key
           NEXT_PUBLIC_HOLIDAY_API_KEY=${{ secrets.NEXT_PUBLIC_HOLIDAY_API_KEY }}
-          
-          # Firebase Admin SDK Configuration (서버 사이드 전용)
           FIREBASE_ADMIN_PROJECT_ID=${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
           FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
           FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
           EOF
       
-      - name: 🏗️ Build Next.js (Static Export)
+      - name: 🏗️ Build
         run: npm run build
       
-      - name: 🚀 Deploy to Firebase Hosting
-        uses: w9jds/firebase-action@master
-        with:
-          args: deploy --only hosting
+      - name: 🔑 Create Service Account Key file
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > serviceAccountKey.json
+      
+      - name: 🚀 Deploy to Firebase
+        run: npx firebase-tools deploy --only hosting --project abcdc-staff-system
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-```
+          GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
