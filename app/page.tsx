@@ -10,6 +10,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -143,12 +144,17 @@ function LandingPageContent() {
             <span className="text-xl font-bold text-zinc-900">ABC Staff System</span>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <a href="/admin-login">관리자 로그인</a>
-            </Button>
-            <Button asChild>
-              <a href="/employee-login">직원 로그인</a>
-            </Button>
+            <Link href="/platform">
+              <Button variant="outline" size="sm" className="gap-2">
+                플랫폼 관리
+              </Button>
+            </Link>
+            <Link href="/admin-login">
+              <Button variant="ghost">관리자 로그인</Button>
+            </Link>
+            <Link href="/employee-login">
+              <Button>직원 로그인</Button>
+            </Link>
           </div>
         </div>
       </nav>
