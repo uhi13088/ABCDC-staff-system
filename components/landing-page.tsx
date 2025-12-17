@@ -12,12 +12,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // ✅ 라우터 추가
 
 export default function LandingPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
+  const router = useRouter(); // ✅ 라우터 훅 사용
 
   useEffect(() => {
     loadPlans();
@@ -36,7 +38,6 @@ export default function LandingPage() {
         ...doc.data()
       })) as SubscriptionPlan[];
 
-      // 가격 순으로 정렬
       plansData.sort((a, b) => a.price - b.price);
       setPlans(plansData);
     } catch (error) {
@@ -51,8 +52,8 @@ export default function LandingPage() {
       alert('초대 코드를 입력해주세요.');
       return;
     }
-    // 초대 코드를 쿼리 파라미터로 전달하여 회원가입 페이지로 이동
-    window.location.href = `/employee-register?code=${inviteCode}`;
+    // ✅ window.location.href 대신 router.push 사용 (새로고침 방지)
+    router.push(`/employee-register?code=${inviteCode}`);
   };
 
   const formatPrice = (price: number) => {
@@ -77,9 +78,13 @@ export default function LandingPage() {
               <Link href="/admin-login" className="text-gray-600 hover:text-gray-900 font-medium">
                 관리자 로그인
               </Link>
-              <Link href="/employee-login">
-                <Button>직원 로그인</Button>
-              </Link>
+              
+              {/* ✅ Link 안에 Button을 넣는 대신, Button asChild 사용 */}
+              <Button asChild>
+                <Link href="/employee-login">
+                  직원 로그인
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -163,7 +168,6 @@ export default function LandingPage() {
                   </CardHeader>
 
                   <CardContent className="space-y-4">
-                    {/* 기본 정보 */}
                     <div className="border-t border-b py-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">최대 사용자</span>
@@ -175,7 +179,6 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* 기본 기능 */}
                     <div>
                       <p className="text-sm font-semibold text-gray-700 mb-2">
                         ✅ 모든 기본 기능 포함
@@ -185,7 +188,6 @@ export default function LandingPage() {
                       </p>
                     </div>
 
-                    {/* 유료 권한 목록 */}
                     {plan.permissions.length > 0 && (
                       <div>
                         <p className="text-sm font-semibold text-purple-600 mb-2">
@@ -204,6 +206,7 @@ export default function LandingPage() {
                   </CardContent>
 
                   <CardFooter>
+                    {/* ✅ 모달 트리거 버튼은 그대로 둠 (Link가 아니므로) */}
                     <Button
                       className="w-full"
                       variant={plan.isPopular ? 'default' : 'outline'}
