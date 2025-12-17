@@ -41,10 +41,10 @@ jobs:
       - name: 🏗️ Build
         run: npm run build
       
-      - name: 🔑 Create Service Account Key file
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > serviceAccountKey.json
-      
-      - name: 🚀 Deploy to Firebase
-        run: npx firebase-tools deploy --only hosting --project abcdc-staff-system
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
+      - name: 🚀 Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          channelId: live
+          projectId: abcdc-staff-system
