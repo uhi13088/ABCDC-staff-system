@@ -10,6 +10,10 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     
+    # 👇 [수정] 이 부분이 핵심입니다! 실험 기능을 켜주는 환경변수 추가
+    env:
+      FIREBASE_CLI_EXPERIMENTS: webframeworks
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
@@ -38,6 +42,7 @@ jobs:
           FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
           EOF
       
+      # Next.js 빌드 (이제 정적 파일 생성이 아닌, 서버용 빌드가 됨)
       - name: 🏗️ Build
         run: npm run build
       
