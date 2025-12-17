@@ -1,8 +1,3 @@
-/**
- * Attendance Service
- * Firebase Firestore 출퇴근 관련 CRUD 로직
- */
-
 import {
   collection,
   query,
@@ -23,7 +18,8 @@ import { COLLECTIONS } from '@/lib/constants';
 import type { AttendanceRecord } from '@/lib/types/attendance';
 
 /**
- * 출퇴근 기록 목록 조회
+ * 출퇴근 기록 목록 조회 (최적화됨)
+ * 🚀 변경점: 날짜 필터링을 Firestore 쿼리 단계에서 수행하여 읽기 비용 절감
  */
 export async function getAttendanceRecords(
   companyId: string,
@@ -39,7 +35,7 @@ export async function getAttendanceRecords(
     where('companyId', '==', companyId),
   ];
 
-  // 필터 조건 추가
+  // 1. 기본 필터 조건 추가
   if (filters?.storeId) {
     constraints.push(where('storeId', '==', filters.storeId));
   }
@@ -52,32 +48,43 @@ export async function getAttendanceRecords(
     constraints.push(where('status', '==', filters.status));
   }
 
-  // 날짜 범위는 클라이언트에서 필터링 (Firestore 제약)
-  constraints.push(orderBy('date', 'desc'));
-
-  const q = query(collection(db, COLLECTIONS.ATTENDANCE), ...constraints);
-  const snapshot = await getDocs(q);
-
-  let records = snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  } as AttendanceRecord));
-
-  // 날짜 범위 필터링 (클라이언트)
-  if (filters?.startDate || filters?.endDate) {
-    records = records.filter(record => {
-      if (filters.startDate && record.date < filters.startDate) return false;
-      if (filters.endDate && record.date > filters.endDate) return false;
-      return true;
-    });
+  // 2. 🚀 핵심 변경: 날짜 범위 쿼리를 DB 레벨에서 수행
+  if (filters?.startDate) {
+    constraints.push(where('date', '>=', filters.startDate));
+  }
+  
+  if (filters?.endDate) {
+    constraints.push(where('date', '<=', filters.endDate));
   }
 
-  return records;
+  // 3. 정렬 (날짜 내림차순)
+  // 주의: where('date') 범위 쿼리와 orderBy('date')를 함께 사용하려면 복합 색인 필요
+  constraints.push(orderBy('date', 'desc'));
+
+  try {
+    const q = query(collection(db, COLLECTIONS.ATTENDANCE), ...constraints);
+    const snapshot = await getDocs(q);
+
+    // 4. 이미 DB에서 필터링되었으므로 매핑만 수행 (메모리 필터링 제거됨)
+    const records = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    } as AttendanceRecord));
+
+    return records;
+
+  } catch (error: any) {
+    // ⚠️ 중요: 복합 색인(Composite Index)이 없을 때 발생하는 에러 처리
+    if (error.code === 'failed-precondition' && error.message.includes('index')) {
+      console.error('🚨 [Firestore Index Error] 쿼리를 실행하려면 인덱스가 필요합니다.');
+      console.error('아래 링크를 클릭하여 Firebase 콘솔에서 인덱스를 생성해주세요:');
+      console.error(error.message); // 이 메시지 안에 인덱스 생성 링크가 포함되어 있습니다.
+    }
+    throw error;
+  }
 }
 
-/**
- * 출퇴근 기록 상세 조회
- */
+// ... (나머지 함수들은 기존과 동일하게 유지)
 export async function getAttendanceById(attendanceId: string): Promise<AttendanceRecord | null> {
   const docRef = doc(db, COLLECTIONS.ATTENDANCE, attendanceId);
   const docSnap = await getDoc(docRef);
@@ -92,9 +99,6 @@ export async function getAttendanceById(attendanceId: string): Promise<Attendanc
   } as AttendanceRecord;
 }
 
-/**
- * 특정 날짜의 직원 출퇴근 기록 조회
- */
 export async function getAttendanceByUserAndDate(
   userId: string,
   date: string
@@ -117,9 +121,6 @@ export async function getAttendanceByUserAndDate(
   } as AttendanceRecord;
 }
 
-/**
- * 출근 기록 생성
- */
 export async function createAttendance(
   data: Omit<AttendanceRecord, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
@@ -132,10 +133,6 @@ export async function createAttendance(
   return docRef.id;
 }
 
-/**
- * 출퇴근 기록 수정
- * 🔔 Phase J: 알림 연동 - 관리자가 수정 시 직원에게 알림
- */
 export async function updateAttendance(
   attendanceId: string,
   data: Partial<AttendanceRecord>,
@@ -152,15 +149,11 @@ export async function updateAttendance(
     updatedAt: serverTimestamp(),
   });
 
-  // 알림 전송 (관리자가 직원 출퇴근 기록 수정 시)
   if (options?.sendNotification && options?.editorId) {
     try {
-      // 원본 데이터 가져오기
       const originalDoc = await getDoc(docRef);
       if (originalDoc.exists()) {
         const originalData = originalDoc.data() as AttendanceRecord;
-        
-        // notificationService는 dynamic import로 처리 (순환 참조 방지)
         const { createNotification } = await import('./notificationService');
         
         await createNotification({
@@ -178,20 +171,13 @@ export async function updateAttendance(
           actionUrl: `/employee-dashboard?tab=attendance&id=${attendanceId}`,
           actionLabel: '확인하기',
         });
-        console.log('✅ 출퇴근 수정 알림 전송 완료');
       }
     } catch (error) {
       console.error('❌ 출퇴근 수정 알림 전송 실패:', error);
-      // 알림 실패해도 메인 기능은 성공 처리
     }
   }
 }
 
-/**
- * 출근 처리
- * 🔒 Phase G: 서버 시간 자동 할당 (시간 조작 방지)
- * clockInTime 파라미터 제거 → serverTimestamp() 사용
- */
 export async function clockIn(
   userId: string,
   companyId: string,
@@ -204,36 +190,25 @@ export async function clockIn(
     companyId,
     storeId,
     date,
-    clockIn: serverTimestamp() as any,  // 서버 시간 자동 할당
+    clockIn: serverTimestamp() as any,
     status: 'present',
     location,
   });
 }
 
-/**
- * 퇴근 처리
- * 🔒 Phase G: 서버 시간 자동 할당 (시간 조작 방지)
- * clockOutTime 파라미터 제거 → serverTimestamp() 사용
- */
 export async function clockOut(
   attendanceId: string
 ): Promise<void> {
   await updateAttendance(attendanceId, {
-    clockOut: serverTimestamp() as any,  // 서버 시간 자동 할당
+    clockOut: serverTimestamp() as any,
   });
 }
 
-/**
- * 출퇴근 기록 삭제
- */
 export async function deleteAttendance(attendanceId: string): Promise<void> {
   const docRef = doc(db, COLLECTIONS.ATTENDANCE, attendanceId);
   await deleteDoc(docRef);
 }
 
-/**
- * 출퇴근 승인
- */
 export async function approveAttendance(attendanceId: string): Promise<void> {
   await updateAttendance(attendanceId, {
     isApproved: true,
