@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export', // 🔥 Firebase Hosting용 Static Export
+  // output: 'export',  <-- ❌ 삭제 (API Route 사용을 위해 필수)
   images: {
-    unoptimized: true, // Static Export에서는 Image Optimization 비활성화 필요
+    // unoptimized: true, <-- ❌ 삭제 (Firebase 호스팅이 이미지 최적화 지원함)
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
   eslint: {
     ignoreDuringBuilds: true,
