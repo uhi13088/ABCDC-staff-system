@@ -96,7 +96,10 @@ service cloud.firestore {
     // ====================================
     match /users/{userId} {
       allow read: if isAuthenticated() 
-        && (isOwner(userId) || (isManager() && isSameCompany(resource.data.companyId)));
+        && (
+          isOwner(userId) 
+          || isManager()
+        );
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
         && (isOwner(userId) || (isManager() && isSameCompany(resource.data.companyId)));
@@ -145,7 +148,10 @@ service cloud.firestore {
     // ====================================
     match /salary/{salaryId} {
       allow read: if isAuthenticated()
-        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
+        && (
+          isOwner(resource.data.userId) 
+          || isManager()
+        );
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && isSameCompany(resource.data.companyId);
       allow delete: if isAdmin() && isSameCompany(resource.data.companyId);

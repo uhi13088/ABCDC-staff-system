@@ -130,7 +130,7 @@ export async function fetchHolidaysFromAPI(
   }
 
   try {
-    const url = `http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&numOfRows=50&ServiceKey=${key}&_type=json`;
+    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&numOfRows=50&ServiceKey=${key}&_type=json`;
     
     const response = await fetch(url);
     const data = await response.json();
