@@ -43,13 +43,12 @@ jobs:
           EOF
       
       # Next.js 빌드 (이제 정적 파일 생성이 아닌, 서버용 빌드가 됨)
-      - name: 🏗️ Build
-        run: npm run build
+      - name: 🔑 Setup Firebase Credentials
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > $HOME/gcloud-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
       
-      - name: 🚀 Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
-          channelId: live
-          projectId: abcdc-staff-system
+      - name: 🚀 Deploy to Firebase Hosting & Functions
+        run: |
+          npx firebase-tools deploy --only hosting,functions --force --project abcdc-staff-system --non-interactive
+
