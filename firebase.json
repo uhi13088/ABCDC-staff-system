@@ -9,16 +9,5 @@
     "frameworksBackend": {
       "region": "asia-northeast3"
     }
-  },
-  "functions": {
-    "source": ".",
-    "codebase": "default",
-    "runtime": "nodejs20",
-    "ignore": [
-      "node_modules",
-      ".git",
-      "firebase-debug.log",
-      "firebase-debug.*.log"
-    ]
   }
 }
