@@ -102,7 +102,9 @@ service cloud.firestore {
         );
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
-        && (isOwner(userId) || (isManager() && isSameCompany(resource.data.companyId)));
+        && (isOwner(userId) || (isManager() && isSameCompany(resource.data.companyId)))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'companyId']) 
+            || isSuperAdmin());
       allow delete: if isManager() && isSameCompany(resource.data.companyId);
     }
     

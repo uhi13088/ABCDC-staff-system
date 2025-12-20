@@ -5,7 +5,8 @@
  * 보안: 
  *   1. Firestore Rules 우회 (완전한 서버 권한)
  *   2. invitation_codes 컬렉션 열거 공격(Enumeration Attack) 차단
- *   3. Rate Limiting으로 무차별 대입 공격 방지
+ *   3. Rate Limiting: 서버리스 환경에서 Map 객체는 작동하지 않음 (무한 요청 가능)
+ *      → 프로덕션에서는 Cloudflare KV, Upstash Redis 등 외부 저장소 필요
  * 
  * POST /api/verify-invite-code
  * Request Body: { code: string }
@@ -15,32 +16,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { COLLECTIONS } from '@/lib/constants';
-
-// Rate limiting을 위한 간단한 메모리 캐시 (프로덕션에서는 Redis 권장)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1분
-const MAX_REQUESTS = 10; // 1분에 최대 10번
-
-/**
- * Rate Limiting 체크
- */
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-
-  if (!entry || now > entry.resetTime) {
-    // 새로운 윈도우 시작
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-
-  if (entry.count >= MAX_REQUESTS) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
-}
 
 /**
  * IP 주소 추출
@@ -65,18 +40,6 @@ function getClientIP(request: NextRequest): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Rate Limiting 체크
-    const clientIP = getClientIP(request);
-    if (!checkRateLimit(clientIP)) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.' 
-        },
-        { status: 429 }
-      );
-    }
-
     // Request Body 파싱
     const body = await request.json();
     const { code } = body;

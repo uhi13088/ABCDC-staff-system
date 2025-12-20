@@ -34,7 +34,7 @@ export async function calculateMonthlySalary(
   attendances: AttendanceForSalary[],
   yearMonth: string
 ): Promise<MonthlySalaryResult> {
-  console.log('💰 급여 계산 시작:', employee.name, yearMonth);
+  // 급여 계산 시작
   
   // yearMonth 파싱 (YYYY-MM 형식)
   const [year, month] = yearMonth.split('-').map(Number);
@@ -131,7 +131,7 @@ export async function calculateMonthlySalary(
   const salaryAmount = parseFloat(String(contract.salaryAmount || contract.wageAmount || 0));
   
   if (salaryAmount === 0) {
-    console.log('⚠️ 급여액이 0원');
+    // 급여액이 0원
     return result;
   }
   
@@ -348,7 +348,7 @@ export async function calculateMonthlySalary(
     result.weeklyHolidayPay = Math.round(result.hourlyWage * weeklyHolidayHours);
     console.log(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}시간 × ${result.hourlyWage.toLocaleString()}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
   } else {
-    console.log(`⚠️ 주휴수당 미적용 - 사유: ${salaryType !== '시급' ? '시급제 아님' : `주 ${contractWeeklyHours}시간 (15시간 미만)`}`);
+    // 주휴수당 미적용
   }
   
   // 퇴직금 계산 (1년 이상 근속, 주 15시간 이상 근무)
@@ -425,6 +425,6 @@ export async function calculateMonthlySalary(
     hasWorkCompInsurance: insurance.workComp || false
   };
   
-  console.log('✅ 급여 계산 완료:', result);
+  // 급여 계산 완료
   return result;
 }

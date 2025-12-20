@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -183,6 +183,9 @@ export function SimulatorModal({
           {/* 헤더 */}
           <DialogHeader className="p-6 border-b-2">
             <DialogTitle className="text-lg font-bold">📅 스케줄 시뮬레이터</DialogTitle>
+            <DialogDescription className="sr-only">
+              스케줄 시뮬레이터로 주간 근무 스케줄을 계획하고 시뮬레이션할 수 있습니다.
+            </DialogDescription>
             
             {/* 상단 컨트롤 */}
             <div className="flex gap-2 items-center mt-4">

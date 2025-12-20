@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -102,6 +102,9 @@ export function NoticeFormModal({
           <DialogTitle className="text-2xl">
             {notice ? '✏️ 공지사항 수정' : '📢 공지사항 작성'}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {notice ? '기존 공지사항을 수정합니다.' : '새로운 공지사항을 작성합니다.'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
