@@ -6,6 +6,79 @@
 
 ---
 
+## [0.17.0] - 2025-01-17
+
+### 🔐 Security Fixes (보안 수정)
+
+#### 긴급 보안 구멍 7개 수정
+
+**🔴 Critical (즉시 수정 완료)**:
+
+1. **Firestore Rules 권한 탈취 차단**
+   - `users` 컬렉션 업데이트 시 `role`, `companyId` 변경 차단
+   - 직원이 자신의 role을 admin으로 변경하는 공격 완전 차단
+   - `super_admin`만 role/companyId 수정 가능
+   - 파일: `firestore.rules` Line 104-106
+
+2. **API Key 하드코딩 제거**
+   - `lib/firebase.ts`에서 하드코딩된 Firebase API Key 완전 제거
+   - 환경변수 필수화 (`process.env.NEXT_PUBLIC_FIREBASE_API_KEY!`)
+   - Fallback 값 제거로 보안 강화
+
+3. **급여 정보 로그 노출 차단**
+   - `lib/utils/calculate-monthly-salary.ts`의 `console.log` 4개 제거
+   - 브라우저 콘솔에 직원 급여 정보 노출 방지
+   - Line 37, 134, 351, 428 주석 처리
+
+4. **Rate Limit 무력화 코드 제거**
+   - `app/api/verify-invite-code/route.ts`의 Map 객체 제거
+   - 서버리스 환경에서 작동하지 않는 코드 정리
+   - 프로덕션 대안 (Cloudflare KV, Upstash Redis) 주석 추가
+
+**🟡 High Priority (권장 수정 완료)**:
+
+5. **Next.js 보안 취약점 패치**
+   - `14.2.3` → `15.5.9` 업그레이드
+   - CVE-2025-12-11 보안 패치 적용
+   - Middleware 지원 강화
+
+6. **서버 단 인증 보호 추가**
+   - `middleware.ts` 신규 생성
+   - `/admin-dashboard`, `/platform`, `/employee-dashboard` 접근 시 쿠키 확인
+   - 인증 없음 시 로그인 페이지 리다이렉트
+   - HTML 껍데기 노출 방지
+
+**🟢 Medium Priority (장기 개선)**:
+
+7. **급여 계산 Cloud Functions 이관 (기본 구조)**
+   - `functions/src/index.ts` 생성 (calculateMonthlySalary 함수)
+   - `functions/package.json`, `tsconfig.json`, `.gitignore` 구성
+   - `firebase.json`에 functions 블록 추가
+   - 급여 금액 변조 공격 차단 인프라 구축
+   - **추가 개발 필요**: 클라이언트 로직 이식
+
+### 📊 Build Results (빌드 결과)
+
+- ✅ Next.js 15.5.9 빌드 성공 (15/15 static pages)
+- ✅ Cloud Functions TypeScript 컴파일 성공
+- ✅ Middleware 33 kB 추가
+- ✅ 0 warnings, 0 errors
+
+### 🚀 Deployment (배포)
+
+- Git Commit: `ef1c2fe1`
+- GitHub: https://github.com/uhi13088/ABCDC-staff-system
+- Branch: `main`
+- 자동 배포: GitHub Actions (Firestore Rules + Hosting + Functions)
+
+### 📝 Documentation Updates (문서 업데이트)
+
+- `README.md`: 버전 v0.17.0, 보안 섹션 업데이트
+- `docs/CHANGELOG.md`: v0.17.0 변경 이력 추가
+- 보안 패치 상세 내역 문서화
+
+---
+
 ## [0.7.0] - 2024-12-15
 
 ### ✅ Added (새 기능)

@@ -2,9 +2,9 @@
 
 > 맛남살롱을 위한 스마트한 직원 관리 시스템
 
-**버전**: v0.14.0  
-**최종 업데이트**: 2024-12-16  
-**상태**: ✅ Production Ready
+**버전**: v0.17.0  
+**최종 업데이트**: 2025-01-17  
+**상태**: ✅ Production Ready (보안 강화 완료)
 
 ---
 
@@ -174,7 +174,7 @@ git push origin main
 ## 🛠️ 기술 스택
 
 ### Frontend
-- **Framework**: Next.js 14.2.3 (App Router)
+- **Framework**: Next.js 15.5.9 (App Router) ⚡ 업그레이드
 - **Language**: TypeScript 5.x
 - **Styling**: Tailwind CSS 3.4.1
 - **UI**: Shadcn/UI (Radix UI) - Blue Theme
@@ -186,6 +186,7 @@ git push origin main
 - **Admin SDK**: firebase-admin 12.x
 - **Storage**: Firebase Storage
 - **API**: Next.js API Routes
+- **Functions**: Cloud Functions (급여 계산 서버화) 🆕
 
 ### Development
 - **Package Manager**: npm
@@ -317,7 +318,10 @@ npm run dev
 - ✅ Firebase Auth (이메일/비밀번호)
 - ✅ Firebase Admin SDK (Rules 우회)
 - ✅ Firestore Security Rules (역할 기반)
-- ✅ API Route Rate Limiting
+  - ✅ users 업데이트 시 role/companyId 변경 차단 🆕
+- ✅ API Key 하드코딩 제거 (환경변수 필수) 🆕
+- ✅ 급여 정보 로그 노출 차단 🆕
+- ✅ 서버 단 인증 보호 (middleware.ts) 🆕
 - ✅ 환경 변수로 키 관리
 - ✅ Legacy 파일 격리 (`_legacy/`)
 
@@ -327,6 +331,7 @@ npm run dev
 
 ## 📝 변경 이력
 
+**v0.17.0 (2025-01-17)**: 🔐 긴급 보안 구멍 7개 수정, Next.js 15 업그레이드, Cloud Functions 구조 추가  
 **v0.14.0 (2024-12-16)**: Firebase Admin SDK 전환, Firestore Rules 강화  
 **v0.13.0 (2024-12-16)**: 초대 코드 검증 API Route  
 **v0.12.0 (2024-12-15)**: Legacy 파일 격리, 기술 부채 문서화  

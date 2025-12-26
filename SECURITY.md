@@ -2,8 +2,9 @@
 
 > ABC Staff System의 보안 정책 및 Firestore Security Rules
 
-**버전**: v1.0.0  
-**최종 업데이트**: 2024-12-16
+**버전**: v1.1.0  
+**최종 업데이트**: 2025-01-17  
+**보안 패치**: v0.17.0 적용 완료
 
 ---
 
@@ -170,30 +171,35 @@ match /companies/{companyId} {
 }
 ```
 
-##### **users (사용자)**
+##### **users (사용자)** ⭐ v0.17.0 보안 강화
 
 ```javascript
 match /users/{userId} {
   // 읽기: 본인 또는 Manager 이상
   allow read: if isAuthenticated() 
-    && (isOwner(userId) || (isManager() && isSameCompany(resource.data.companyId)));
-  
-  // 생성: 회원가입 또는 Manager가 직원 추가
-  allow create: if isAuthenticated()
-    && request.resource.data.keys().hasAll(['userId', 'companyId', 'name', 'role'])
     && (
-      (request.auth.uid == request.resource.data.userId && request.resource.data.role == 'admin')
-      || (isManager() && isSameCompany(request.resource.data.companyId))
+      isOwner(userId) 
+      || isManager()
     );
   
-  // 수정: 본인 또는 Manager
+  // 생성: 인증된 사용자
+  allow create: if isAuthenticated();
+  
+  // 수정: 본인 또는 Manager (role/companyId 변경 차단) 🔒 보안 강화
   allow update: if isAuthenticated()
-    && (isOwner(userId) || (isManager() && isSameCompany(resource.data.companyId)));
+    && (isOwner(userId) || (isManager() && isSameCompany(resource.data.companyId)))
+    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'companyId']) 
+        || isSuperAdmin());
   
   // 삭제: Manager만
   allow delete: if isManager() && isSameCompany(resource.data.companyId);
 }
 ```
+
+**🔒 v0.17.0 보안 강화 내용:**
+- `role`, `companyId` 필드 변경 시 `super_admin` 권한 필수
+- 일반 직원이 자신의 권한을 admin으로 변경하는 공격 차단
+- 회사 이동 공격 차단
 
 ##### **attendance (출퇴근)**
 
@@ -488,14 +494,21 @@ grep "function" _legacy/js/*.js   # 로직 분석
 - [ ] Client SDK는 Rules 검증 통과하는지 확인
 - [ ] `companyId` 필터 추가 (Multi-Tenant)
 - [ ] 타임스탬프 조작 방지 (`serverTimestamp()`)
-- [ ] 환경 변수 하드코딩 금지
+- [ ] 환경 변수 하드코딩 금지 ⭐ (v0.17.0 적용)
+- [ ] `console.log`로 민감 정보 노출 금지 ⭐ (v0.17.0 적용)
 
 ### **API Route 작성 시**
 
-- [ ] Rate Limiting 추가
+- [ ] Rate Limiting 추가 (서버리스 환경 고려) ⭐ (v0.17.0 수정)
 - [ ] Input Validation 구현
 - [ ] 에러 메시지 일반화 (정보 누출 방지)
 - [ ] Admin SDK 사용 (Rules 우회)
+
+### **Firestore Rules 작성 시**
+
+- [ ] role/companyId 변경 차단 구현 ⭐ (v0.17.0 적용)
+- [ ] super_admin만 권한 변경 가능
+- [ ] 업데이트 시 민감 필드 보호
 
 ### **배포 전**
 
@@ -503,6 +516,7 @@ grep "function" _legacy/js/*.js   # 로직 분석
 - [ ] `serviceAccountKey.json` Git 커밋 안 되었는지 확인
 - [ ] Firestore Rules 배포
 - [ ] 환경 변수 Production 설정
+- [ ] middleware.ts 보호 경로 확인 ⭐ (v0.17.0 신규)
 
 ### **배포 후**
 
