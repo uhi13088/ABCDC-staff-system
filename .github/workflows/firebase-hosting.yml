@@ -42,22 +42,28 @@ jobs:
           FIREBASE_ADMIN_PRIVATE_KEY=${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
           EOF
 
-            # Next.js 빌드
-      - name: 🏗️ Build Next.js
+      # 🏗️ Build Next.js
+      - name: Build Next.js
         run: npm run build
-      
-      # 🆕 Cloud Functions 빌드 (CRITICAL: 배포 전 필수)
-      - name: 🔥 Build Cloud Functions
+
+      # 🔥 Build Cloud Functions
+      - name: Build Cloud Functions
         run: |
           cd functions
           npm ci
           npm run build
-      
-      - name: 🔑 Setup Firebase Credentials
+
+      # 🔑 Setup Firebase Credentials
+      - name: Setup Firebase Credentials
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > $HOME/gcloud-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
-      
-      - name: 🚀 Deploy to Firebase Hosting & Functions
+
+      # 🚀 Deploy to Firebase
+      - name: Deploy to Firebase Hosting & Functions
         run: |
-          npx firebase-tools deploy --only hosting,functions,firestore:rules --force --project abcdc-staff-system --non-interactive
+          npx firebase-tools deploy \
+            --only hosting,functions,firestore:rules \
+            --force \
+            --project abcdc-staff-system \
+            --non-interactive
