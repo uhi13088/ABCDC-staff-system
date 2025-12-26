@@ -186,7 +186,7 @@ export default function AdminDashboard() {
           {/* 4. 탭 콘텐츠 영역 */}
           <div className="min-h-[600px]">
             <TabsContent value="dashboard" className="mt-0 focus-visible:outline-none"><DashboardTab companyId={companyId} /></TabsContent>
-            <TabsContent value="employees" className="mt-0 focus-visible:outline-none"><EmployeesTab companyId={companyId} /></TabsContent>
+            <TabsContent value="employees" className="mt-0 focus-visible:outline-none"><EmployeesTab companyId={companyId} onTabChange={setActiveTab} /></TabsContent>
             <TabsContent value="attendance" className="mt-0 focus-visible:outline-none"><AttendanceTab companyId={companyId} /></TabsContent>
             <TabsContent value="salary" className="mt-0 focus-visible:outline-none"><SalaryTab companyId={companyId} /></TabsContent>
             <TabsContent value="schedules" className="mt-0 focus-visible:outline-none"><SchedulesTab companyId={companyId} /></TabsContent>

@@ -27,13 +27,14 @@ import { useEmployeeLogic } from '@/hooks/admin/useEmployeeLogic';
 /**
  * 직원 관리 탭 (Shadcn Blue Theme 완벽 적용)
  * 백업: admin-dashboard.html 라인 157-215
- * 기능: 직원 목록, 필터링, 승인/거부, 삭제, 계약서 연결
+ * 기능: 직원 목록, 필터링, 승인/거부, 삭제, 계약서 연결, 실시간 동기화
  */
 interface EmployeesTabProps {
   companyId: string;
+  onTabChange?: (tab: string) => void; // 초대 탭으로 이동
 }
 
-export default function EmployeesTab({ companyId }: EmployeesTabProps) {
+export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabProps) {
   const {
     employees,
     loading,
@@ -52,6 +53,13 @@ export default function EmployeesTab({ companyId }: EmployeesTabProps) {
       loadEmployees();
     }
   }, [companyId]);
+
+  // 실시간 동기화: 필터 변경 시 자동 재조회
+  useEffect(() => {
+    if (companyId) {
+      loadEmployees();
+    }
+  }, [filters.storeId, filters.status]);
 
   // 🔒 companyId 로딩 보호
   if (!companyId) {
@@ -82,7 +90,7 @@ export default function EmployeesTab({ companyId }: EmployeesTabProps) {
   return (
     <div className="space-y-6">
       
-      {/* 상단 헤더 + 전체 동기화 버튼 */}
+      {/* 상단 헤더 + 직원 초대 버튼 */}
       <Card>
         <CardHeader className="border-b border-slate-200">
           <div className="flex items-center justify-between">
@@ -96,12 +104,11 @@ export default function EmployeesTab({ companyId }: EmployeesTabProps) {
               )}
             </CardTitle>
             <Button 
-              onClick={syncAllEmployees} 
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => onTabChange?.('invites')} 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              전체 동기화
+              <UserPlus className="w-4 h-4 mr-2" />
+              직원 초대하기
             </Button>
           </div>
         </CardHeader>
@@ -113,7 +120,7 @@ export default function EmployeesTab({ companyId }: EmployeesTabProps) {
             <p className="text-sm text-blue-900 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span>
-                <strong>전체 동기화</strong>: 모든 직원의 정보를 최신 계약서 기준으로 업데이트하고, 스케줄을 자동 생성합니다.
+                <strong>실시간 동기화</strong>: 필터 변경 시 자동으로 직원 목록이 업데이트됩니다. 직원을 초대하려면 우측 상단의 "직원 초대하기" 버튼을 눌러주세요.
               </span>
             </p>
           </div>
@@ -195,7 +202,11 @@ export default function EmployeesTab({ companyId }: EmployeesTabProps) {
           ) : employees.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               <p className="mb-4">직원 정보가 없습니다.</p>
-              <Button variant="outline" className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => onTabChange?.('invites')}
+              >
                 <UserPlus className="w-4 h-4" />
                 직원 초대하기
               </Button>
