@@ -53,6 +53,13 @@ jobs:
           npm ci
           npm run build
 
+      # 🌐 Setup Functions Environment Variables
+      - name: Setup Functions Environment Variables
+        run: |
+          cat << EOF > functions/.env
+          HOLIDAY_API_KEY=${{ secrets.NEXT_PUBLIC_HOLIDAY_API_KEY }}
+          EOF
+
       # 🔑 Setup Firebase Credentials
       - name: Setup Firebase Credentials
         run: |
