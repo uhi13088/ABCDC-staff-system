@@ -19,7 +19,8 @@
 2. STRUCTURE.md                 - 사용자 계층 구조 및 대시보드 구조
 3. FIRESTORE_COLLECTIONS.md     - Firestore 컬렉션 명세
 4. FIELD_NAMING_STANDARD.md     - 필드명 규칙
-5. SECURITY.md                  - 보안 가이드 및 Rules
+5. BUSINESS_LOGIC.md            - 비즈니스 로직 알고리즘 명세서 (🔥 필수)
+6. SECURITY.md                  - 보안 가이드 및 Rules
 ```
 
 ### **⚠️ 작업 프로세스 (필수 준수)**
@@ -58,6 +59,7 @@ git push origin main
 # - 새 컬렉션 추가 시 → FIRESTORE_COLLECTIONS.md 업데이트
 # - 새 필드 추가 시 → FIELD_NAMING_STANDARD.md 업데이트
 # - 보안 규칙 변경 시 → SECURITY.md 업데이트
+# - 🔥 로직 수정/추가 시 → BUSINESS_LOGIC.md 업데이트 (필수!)
 # - 주요 변경사항 → docs/CHANGELOG.md 업데이트
 
 # 7. README.md 갱신
