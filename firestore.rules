@@ -204,12 +204,29 @@ service cloud.firestore {
     }
     
     // ====================================
-    // 11. Invites (초대 코드 - 매장용)
+    // 11. Invites (초대 코드 - 매장용, 구 버전)
     // ====================================
     match /invites/{inviteId} {
       allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
       allow update: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
+    }
+    
+    // ====================================
+    // 11-2. Company Invites (직원 초대 코드)
+    // ====================================
+    match /company_invites/{inviteId} {
+      // 읽기: 본인 회사 또는 코드로 검증 시
+      allow read: if isAuthenticated() && (
+        isSameCompany(resource.data.companyId) ||
+        request.auth != null  // 로그인한 사용자는 초대 코드 검증 가능
+      );
+      // 생성: 관리자만 (본인 회사)
+      allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
+      // 수정: 관리자만 (본인 회사)
+      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
+      // 삭제: 관리자만 (본인 회사)
       allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
     }
     

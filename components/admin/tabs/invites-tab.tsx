@@ -38,66 +38,104 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <UserPlus className="w-5 h-5" />
-              초대 코드 관리
-            </CardTitle>
-            <CardDescription>직원 초대 코드 생성 및 관리</CardDescription>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                초대 코드 관리
+              </CardTitle>
+              <CardDescription>직원 초대 코드 생성 및 관리</CardDescription>
+            </div>
+            <Button onClick={() => setShowCreateModal(true)}>+ 초대 코드 생성</Button>
           </div>
-          <Button onClick={() => setShowCreateModal(true)}>+ 초대 코드 생성</Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
-        ) : invites.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <UserPlus className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p>생성된 초대 코드가 없습니다.</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>코드</TableHead>
-                <TableHead>매장</TableHead>
-                <TableHead>직급</TableHead>
-                <TableHead>상태</TableHead>
-                <TableHead>사용현황</TableHead>
-                <TableHead>관리</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invites.map((invite) => (
-                <TableRow key={invite.id}>
-                  <TableCell className="font-mono font-medium">{invite.code}</TableCell>
-                  <TableCell>{invite.companyName || '-'}</TableCell>
-                  <TableCell>{invite.planName || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={invite.isUsed ? 'secondary' : 'default'}>
-                      {invite.isUsed ? '사용됨' : '미사용'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {invite.isUsed ? '1 / 1' : '0 / 1'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => copyInviteUrl(`/invite/${invite.code}`)}>
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+          ) : invites.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <UserPlus className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>생성된 초대 코드가 없습니다.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>코드</TableHead>
+                  <TableHead>매장</TableHead>
+                  <TableHead>직급</TableHead>
+                  <TableHead>상태</TableHead>
+                  <TableHead>사용현황</TableHead>
+                  <TableHead>만료일</TableHead>
+                  <TableHead>관리</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {invites.map((invite) => {
+                  const roleLabel = {
+                    employee: '일반 직원',
+                    staff: '스태프',
+                    store_manager: '매장 매니저',
+                    manager: '관리자',
+                  }[invite.role] || invite.role;
+
+                  const expiryDate = invite.expiresAt 
+                    ? new Date(invite.expiresAt.toDate ? invite.expiresAt.toDate() : invite.expiresAt).toLocaleDateString()
+                    : '무제한';
+
+                  return (
+                    <TableRow key={invite.id}>
+                      <TableCell className="font-mono font-medium text-blue-600">{invite.code}</TableCell>
+                      <TableCell>{invite.storeName || invite.companyName || '-'}</TableCell>
+                      <TableCell>{roleLabel}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={invite.status === 'active' ? 'default' : 'secondary'}
+                          className="cursor-pointer"
+                          onClick={() => toggleInviteStatus(invite.id!, invite.status)}
+                        >
+                          {invite.status === 'active' ? '활성' : '비활성'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className={invite.usedCount >= invite.maxUses ? 'text-red-600 font-semibold' : ''}>
+                          {invite.usedCount} / {invite.maxUses}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{expiryDate}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => {
+                              const url = `${window.location.origin}/employee-register?code=${invite.code}`;
+                              copyInviteUrl(url);
+                            }}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 초대 코드 생성 모달 */}
+      <CreateInviteModal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        stores={stores}
+        onCreateInvite={createInviteCode}
+      />
+    </>
   );
 }
