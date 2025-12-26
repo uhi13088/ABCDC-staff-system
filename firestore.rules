@@ -149,7 +149,9 @@ service cloud.firestore {
     // 6. Salary (급여)
     // ====================================
     match /salary/{salaryId} {
-      allow read: if isAuthenticated()
+      // 관리자는 자기 회사 모든 급여 조회 가능 (리스트 조회 포함)
+      allow list: if isAuthenticated() && isManager();
+      allow get: if isAuthenticated()
         && (
           isOwner(resource.data.userId) 
           || (isManager() && isSameCompany(resource.data.companyId))
