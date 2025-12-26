@@ -61,6 +61,8 @@ git push origin main
 # - 새 필드 추가 시 → FIELD_NAMING_STANDARD.md 업데이트
 # - 보안 규칙 변경 시 → SECURITY.md 업데이트
 # - 🔥 로직 수정/추가 시 → BUSINESS_LOGIC.md 업데이트 (필수!)
+# - 🔥 기술 스택/컨벤션 변경 시 → SYSTEM_PROMPT.md 업데이트 (필수!)
+#   예: 새 라이브러리 추가, 파일 구조 변경, 네이밍 규칙 변경 등
 # - 주요 변경사항 → docs/CHANGELOG.md 업데이트
 
 # 7. README.md 갱신
@@ -68,6 +70,63 @@ git push origin main
 # - 배포 URL 업데이트
 # - 버전 번호 업데이트
 ```
+
+### **📝 문서 업데이트 규칙 (CRITICAL)**
+
+**⚠️ 코드 변경 시 관련 문서도 반드시 함께 업데이트하세요!**
+
+| 변경 유형 | 업데이트할 문서 | 예시 |
+|----------|----------------|------|
+| **새 컬렉션 추가** | `FIRESTORE_COLLECTIONS.md` | `notifications` 컬렉션 추가 시 |
+| **새 필드 추가** | `FIELD_NAMING_STANDARD.md` | `employeeBirth` 필드 추가 시 |
+| **보안 규칙 변경** | `SECURITY.md` | Firestore Rules 수정 시 |
+| **🔥 로직 수정/추가** | `BUSINESS_LOGIC.md` | 급여 계산 로직 변경 시 (필수!) |
+| **🔥 기술 스택 변경** | `SYSTEM_PROMPT.md` | 새 라이브러리 추가, 프로젝트 구조 변경 등 (필수!) |
+| **주요 기능 추가** | `docs/CHANGELOG.md` | 버전 이력 기록 |
+| **배포/URL 변경** | `README.md` | 프로덕션 URL 업데이트 |
+
+#### **SYSTEM_PROMPT.md 업데이트가 필요한 경우:**
+
+```bash
+# 1. 새 라이브러리 추가 시
+npm install react-pdf
+→ SYSTEM_PROMPT.md > 1. 기술 스택 > Frontend 표 업데이트
+
+# 2. 새 디렉토리 추가 시
+mkdir lib/pdf
+→ SYSTEM_PROMPT.md > 2. 프로젝트 구조 > 디렉토리 구조 업데이트
+
+# 3. 네이밍 규칙 변경 시
+# 예: 파일명을 camelCase로 변경하기로 결정
+→ SYSTEM_PROMPT.md > 3. 코딩 컨벤션 > 파일명 규칙 업데이트
+
+# 4. 새 UI 컴포넌트 라이브러리 사용 시
+# 예: Material-UI 추가 (비권장이지만 필요한 경우)
+→ SYSTEM_PROMPT.md > 5. UI/UX 규칙 업데이트
+
+# 5. 금지 사항 해제 시
+# 예: 특정 이유로 Redux 사용 결정
+→ SYSTEM_PROMPT.md > 7. 금지 사항 업데이트
+
+# 6. 새 패턴 추가 시
+# 예: WebSocket 통신 패턴 추가
+→ SYSTEM_PROMPT.md > 8. 필수 패턴 섹션에 추가
+```
+
+#### **업데이트 예시:**
+
+```bash
+# ❌ 잘못된 예: 문서 업데이트 없이 코드만 변경
+git add components/pdf/pdf-viewer.tsx
+git commit -m "feat: PDF 뷰어 추가"
+# → SYSTEM_PROMPT.md 업데이트 누락!
+
+# ✅ 올바른 예: 문서와 코드 함께 커밋
+git add components/pdf/pdf-viewer.tsx SYSTEM_PROMPT.md
+git commit -m "feat: PDF 뷰어 추가
+
+- react-pdf 라이브러리 추가
+- SYSTEM_PROMPT.md 기술 스택 업데이트"
 
 ---
 
