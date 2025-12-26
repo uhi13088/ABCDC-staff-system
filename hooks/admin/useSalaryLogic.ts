@@ -9,7 +9,8 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
-import { calculateMonthlySalary, SalaryCalculationResult } from '@/lib/utils/salary-calculator';
+import { SalaryCalculationResult } from '@/lib/utils/salary-calculator';
+import { calculateMonthlySalaryOnServer } from '@/services/cloudFunctionsSalaryService';
 import { COLLECTIONS } from '@/lib/constants';
 import * as storeService from '@/services/storeService';
 import * as salaryService from '@/services/salaryService';
@@ -265,8 +266,8 @@ export function useSalaryLogic() {
           attendances.push(doc.data());
         });
         
-        // 급여 계산
-        const salary = await calculateMonthlySalary(employee, contract, attendances, selectedMonth);
+        // 🔥 Cloud Functions로 급여 계산 (서버 사이드)
+        const salary = await calculateMonthlySalaryOnServer(employee.uid, selectedMonth);
         
         // 기본 상태를 unconfirmed로 설정
         salaryData.push({
@@ -457,8 +458,8 @@ export function useSalaryLogic() {
         attendances.push(doc.data());
       });
       
-      // 급여 계산
-      const salary = await calculateMonthlySalary(employee, contract, attendances, yearMonth);
+      // 🔥 Cloud Functions로 급여 계산 (서버 사이드)
+      const salary = await calculateMonthlySalaryOnServer(employee.uid, yearMonth);
       
       // 모달 데이터 설정 및 열기
       setSalaryDetail({ salary, contract });
