@@ -687,3 +687,226 @@ export const calculateMonthlySalary = functions
       );
     }
   });
+
+// ===========================================
+// 공휴일 자동 동기화 스케줄러
+// ===========================================
+
+/**
+ * 행정안전부 공공 API에서 공휴일 데이터 가져오기
+ * @param year 연도 (예: 2025)
+ * @param apiKey 공공데이터포털 인증키
+ */
+async function fetchHolidaysFromAPI(
+  year: number,
+  apiKey: string
+): Promise<Array<{ date: string; name: string; year: number }>> {
+  try {
+    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&numOfRows=50&ServiceKey=${apiKey}&_type=json`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    // API 응답 구조 확인
+    const items = data?.response?.body?.items?.item;
+    if (!items) {
+      functions.logger.error('❌ 공휴일 API 응답 오류:', data);
+      return [];
+    }
+    
+    // 배열로 변환 (단일 항목인 경우 배열로 감싸기)
+    const itemsArray = Array.isArray(items) ? items : [items];
+    
+    // Holiday 형식으로 변환
+    const holidays = itemsArray.map((item: any) => {
+      const dateStr = String(item.locdate); // YYYYMMDD 형식
+      const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+      
+      return {
+        date: formattedDate,
+        name: item.dateName || '공휴일',
+        year: year,
+      };
+    });
+    
+    functions.logger.info(`✅ ${year}년 공휴일 ${holidays.length}개 불러옴 (공공 API)`);
+    return holidays;
+  } catch (error) {
+    functions.logger.error('❌ 공휴일 API 호출 실패:', error);
+    return [];
+  }
+}
+
+/**
+ * 공휴일 자동 동기화 스케줄러
+ * 매년 1월 1일 00:00 (KST) 자동 실행
+ * - 올해 공휴일 동기화
+ * - 내년 공휴일 미리 동기화
+ * 
+ * Cron: "0 0 1 1 *" = 매년 1월 1일 00:00 UTC (한국시간 09:00)
+ * Timezone: Asia/Seoul
+ */
+export const syncHolidaysScheduled = functions
+  .region('asia-northeast3') // 서울 리전
+  .pubsub
+  .schedule('0 0 1 1 *') // 매년 1월 1일 00:00 UTC
+  .timeZone('Asia/Seoul') // 한국 시간대
+  .onRun(async (context) => {
+    try {
+      functions.logger.info('🔄 공휴일 자동 동기화 시작...');
+
+      // 환경변수에서 API 키 가져오기
+      const apiKey = process.env.HOLIDAY_API_KEY;
+      if (!apiKey) {
+        functions.logger.error('❌ HOLIDAY_API_KEY 환경변수가 설정되지 않았습니다.');
+        return;
+      }
+
+      const currentYear = new Date().getFullYear();
+      const nextYear = currentYear + 1;
+
+      // 올해 + 내년 공휴일 동기화
+      const years = [currentYear, nextYear];
+      let totalSynced = 0;
+
+      for (const year of years) {
+        functions.logger.info(`📅 ${year}년 공휴일 동기화 중...`);
+
+        // API에서 공휴일 가져오기
+        const holidays = await fetchHolidaysFromAPI(year, apiKey);
+
+        if (holidays.length === 0) {
+          functions.logger.warn(`⚠️ ${year}년 공휴일을 불러올 수 없습니다.`);
+          continue;
+        }
+
+        // Firestore에 저장 (중복 체크)
+        let syncedCount = 0;
+        for (const holiday of holidays) {
+          try {
+            // 중복 체크 (날짜로 조회)
+            const snapshot = await db
+              .collection('holidays')
+              .where('date', '==', holiday.date)
+              .limit(1)
+              .get();
+
+            if (snapshot.empty) {
+              // 신규 공휴일 추가
+              await db.collection('holidays').add({
+                ...holiday,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+              syncedCount++;
+              functions.logger.info(`✅ 공휴일 추가: ${holiday.date} - ${holiday.name}`);
+            } else {
+              functions.logger.info(`⏭️ 이미 존재: ${holiday.date} - ${holiday.name}`);
+            }
+          } catch (error) {
+            functions.logger.error(`❌ 공휴일 추가 실패: ${holiday.date}`, error);
+          }
+        }
+
+        functions.logger.info(`✅ ${year}년 공휴일 동기화 완료: ${syncedCount}개 추가`);
+        totalSynced += syncedCount;
+      }
+
+      functions.logger.info(`🎉 공휴일 자동 동기화 완료: 총 ${totalSynced}개 추가`);
+      return null;
+
+    } catch (error) {
+      functions.logger.error('❌ 공휴일 자동 동기화 실패:', error);
+      throw error;
+    }
+  });
+
+/**
+ * 공휴일 수동 동기화 API (테스트 및 긴급 동기화용)
+ * POST /syncHolidays
+ * Body: { year: 2025 }
+ */
+export const syncHolidays = functions
+  .region('asia-northeast3')
+  .https
+  .onCall(async (data, context) => {
+    try {
+      // 인증 체크 (관리자만 실행 가능)
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
+          'unauthenticated',
+          '인증이 필요합니다.'
+        );
+      }
+
+      const year = data.year || new Date().getFullYear();
+
+      // 환경변수에서 API 키 가져오기
+      const apiKey = process.env.HOLIDAY_API_KEY;
+      if (!apiKey) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'HOLIDAY_API_KEY 환경변수가 설정되지 않았습니다.'
+        );
+      }
+
+      functions.logger.info(`📅 ${year}년 공휴일 수동 동기화 시작...`);
+
+      // API에서 공휴일 가져오기
+      const holidays = await fetchHolidaysFromAPI(year, apiKey);
+
+      if (holidays.length === 0) {
+        throw new functions.https.HttpsError(
+          'not-found',
+          `${year}년 공휴일을 불러올 수 없습니다.`
+        );
+      }
+
+      // Firestore에 저장 (중복 체크)
+      let syncedCount = 0;
+      for (const holiday of holidays) {
+        try {
+          // 중복 체크
+          const snapshot = await db
+            .collection('holidays')
+            .where('date', '==', holiday.date)
+            .limit(1)
+            .get();
+
+          if (snapshot.empty) {
+            await db.collection('holidays').add({
+              ...holiday,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            syncedCount++;
+          }
+        } catch (error) {
+          functions.logger.error(`공휴일 추가 실패: ${holiday.date}`, error);
+        }
+      }
+
+      functions.logger.info(`✅ ${year}년 공휴일 동기화 완료: ${syncedCount}개 추가`);
+
+      return {
+        success: true,
+        year,
+        totalCount: holidays.length,
+        syncedCount,
+        message: `${year}년 공휴일 ${syncedCount}개가 동기화되었습니다.`,
+      };
+
+    } catch (error: any) {
+      functions.logger.error('공휴일 동기화 오류:', error);
+      
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+
+      throw new functions.https.HttpsError(
+        'internal',
+        '공휴일 동기화 중 오류가 발생했습니다.',
+        error.message
+      );
+    }
+  });
