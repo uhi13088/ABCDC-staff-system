@@ -16,11 +16,12 @@
 
 ```
 1. README.md (이 파일)          - 프로젝트 개요 및 작업 프로세스
-2. STRUCTURE.md                 - 사용자 계층 구조 및 대시보드 구조
-3. FIRESTORE_COLLECTIONS.md     - Firestore 컬렉션 명세
-4. FIELD_NAMING_STANDARD.md     - 필드명 규칙
-5. BUSINESS_LOGIC.md            - 비즈니스 로직 알고리즘 명세서 (🔥 필수)
-6. SECURITY.md                  - 보안 가이드 및 Rules
+2. SYSTEM_PROMPT.md             - 기술 스택, 코딩 컨벤션, 제약사항 (🔥 AI 필수)
+3. STRUCTURE.md                 - 사용자 계층 구조 및 대시보드 구조
+4. FIRESTORE_COLLECTIONS.md     - Firestore 컬렉션 명세
+5. FIELD_NAMING_STANDARD.md     - 필드명 규칙
+6. BUSINESS_LOGIC.md            - 비즈니스 로직 알고리즘 명세서 (🔥 필수)
+7. SECURITY.md                  - 보안 가이드 및 Rules
 ```
 
 ### **⚠️ 작업 프로세스 (필수 준수)**
