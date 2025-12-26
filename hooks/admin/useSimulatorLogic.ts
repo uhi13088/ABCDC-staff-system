@@ -144,7 +144,7 @@ export function useSimulatorLogic(companyId: string) {
       console.error('❌ 시뮬레이터 목록 로드 실패:', error);
       setState(prev => ({ ...prev, loading: false }));
     }
-  }, []);
+  }, [companyId]);
 
   /**
    * 특정 시뮬레이터 로드
@@ -384,6 +384,11 @@ export function useSimulatorLogic(companyId: string) {
     const days: DayOfWeek[] = ['월', '화', '수', '목', '금', '토', '일'];
     
     const newSchedules: SimulatorSchedule = {};
+
+    // persons가 없거나 빈 배열이면 빈 객체 반환
+    if (!persons || persons.length === 0) {
+      return newSchedules;
+    }
 
     persons.forEach(person => {
       if (!newSchedules[person.id]) {

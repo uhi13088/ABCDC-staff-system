@@ -64,7 +64,7 @@ export function SimulatorGanttChart({ persons, schedules, currentWeek, weekKey }
       totalHour += 24;
     }
     
-    return (totalHour - 6) * 35; // 1시간당 35px
+    return (totalHour - 6) * 40; // 1시간당 40px (높이 증가)
   }
 
   /**
@@ -108,24 +108,27 @@ export function SimulatorGanttChart({ persons, schedules, currentWeek, weekKey }
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto border-2 border-border rounded-lg">
       <div className="inline-block min-w-full">
         {/* 헤더 (요일) */}
-        <div className="flex border-b-2 border-border">
-          <div className="w-16 flex-shrink-0 border-r border-border bg-muted/50 p-2 text-center text-xs font-semibold">
+        <div className="flex border-b-2 border-border sticky top-0 bg-white z-10">
+          <div className="w-20 flex-shrink-0 border-r-2 border-border bg-muted/80 p-3 text-center text-sm font-bold">
             시간
           </div>
           {days.map((day, index) => {
             const date = new Date(currentWeek);
             date.setDate(date.getDate() + index);
+            const isWeekend = day === '토' || day === '일';
             return (
               <div
                 key={day}
-                className="flex-1 min-w-[120px] border-r border-border bg-muted/50 p-2 text-center"
+                className={`flex-1 min-w-[140px] border-r-2 border-border p-3 text-center ${
+                  isWeekend ? 'bg-red-50' : 'bg-muted/80'
+                }`}
               >
-                <div className="text-sm font-semibold">{day}</div>
-                <div className="text-xs text-muted-foreground">
-                  {date.getMonth() + 1}/{date.getDate()}
+                <div className={`text-base font-bold ${isWeekend ? 'text-red-600' : ''}`}>{day}</div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {date.getMonth() + 1}월 {date.getDate()}일
                 </div>
               </div>
             );
@@ -135,11 +138,11 @@ export function SimulatorGanttChart({ persons, schedules, currentWeek, weekKey }
         {/* 시간축 + 간트차트 */}
         <div className="flex">
           {/* 시간축 */}
-          <div className="w-16 flex-shrink-0 border-r border-border bg-muted/30">
+          <div className="w-20 flex-shrink-0 border-r-2 border-border bg-muted/50">
             {hours.map(hour => (
               <div
                 key={hour}
-                className="h-[35px] border-b border-border/50 flex items-center justify-center text-[10px] text-muted-foreground"
+                className="h-[40px] border-b border-border/50 flex items-center justify-center text-xs font-medium text-muted-foreground"
               >
                 {hour}:00
               </div>
@@ -164,19 +167,22 @@ export function SimulatorGanttChart({ persons, schedules, currentWeek, weekKey }
               .filter(Boolean);
 
             const workingCount = daySchedules.length;
+            const isWeekend = day === '토' || day === '일';
 
             return (
               <div
                 key={day}
-                className="flex-1 min-w-[120px] border-r border-border relative bg-background"
-                style={{ height: `${19 * 35}px` }}
+                className={`flex-1 min-w-[140px] border-r-2 border-border relative ${
+                  isWeekend ? 'bg-red-50/30' : 'bg-background'
+                }`}
+                style={{ height: `${19 * 40}px` }}
               >
                 {/* 시간 구분선 */}
                 {hours.map(hour => (
                   <div
                     key={hour}
-                    className="absolute w-full h-[35px] border-b border-border/30"
-                    style={{ top: `${(hour - 6) * 35}px` }}
+                    className="absolute w-full h-[40px] border-b border-border/30"
+                    style={{ top: `${(hour - 6) * 40}px` }}
                   />
                 ))}
 
@@ -186,12 +192,12 @@ export function SimulatorGanttChart({ persons, schedules, currentWeek, weekKey }
 
                   const { person, personIndex, schedule } = item;
                   const barWidth = workingCount === 1
-                    ? 80
+                    ? 85
                     : workingCount === 2
                     ? 48
                     : workingCount === 3
                     ? 30
-                    : Math.max(20, 90 / workingCount);
+                    : Math.max(22, 90 / workingCount);
 
                   const leftOffset = 5 + idx * (100 / workingCount);
 
