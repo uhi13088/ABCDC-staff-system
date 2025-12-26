@@ -152,7 +152,7 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && (
           isOwner(resource.data.userId) 
-          || isManager()
+          || (isManager() && isSameCompany(resource.data.companyId))
         );
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && isSameCompany(resource.data.companyId);
