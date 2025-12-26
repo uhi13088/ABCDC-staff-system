@@ -45,28 +45,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Firebase Auth 세션 쿠키 확인
-  // Firebase는 자동으로 __session 쿠키 또는 커스텀 쿠키를 사용
-  const authToken = request.cookies.get('auth-token')?.value;
+  // ⚠️ Firebase Client SDK는 자동으로 쿠키를 설정하지 않음
+  // 클라이언트 측 AuthContext에서 인증 체크를 수행하므로
+  // Middleware는 일단 통과시키고, 클라이언트에서 redirect 처리
+  // (Firebase Session Cookie를 사용하려면 별도 설정 필요)
   
-  // 인증 토큰이 없으면 로그인 페이지로 리다이렉트
-  if (!authToken) {
-    // 관리자 페이지는 admin-login으로
-    if (pathname.startsWith('/admin-dashboard') || pathname.startsWith('/platform')) {
-      const loginUrl = new URL('/admin-login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    
-    // 직원 페이지는 employee-login으로
-    if (pathname.startsWith('/employee-dashboard')) {
-      const loginUrl = new URL('/employee-login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
-  // 인증 통과 시 정상 진행
+  // 인증 체크 없이 통과 (클라이언트 측에서 처리)
   return NextResponse.next();
 }
 
