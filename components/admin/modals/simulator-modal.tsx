@@ -179,16 +179,16 @@ export function SimulatorModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-[95vw] w-[1600px] max-h-[95vh] h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="max-w-[98vw] w-[98vw] max-h-[98vh] h-[98vh] flex flex-col p-0 overflow-hidden">
           {/* 헤더 */}
-          <DialogHeader className="p-6 border-b-2 flex-shrink-0">
+          <DialogHeader className="p-4 border-b-2 flex-shrink-0">
             <DialogTitle className="text-xl font-bold">📅 스케줄 시뮬레이터</DialogTitle>
             <DialogDescription className="sr-only">
               스케줄 시뮬레이터로 주간 근무 스케줄을 계획하고 시뮬레이션할 수 있습니다.
             </DialogDescription>
             
             {/* 상단 컨트롤 */}
-            <div className="flex gap-3 items-center mt-4">
+            <div className="flex gap-3 items-center mt-3">
               <Select
                 value={currentSimulatorId || 'new'}
                 onValueChange={(value) => loadSimulator(value === 'new' ? '' : value)}
@@ -223,13 +223,13 @@ export function SimulatorModal({
           {/* 바디 (2단 레이아웃) */}
           <div className="flex flex-1 overflow-hidden min-h-0">
             {/* 좌측: 간트 차트 영역 */}
-            <div className="flex-1 p-6 overflow-y-auto flex flex-col">
+            <div className="flex-1 p-4 overflow-auto flex flex-col min-w-0">
               {/* 주차 네비게이션 */}
-              <div className="flex items-center justify-center gap-4 mb-6 flex-shrink-0">
+              <div className="flex items-center justify-center gap-4 mb-4 flex-shrink-0">
                 <Button variant="outline" size="lg" onClick={() => changeWeek(-1)}>
                   ◀ 이전 주
                 </Button>
-                <span className="text-base font-semibold min-w-[240px] text-center">
+                <span className="text-base font-semibold min-w-[280px] text-center">
                   {year}년 {weekNum}주차 ({currentWeek.getMonth() + 1}월 {currentWeek.getDate()}일 ~)
                 </span>
                 <Button variant="outline" size="lg" onClick={() => changeWeek(1)}>
@@ -238,7 +238,7 @@ export function SimulatorModal({
               </div>
 
               {/* 간트 차트 */}
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto min-h-0">
                 <SimulatorGanttChart
                   persons={persons}
                   schedules={schedules}
@@ -248,12 +248,12 @@ export function SimulatorModal({
               </div>
             </div>
 
-            {/* 우측: 사이드바 */}
-            <div className="w-[380px] p-6 border-l flex flex-col gap-6 overflow-y-auto flex-shrink-0">
+            {/* 우측: 사이드바 (폭 대폭 축소) */}
+            <div className="w-[220px] p-2 border-l flex flex-col gap-2 overflow-y-auto flex-shrink-0">
               {/* 주간 요약 */}
               <div className="flex-shrink-0">
-                <h4 className="text-base font-bold mb-3">📊 주간 요약</h4>
-                <div className="bg-blue-50 p-4 rounded-lg text-sm space-y-2">
+                <h4 className="text-xs font-bold mb-1">📊 주간 요약</h4>
+                <div className="bg-blue-50 p-2 rounded text-[10px] space-y-1">
                   <div className="flex justify-between">
                     <span>총 근무시간:</span>
                     <strong className="text-blue-600">{summary.totalHours.toFixed(1)}h</strong>
@@ -267,15 +267,15 @@ export function SimulatorModal({
 
               {/* 가상 인원 목록 */}
               <div className="flex-1 overflow-y-auto min-h-0">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-base font-bold">👥 가상 인원</h4>
-                  <Button size="default" onClick={addPerson}>
+                <div className="flex justify-between items-center mb-1">
+                  <h4 className="text-xs font-bold">👥 가상 인원</h4>
+                  <Button size="sm" onClick={addPerson}>
                     + 추가
                   </Button>
                 </div>
-                <div className="space-y-2.5">
+                <div className="space-y-1.5">
                   {persons.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+                    <div className="text-center py-4 text-muted-foreground text-[10px] border-2 border-dashed rounded">
                       가상 인원을 추가하세요
                     </div>
                   ) : (
@@ -292,27 +292,27 @@ export function SimulatorModal({
                       return (
                         <div
                           key={person.id}
-                          className="bg-white border-2 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-all"
+                          className="bg-white border rounded p-1.5 cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-all"
                           onClick={() => onEditPerson(person.id)}
                         >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="font-bold text-base">{person.name}</div>
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="font-bold text-xs">{person.name}</div>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 deletePerson(person.id);
                               }}
-                              className="text-red-500 hover:text-red-700 text-xl leading-none font-bold"
+                              className="text-red-500 hover:text-red-700 text-base leading-none font-bold"
                               title="삭제"
                             >
                               ×
                             </button>
                           </div>
-                          <div className="text-xs text-muted-foreground space-y-1">
+                          <div className="text-[10px] text-muted-foreground space-y-0.5">
                             {salaryText && <div className="font-medium">{salaryText}</div>}
                             <div>⏱️ {totalHours.toFixed(1)}시간</div>
                             {weeklySalary > 0 && (
-                              <div className="text-blue-600 font-bold text-sm">
+                              <div className="text-blue-600 font-bold text-xs">
                                 💰 ₩{Math.round(weeklySalary).toLocaleString()}
                               </div>
                             )}
@@ -326,12 +326,12 @@ export function SimulatorModal({
 
               {/* 월간 급여 합계 */}
               <div className="flex-shrink-0">
-                <h4 className="text-base font-bold mb-3">💰 월간 급여 합계</h4>
-                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-5 rounded-lg text-center border-2 border-orange-200">
-                  <div className="text-3xl font-bold text-orange-600">
+                <h4 className="text-xs font-bold mb-1">💰 월간 급여 합계</h4>
+                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-2 rounded text-center border border-orange-200">
+                  <div className="text-xl font-bold text-orange-600">
                     ₩{Math.round(summary.totalSalary).toLocaleString()}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-2">주휴수당 포함 (월 환산)</div>
+                  <div className="text-[10px] text-muted-foreground mt-1">주휴수당 포함 (월 환산)</div>
                 </div>
               </div>
             </div>
