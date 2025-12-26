@@ -1573,6 +1573,407 @@ function 함수명(파라미터):
 
 ---
 
+## 11. 공휴일 자동 동기화 로직 ⭐⭐⭐
+
+### 📋 **개요**
+
+행정안전부 공공데이터 API를 통해 공휴일을 자동으로 동기화하여, 관리자가 매년 수동으로 입력할 필요 없이 완전 자동화된 공휴일 관리를 제공합니다.
+
+**목적:**
+- 매년 공휴일 수동 입력 작업 제거 (완전 자동화)
+- 대체공휴일, 임시공휴일 자동 반영
+- 관리자 개입 없이 공휴일 데이터 최신 유지
+
+### 🔍 **관련 파일**
+
+| 파일 | 역할 |
+|------|------|
+| `functions/src/index.ts` | Cloud Functions 스케줄러 및 API |
+| `services/holidayService.ts` | 클라이언트 공휴일 CRUD |
+| `components/admin/tabs/settings-tab.tsx` | 공휴일 관리 UI |
+
+### 📊 **자동화 아키텍처**
+
+```
+[행정안전부 공공데이터 API]
+         ↓
+[Cloud Functions Scheduler]  ← 매년 1월 1일 00:00 KST
+         ↓
+[fetchHolidaysFromAPI]  ← API 호출 및 파싱
+         ↓
+[Firestore: holidays 컬렉션]  ← 중복 체크 후 저장
+         ↓
+[급여 계산 로직]  ← 공휴일 수당 자동 계산
+```
+
+### 🤖 **1) 자동 동기화 스케줄러**
+
+**실행 주기:**
+- **매년 1월 1일 00:00 (KST)** 자동 실행
+- 올해 + 내년 공휴일 동기화 (2년치)
+
+**Pseudo-code:**
+```
+function syncHolidaysScheduled():
+  try:
+    API_KEY = process.env.HOLIDAY_API_KEY
+    if API_KEY is null:
+      log("❌ API 키 없음")
+      return
+    
+    currentYear = new Date().getFullYear()
+    nextYear = currentYear + 1
+    years = [currentYear, nextYear]
+    
+    totalSynced = 0
+    
+    for year in years:
+      log("📅 {year}년 공휴일 동기화 중...")
+      
+      // API에서 공휴일 가져오기
+      holidays = fetchHolidaysFromAPI(year, API_KEY)
+      
+      if holidays.length == 0:
+        log("⚠️ {year}년 공휴일 불러오기 실패")
+        continue
+      
+      syncedCount = 0
+      
+      for holiday in holidays:
+        // 중복 체크
+        existing = db.collection('holidays')
+          .where('date', '==', holiday.date)
+          .limit(1)
+          .get()
+        
+        if existing.empty:
+          // 신규 공휴일 추가
+          db.collection('holidays').add({
+            date: holiday.date,        // "YYYY-MM-DD"
+            name: holiday.name,        // "설날", "추석"
+            year: holiday.year,        // 2025
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          })
+          syncedCount++
+          log("✅ 공휴일 추가: {holiday.date} - {holiday.name}")
+        else:
+          log("⏭️ 이미 존재: {holiday.date} - {holiday.name}")
+      
+      log("✅ {year}년 공휴일 동기화 완료: {syncedCount}개 추가")
+      totalSynced += syncedCount
+    
+    log("🎉 공휴일 자동 동기화 완료: 총 {totalSynced}개 추가")
+    
+  catch error:
+    log("❌ 공휴일 자동 동기화 실패", error)
+    throw error
+```
+
+### 🌐 **2) API 호출 및 파싱**
+
+**행정안전부 공공데이터 API:**
+- **URL**: `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo`
+- **파라미터**:
+  - `solYear`: 연도 (예: 2025)
+  - `numOfRows`: 50 (최대 공휴일 개수)
+  - `ServiceKey`: API 인증키
+  - `_type`: json (응답 형식)
+
+**Pseudo-code:**
+```
+function fetchHolidaysFromAPI(year, apiKey):
+  try:
+    url = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo"
+    params = {
+      solYear: year,
+      numOfRows: 50,
+      ServiceKey: apiKey,
+      _type: "json"
+    }
+    
+    response = fetch(url + params)
+    data = response.json()
+    
+    // API 응답 구조 확인
+    items = data?.response?.body?.items?.item
+    
+    if items is null:
+      log("❌ 공휴일 API 응답 오류", data)
+      return []
+    
+    // 배열 변환 (단일 항목인 경우 배열로 감싸기)
+    itemsArray = Array.isArray(items) ? items : [items]
+    
+    // Holiday 형식으로 변환
+    holidays = []
+    for item in itemsArray:
+      dateStr = String(item.locdate)  // YYYYMMDD 형식
+      
+      // "YYYY-MM-DD" 형식으로 변환
+      formattedDate = dateStr[0:4] + "-" + dateStr[4:6] + "-" + dateStr[6:8]
+      
+      holidays.push({
+        date: formattedDate,           // "2025-01-29"
+        name: item.dateName || "공휴일",  // "설날"
+        year: year                     // 2025
+      })
+    
+    log("✅ {year}년 공휴일 {holidays.length}개 불러옴 (공공 API)")
+    return holidays
+    
+  catch error:
+    log("❌ 공휴일 API 호출 실패", error)
+    return []
+```
+
+### 🔧 **3) 수동 동기화 API (긴급용)**
+
+**용도:**
+- 테스트 및 디버깅
+- 중간에 공휴일 추가 발표 시 긴급 동기화
+- 관리자가 특정 연도만 동기화하고 싶을 때
+
+**호출 방법:**
+```javascript
+// 클라이언트에서 호출
+const syncHolidays = httpsCallable(functions, 'syncHolidays');
+const result = await syncHolidays({ year: 2025 });
+
+console.log(result.data);
+// {
+//   success: true,
+//   year: 2025,
+//   totalCount: 17,
+//   syncedCount: 5,
+//   message: "2025년 공휴일 5개가 동기화되었습니다."
+// }
+```
+
+**Pseudo-code:**
+```
+function syncHolidays(data, context):
+  try:
+    // 인증 체크 (관리자만)
+    if context.auth is null:
+      throw HttpsError("unauthenticated", "인증이 필요합니다.")
+    
+    year = data.year || new Date().getFullYear()
+    API_KEY = process.env.HOLIDAY_API_KEY
+    
+    if API_KEY is null:
+      throw HttpsError("failed-precondition", "API 키 없음")
+    
+    log("📅 {year}년 공휴일 수동 동기화 시작...")
+    
+    // API에서 공휴일 가져오기
+    holidays = fetchHolidaysFromAPI(year, API_KEY)
+    
+    if holidays.length == 0:
+      throw HttpsError("not-found", "{year}년 공휴일 불러오기 실패")
+    
+    // Firestore에 저장 (중복 체크)
+    syncedCount = 0
+    for holiday in holidays:
+      existing = db.collection('holidays')
+        .where('date', '==', holiday.date)
+        .limit(1)
+        .get()
+      
+      if existing.empty:
+        db.collection('holidays').add({
+          ...holiday,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })
+        syncedCount++
+    
+    log("✅ {year}년 공휴일 동기화 완료: {syncedCount}개 추가")
+    
+    return {
+      success: true,
+      year: year,
+      totalCount: holidays.length,
+      syncedCount: syncedCount,
+      message: "{year}년 공휴일 {syncedCount}개가 동기화되었습니다."
+    }
+    
+  catch error:
+    log("❌ 공휴일 동기화 오류", error)
+    
+    if error is HttpsError:
+      throw error
+    
+    throw HttpsError("internal", "공휴일 동기화 중 오류 발생", error.message)
+```
+
+### 📊 **API 응답 예시**
+
+**행정안전부 API 응답:**
+```json
+{
+  "response": {
+    "header": {
+      "resultCode": "00",
+      "resultMsg": "NORMAL SERVICE."
+    },
+    "body": {
+      "items": {
+        "item": [
+          {
+            "dateKind": "01",
+            "dateName": "설날",
+            "isHoliday": "Y",
+            "locdate": 20250129,
+            "seq": 1
+          },
+          {
+            "dateKind": "01",
+            "dateName": "추석",
+            "isHoliday": "Y",
+            "locdate": 20251006,
+            "seq": 2
+          }
+        ]
+      },
+      "numOfRows": 50,
+      "pageNo": 1,
+      "totalCount": 17
+    }
+  }
+}
+```
+
+**변환 후 Firestore 저장:**
+```json
+{
+  "date": "2025-01-29",
+  "name": "설날",
+  "year": 2025,
+  "createdAt": Timestamp,
+  "updatedAt": Timestamp
+}
+```
+
+### 🔐 **환경변수 설정**
+
+**로컬 개발 (.env.local):**
+```bash
+NEXT_PUBLIC_HOLIDAY_API_KEY=893a0ba24b1ee451911011b27725db1faca861e1780369475bd16e2799a56293
+```
+
+**Cloud Functions (functions/.env):**
+```bash
+HOLIDAY_API_KEY=893a0ba24b1ee451911011b27725db1faca861e1780369475bd16e2799a56293
+```
+
+**GitHub Actions Secrets:**
+```
+NEXT_PUBLIC_HOLIDAY_API_KEY=<API 키>
+```
+
+### 📅 **실행 스케줄**
+
+| 시간 (KST) | 작업 | 설명 |
+|------------|------|------|
+| 매년 1월 1일 00:00 | 자동 동기화 | 올해 + 내년 공휴일 |
+| 수동 | 긴급 동기화 API | 중간 공휴일 추가 시 |
+
+### ⚙️ **Firebase Cloud Scheduler 설정**
+
+**Cron 표현식:**
+```
+0 0 1 1 *
+```
+- 분: 0
+- 시: 0 (UTC 00:00 = KST 09:00이므로 주의!)
+- 일: 1
+- 월: 1
+- 요일: * (매년)
+
+**실제 설정:**
+```typescript
+.pubsub
+  .schedule('0 0 1 1 *')  // 매년 1월 1일 00:00 UTC
+  .timeZone('Asia/Seoul')  // 한국 시간대로 변환
+```
+
+### 📊 **계산 예시**
+
+**2025년 공휴일 동기화 (17개):**
+
+| 날짜 | 공휴일 이름 | 비고 |
+|------|------------|------|
+| 2025-01-01 | 신정 | |
+| 2025-01-28 | 설날 연휴 | |
+| 2025-01-29 | 설날 | |
+| 2025-01-30 | 설날 연휴 | |
+| 2025-03-01 | 삼일절 | |
+| 2025-03-05 | 부처님오신날 | |
+| 2025-05-05 | 어린이날 | |
+| 2025-05-06 | 대체공휴일 | 자동 반영 ⭐ |
+| 2025-06-06 | 현충일 | |
+| 2025-08-15 | 광복절 | |
+| 2025-10-03 | 개천절 | |
+| 2025-10-05 | 추석 연휴 | |
+| 2025-10-06 | 추석 | |
+| 2025-10-07 | 추석 연휴 | |
+| 2025-10-09 | 한글날 | |
+| 2025-12-25 | 크리스마스 | |
+
+**자동 동기화 로그 예시:**
+```
+[2025-01-01 00:00:00] 🔄 공휴일 자동 동기화 시작...
+[2025-01-01 00:00:01] 📅 2025년 공휴일 동기화 중...
+[2025-01-01 00:00:02] ✅ 공휴일 추가: 2025-01-01 - 신정
+[2025-01-01 00:00:02] ✅ 공휴일 추가: 2025-01-28 - 설날 연휴
+[2025-01-01 00:00:02] ⏭️ 이미 존재: 2025-01-29 - 설날
+...
+[2025-01-01 00:00:05] ✅ 2025년 공휴일 동기화 완료: 12개 추가
+[2025-01-01 00:00:05] 📅 2026년 공휴일 동기화 중...
+[2025-01-01 00:00:08] ✅ 2026년 공휴일 동기화 완료: 16개 추가
+[2025-01-01 00:00:08] 🎉 공휴일 자동 동기화 완료: 총 28개 추가
+```
+
+### ⚠️ **주의사항**
+
+1. **API 키 관리**
+   - 공공데이터포털 API 키는 절대 하드코딩 금지
+   - 환경변수 또는 GitHub Secrets로만 관리
+   - API 키 만료 시 갱신 필요
+
+2. **중복 방지**
+   - 날짜 (`date`) 기준으로 중복 체크
+   - 이미 존재하는 공휴일은 스킵 (업데이트 안 함)
+   - 공휴일 이름이 바뀔 수 있으므로 수동 수정 허용
+
+3. **대체공휴일 자동 반영**
+   - 행정안전부 API가 대체공휴일을 자동 포함
+   - 예: 2025년 5월 6일 (어린이날 대체공휴일)
+   - 수동 입력 필요 없음 ⭐
+
+4. **타임존 주의**
+   - Cloud Scheduler는 UTC 기준
+   - `.timeZone('Asia/Seoul')` 설정 필수
+   - Cron: `0 0 1 1 *` = 매년 1월 1일 00:00 KST
+
+5. **급여 계산 연동**
+   - 공휴일 수당 계산 시 자동 반영
+   - `isHoliday(dateStr, holidays)` 함수 사용
+   - 급여 계산 로직 수정 불필요
+
+6. **수동 개입 불필요**
+   - 스케줄러가 자동 실행
+   - 관리자 손 안 대도 매년 업데이트
+   - 긴급 시에만 수동 API 사용
+
+### 🔗 **관련 로직**
+
+- **[로직 1] 급여 계산 로직** - 공휴일 수당 자동 계산
+- **[로직 11] 공휴일 판정 로직** - `isHoliday()` 함수
+
+---
+
 ## 🔗 **관련 문서**
 
 - [README.md](./README.md) - 프로젝트 개요
@@ -1585,5 +1986,5 @@ function 함수명(파라미터):
 ---
 
 **마지막 업데이트**: 2025-12-26  
-**버전**: v1.0.0  
+**버전**: v1.1.0  
 **작성자**: Claude Code Assistant (사장님과 함께)
