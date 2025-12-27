@@ -1035,3 +1035,98 @@ export const syncHolidays = functions
       );
     }
   });
+
+// ===========================================
+// 건강진단서 만료 알림 스케줄러
+// ===========================================
+
+/**
+ * 건강진단서 만료 알림 스케줄러
+ * 매일 09:00 (KST) 실행
+ * - 30일 이내 만료 예정인 직원에게 알림
+ * - 이미 만료된 직원에게 긴급 알림
+ * 
+ * Cron: "0 0 * * *" = 매일 00:00 UTC (한국시간 09:00)
+ * Timezone: Asia/Seoul
+ */
+export const checkHealthCertExpiry = functions
+  .region('asia-northeast3')
+  .pubsub
+  .schedule('0 0 * * *') // 매일 00:00 UTC
+  .timeZone('Asia/Seoul') // 한국 시간대
+  .onRun(async (context) => {
+    try {
+      functions.logger.info('🔄 건강진단서 만료 알림 체크 시작...');
+
+      const today = new Date();
+      const thirtyDaysLater = new Date(today);
+      thirtyDaysLater.setDate(today.getDate() + 30);
+
+      // 만료일이 30일 이내인 직원 조회
+      const usersSnapshot = await db.collection('users')
+        .where('role', 'in', ['staff', 'store_manager', 'employee'])
+        .get();
+
+      let notificationsSent = 0;
+      let expiredCount = 0;
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        const healthCertExpiry = userData.healthCertExpiry;
+
+        if (!healthCertExpiry) continue;
+
+        const expiryDate = new Date(healthCertExpiry);
+        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        // 이미 만료된 경우
+        if (daysUntilExpiry < 0) {
+          try {
+            await db.collection('notifications').add({
+              companyId: userData.companyId || '',
+              userId: userDoc.id,
+              type: 'health_cert_expired',
+              title: '⚠️ 건강진단서가 만료되었습니다',
+              message: `건강진단서가 ${Math.abs(daysUntilExpiry)}일 전에 만료되었습니다. 즉시 갱신이 필요합니다!`,
+              priority: 'high',
+              isRead: false,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              actionUrl: '/employee-dashboard?tab=profile',
+              actionLabel: '프로필에서 갱신하기',
+            });
+            expiredCount++;
+            notificationsSent++;
+            functions.logger.info(`⚠️ 만료 알림 전송: ${userData.name} (${Math.abs(daysUntilExpiry)}일 전 만료)`);
+          } catch (error) {
+            functions.logger.error(`알림 전송 실패: ${userData.name}`, error);
+          }
+        }
+        // 30일 이내 만료 예정
+        else if (daysUntilExpiry <= 30) {
+          try {
+            await db.collection('notifications').add({
+              companyId: userData.companyId || '',
+              userId: userDoc.id,
+              type: 'health_cert_expiring',
+              title: '⏰ 건강진단서 만료 예정',
+              message: `건강진단서가 ${daysUntilExpiry}일 후에 만료됩니다. 미리 갱신을 준비하세요.`,
+              priority: daysUntilExpiry <= 7 ? 'high' : 'medium',
+              isRead: false,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              actionUrl: '/employee-dashboard?tab=profile',
+              actionLabel: '프로필에서 확인하기',
+            });
+            notificationsSent++;
+            functions.logger.info(`⏰ 만료 예정 알림 전송: ${userData.name} (${daysUntilExpiry}일 후)`);
+          } catch (error) {
+            functions.logger.error(`알림 전송 실패: ${userData.name}`, error);
+          }
+        }
+      }
+
+      functions.logger.info(`✅ 건강진단서 알림 체크 완료: ${notificationsSent}개 전송 (만료: ${expiredCount}, 예정: ${notificationsSent - expiredCount})`);
+
+    } catch (error: any) {
+      functions.logger.error('건강진단서 알림 체크 오류:', error);
+    }
+  });
