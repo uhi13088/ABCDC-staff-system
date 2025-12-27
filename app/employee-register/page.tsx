@@ -161,7 +161,7 @@ function EmployeeRegisterForm() {
         store: verifiedInvite.storeName,  // 하위호환성 유지
         
         position: formData.position,
-        role: USER_ROLES.EMPLOYEE,  // 직원 권한
+        role: USER_ROLES.STAFF,  // 직원 권한 (staff가 표준)
         inviteCode: inviteCode.trim().toUpperCase(),  // 사용한 초대 코드 저장
         
         status: USER_STATUS.PENDING,  // 승인 대기 상태

@@ -37,7 +37,13 @@ export async function getEmployees(
   }
 ): Promise<Employee[]> {
   const constraints: QueryConstraint[] = [
-    where('role', 'in', [USER_ROLES.STAFF, USER_ROLES.STORE_MANAGER, USER_ROLES.MANAGER]),
+    // EMPLOYEE와 STAFF 둘 다 조회 (호환성 유지)
+    where('role', 'in', [
+      USER_ROLES.STAFF, 
+      USER_ROLES.EMPLOYEE,  // 기존 데이터 호환성
+      USER_ROLES.STORE_MANAGER, 
+      USER_ROLES.MANAGER
+    ]),
     where('companyId', '==', companyId),
   ];
 
