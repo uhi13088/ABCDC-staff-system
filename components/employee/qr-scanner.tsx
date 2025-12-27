@@ -231,14 +231,23 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
    */
   useEffect(() => {
     if (isOpen) {
-      startScanner();
+      // DOM이 완전히 렌더링될 때까지 약간 지연
+      const timer = setTimeout(() => {
+        const element = document.getElementById('qr-reader');
+        if (element) {
+          startScanner();
+        } else {
+          setError('QR 스캐너를 초기화할 수 없습니다.');
+        }
+      }, 100);
+      
+      return () => {
+        clearTimeout(timer);
+        stopScanner();
+      };
     } else {
       stopScanner();
     }
-
-    return () => {
-      stopScanner();
-    };
   }, [isOpen]);
 
   return (
