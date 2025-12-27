@@ -70,7 +70,7 @@ jobs:
       - name: Deploy to Firebase Hosting & Functions
         run: |
           npx firebase-tools deploy \
-            --only hosting,functions,firestore:rules,storage:rules \
+            --only hosting,functions,firestore:rules,storage \
             --force \
             --project abcdc-staff-system \
             --non-interactive
