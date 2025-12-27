@@ -66,7 +66,7 @@ export default function EmployeeDashboardPage() {
         const userData = userDoc.data()
 
         // 직원 권한 확인
-        if (userData.role !== 'employee') {
+        if (userData.role !== 'staff' && userData.role !== 'employee') {
           alert('직원 계정으로만 접근할 수 있습니다.')
           router.push('/employee-login')
           return

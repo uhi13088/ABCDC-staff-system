@@ -19,7 +19,7 @@ interface CreateInviteModalProps {
 }
 
 const USER_ROLES = [
-  { value: 'employee', label: '일반 직원' },
+  { value: 'staff', label: '일반 직원' },
   { value: 'staff', label: '스태프' },
   { value: 'store_manager', label: '매장 매니저' },
   { value: 'manager', label: '관리자' },
@@ -32,7 +32,7 @@ export default function CreateInviteModal({
   onCreateInvite,
 }: CreateInviteModalProps) {
   const [storeId, setStoreId] = useState('');
-  const [role, setRole] = useState('employee');
+  const [role, setRole] = useState('staff');
   const [maxUses, setMaxUses] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
@@ -73,7 +73,7 @@ export default function CreateInviteModal({
 
   const handleClose = () => {
     setStoreId('');
-    setRole('employee');
+    setRole('staff');
     setMaxUses(1);
     setError('');
     setGeneratedCode('');

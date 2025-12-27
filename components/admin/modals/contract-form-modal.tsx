@@ -142,7 +142,7 @@ export function ContractFormModal({
       const q = query(
         collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId),
-        where('role', '==', 'employee')
+        where('role', 'in', ['staff', 'employee'])
       );
       const snapshot = await getDocs(q);
       const employeeList = snapshot.docs.map(doc => ({

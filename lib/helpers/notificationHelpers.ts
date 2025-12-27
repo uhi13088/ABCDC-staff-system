@@ -74,7 +74,7 @@ export async function notifyAttendanceUpdatedByEmployee(params: {
     relatedType: 'attendance',
     senderId: params.employeeId,
     senderName: params.employeeName,
-    senderRole: 'employee',
+    senderRole: 'staff',
     actionUrl: `/admin-dashboard?tab=attendance`,
     actionLabel: template.actionLabel,
   });
@@ -111,7 +111,7 @@ export async function notifyApprovalRequested(params: {
     relatedType: 'approval',
     senderId: params.employeeId,
     senderName: params.employeeName,
-    senderRole: 'employee',
+    senderRole: 'staff',
     actionUrl: `/admin-dashboard?tab=approvals`,
     actionLabel: template.actionLabel,
   });

@@ -296,7 +296,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
       const employeesQuery = query(
         collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId),
-        where('role', '==', 'employee'),
+        where('role', 'in', ['staff', 'employee']),
         where('store', '==', storeName)
       );
       const employeesSnapshot = await getDocs(employeesQuery);

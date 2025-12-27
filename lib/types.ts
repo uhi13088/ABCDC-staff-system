@@ -40,7 +40,7 @@ export interface User {
   uid: string;
   email: string;
   name: string;
-  role: 'super_admin' | 'admin' | 'store_manager' | 'employee';
+  role: 'super_admin' | 'admin' | 'manager' | 'store_manager' | 'staff';
   companyId: string;
   storeId?: string;
   store?: string;
