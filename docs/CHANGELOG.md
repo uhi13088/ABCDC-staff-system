@@ -8,6 +8,54 @@
 
 ## [0.17.0] - 2025-01-17
 
+### ✨ Features (새 기능)
+
+#### STAFF 역할 통일
+- **EMPLOYEE 제거**: `USER_ROLES.EMPLOYEE` 제거, `STAFF`로 완전 통일
+- **코드베이스 정리**: 13개 파일에서 'employee' → 'staff' 일관성 확보
+- **호환성 유지**: 기존 'employee' 데이터도 조회 가능하도록 필터링 조건 확장
+- **문서화**: `docs/STAFF_UNIFICATION.md` 작업 보고서 추가
+- 관련 커밋: `cd0e7320`, `ecb69372`, `f6148a91`
+
+#### 고정 QR 코드 시스템
+- **만료 제거**: QR 코드에서 유효기간 필드 제거, 영구 사용 가능
+- **타입 추가**: `type: 'store_checkin'`, `version: '1.0'` 필드로 QR 코드 식별
+- **UI 개선**: 유효시간 입력 제거, "만료 없음 - 영구 사용 가능" 표시
+- **1회 프린트로 영구 사용**: 관리 부담 대폭 감소
+- 관련 커밋: `49410cb5`, `2a7e1b10`
+
+#### 매장 관리 모달 QR 통합
+- **통합 UI**: 매장 수정 모달에 QR 코드 섹션 직접 표시
+- **자동 생성**: 매장 수정 시 자동으로 QR 코드 생성
+- **다운로드/저장**: QR 이미지 다운로드 및 Firestore 저장 기능
+- 관련 커밋: `2a7e1b10`
+
+### 🐛 Bug Fixes (버그 수정)
+
+#### 급여 조회 오류 수정
+- **문제**: 관리자 대시보드에서 "Missing or insufficient permissions" 오류
+- **원인**: 하드코딩된 `'salaries'` 컬렉션 이름 사용 (Firestore Rules는 `salary`)
+- **해결**: `COLLECTIONS.SALARY` 상수로 통일 (3곳 수정)
+- 관련 커밋: `d8a2e857`
+
+#### 직원 가입 후 목록 표시 오류 수정
+- **문제**: 신규 직원 가입 후 관리자 페이지에 표시되지 않음
+- **원인**: 가입 시 `role='employee'`, 조회 시 `role='staff'` 불일치
+- **해결**: 가입 시 `role='staff'`로 변경, 조회 시 호환성 유지
+- 관련 커밋: `8324dd7e`
+
+#### QR Scanner DOM 렌더링 타이밍 오류 수정
+- **문제**: "HTML Element with id=qr-reader not found" 오류
+- **원인**: 모달 열림과 동시에 카메라 시작 시 DOM 미렌더링
+- **해결**: 100ms 지연 후 DOM 요소 확인 로직 추가
+- 관련 파일: `components/employee/qr-scanner.tsx`
+
+#### GitHub Actions Storage 배포 오류 수정
+- **문제**: "Could not find rules for the following storage targets: rules"
+- **원인**: `storage:rules` → Firebase CLI가 타겟으로 잘못 해석
+- **해결**: `storage:rules` → `storage`로 변경
+- 관련 커밋: `84236ede`
+
 ### 🔐 Security Fixes (보안 수정)
 
 #### 긴급 보안 구멍 7개 수정
