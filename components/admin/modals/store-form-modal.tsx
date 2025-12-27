@@ -725,8 +725,6 @@ export function StoreFormModal({
                       <div className="mt-4 text-center text-sm text-slate-600 space-y-1">
                         <p className="font-semibold text-lg">{name}</p>
                         <p className="text-green-600 font-medium">✅ 만료 없음 - 영구 사용 가능</p>
-                          })}
-                        </p>
                       </div>
                     )}
                     
