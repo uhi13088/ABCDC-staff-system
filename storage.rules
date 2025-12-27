@@ -26,6 +26,22 @@ service firebase.storage {
       );
     }
     
+    // Brand logos (브랜드 로고 이미지)
+    match /brands/{fileName} {
+      // 읽기: 모든 사람 허용 (public)
+      allow read: if true;
+      
+      // 쓰기: 인증된 사용자 중 admin 또는 super_admin만 허용
+      allow write: if request.auth != null && (
+        exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin']
+      ) &&
+      // 파일 크기 제한: 5MB
+      request.resource.size < 5 * 1024 * 1024 &&
+      // 이미지 파일만 허용
+      request.resource.contentType.matches('image/.*');
+    }
+    
     // Resignation signatures (퇴직서 서명)
     match /resignation_signatures/{fileName} {
       // 읽기: 인증된 사용자만 허용

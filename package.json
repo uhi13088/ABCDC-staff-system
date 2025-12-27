@@ -22,6 +22,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@tanstack/react-query": "^5.90.12",
     "@types/react-signature-canvas": "^1.0.7",
+    "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns-tz": "^3.2.0",

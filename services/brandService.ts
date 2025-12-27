@@ -59,8 +59,11 @@ export async function getBrandById(brandId: string): Promise<Brand | null> {
 export async function createBrand(
   data: Omit<Brand, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
+  // id 필드 제거 (Firestore가 자동 생성)
+  const { id, ...cleanData } = data as any;
+  
   const docRef = await addDoc(collection(db, COLLECTIONS.BRANDS), {
-    ...data,
+    ...cleanData,
     storeCount: 0,
     createdAt: serverTimestamp(),
   });

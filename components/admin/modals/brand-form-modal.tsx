@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, Upload, Trash2 } from 'lucide-react';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
 
 export interface BrandFormData {
   id?: string;
@@ -80,7 +81,7 @@ export function BrandFormModal({
   }, [open, brand]);
 
   /**
-   * 로고 파일 업로드
+   * 로고 파일 업로드 (자동 압축)
    */
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,26 +93,36 @@ export function BrandFormModal({
       return;
     }
 
-    // 파일 크기 검증 (2MB 제한)
-    if (file.size > 2 * 1024 * 1024) {
-      alert('파일 크기는 2MB 이하여야 합니다.');
-      return;
-    }
-
     try {
       setUploading(true);
+
+      // 이미지 압축 옵션
+      const options = {
+        maxSizeMB: 0.5,          // 최대 500KB로 압축
+        maxWidthOrHeight: 800,   // 최대 가로/세로 800px
+        useWebWorker: true,      // 웹 워커 사용 (성능 향상)
+        fileType: 'image/jpeg',  // JPEG로 변환 (용량 최적화)
+      };
+
+      console.log('원본 파일 크기:', (file.size / 1024).toFixed(2), 'KB');
+
+      // 이미지 압축
+      const compressedFile = await imageCompression(file, options);
+      
+      console.log('압축 후 파일 크기:', (compressedFile.size / 1024).toFixed(2), 'KB');
 
       // 미리보기 생성
       const reader = new FileReader();
       reader.onload = (e) => {
         setLogoPreview(e.target?.result as string);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressedFile);
 
       // Firebase Storage에 업로드
       const timestamp = Date.now();
-      const storageRef = ref(storage, `brands/${timestamp}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
+      const fileName = file.name.replace(/\.[^/.]+$/, '.jpg'); // 확장자를 .jpg로 변경
+      const storageRef = ref(storage, `brands/${timestamp}_${fileName}`);
+      const snapshot = await uploadBytes(storageRef, compressedFile);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
       setLogoUrl(downloadURL);
@@ -256,7 +267,7 @@ export function BrandFormModal({
               </div>
             )}
             <p className="text-xs text-slate-500 mt-1">
-              ℹ️ 권장 크기: 200x100px, PNG 또는 JPG
+              ℹ️ 큰 파일도 자동으로 압축됩니다 (최대 800px, 500KB 이하)
             </p>
           </div>
 
