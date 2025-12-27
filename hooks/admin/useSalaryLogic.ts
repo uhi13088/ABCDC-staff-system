@@ -278,7 +278,7 @@ export function useSalaryLogic() {
       
       // Firestore에서 확정된 급여 정보 가져오기
       let salariesQuery = query(
-        collection(db, 'salaries'),
+        collection(db, COLLECTIONS.SALARY),
         where('yearMonth', '==', selectedMonth),
         where('companyId', '==', companyId)
       );
@@ -341,7 +341,7 @@ export function useSalaryLogic() {
       }
       
       // Firestore에 급여 확정 정보 저장
-      const salaryDocRef = doc(collection(db, 'salaries'));
+      const salaryDocRef = doc(collection(db, COLLECTIONS.SALARY));
       await setDoc(salaryDocRef, {
         ...salary,
         companyId,
@@ -374,7 +374,7 @@ export function useSalaryLogic() {
    */
   const markAsPaid = async (docId: string) => {
     try {
-      const salaryDocRef = doc(db, 'salaries', docId);
+      const salaryDocRef = doc(db, COLLECTIONS.SALARY, docId);
       await updateDoc(salaryDocRef, {
         status: 'paid',
         paid: true,
