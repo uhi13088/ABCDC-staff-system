@@ -213,7 +213,7 @@ git commit -m "feat: PDF 뷰어 추가
 10. ✅ **매장 관리**: 매장 생성, 급여 설정, 수당 옵션
 11. ✅ **관리자 목록**: 권한 관리
 12. ✅ **초대 코드**: 직원 초대 코드 발급
-13. ✅ **설정**: 회사 정보, 공휴일 관리
+13. ✅ **설정**: 회사 정보 (공휴일은 Cloud Functions 자동 동기화)
 
 ### 👤 직원 포털 (8개 탭)
 1. ✅ **대시보드**: 오늘의 출퇴근 상태, 이번 달 통계
@@ -421,9 +421,37 @@ npm run dev
 | [FIRESTORE_COLLECTIONS.md](./FIRESTORE_COLLECTIONS.md) | Firestore 컬렉션 명세 | ⭐⭐⭐ |
 | [FIELD_NAMING_STANDARD.md](./FIELD_NAMING_STANDARD.md) | 필드명 규칙 | ⭐⭐⭐ |
 | [SECURITY.md](./SECURITY.md) | 보안 가이드 및 Rules | ⭐⭐⭐ |
+| [UPLOAD_INSTRUCTIONS.md](./UPLOAD_INSTRUCTIONS.md) | 파일 업로드 가이드 | ⭐⭐ |
 | [docs/CHANGELOG.md](./docs/CHANGELOG.md) | 변경 이력 | ⭐ |
 | [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | 개발 환경 설정 | ⭐ |
 | [docs/LEGACY_MIGRATION.md](./docs/LEGACY_MIGRATION.md) | 레거시 마이그레이션 | ⭐ |
+
+---
+
+## 📦 파일 업로드 시스템
+
+### 사용 방법
+
+사장님이 직접 파일을 업로드하여 시스템에 적용할 수 있습니다.
+
+#### 1️⃣ 업로드 위치
+```bash
+/home/user/webapp/upload-pending/
+```
+
+#### 2️⃣ 업로드 후 알림
+업로드가 완료되면 저에게 알려주세요:
+- "파일 업로드 완료했어요"
+- "health-cert-upload.tsx 업로드했습니다"
+
+#### 3️⃣ 자동 적용
+제가 업로드된 파일을 확인하고:
+1. 파일 검증 (구문 오류, 타입 체크)
+2. 적절한 위치로 이동
+3. Git 커밋 및 푸시
+4. 배포 확인
+
+**자세한 가이드**: [UPLOAD_INSTRUCTIONS.md](./UPLOAD_INSTRUCTIONS.md)
 
 ---
 
