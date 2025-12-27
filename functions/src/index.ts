@@ -689,6 +689,131 @@ export const calculateMonthlySalary = functions
   });
 
 // ===========================================
+// 직원 삭제 (Auth + Firestore)
+// ===========================================
+
+/**
+ * 직원 완전 삭제 (Firebase Auth + Firestore)
+ * 
+ * @description
+ * 클라이언트에서는 다른 사용자의 Auth 계정을 삭제할 수 없으므로
+ * Admin SDK를 사용하여 서버에서 삭제 처리
+ * 
+ * @param {string} uid - 삭제할 직원의 UID
+ * @returns {Promise<{ success: boolean }>}
+ */
+export const deleteEmployeeAccount = functions
+  .region('asia-northeast3')
+  .https.onCall(async (data, context) => {
+    try {
+      // 1. 인증 확인
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
+          'unauthenticated',
+          '인증이 필요합니다.'
+        );
+      }
+
+      // 2. 관리자 권한 확인
+      const callerUid = context.auth.uid;
+      const callerDoc = await db.collection('users').doc(callerUid).get();
+      
+      if (!callerDoc.exists) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          '사용자 정보를 찾을 수 없습니다.'
+        );
+      }
+
+      const callerData = callerDoc.data();
+      
+      if (!callerData) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          '사용자 데이터를 찾을 수 없습니다.'
+        );
+      }
+      
+      const callerRole = callerData.role;
+
+      // Admin 또는 Manager만 삭제 가능
+      if (!['admin', 'super_admin', 'manager'].includes(callerRole)) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          '직원 삭제 권한이 없습니다.'
+        );
+      }
+
+      const { uid } = data;
+
+      if (!uid || typeof uid !== 'string') {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'uid가 필요합니다.'
+        );
+      }
+
+      functions.logger.info(`🔄 직원 삭제 시작: ${uid}`);
+
+      // 3. 삭제할 직원 정보 조회
+      const employeeDoc = await db.collection('users').doc(uid).get();
+      
+      if (!employeeDoc.exists) {
+        throw new functions.https.HttpsError(
+          'not-found',
+          '직원 정보를 찾을 수 없습니다.'
+        );
+      }
+
+      const employeeData = employeeDoc.data();
+
+      // 4. 같은 회사 직원인지 확인
+      if (callerData.companyId !== employeeData?.companyId) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          '같은 회사의 직원만 삭제할 수 있습니다.'
+        );
+      }
+
+      // 5. Firebase Auth 계정 삭제
+      try {
+        await admin.auth().deleteUser(uid);
+        functions.logger.info(`✅ Auth 계정 삭제 완료: ${uid}`);
+      } catch (authError: any) {
+        // Auth 계정이 이미 없는 경우 무시
+        if (authError.code === 'auth/user-not-found') {
+          functions.logger.warn(`⚠️ Auth 계정이 이미 삭제됨: ${uid}`);
+        } else {
+          throw authError;
+        }
+      }
+
+      // 6. Firestore 문서 삭제
+      await db.collection('users').doc(uid).delete();
+      functions.logger.info(`✅ Firestore 문서 삭제 완료: ${uid}`);
+
+      return {
+        success: true,
+        message: `${employeeData?.name || '직원'}님이 완전히 삭제되었습니다.`,
+      };
+
+    } catch (error: any) {
+      functions.logger.error('❌ 직원 삭제 오류:', error);
+
+      // HttpsError는 그대로 전달
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+
+      throw new functions.https.HttpsError(
+        'internal',
+        '직원 삭제 중 오류가 발생했습니다.',
+        error.message
+      );
+    }
+  });
+
+// ===========================================
 // 공휴일 자동 동기화 스케줄러
 // ===========================================
 

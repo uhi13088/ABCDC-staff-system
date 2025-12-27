@@ -23,6 +23,7 @@ import { COLLECTIONS, USER_ROLES, USER_STATUS } from '@/lib/constants';
 import type { Employee } from '@/lib/types/employee';
 import { createNotification } from '@/services/notificationService';
 import { NOTIFICATION_TEMPLATES } from '@/lib/types/notification';
+import { deleteEmployeeAccount as deleteEmployeeAccountFromAuth } from '@/services/cloudFunctionsEmployeeService';
 
 /**
  * 직원 목록 조회
@@ -106,11 +107,21 @@ export async function updateEmployee(
 }
 
 /**
- * 직원 삭제
+ * 직원 완전 삭제 (Auth + Firestore)
+ * 
+ * @description
+ * Firebase Auth 계정과 Firestore 문서를 모두 삭제합니다.
+ * Cloud Functions (Admin SDK)를 사용하여 다른 사용자의 Auth 계정을 삭제합니다.
  */
 export async function deleteEmployee(userId: string): Promise<void> {
-  const docRef = doc(db, COLLECTIONS.USERS, userId);
-  await deleteDoc(docRef);
+  try {
+    // Cloud Functions를 통해 Auth + Firestore 모두 삭제
+    await deleteEmployeeAccountFromAuth(userId);
+    console.log('✅ 직원 완전 삭제 완료 (Auth + Firestore):', userId);
+  } catch (error) {
+    console.error('❌ 직원 삭제 실패:', error);
+    throw error;
+  }
 }
 
 /**
