@@ -6,39 +6,34 @@
 import QRCode from 'qrcode';
 
 /**
- * QR 코드 데이터 인터페이스
+ * QR 코드 데이터 인터페이스 (고정 QR 코드 - 만료 없음)
  */
 export interface QRCodeData {
   storeId: string;
   storeName: string;
   companyId: string;
-  timestamp: number;
-  expiry: number; // 만료 시간 (timestamp)
+  type: 'store_checkin'; // QR 타입 식별
+  version: string; // 버전 관리 (향후 확장성)
 }
 
 /**
- * 매장용 QR 코드 생성
+ * 매장용 고정 QR 코드 생성 (만료 없음)
  * @param storeId - 매장 ID
  * @param storeName - 매장명
  * @param companyId - 회사 ID
- * @param validityHours - 유효 시간 (기본 24시간)
  * @returns QR 코드 Data URL
  */
 export async function generateStoreQRCode(
   storeId: string,
   storeName: string,
-  companyId: string,
-  validityHours: number = 24
+  companyId: string
 ): Promise<{ dataUrl: string; qrData: QRCodeData }> {
-  const now = Date.now();
-  const expiry = now + validityHours * 60 * 60 * 1000;
-
   const qrData: QRCodeData = {
     storeId,
     storeName,
     companyId,
-    timestamp: now,
-    expiry,
+    type: 'store_checkin',
+    version: '1.0',
   };
 
   // QR 코드 데이터를 JSON 문자열로 변환
@@ -58,7 +53,7 @@ export async function generateStoreQRCode(
 }
 
 /**
- * QR 코드 데이터 검증
+ * QR 코드 데이터 검증 (고정 QR 코드 - 만료 체크 제거)
  * @param qrString - QR 코드 스캔 결과 문자열
  * @returns 검증 결과 및 파싱된 데이터
  */
@@ -71,19 +66,18 @@ export function validateQRCode(qrString: string): {
     const data = JSON.parse(qrString) as QRCodeData;
 
     // 필수 필드 확인
-    if (!data.storeId || !data.storeName || !data.companyId || !data.timestamp || !data.expiry) {
+    if (!data.storeId || !data.storeName || !data.companyId || !data.type) {
       return {
         isValid: false,
         error: 'QR 코드 데이터 형식이 올바르지 않습니다.',
       };
     }
 
-    // 만료 시간 확인
-    const now = Date.now();
-    if (now > data.expiry) {
+    // QR 타입 확인
+    if (data.type !== 'store_checkin') {
       return {
         isValid: false,
-        error: 'QR 코드가 만료되었습니다. 관리자에게 새 QR 코드를 요청하세요.',
+        error: '출퇴근용 QR 코드가 아닙니다.',
       };
     }
 

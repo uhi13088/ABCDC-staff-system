@@ -27,7 +27,6 @@ interface GenerateQRModalProps {
 export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQRModalProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [qrData, setQrData] = useState<QRCodeData | null>(null);
-  const [validityHours, setValidityHours] = useState<number>(24);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -39,7 +38,7 @@ export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQ
   }, [isOpen, store.id]);
 
   /**
-   * QR 코드 생성
+   * QR 코드 생성 (고정 QR 코드)
    */
   const handleGenerateQR = async () => {
     if (!store.id) return;
@@ -49,8 +48,7 @@ export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQ
       const { dataUrl, qrData: data } = await generateStoreQRCode(
         store.id,
         store.name,
-        store.companyId,
-        validityHours
+        store.companyId
       );
 
       setQrDataUrl(dataUrl);
@@ -64,7 +62,7 @@ export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQ
   };
 
   /**
-   * QR 코드 Firestore 저장
+   * QR 코드 Firestore 저장 (고정 QR 코드)
    */
   const handleSaveQR = async () => {
     if (!store.id || !qrData) return;
@@ -74,7 +72,6 @@ export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQ
       const storeRef = doc(db, COLLECTIONS.STORES, store.id);
       await updateDoc(storeRef, {
         qrCode: JSON.stringify(qrData),
-        qrCodeExpiry: Timestamp.fromMillis(qrData.expiry),
         updatedAt: Timestamp.now(),
       });
 
@@ -107,39 +104,24 @@ export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQ
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5" />
-            매장 QR 코드 생성
+            매장 QR 코드 생성 (고정)
           </DialogTitle>
           <DialogDescription>
-            {store.name} 매장의 출퇴근용 QR 코드를 생성합니다.
+            {store.name} 매장의 출퇴근용 QR 코드를 생성합니다. (만료 없음)
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* 유효 시간 설정 */}
-          <div className="space-y-2">
-            <Label htmlFor="validity">유효 시간 (시간)</Label>
-            <div className="flex gap-2">
-              <Input
-                id="validity"
-                type="number"
-                min="1"
-                max="168"
-                value={validityHours}
-                onChange={(e) => setValidityHours(parseInt(e.target.value) || 24)}
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                onClick={handleGenerateQR}
-                disabled={isGenerating}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                재생성
-              </Button>
-            </div>
-            <p className="text-xs text-zinc-500">
-              QR 코드는 {validityHours}시간 동안 유효합니다.
-            </p>
+          {/* 재생성 버튼 */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={handleGenerateQR}
+              disabled={isGenerating}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+              재생성
+            </Button>
           </div>
 
           {/* QR 코드 이미지 */}
@@ -148,17 +130,8 @@ export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQ
               <img src={qrDataUrl} alt="QR Code" className="w-64 h-64" />
               {qrData && (
                 <div className="mt-4 text-center text-sm text-zinc-600 space-y-1">
-                  <p className="font-semibold">{store.name}</p>
-                  <p>
-                    유효 기간:{' '}
-                    {new Date(qrData.expiry).toLocaleString('ko-KR', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
+                  <p className="font-semibold text-lg">{store.name}</p>
+                  <p className="text-green-600 font-medium">✅ 만료 없음 - 영구 사용 가능</p>
                 </div>
               )}
             </div>
@@ -167,6 +140,13 @@ export function GenerateQRModal({ isOpen, onClose, store, onSuccess }: GenerateQ
               <p className="text-zinc-500">QR 코드 생성 중...</p>
             </div>
           )}
+          
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800">
+              💡 <strong>고정 QR 코드:</strong><br />
+              이 QR 코드는 만료되지 않습니다. 한 번 프린트하면 계속 사용 가능합니다.
+            </p>
+          </div>
         </div>
 
         <DialogFooter className="gap-2">

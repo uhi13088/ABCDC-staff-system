@@ -106,10 +106,9 @@ export function StoreFormModal({
   const [earlyClockInThreshold, setEarlyClockInThreshold] = useState(15);
   const [earlyClockOutThreshold, setEarlyClockOutThreshold] = useState(5);
   
-  // QR 코드 관련
+  // QR 코드 관련 (고정 QR 코드 - 유효기간 제거)
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [qrData, setQrData] = useState<QRCodeData | null>(null);
-  const [validityHours, setValidityHours] = useState<number>(24);
   const [isGeneratingQR, setIsGeneratingQR] = useState(false);
   
   const [saving, setSaving] = useState(false);
@@ -200,7 +199,7 @@ export function StoreFormModal({
   };
 
   /**
-   * QR 코드 생성
+   * QR 코드 생성 (고정 QR 코드)
    */
   const handleGenerateQR = async () => {
     if (!store?.id || !name.trim()) {
@@ -213,8 +212,7 @@ export function StoreFormModal({
       const { dataUrl, qrData: data } = await generateStoreQRCode(
         store.id,
         name.trim(),
-        companyId,
-        validityHours
+        companyId
       );
 
       setQrDataUrl(dataUrl);
@@ -228,7 +226,7 @@ export function StoreFormModal({
   };
 
   /**
-   * QR 코드 Firestore 저장
+   * QR 코드 Firestore 저장 (고정 QR 코드 - expiry 제거)
    */
   const handleSaveQR = async () => {
     if (!store?.id || !qrData) return;
@@ -237,7 +235,6 @@ export function StoreFormModal({
       const storeRef = doc(db, COLLECTIONS.STORES, store.id);
       await updateDoc(storeRef, {
         qrCode: JSON.stringify(qrData),
-        qrCodeExpiry: Timestamp.fromMillis(qrData.expiry),
         updatedAt: Timestamp.now(),
       });
 
@@ -702,37 +699,22 @@ export function StoreFormModal({
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                       <QrCode className="w-5 h-5" />
-                      출퇴근용 QR 코드
+                      출퇴근용 QR 코드 (고정)
                     </h3>
                     <p className="text-sm text-slate-600 mt-1">
-                      이 QR 코드를 매장에 비치하여 직원들이 출퇴근을 기록할 수 있습니다.
+                      이 QR 코드는 만료되지 않습니다. 한 번 프린트하면 계속 사용 가능합니다.
                     </p>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="validityHours" className="text-sm">유효시간</Label>
-                      <Input
-                        id="validityHours"
-                        type="number"
-                        min="1"
-                        max="168"
-                        value={validityHours}
-                        onChange={(e) => setValidityHours(parseInt(e.target.value) || 24)}
-                        className="w-20"
-                      />
-                      <span className="text-sm text-slate-600">시간</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerateQR}
-                      disabled={isGeneratingQR}
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${isGeneratingQR ? 'animate-spin' : ''}`} />
-                      재생성
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateQR}
+                    disabled={isGeneratingQR}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isGeneratingQR ? 'animate-spin' : ''}`} />
+                    재생성
+                  </Button>
                 </div>
 
                 {/* QR 코드 이미지 */}
@@ -742,14 +724,7 @@ export function StoreFormModal({
                     {qrData && (
                       <div className="mt-4 text-center text-sm text-slate-600 space-y-1">
                         <p className="font-semibold text-lg">{name}</p>
-                        <p>
-                          유효 기간:{' '}
-                          {new Date(qrData.expiry).toLocaleString('ko-KR', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
+                        <p className="text-green-600 font-medium">✅ 만료 없음 - 영구 사용 가능</p>
                           })}
                         </p>
                       </div>
@@ -783,8 +758,8 @@ export function StoreFormModal({
                     💡 <strong>사용 방법:</strong><br />
                     1. "다운로드" 버튼으로 QR 코드 이미지를 저장하세요.<br />
                     2. 이미지를 프린트하여 매장에 비치하세요.<br />
-                    3. 직원이 스마트폰으로 QR 코드를 스캔하여 출퇴근을 기록합니다.<br />
-                    4. QR 코드는 설정한 유효시간 동안만 사용 가능합니다.
+                    3. 직원이 "출근" 버튼 클릭 → QR 스캔 → 출근 완료!<br />
+                    4. ✅ <strong>이 QR 코드는 만료되지 않습니다. 영구 사용 가능합니다.</strong>
                   </p>
                 </div>
               </CardContent>
