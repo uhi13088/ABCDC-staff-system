@@ -30,6 +30,7 @@ export interface BrandFormData {
   logoUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  companyId?: string;
 }
 
 interface BrandFormModalProps {
@@ -38,6 +39,7 @@ interface BrandFormModalProps {
   onSave: (data: BrandFormData) => Promise<void>;
   onDelete?: () => Promise<void>;
   brand?: BrandFormData;
+  companyId: string; // ✅ companyId 필수 추가
 }
 
 export function BrandFormModal({ 
@@ -45,7 +47,8 @@ export function BrandFormModal({
   onClose, 
   onSave, 
   onDelete,
-  brand 
+  brand,
+  companyId // ✅ companyId 받기
 }: BrandFormModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

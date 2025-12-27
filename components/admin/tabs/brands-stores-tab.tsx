@@ -432,6 +432,7 @@ export function BrandsStoresTab({ companyId }: BrandsStoresTabProps) {
         onSave={handleSaveBrand}
         onDelete={selectedBrand ? handleDeleteBrand : undefined}
         brand={selectedBrand}
+        companyId={companyId} // ✅ companyId 전달
       />
 
       {/* 매장 모달 */}

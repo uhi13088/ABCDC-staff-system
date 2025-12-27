@@ -4,79 +4,81 @@ service firebase.storage {
   match /b/{bucket}/o {
     
     // ===================================================================
-    // Firebase Storage Rules v1.1
+    // Firebase Storage Rules v2.0
     // ABCDC Staff System - Multi-tenant SaaS
     // ===================================================================
     
-    // Company logos (로고 이미지)
+    // --------------------------------------------------------
+    // 헬퍼 함수: Firestore 조회 (비용 발생 주의)
+    // --------------------------------------------------------
+    function getUserData() {
+      return get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSuperAdmin() {
+      return getUserData().role == 'super_admin';
+    }
+    
+    function isAdminOf(companyId) {
+      let userData = getUserData();
+      return userData.role == 'admin' && userData.companyId == companyId;
+    }
+
+    function isManagerOfSameCompany(targetUserId) {
+       let callerData = getUserData();
+       let targetData = get(/databases/(default)/documents/users/$(targetUserId)).data;
+       return callerData.role in ['admin', 'super_admin', 'manager'] && 
+              callerData.companyId == targetData.companyId;
+    }
+
+    // --------------------------------------------------------
+    // 1. Company logos
+    // --------------------------------------------------------
     match /company-logos/{companyId}/{fileName} {
-      // 읽기: 모든 사람 허용 (public)
       allow read: if true;
-      
-      // 쓰기: 인증된 사용자 중 해당 회사의 admin 또는 super_admin만 허용
       allow write: if request.auth != null && (
-        // Super Admin: 모든 회사 로고 업로드 가능
-        exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "super_admin"
-      ) || (
-        // Admin: 자기 회사 로고만 업로드 가능
-        exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        get(/databases/(default)/documents/users/$(request.auth.uid)).data.companyId == companyId &&
-        get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin"
-      );
+        isSuperAdmin() || isAdminOf(companyId)
+      ) && request.resource.size < 5 * 1024 * 1024 
+        && request.resource.contentType.matches('image/.*');
     }
     
-    // Brand logos (브랜드 로고 이미지)
-    match /brands/{fileName} {
-      // 읽기: 모든 사람 허용 (public)
+    // --------------------------------------------------------
+    // 2. Brand logos (✅ 경로 개선: companyId 추가)
+    // --------------------------------------------------------
+    match /brands/{companyId}/{fileName} {
       allow read: if true;
-      
-      // 쓰기: 인증된 사용자 중 admin 또는 super_admin만 허용
       allow write: if request.auth != null && (
-        exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin']
-      ) &&
-      // 파일 크기 제한: 5MB
-      request.resource.size < 5 * 1024 * 1024 &&
-      // 이미지 파일만 허용
-      request.resource.contentType.matches('image/.*');
+        isSuperAdmin() || isAdminOf(companyId)
+      ) && request.resource.size < 5 * 1024 * 1024 
+        && request.resource.contentType.matches('image/.*');
     }
     
-    // Resignation signatures (퇴직서 서명)
+    // --------------------------------------------------------
+    // 3. Resignation signatures
+    // --------------------------------------------------------
     match /resignation_signatures/{fileName} {
-      // 읽기: 인증된 사용자만 허용
       allow read: if request.auth != null;
-      
-      // 쓰기: 본인만 업로드 가능 (fileName이 본인 uid로 시작하는 경우)
+      // 본인의 UID로 시작하는 파일명만 허용
       allow write: if request.auth != null && 
-                      fileName.matches('^' + request.auth.uid + '_.*');
+                   fileName.matches('^' + request.auth.uid + '_.*');
     }
     
-    // Health certificates (건강진단서)
+    // --------------------------------------------------------
+    // 4. Health certificates (기존 유지 - 간단한 구조)
+    // --------------------------------------------------------
     match /health-certificates/{userId} {
-      // 읽기: 본인 또는 관리자만 가능
       allow read: if request.auth != null && (
-        // 본인
-        request.auth.uid == userId ||
-        // 관리자 (같은 회사)
-        (
-          exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-          exists(/databases/(default)/documents/users/$(userId)) &&
-          get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin', 'manager'] &&
-          get(/databases/(default)/documents/users/$(request.auth.uid)).data.companyId == 
-          get(/databases/(default)/documents/users/$(userId)).data.companyId
-        )
+        request.auth.uid == userId || isManagerOfSameCompany(userId)
       );
       
-      // 쓰기: 본인만 업로드/수정/삭제 가능
       allow write: if request.auth != null && request.auth.uid == userId &&
-        // 파일 크기 제한: 5MB
         request.resource.size < 5 * 1024 * 1024 &&
-        // 이미지 파일만 허용
         request.resource.contentType.matches('image/.*');
     }
     
+    // --------------------------------------------------------
     // 기타 모든 파일: 기본적으로 거부
+    // --------------------------------------------------------
     match /{allPaths=**} {
       allow read, write: if false;
     }
