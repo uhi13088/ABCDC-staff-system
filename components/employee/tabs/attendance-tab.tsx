@@ -27,12 +27,14 @@ import { COLLECTIONS } from '@/lib/constants'
 import { safeToDate } from '@/lib/utils/timestamp'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { QRScanner } from '@/components/employee/qr-scanner'
 
 interface AttendanceTabProps {
   employeeData: {
     uid: string
     companyId: string
     storeId: string
+    name: string
   }
 }
 
@@ -50,7 +52,7 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
-  const [showQRScanner, setShowQRScanner] = useState(false)
+  const [showQRModal, setShowQRModal] = useState(false)
 
   // 출근 기록 로드
   const loadAttendanceRecords = async () => {
@@ -172,27 +174,18 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
               QR 스캔
             </Button>
           </div>
-
-          {/* QR 스캔 기능은 나중에 추가 (모바일 카메라 필요) */}
-          {showQRModal && (
-            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                QR 스캔 기능은 모바일 앱에서 사용할 수 있습니다.
-                <br />
-                현재는 대시보드 탭에서 출퇴근 버튼을 이용해주세요.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => setShowQRModal(false)}
-              >
-                닫기
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* QR 스캐너 모달 */}
+      <QRScanner
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        employeeData={employeeData}
+        onSuccess={() => {
+          loadAttendanceRecords() // 출퇴근 기록 새로고침
+        }}
+      />
 
       {/* 근무 내역 테이블 */}
       <Card>

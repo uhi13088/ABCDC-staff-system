@@ -17,6 +17,8 @@ interface StoresTabProps {
 
 export default function StoresTab({ companyId }: StoresTabProps) {
   const { stores, loading, loadStores, deleteStore } = useStoreLogic({ companyId });
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
 
   useEffect(() => {
     if (companyId) {
@@ -67,9 +69,22 @@ export default function StoresTab({ companyId }: StoresTabProps) {
                     <Badge>{store.isActive ? '활성' : '비활성'}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Button size="sm" variant="ghost" className="text-red-600" onClick={() => deleteStore(store.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedStore(store);
+                          setShowQRModal(true);
+                        }}
+                      >
+                        <QrCode className="w-4 h-4 mr-1" />
+                        QR
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-red-600" onClick={() => deleteStore(store.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
