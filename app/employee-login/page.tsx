@@ -42,8 +42,8 @@ export default function EmployeeLoginPage() {
 
       const userData = userDoc.data()
 
-      // 직원 권한 확인
-      if (userData.role !== 'employee') {
+      // 직원 권한 확인 (staff 또는 employee 허용)
+      if (userData.role !== 'staff' && userData.role !== 'employee') {
         throw new Error('직원 계정으로만 로그인할 수 있습니다.')
       }
 

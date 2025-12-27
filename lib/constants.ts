@@ -30,13 +30,17 @@ export const COLLECTIONS = {
 
 /**
  * 사용자 역할
+ * 
+ * 🔥 중요: 일반 직원은 STAFF로 통일
+ * - EMPLOYEE는 제거됨 (STAFF로 통일)
+ * - 기존 'employee' 데이터는 호환성 유지
  */
 export const USER_ROLES = {
-  ADMIN: 'admin',
-  MANAGER: 'manager',
-  STORE_MANAGER: 'store_manager',
-  EMPLOYEE: 'employee',
-  STAFF: 'staff',
+  SUPER_ADMIN: 'super_admin',  // 플랫폼 최고 관리자
+  ADMIN: 'admin',               // 회사 관리자
+  MANAGER: 'manager',           // 매니저
+  STORE_MANAGER: 'store_manager', // 매장 관리자
+  STAFF: 'staff',               // 일반 직원 (표준)
 } as const;
 
 /**

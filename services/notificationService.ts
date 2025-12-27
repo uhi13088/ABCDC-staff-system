@@ -254,7 +254,7 @@ export async function getStoreEmployees(
       collection(db, COLLECTIONS.USERS),
       where('companyId', '==', companyId),
       where('storeId', '==', storeId),
-      where('role', '==', USER_ROLES.EMPLOYEE),
+      where('role', 'in', [USER_ROLES.STAFF, 'employee']),  // STAFF로 표준화 (호환성 유지)
       where('status', '==', 'active')
     );
     
@@ -277,7 +277,7 @@ export async function getCompanyEmployees(companyId: string): Promise<string[]> 
     const q = query(
       collection(db, COLLECTIONS.USERS),
       where('companyId', '==', companyId),
-      where('role', '==', USER_ROLES.EMPLOYEE),
+      where('role', 'in', [USER_ROLES.STAFF, 'employee']),  // STAFF로 표준화 (호환성 유지)
       where('status', '==', 'active')
     );
     
