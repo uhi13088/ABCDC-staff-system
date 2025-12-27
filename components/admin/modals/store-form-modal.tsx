@@ -20,6 +20,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
+import { QrCode, Download, RefreshCw } from 'lucide-react';
+import { generateStoreQRCode, type QRCodeData } from '@/lib/utils/qr-generator';
+import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { COLLECTIONS } from '@/lib/constants';
 
 export interface StoreFormData {
   id?: string;
@@ -101,6 +106,12 @@ export function StoreFormModal({
   const [earlyClockInThreshold, setEarlyClockInThreshold] = useState(15);
   const [earlyClockOutThreshold, setEarlyClockOutThreshold] = useState(5);
   
+  // QR 코드 관련
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [qrData, setQrData] = useState<QRCodeData | null>(null);
+  const [validityHours, setValidityHours] = useState<number>(24);
+  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -155,9 +166,20 @@ export function StoreFormModal({
         
         setEarlyClockInThreshold(15);
         setEarlyClockOutThreshold(5);
+        
+        // QR 초기화
+        setQrDataUrl('');
+        setQrData(null);
       }
     }
   }, [open, store]);
+
+  // 매장 수정 모드일 때 QR 코드 자동 생성
+  useEffect(() => {
+    if (open && store?.id && name.trim()) {
+      handleGenerateQR();
+    }
+  }, [open, store?.id]);
 
   /**
    * 계산 기간 미리보기 생성
@@ -175,6 +197,67 @@ export function StoreFormModal({
       return `${startMonthText} ${startDayText}일 ~ ${endMonthText} ${endDayText}`;
     }
     return '';
+  };
+
+  /**
+   * QR 코드 생성
+   */
+  const handleGenerateQR = async () => {
+    if (!store?.id || !name.trim()) {
+      alert('매장을 먼저 저장해주세요.');
+      return;
+    }
+
+    setIsGeneratingQR(true);
+    try {
+      const { dataUrl, qrData: data } = await generateStoreQRCode(
+        store.id,
+        name.trim(),
+        companyId,
+        validityHours
+      );
+
+      setQrDataUrl(dataUrl);
+      setQrData(data);
+    } catch (error) {
+      console.error('QR 코드 생성 실패:', error);
+      alert('QR 코드 생성에 실패했습니다.');
+    } finally {
+      setIsGeneratingQR(false);
+    }
+  };
+
+  /**
+   * QR 코드 Firestore 저장
+   */
+  const handleSaveQR = async () => {
+    if (!store?.id || !qrData) return;
+
+    try {
+      const storeRef = doc(db, COLLECTIONS.STORES, store.id);
+      await updateDoc(storeRef, {
+        qrCode: JSON.stringify(qrData),
+        qrCodeExpiry: Timestamp.fromMillis(qrData.expiry),
+        updatedAt: Timestamp.now(),
+      });
+
+      alert('QR 코드가 저장되었습니다!');
+    } catch (error) {
+      console.error('QR 코드 저장 실패:', error);
+      alert('QR 코드 저장에 실패했습니다.');
+    }
+  };
+
+  /**
+   * QR 코드 이미지 다운로드
+   */
+  const handleDownloadQR = () => {
+    if (!qrDataUrl) return;
+
+    const link = document.createElement('a');
+    link.href = qrDataUrl;
+    link.download = `QR_${name.trim()}_${new Date().toISOString().slice(0, 10)}.png`;
+    link.click();
   };
 
   /**
@@ -610,6 +693,103 @@ export function StoreFormModal({
               </div>
             </CardContent>
           </Card>
+
+          {/* 6. QR 코드 (매장 수정 시에만 표시) */}
+          {store?.id && (
+            <Card className="border-2 border-blue-200 bg-blue-50/30">
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <QrCode className="w-5 h-5" />
+                      출퇴근용 QR 코드
+                    </h3>
+                    <p className="text-sm text-slate-600 mt-1">
+                      이 QR 코드를 매장에 비치하여 직원들이 출퇴근을 기록할 수 있습니다.
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="validityHours" className="text-sm">유효시간</Label>
+                      <Input
+                        id="validityHours"
+                        type="number"
+                        min="1"
+                        max="168"
+                        value={validityHours}
+                        onChange={(e) => setValidityHours(parseInt(e.target.value) || 24)}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-slate-600">시간</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateQR}
+                      disabled={isGeneratingQR}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${isGeneratingQR ? 'animate-spin' : ''}`} />
+                      재생성
+                    </Button>
+                  </div>
+                </div>
+
+                {/* QR 코드 이미지 */}
+                {qrDataUrl ? (
+                  <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg border-2 border-dashed border-blue-300">
+                    <img src={qrDataUrl} alt="QR Code" className="w-64 h-64" />
+                    {qrData && (
+                      <div className="mt-4 text-center text-sm text-slate-600 space-y-1">
+                        <p className="font-semibold text-lg">{name}</p>
+                        <p>
+                          유효 기간:{' '}
+                          {new Date(qrData.expiry).toLocaleString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadQR}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        다운로드
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveQR}
+                      >
+                        Firestore에 저장
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-64 bg-white rounded-lg border-2 border-dashed border-blue-300">
+                    <p className="text-slate-500">QR 코드 생성 중...</p>
+                  </div>
+                )}
+                
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>사용 방법:</strong><br />
+                    1. "다운로드" 버튼으로 QR 코드 이미지를 저장하세요.<br />
+                    2. 이미지를 프린트하여 매장에 비치하세요.<br />
+                    3. 직원이 스마트폰으로 QR 코드를 스캔하여 출퇴근을 기록합니다.<br />
+                    4. QR 코드는 설정한 유효시간 동안만 사용 가능합니다.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* 액션 버튼 */}
