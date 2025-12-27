@@ -149,13 +149,15 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
     setIsClocking(true)
     try {
-      await clockIn({
-        companyId: employeeData.companyId,
-        storeId: employeeData.storeId,
-        userId: employeeData.uid,
-        userName: employeeData.name,
-        location: '매장' // 실제로는 GPS 정보 사용
-      })
+      // 오늘 날짜 (KST)
+      const today = format(new Date(), 'yyyy-MM-dd')
+      
+      await clockIn(
+        employeeData.uid,
+        employeeData.companyId,
+        employeeData.storeId,
+        today
+      )
 
       alert('출근 처리되었습니다.')
       await loadDashboardStats() // 통계 새로고침
