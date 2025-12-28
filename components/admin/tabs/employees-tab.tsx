@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,8 +21,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, UserPlus, CheckCircle, XCircle, Trash2, FileText, AlertCircle } from 'lucide-react';
+import { RefreshCw, UserPlus, CheckCircle, XCircle, Trash2, FileText, AlertCircle, User } from 'lucide-react';
 import { useEmployeeLogic } from '@/hooks/admin/useEmployeeLogic';
+import { EmployeeDetailModal } from '@/components/admin/modals/employee-detail-modal';
 
 /**
  * 직원 관리 탭 (Shadcn Blue Theme 완벽 적용)
@@ -47,6 +48,20 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
     deleteEmployee,
     syncAllEmployees,
   } = useEmployeeLogic({ companyId });
+
+  // 직원 상세 모달 상태
+  const [employeeDetailOpen, setEmployeeDetailOpen] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+
+  const handleOpenEmployeeDetail = (employeeId: string) => {
+    setSelectedEmployeeId(employeeId);
+    setEmployeeDetailOpen(true);
+  };
+
+  const handleCloseEmployeeDetail = () => {
+    setEmployeeDetailOpen(false);
+    setSelectedEmployeeId(null);
+  };
 
   useEffect(() => {
     if (companyId) {
@@ -257,7 +272,17 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
                           <Button 
                             size="sm" 
                             variant="ghost"
+                            onClick={() => handleOpenEmployeeDetail(employee.id)}
                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="직원 상세 정보"
+                          >
+                            <User className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="text-slate-600 hover:text-slate-700 hover:bg-slate-50"
+                            title="계약서 보기"
                           >
                             <FileText className="w-4 h-4" />
                           </Button>
@@ -283,6 +308,15 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
           )}
         </CardContent>
       </Card>
+
+      {/* 직원 상세 정보 모달 */}
+      <EmployeeDetailModal
+        open={employeeDetailOpen}
+        onClose={handleCloseEmployeeDetail}
+        employeeId={selectedEmployeeId}
+        companyId={companyId}
+        onSuccess={loadEmployees}
+      />
     </div>
   );
 }
