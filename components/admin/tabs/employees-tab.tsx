@@ -115,9 +115,6 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
     };
     return roleMap[role] || role;
   };
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
-  };
 
   return (
     <div className="space-y-6">
