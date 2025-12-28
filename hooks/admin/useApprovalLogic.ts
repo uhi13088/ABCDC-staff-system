@@ -240,7 +240,7 @@ export function useApprovalLogic({ companyId }: UseApprovalLogicProps) {
 
         // 긴급 모집 생성 (absenceData에서 정보 추출)
         if (absenceData.createRecruitment) {
-          await addDoc(collection(db, 'emergency_recruitments'), {
+          await addDoc(collection(db, COLLECTIONS.EMERGENCY_RECRUITMENTS), {
             companyId,
             storeId: absenceData.storeId,
             store: absenceData.store,

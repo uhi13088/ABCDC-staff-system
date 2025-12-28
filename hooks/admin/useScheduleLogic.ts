@@ -138,7 +138,7 @@ export function useScheduleLogic({ companyId }: UseScheduleLogicProps) {
     async (storeId: string, year: number, weekNum: number) => {
       try {
         const q = query(
-          collection(db, 'schedule_groups'),
+          collection(db, COLLECTIONS.SCHEDULE_GROUPS),
           where('companyId', '==', companyId),
           where('storeId', '==', storeId),
           where('weekNumber', '==', weekNum)

@@ -29,7 +29,7 @@ export default function LandingPage() {
     try {
       setLoading(true);
       const plansQuery = query(
-        collection(db, 'subscription_plans'),
+        collection(db, COLLECTIONS.SUBSCRIPTION_PLANS),
         where('isActive', '==', true)
       );
       const snapshot = await getDocs(plansQuery);

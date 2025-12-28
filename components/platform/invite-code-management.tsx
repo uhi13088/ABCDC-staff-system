@@ -33,7 +33,7 @@ export default function InviteCodeManagement() {
     try {
       setLoading(true);
       const codesQuery = query(
-        collection(db, 'invitation_codes'),
+        collection(db, COLLECTIONS.INVITATION_CODES),
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(codesQuery);
@@ -53,7 +53,7 @@ export default function InviteCodeManagement() {
   const loadPlans = async () => {
     try {
       const plansQuery = query(
-        collection(db, 'subscription_plans'),
+        collection(db, COLLECTIONS.SUBSCRIPTION_PLANS),
         where('isActive', '==', true)
       );
       const snapshot = await getDocs(plansQuery);
@@ -103,7 +103,7 @@ export default function InviteCodeManagement() {
       const newCodes: string[] = [];
       for (let i = 0; i < count; i++) {
         const code = generateCode();
-        await addDoc(collection(db, 'invitation_codes'), {
+        await addDoc(collection(db, COLLECTIONS.INVITATION_CODES), {
           code,
           planId: selectedPlan.id,
           planName: selectedPlan.name,

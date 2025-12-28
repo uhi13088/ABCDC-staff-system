@@ -119,7 +119,7 @@ export function useSimulatorLogic(companyId: string) {
       setState(prev => ({ ...prev, loading: true }));
       
       const q = query(
-        collection(db, 'simulators'),
+        collection(db, COLLECTIONS.SIMULATORS),
         orderBy('createdAt', 'desc')
       );
       
@@ -220,12 +220,12 @@ export function useSimulatorLogic(companyId: string) {
 
       if (docId) {
         // 업데이트
-        await setDoc(doc(db, 'simulators', docId), simulatorData, { merge: true });
+        await setDoc(doc(db, COLLECTIONS.SIMULATORS, docId), simulatorData, { merge: true });
         console.log(`✅ 시뮬레이터 업데이트 완료: ${name}`);
       } else {
         // 새로 생성
         simulatorData.createdAt = Timestamp.now();
-        const newDocRef = doc(collection(db, 'simulators'));
+        const newDocRef = doc(collection(db, COLLECTIONS.SIMULATORS));
         await setDoc(newDocRef, simulatorData);
         docId = newDocRef.id;
         console.log(`✅ 시뮬레이터 생성 완료: ${name}`);

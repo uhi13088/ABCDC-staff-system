@@ -50,7 +50,7 @@ export default function PlanManagement({ onStatsUpdate }: PlanManagementProps) {
     try {
       setLoading(true);
       const plansQuery = query(
-        collection(db, 'subscription_plans'),
+        collection(db, COLLECTIONS.SUBSCRIPTION_PLANS),
         where('isActive', '==', true)
       );
       const snapshot = await getDocs(plansQuery);
@@ -130,11 +130,11 @@ export default function PlanManagement({ onStatsUpdate }: PlanManagementProps) {
 
       if (editingPlan) {
         // 수정
-        await updateDoc(doc(db, 'subscription_plans', editingPlan.id), planData);
+        await updateDoc(doc(db, COLLECTIONS.SUBSCRIPTION_PLANS, editingPlan.id), planData);
         alert('플랜이 수정되었습니다.');
       } else {
         // 새로 생성
-        await addDoc(collection(db, 'subscription_plans'), {
+        await addDoc(collection(db, COLLECTIONS.SUBSCRIPTION_PLANS), {
           ...planData,
           createdAt: Timestamp.now(),
         });
@@ -225,13 +225,13 @@ export default function PlanManagement({ onStatsUpdate }: PlanManagementProps) {
       for (const plan of samplePlans) {
         // 이미 존재하는지 확인
         const existingQuery = query(
-          collection(db, 'subscription_plans'),
+          collection(db, COLLECTIONS.SUBSCRIPTION_PLANS),
           where('id', '==', plan.id)
         );
         const existingSnapshot = await getDocs(existingQuery);
 
         if (existingSnapshot.empty) {
-          await addDoc(collection(db, 'subscription_plans'), {
+          await addDoc(collection(db, COLLECTIONS.SUBSCRIPTION_PLANS), {
             ...plan,
             isActive: true,
             features: [

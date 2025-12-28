@@ -47,7 +47,7 @@ export function useApprovalsLogic() {
         console.log('🔄 교대근무 승인 조회 시작...');
         
         let shiftQuery = query(
-          collection(db, 'shift_requests'),
+          collection(db, COLLECTIONS.SHIFT_REQUESTS),
           where('companyId', '==', companyId)
         );
         

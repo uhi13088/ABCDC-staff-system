@@ -26,6 +26,13 @@ export const COLLECTIONS = {
   OPEN_SHIFTS: 'open_shifts', // 긴급 근무 모집
   NOTIFICATIONS: 'notifications', // 알림
   HOLIDAYS: 'holidays', // 공휴일 (Phase C-2)
+  
+  // 추가 컬렉션
+  EMERGENCY_RECRUITMENTS: 'emergency_recruitments', // 긴급 모집
+  SCHEDULE_GROUPS: 'schedule_groups', // 스케줄 그룹
+  SHIFT_REQUESTS: 'shift_requests', // 근무 교환 요청
+  SIMULATORS: 'simulators', // 급여 시뮬레이터
+  SUBSCRIPTION_PLANS: 'subscription_plans', // 구독 플랜 (플랫폼)
 } as const;
 
 /**
