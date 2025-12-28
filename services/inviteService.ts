@@ -77,21 +77,8 @@ export const verifyInviteCode = async (code: string): Promise<{
       return { valid: false, error: '비활성화된 초대 코드입니다.' };
     }
 
-    // 사용 횟수 확인
-    if (invite.usedCount >= invite.maxUses) {
-      return { valid: false, error: '사용 가능한 횟수를 초과했습니다.' };
-    }
-
-    // 만료일 확인
-    if (invite.expiresAt) {
-      const expiresDate = invite.expiresAt instanceof Timestamp 
-        ? invite.expiresAt.toDate() 
-        : new Date(invite.expiresAt);
-      
-      if (expiresDate < new Date()) {
-        return { valid: false, error: '만료된 초대 코드입니다.' };
-      }
-    }
+    // ⚠️ 사용 횟수 체크 제거 (무제한 사용)
+    // ⚠️ 만료일 체크 제거 (영구 사용)
 
     return { valid: true, invite };
   } catch (error) {

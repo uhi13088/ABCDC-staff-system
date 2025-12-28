@@ -20,7 +20,6 @@ interface CreateInviteModalProps {
 
 const USER_ROLES = [
   { value: 'staff', label: '일반 직원' },
-  { value: 'staff', label: '스태프' },
   { value: 'store_manager', label: '매장 매니저' },
   { value: 'manager', label: '관리자' },
 ];
@@ -33,7 +32,6 @@ export default function CreateInviteModal({
 }: CreateInviteModalProps) {
   const [storeId, setStoreId] = useState('');
   const [role, setRole] = useState('staff');
-  const [maxUses, setMaxUses] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
@@ -54,7 +52,7 @@ export default function CreateInviteModal({
       const code = await onCreateInvite({
         storeId,
         role,
-        maxUses,
+        maxUses: 999999,  // 무제한 (매우 큰 숫자)
       });
 
       setGeneratedCode(code);
@@ -74,7 +72,6 @@ export default function CreateInviteModal({
   const handleClose = () => {
     setStoreId('');
     setRole('staff');
-    setMaxUses(1);
     setError('');
     setGeneratedCode('');
     onOpenChange(false);
@@ -122,28 +119,15 @@ export default function CreateInviteModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {USER_ROLES.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
+                {USER_ROLES.map((r, index) => (
+                  <SelectItem key={`${r.value}-${index}`} value={r.value}>
                     {r.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* 최대 사용 횟수 */}
-          <div className="space-y-2">
-            <Label htmlFor="maxUses">최대 사용 횟수</Label>
-            <Input
-              id="maxUses"
-              type="number"
-              min={1}
-              max={100}
-              value={maxUses}
-              onChange={(e) => setMaxUses(parseInt(e.target.value) || 1)}
-            />
-            <p className="text-xs text-zinc-500">
-              이 초대 코드로 가입할 수 있는 최대 인원 수
+            <p className="text-xs text-slate-500">
+              💡 초대 코드는 무제한으로 사용 가능하며 만료되지 않습니다.
             </p>
           </div>
 
