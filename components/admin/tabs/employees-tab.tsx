@@ -98,6 +98,23 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
       rejected: { label: '거부됨', className: 'bg-red-100 text-red-800 border-red-300' },
       resigned: { label: '퇴사', className: 'bg-slate-100 text-slate-800 border-slate-300' },
     };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+  };
+
+  // 역할 한글 변환
+  const getRoleDisplayName = (role: string) => {
+    const roleMap: Record<string, string> = {
+      'staff': '일반 직원',
+      'store_manager': '매장 매니저',
+      'manager': '관리자',
+      'admin': '최고 관리자',
+      'super_admin': '플랫폼 관리자',
+      'employee': '일반 직원',  // 호환성 유지
+    };
+    return roleMap[role] || role;
+  };
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
   };
@@ -234,6 +251,7 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
                     <TableHead className="font-semibold">이름</TableHead>
                     <TableHead className="font-semibold">매장</TableHead>
                     <TableHead className="font-semibold">직급</TableHead>
+                    <TableHead className="font-semibold">직무</TableHead>
                     <TableHead className="font-semibold">연락처</TableHead>
                     <TableHead className="font-semibold">상태</TableHead>
                     <TableHead className="font-semibold text-center">관리</TableHead>
@@ -244,7 +262,8 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
                     <TableRow key={employee.id} className="hover:bg-slate-50">
                       <TableCell className="font-medium">{employee.name}</TableCell>
                       <TableCell className="text-slate-600">{employee.storeName || '-'}</TableCell>
-                      <TableCell className="text-slate-600">{employee.position || employee.role}</TableCell>
+                      <TableCell className="text-slate-600">{getRoleDisplayName(employee.role)}</TableCell>
+                      <TableCell className="text-slate-600">{employee.position || '-'}</TableCell>
                       <TableCell className="text-slate-600">{employee.phone || '-'}</TableCell>
                       <TableCell>{getStatusBadge(employee.status)}</TableCell>
                       <TableCell>
