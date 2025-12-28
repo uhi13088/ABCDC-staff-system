@@ -70,7 +70,7 @@ export function useDashboardLogic({ companyId }: UseDashboardLogicProps) {
       );
 
       const signedSnapshot = await getDocs(
-        query(collection(db, 'signed_contracts'), where('companyId', '==', companyId))
+        query(collection(db, COLLECTIONS.SIGNED_CONTRACTS), where('companyId', '==', companyId))
       );
 
       const signedIds = new Set<string>();

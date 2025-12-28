@@ -42,7 +42,7 @@ export function useContractLogic({ companyId }: UseContractLogicProps) {
   const loadSignedContractsCache = useCallback(async () => {
     try {
       const q = query(
-        collection(db, 'signed_contracts'),
+        collection(db, COLLECTIONS.SIGNED_CONTRACTS),
         where('companyId', '==', companyId)
       );
       const snapshot = await getDocs(q);
@@ -188,7 +188,7 @@ export function useContractLogic({ companyId }: UseContractLogicProps) {
         
         // 서명 문서도 삭제 (있다면)
         try {
-          await deleteDoc(doc(db, 'signed_contracts', contractId));
+          await deleteDoc(doc(db, COLLECTIONS.SIGNED_CONTRACTS, contractId));
         } catch (err) {
           console.warn('서명 문서 없음 (정상)');
         }
