@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Save, X, User, Phone, MapPin, Building2, Briefcase } from 'lucide-react';
+import { Save, X, User, Phone, MapPin, Building2, Briefcase, CreditCard, FileCheck } from 'lucide-react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
@@ -44,7 +44,9 @@ export function EmployeeDetailModal({
   const [address, setAddress] = useState('');
   const [position, setPosition] = useState('');
   const [birth, setBirth] = useState('');
-  const [status, setStatus] = useState<string>('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [healthCertExpiry, setHealthCertExpiry] = useState('');
 
   useEffect(() => {
     if (open && employeeId) {
@@ -71,7 +73,9 @@ export function EmployeeDetailModal({
         setAddress(data.address || '');
         setPosition(data.position || '');
         setBirth(data.birth || '');
-        setStatus(data.status || 'pending');
+        setBankAccount(data.bankAccount || '');
+        setBankName(data.bankName || '');
+        setHealthCertExpiry(data.healthCertExpiry || '');
       }
     } catch (error) {
       console.error('❌ 직원 정보 로드 실패:', error);
@@ -100,7 +104,9 @@ export function EmployeeDetailModal({
         address: address.trim() || null,
         position: position.trim() || null,
         birth: birth.trim() || null,
-        status,
+        bankAccount: bankAccount.trim() || null,
+        bankName: bankName.trim() || null,
+        healthCertExpiry: healthCertExpiry.trim() || null,
         updatedAt: new Date().toISOString()
       });
 
@@ -202,67 +208,101 @@ export function EmployeeDetailModal({
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="position" className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4" />
+                    직급/직책
+                  </Label>
+                  <Input
+                    id="position"
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                    placeholder="매니저, 직원 등"
+                    disabled={saving}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="position" className="flex items-center gap-2">
-                      <Briefcase className="w-4 h-4" />
-                      직급/직책
+                    <Label htmlFor="bankName" className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      은행명
                     </Label>
                     <Input
-                      id="position"
-                      value={position}
-                      onChange={(e) => setPosition(e.target.value)}
-                      placeholder="매니저, 직원 등"
+                      id="bankName"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      placeholder="국민은행"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="status">근무 상태</Label>
-                    <Select value={status} onValueChange={setStatus} disabled={saving}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">승인 대기</SelectItem>
-                        <SelectItem value="approved">승인됨</SelectItem>
-                        <SelectItem value="active">재직</SelectItem>
-                        <SelectItem value="rejected">거부됨</SelectItem>
-                        <SelectItem value="resigned">퇴사</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="bankAccount">계좌번호</Label>
+                    <Input
+                      id="bankAccount"
+                      value={bankAccount}
+                      onChange={(e) => setBankAccount(e.target.value)}
+                      placeholder="123456-78-901234"
+                      disabled={saving}
+                    />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="healthCertExpiry" className="flex items-center gap-2">
+                    <FileCheck className="w-4 h-4" />
+                    보건증 유효기간
+                  </Label>
+                  <Input
+                    id="healthCertExpiry"
+                    type="date"
+                    value={healthCertExpiry}
+                    onChange={(e) => setHealthCertExpiry(e.target.value)}
+                    disabled={saving}
+                  />
                 </div>
               </CardContent>
             </Card>
 
-            {/* 추가 정보 */}
+            {/* 추가 정보 (읽기 전용) */}
             {employee && (
-              <Card>
+              <Card className="bg-slate-50">
                 <CardContent className="pt-6 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">이메일</span>
-                    <span className="text-sm font-medium">{employee.email || '-'}</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs text-slate-500">이메일</span>
+                      <p className="text-sm font-medium mt-1">{employee.email || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">매장</span>
+                      <p className="text-sm font-medium mt-1">{employee.storeName || employee.store || '-'}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">매장</span>
-                    <span className="text-sm font-medium">{employee.storeName || '-'}</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs text-slate-500">역할</span>
+                      <p className="text-sm font-medium mt-1">{employee.role === 'staff' ? '직원' : employee.role}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">상태</span>
+                      <div className="mt-1">{getStatusBadge(employee.status || 'pending')}</div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">역할</span>
-                    <span className="text-sm font-medium">{employee.role}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">상태</span>
-                    {getStatusBadge(status)}
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">가입일</span>
-                    <span className="text-sm font-medium">
+                  <div>
+                    <span className="text-xs text-slate-500">가입일</span>
+                    <p className="text-sm font-medium mt-1">
                       {employee.createdAt 
-                        ? new Date(employee.createdAt).toLocaleDateString('ko-KR')
+                        ? (() => {
+                            try {
+                              const date = employee.createdAt.toDate ? employee.createdAt.toDate() : new Date(employee.createdAt);
+                              return date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                            } catch (e) {
+                              return '-';
+                            }
+                          })()
                         : '-'}
-                    </span>
+                    </p>
                   </div>
                 </CardContent>
               </Card>
