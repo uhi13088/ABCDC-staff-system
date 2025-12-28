@@ -13,9 +13,10 @@ import { useDashboardLogic } from '@/hooks/admin/useDashboardLogic';
  */
 interface DashboardTabProps {
   companyId: string;
+  onStatsUpdate?: (stats: { totalEmployees: number }) => void;
 }
 
-export default function DashboardTab({ companyId }: DashboardTabProps) {
+export default function DashboardTab({ companyId, onStatsUpdate }: DashboardTabProps) {
   const { stats, loading, loadDashboardStats } = useDashboardLogic({ companyId });
 
   useEffect(() => {
@@ -23,6 +24,13 @@ export default function DashboardTab({ companyId }: DashboardTabProps) {
       loadDashboardStats();
     }
   }, [companyId]);
+
+  // 통계가 로드되면 상위 컴포넌트에 전달
+  useEffect(() => {
+    if (stats.totalEmployees > 0 && onStatsUpdate) {
+      onStatsUpdate({ totalEmployees: stats.totalEmployees });
+    }
+  }, [stats.totalEmployees, onStatsUpdate]);
 
   // 🔒 companyId 로딩 보호
   if (!companyId) {

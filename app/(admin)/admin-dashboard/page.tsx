@@ -39,6 +39,7 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<BaseUser | null>(null);
   const [companyId, setCompanyId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [totalEmployees, setTotalEmployees] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -133,13 +134,13 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-slate-500 font-medium">직원 수</span>
               <span className="text-xs font-bold text-slate-900">
-                <span className="text-blue-600">0</span> / 5명
+                <span className="text-blue-600">{totalEmployees}</span> / 5명
               </span>
             </div>
             <div className="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300" 
-                style={{ width: '0%' }}
+                style={{ width: `${Math.min((totalEmployees / 5) * 100, 100)}%` }}
               ></div>
             </div>
           </div>
@@ -185,7 +186,9 @@ export default function AdminDashboard() {
 
           {/* 4. 탭 콘텐츠 영역 */}
           <div className="min-h-[600px]">
-            <TabsContent value="dashboard" className="mt-0 focus-visible:outline-none"><DashboardTab companyId={companyId} /></TabsContent>
+            <TabsContent value="dashboard" className="mt-0 focus-visible:outline-none">
+              <DashboardTab companyId={companyId} onStatsUpdate={(stats) => setTotalEmployees(stats.totalEmployees)} />
+            </TabsContent>
             <TabsContent value="employees" className="mt-0 focus-visible:outline-none"><EmployeesTab companyId={companyId} onTabChange={setActiveTab} /></TabsContent>
             <TabsContent value="attendance" className="mt-0 focus-visible:outline-none"><AttendanceTab companyId={companyId} /></TabsContent>
             <TabsContent value="salary" className="mt-0 focus-visible:outline-none"><SalaryTab companyId={companyId} /></TabsContent>

@@ -35,13 +35,13 @@ export function useDashboardLogic({ companyId }: UseDashboardLogicProps) {
     setLoading(true);
 
     try {
-      // 총 직원 수
+      // 총 직원 수 (재직 중인 직원만)
       const employeesSnapshot = await getDocs(
         query(
           collection(db, COLLECTIONS.USERS),
-          where('role', 'in', ['staff', 'store_manager', 'manager']),
+          where('role', 'in', ['staff', 'store_manager', 'manager', 'employee']),
           where('companyId', '==', companyId),
-          where('status', '!=', 'resigned')
+          where('status', 'in', ['active', 'approved'])
         )
       );
 
