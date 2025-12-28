@@ -14,7 +14,7 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, writeBatch, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, writeBatch, Timestamp, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { verifyInviteCode, recordInviteUse } from '@/services/inviteService';
 import { CompanyInvite } from '@/lib/types/invite';
@@ -38,6 +38,9 @@ function EmployeeRegisterForm() {
   
   // 초대 코드 검증 결과
   const [verifiedInvite, setVerifiedInvite] = useState<CompanyInvite | null>(null);
+  
+  // 직무 목록
+  const [availablePositions, setAvailablePositions] = useState<string[]>(['바리스타', '베이커']);
   
   // 폼 데이터
   const [inviteCode, setInviteCode] = useState('');
@@ -86,6 +89,18 @@ function EmployeeRegisterForm() {
       }
 
       setVerifiedInvite(result.invite);
+      
+      // 직무 목록 로드
+      try {
+        const positionsRef = doc(db, 'companies', result.invite.companyId, 'settings', 'positions');
+        const positionsSnap = await getDoc(positionsRef);
+        if (positionsSnap.exists()) {
+          setAvailablePositions(positionsSnap.data().positions || ['바리스타', '베이커']);
+        }
+      } catch (posErr) {
+        console.warn('⚠️ 직무 목록 로드 실패 (기본값 사용):', posErr);
+      }
+      
       setSuccess('초대 코드가 확인되었습니다! 아래 정보를 입력해주세요.');
       setStep(2);
     } catch (err) {
@@ -397,10 +412,12 @@ function EmployeeRegisterForm() {
                       <SelectValue placeholder="선택하세요" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="바리스타">바리스타</SelectItem>
-                      <SelectItem value="베이커">베이커</SelectItem>
+                      {availablePositions.map((position) => (
+                        <SelectItem key={position} value={position}>{position}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-gray-500">시스템 설정에서 관리되는 직무 목록입니다</p>
                 </div>
               </div>
 
