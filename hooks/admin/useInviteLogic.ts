@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { CompanyInvite, CompanyInviteCreateOptions } from '@/lib/types/invite';
 import { Store } from '@/lib/types/common';
@@ -132,6 +132,28 @@ export const useInviteLogic = (companyId: string) => {
       });
   };
 
+  // ==================== 초대 코드 삭제 ====================
+  const deleteInviteCode = async (inviteId: string) => {
+    if (!confirm('이 초대 코드를 삭제하시겠습니까?\n\n⚠️ 주의: 이미 사용된 초대 코드는 직원 데이터에 영향을 주지 않습니다.')) {
+      return;
+    }
+
+    try {
+      const inviteRef = doc(db, COLLECTIONS.COMPANY_INVITES, inviteId);
+      await deleteDoc(inviteRef);
+
+      console.log('✅ 초대 코드 삭제 완료:', inviteId);
+      alert('✅ 초대 코드가 삭제되었습니다.');
+      
+      // 목록 새로고침
+      await loadInvites();
+    } catch (error) {
+      console.error('❌ 초대 코드 삭제 실패:', error);
+      alert('❌ 초대 코드 삭제에 실패했습니다.');
+      throw error;
+    }
+  };
+
   // 초기 로드
   useEffect(() => {
     if (companyId) {
@@ -148,5 +170,6 @@ export const useInviteLogic = (companyId: string) => {
     createInviteCode,
     toggleInviteStatus,
     copyInviteUrl,
+    deleteInviteCode,
   };
 };

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { UserPlus, Copy } from 'lucide-react';
+import { UserPlus, Copy, Trash2 } from 'lucide-react';
 import { useInviteLogic } from '@/hooks/admin/useInviteLogic';
 import CreateInviteModal from '@/components/admin/modals/create-invite-modal';
 
@@ -15,7 +15,7 @@ interface InvitesTabProps {
 }
 
 export default function InvitesTab({ companyId }: InvitesTabProps) {
-  const { invites, stores, isLoading, loadInvites, createInviteCode, copyInviteUrl, toggleInviteStatus } = useInviteLogic(companyId);
+  const { invites, stores, isLoading, loadInvites, createInviteCode, copyInviteUrl, toggleInviteStatus, deleteInviteCode } = useInviteLogic(companyId);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -68,8 +68,6 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
                   <TableHead>매장</TableHead>
                   <TableHead>직급</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead>사용현황</TableHead>
-                  <TableHead>만료일</TableHead>
                   <TableHead>관리</TableHead>
                 </TableRow>
               </TableHeader>
@@ -77,14 +75,10 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
                 {invites.map((invite) => {
                   const roleLabel = {
                     employee: '일반 직원',
-                    staff: '스태프',
+                    staff: '일반 직원',
                     store_manager: '매장 매니저',
                     manager: '관리자',
                   }[invite.role] || invite.role;
-
-                  const expiryDate = invite.expiresAt 
-                    ? new Date(invite.expiresAt.toDate ? invite.expiresAt.toDate() : invite.expiresAt).toLocaleDateString()
-                    : '무제한';
 
                   return (
                     <TableRow key={invite.id}>
@@ -101,12 +95,6 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className={invite.usedCount >= invite.maxUses ? 'text-red-600 font-semibold' : ''}>
-                          {invite.usedCount} / {invite.maxUses}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{expiryDate}</TableCell>
-                      <TableCell>
                         <div className="flex gap-2">
                           <Button 
                             size="sm" 
@@ -115,8 +103,18 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
                               const url = `${window.location.origin}/employee-register?code=${invite.code}`;
                               copyInviteUrl(url);
                             }}
+                            title="초대 URL 복사"
                           >
                             <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => deleteInviteCode(invite.id!)}
+                            title="초대 코드 삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>
