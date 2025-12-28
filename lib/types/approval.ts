@@ -79,6 +79,30 @@ export interface ShiftRequest {
   createdAt?: TimestampInput;
 }
 
+// 승인 요청 (관리자용)
+export interface ApprovalRequest {
+  id: string;
+  companyId: string;
+  userId: string;  // 표준 필드명 (요청자 UID)
+  requesterId?: string;  // Legacy 호환
+  requesterName: string;
+  requesterEmail?: string;
+  type: string;
+  title?: string;
+  content?: string;
+  amount?: number;
+  attachments?: string[];
+  relatedId?: string;
+  metadata?: Record<string, unknown>;
+  status: ApprovalStatus;
+  approverId?: string;
+  approverName?: string;
+  approvedAt?: TimestampInput;
+  rejectionReason?: string;
+  createdAt?: TimestampInput;
+  updatedAt?: TimestampInput;
+}
+
 // 승인 필터
 export interface ApprovalFilterOptions {
   type: ApprovalType | '';

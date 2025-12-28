@@ -163,7 +163,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
       const attendanceQuery = query(
         collection(db, COLLECTIONS.ATTENDANCE),
         where('companyId', '==', companyId),
-        where('store', '==', storeName),
+        where('storeName', '==', storeName),
         where('date', '>=', startDateStr),
         where('date', '<=', endDateStr)
       );
@@ -297,7 +297,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
         collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId),
         where('role', 'in', ['staff', 'employee']),
-        where('store', '==', storeName)
+        where('storeName', '==', storeName)
       );
       const employeesSnapshot = await getDocs(employeesQuery);
       

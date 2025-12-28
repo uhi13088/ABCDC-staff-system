@@ -74,7 +74,8 @@ export function useApprovalLogic({ companyId }: UseApprovalLogicProps) {
         approvalsList.push({
           id: docSnap.id,
           companyId: data.companyId,
-          requesterId: data.requesterId || '',
+          userId: data.userId || '',  // 표준 필드명 사용
+          requesterId: data.requesterId || data.userId || '',  // Legacy 호환
           requesterName: data.requesterName || '',
           requesterEmail: data.requesterEmail,
           type: data.type,

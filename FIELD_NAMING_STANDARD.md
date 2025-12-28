@@ -191,6 +191,30 @@ const attendance = {
 
 ---
 
+### 📄 `approvals` (승인 요청)
+
+| 필드명 | 타입 | 필수 | 설명 |
+|--------|------|------|------|
+| `userId` | string | ✅ | Firebase Auth UID (요청자) |
+| `companyId` | string | ✅ | 회사 UUID |
+| `storeId` | string | ⭕ | 매장 UUID |
+| `requesterName` | string | ✅ | 요청자 이름 |
+| `type` | string | ✅ | 요청 유형 (vacation/overtime/absence/shift_change) |
+| `status` | string | ✅ | 상태 (pending/approved/rejected) |
+| `reason` | string | ⭕ | 요청 사유 |
+| `details` | object | ⭕ | 추가 상세 정보 |
+| `approverId` | string | ⭕ | 승인자 UID |
+| `approverName` | string | ⭕ | 승인자 이름 |
+| `approvedAt` | Timestamp | ⭕ | 승인/거부 시간 |
+| `rejectionReason` | string | ⭕ | 거부 사유 |
+| `createdAt` | Timestamp | ✅ | 생성 시간 |
+| `updatedAt` | Timestamp | ✅ | 수정 시간 |
+
+**Legacy 필드 (읽기만):**
+- `requesterId` → `userId`
+
+---
+
 ### 📄 `brands` (브랜드)
 
 | 필드명 | 타입 | 필수 | 설명 |

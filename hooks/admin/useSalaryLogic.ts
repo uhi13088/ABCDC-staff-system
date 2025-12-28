@@ -106,7 +106,7 @@ export function useSalaryLogic() {
       
       // 매장 필터 적용
       if (selectedStore && selectedStore !== 'all') {
-        employeesQuery = query(employeesQuery, where('store', '==', selectedStore));
+        employeesQuery = query(employeesQuery, where('storeName', '==', selectedStore));
         console.log(`🏪 매장 필터 적용: ${selectedStore}`);
       } else {
         console.log('🏪 전체 매장 조회');
