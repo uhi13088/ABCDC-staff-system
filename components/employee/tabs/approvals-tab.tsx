@@ -80,7 +80,7 @@ export default function ApprovalsTab({ employeeData }: ApprovalsTabProps) {
       const approvalsQuery = query(
         approvalsRef,
         where('companyId', '==', employeeData.companyId),
-        where('requesterId', '==', employeeData.uid),
+        where('userId', '==', employeeData.uid),
         orderBy('createdAt', 'desc')
       )
 
@@ -133,7 +133,7 @@ export default function ApprovalsTab({ employeeData }: ApprovalsTabProps) {
       await addDoc(approvalsRef, {
         companyId: employeeData.companyId,
         storeId: employeeData.storeId,
-        requesterId: employeeData.uid,
+        userId: employeeData.uid,
         requesterName: employeeData.name,
         type: requestType,
         status: 'pending',
