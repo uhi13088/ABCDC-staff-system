@@ -40,13 +40,9 @@ export function EmployeeDetailModal({
   // 직원 정보
   const [employee, setEmployee] = useState<EmployeeType | null>(null);
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [position, setPosition] = useState('');
   const [birth, setBirth] = useState('');
-  const [bankAccount, setBankAccount] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [healthCertExpiry, setHealthCertExpiry] = useState('');
 
   useEffect(() => {
     if (open && employeeId) {
@@ -69,13 +65,9 @@ export function EmployeeDetailModal({
         const data = employeeDoc.data() as EmployeeType;
         setEmployee(data);
         setName(data.name || '');
-        setPhone(data.phone || '');
         setAddress(data.address || '');
         setPosition(data.position || '');
         setBirth(data.birth || '');
-        setBankAccount(data.bankAccount || '');
-        setBankName(data.bankName || '');
-        setHealthCertExpiry(data.healthCertExpiry || '');
       }
     } catch (error) {
       console.error('❌ 직원 정보 로드 실패:', error);
@@ -100,13 +92,9 @@ export function EmployeeDetailModal({
       const employeeRef = doc(db, COLLECTIONS.USERS, employeeId);
       await updateDoc(employeeRef, {
         name: name.trim(),
-        phone: phone.trim() || null,
         address: address.trim() || null,
         position: position.trim() || null,
         birth: birth.trim() || null,
-        bankAccount: bankAccount.trim() || null,
-        bankName: bankName.trim() || null,
-        healthCertExpiry: healthCertExpiry.trim() || null,
         updatedAt: new Date().toISOString()
       });
 
@@ -181,20 +169,6 @@ export function EmployeeDetailModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    연락처
-                  </Label>
-                  <Input
-                    id="phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="010-1234-5678"
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="address" className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
                     주소
@@ -221,49 +195,66 @@ export function EmployeeDetailModal({
                     disabled={saving}
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bankName" className="flex items-center gap-2">
-                      <CreditCard className="w-4 h-4" />
-                      은행명
-                    </Label>
-                    <Input
-                      id="bankName"
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      placeholder="국민은행"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bankAccount">계좌번호</Label>
-                    <Input
-                      id="bankAccount"
-                      value={bankAccount}
-                      onChange={(e) => setBankAccount(e.target.value)}
-                      placeholder="123456-78-901234"
-                      disabled={saving}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="healthCertExpiry" className="flex items-center gap-2">
-                    <FileCheck className="w-4 h-4" />
-                    보건증 유효기간
-                  </Label>
-                  <Input
-                    id="healthCertExpiry"
-                    type="date"
-                    value={healthCertExpiry}
-                    onChange={(e) => setHealthCertExpiry(e.target.value)}
-                    disabled={saving}
-                  />
-                </div>
               </CardContent>
             </Card>
+
+            {/* 직원이 입력한 정보 (읽기 전용) */}
+            {employee && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-semibold">직원이 입력한 정보</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-slate-500">연락처</Label>
+                      <p className="text-sm font-medium mt-1">{employee.phone || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">예금주</Label>
+                      <p className="text-sm font-medium mt-1">{employee.accountHolder || '-'}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-slate-500">은행명</Label>
+                      <p className="text-sm font-medium mt-1">{employee.bankName || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">계좌번호</Label>
+                      <p className="text-sm font-medium mt-1">{employee.accountNumber || '-'}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-slate-500">보건증 만료일</Label>
+                      <p className="text-sm font-medium mt-1">
+                        {employee.healthCertExpiry 
+                          ? new Date(employee.healthCertExpiry).toLocaleDateString('ko-KR')
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">보건증 이미지</Label>
+                      {employee.healthCertImageUrl ? (
+                        <a 
+                          href={employee.healthCertImageUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline mt-1 block"
+                        >
+                          이미지 보기
+                        </a>
+                      ) : (
+                        <p className="text-sm text-slate-400 mt-1">없음</p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 추가 정보 (읽기 전용) */}
             {employee && (
