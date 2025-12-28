@@ -135,14 +135,15 @@ export function ContractFormModal({
   }, [employeeId]);
 
   /**
-   * 직원 목록 로드
+   * 직원 목록 로드 (승인된 직원만)
    */
   const loadEmployees = async () => {
     try {
       const q = query(
         collection(db, COLLECTIONS.USERS),
         where('companyId', '==', companyId),
-        where('role', 'in', ['staff', 'employee'])
+        where('role', 'in', ['staff', 'employee']),
+        where('status', 'in', ['approved', 'active'])
       );
       const snapshot = await getDocs(q);
       const employeeList = snapshot.docs.map(doc => ({
