@@ -124,7 +124,7 @@ export function BrandFormModal({
       // Firebase Storage에 업로드
       const timestamp = Date.now();
       const fileName = file.name.replace(/\.[^/.]+$/, '.jpg'); // 확장자를 .jpg로 변경
-      const storageRef = ref(storage, `brands/${timestamp}_${fileName}`);
+      const storageRef = ref(storage, `brands/${companyId}/${timestamp}_${fileName}`);
       const snapshot = await uploadBytes(storageRef, compressedFile);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
