@@ -160,14 +160,22 @@ export function BrandFormModal({
 
     setSaving(true);
     try {
-      await onSave({
-        id: brand?.id,
+      // [수정] id가 있을 때만 포함하고, undefined일 때는 제외
+      const formData: BrandFormData = {
         name: name.trim(),
         description: description.trim(),
         logoUrl: logoUrl || undefined,
         primaryColor: primaryColor || '#4CAF50',
         secondaryColor: secondaryColor || '#2196F3',
-      });
+        companyId: companyId, // companyId 포함
+      };
+
+      // 수정 모드일 경우에만 id 추가
+      if (brand?.id) {
+        formData.id = brand.id;
+      }
+
+      await onSave(formData);
       onClose();
     } catch (error) {
       console.error('브랜드 저장 실패:', error);
