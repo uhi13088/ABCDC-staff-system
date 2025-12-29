@@ -42,6 +42,7 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
     loading,
     filters,
     stores,
+    contractsMap,
     updateFilters,
     loadEmployees,
     approveEmployee,
@@ -69,10 +70,13 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
   };
   
   const handleOpenContract = (employeeId: string) => {
-    // 직원의 계약서 ID를 가져와서 모달 열기
-    const contractId = contractsMap[employeeId]?.id;
-    if (contractId) {
-      setSelectedContractId(contractId);
+    // 직원의 계약서 수를 가져와서 확인
+    const contractCount = contractsMap.get(employeeId);
+    
+    if (contractCount && contractCount > 0) {
+      // 계약서가 있으면 employeeId를 contractId로 사용
+      // (실제로는 계약서 ID를 조회해야 하지만, 현재는 employeeId 기반으로 조회)
+      setSelectedContractId(employeeId);
       setContractDetailOpen(true);
     } else {
       alert('해당 직원의 계약서가 없습니다.');
