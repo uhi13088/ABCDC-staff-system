@@ -160,15 +160,19 @@ export function BrandFormModal({
 
     setSaving(true);
     try {
-      // [수정] id가 있을 때만 포함하고, undefined일 때는 제외
+      // [수정] undefined 값이 들어가지 않도록 객체 동적 생성
       const formData: BrandFormData = {
         name: name.trim(),
         description: description.trim(),
-        logoUrl: logoUrl || undefined,
         primaryColor: primaryColor || '#4CAF50',
         secondaryColor: secondaryColor || '#2196F3',
-        companyId: companyId, // companyId 포함
+        companyId: companyId,
       };
+
+      // 값이 있을 때만 필드 추가 (undefined 방지)
+      if (logoUrl) {
+        formData.logoUrl = logoUrl;
+      }
 
       // 수정 모드일 경우에만 id 추가
       if (brand?.id) {
