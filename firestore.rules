@@ -220,10 +220,11 @@ service cloud.firestore {
     // 13. Simulators (스케줄 시뮬레이터)
     // ====================================
     match /simulators/{simulatorId} {
-      allow read: if isAuthenticated();
-      allow create: if isStoreManager();
-      allow update: if isStoreManager();
-      allow delete: if isStoreManager();
+      // [보안 강화] 본인 회사 데이터만 조회 가능
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
+      allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
+      allow delete: if isStoreManager() && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
