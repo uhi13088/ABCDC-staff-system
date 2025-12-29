@@ -123,14 +123,15 @@ export function BrandFormModal({
 
       // Firebase Storage에 업로드
       const timestamp = Date.now();
-      const fileName = file.name.replace(/\.[^/.]+$/, '.jpg'); // 확장자를 .jpg로 변경
+      const fileName = file.name.replace(/\.[^/.]+$/, '.jpg');
       const storageRef = ref(storage, `brands/${companyId}/${timestamp}_${fileName}`);
-      
-      // [수정] Storage Rules 통과를 위한 메타데이터 명시
+
+      // ✅ [핵심 수정] 메타데이터 명시 (이게 없으면 보안 규칙에서 거부됨)
       const metadata = {
-        contentType: 'image/jpeg', // MIME 타입 명시 (규칙 검증)
+        contentType: 'image/jpeg',
       };
-      
+
+      // metadata를 3번째 인자로 전달
       const snapshot = await uploadBytes(storageRef, compressedFile, metadata);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
@@ -138,7 +139,7 @@ export function BrandFormModal({
       console.log('로고 업로드 성공:', downloadURL);
     } catch (error) {
       console.error('로고 업로드 실패:', error);
-      alert('로고 업로드에 실패했습니다.');
+      alert('로고 업로드에 실패했습니다. (권한 또는 파일 형식 오류)');
     } finally {
       setUploading(false);
     }
