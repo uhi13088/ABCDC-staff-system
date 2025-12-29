@@ -24,6 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw, UserPlus, CheckCircle, XCircle, Trash2, FileText, AlertCircle, User } from 'lucide-react';
 import { useEmployeeLogic } from '@/hooks/admin/useEmployeeLogic';
 import { EmployeeDetailModal } from '@/components/admin/modals/employee-detail-modal';
+import { ContractDetailModal } from '@/components/admin/modals/contract-detail-modal';
 
 /**
  * 직원 관리 탭 (Shadcn Blue Theme 완벽 적용)
@@ -52,6 +53,10 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
   // 직원 상세 모달 상태
   const [employeeDetailOpen, setEmployeeDetailOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  
+  // 계약서 모달 상태
+  const [contractDetailOpen, setContractDetailOpen] = useState(false);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
 
   const handleOpenEmployeeDetail = (employeeId: string) => {
     setSelectedEmployeeId(employeeId);
@@ -61,6 +66,22 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
   const handleCloseEmployeeDetail = () => {
     setEmployeeDetailOpen(false);
     setSelectedEmployeeId(null);
+  };
+  
+  const handleOpenContract = (employeeId: string) => {
+    // 직원의 계약서 ID를 가져와서 모달 열기
+    const contractId = contractsMap[employeeId]?.id;
+    if (contractId) {
+      setSelectedContractId(contractId);
+      setContractDetailOpen(true);
+    } else {
+      alert('해당 직원의 계약서가 없습니다.');
+    }
+  };
+
+  const handleCloseContract = () => {
+    setContractDetailOpen(false);
+    setSelectedContractId(null);
   };
 
   useEffect(() => {
@@ -297,6 +318,7 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
                           <Button 
                             size="sm" 
                             variant="ghost"
+                            onClick={() => handleOpenContract(employee.id)}
                             className="text-slate-600 hover:text-slate-700 hover:bg-slate-50"
                             title="계약서 보기"
                           >
@@ -332,6 +354,14 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
         employeeId={selectedEmployeeId}
         companyId={companyId}
         onSuccess={loadEmployees}
+      />
+      
+      {/* 계약서 상세 보기 모달 */}
+      <ContractDetailModal
+        open={contractDetailOpen}
+        onClose={handleCloseContract}
+        contractId={selectedContractId}
+        companyId={companyId}
       />
     </div>
   );
