@@ -24,11 +24,6 @@ service firebase.storage {
       return userData.role == 'admin' && userData.companyId == companyId;
     }
 
-    function isManagerOf(companyId) {
-      let userData = getUserData();
-      return userData.role in ['admin', 'manager', 'super_admin'] && userData.companyId == companyId;
-    }
-
     function isManagerOfSameCompany(targetUserId) {
        let callerData = getUserData();
        let targetData = get(/databases/(default)/documents/users/$(targetUserId)).data;
@@ -42,7 +37,7 @@ service firebase.storage {
     match /company-logos/{companyId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null && (
-        isSuperAdmin() || isManagerOf(companyId)
+        isSuperAdmin() || isAdminOf(companyId)
       ) && request.resource.size < 5 * 1024 * 1024 
         && request.resource.contentType.matches('image/.*');
     }
@@ -53,7 +48,7 @@ service firebase.storage {
     match /brands/{companyId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null && (
-        isSuperAdmin() || isManagerOf(companyId)
+        isSuperAdmin() || isAdminOf(companyId)
       ) && request.resource.size < 5 * 1024 * 1024 
         && request.resource.contentType.matches('image/.*');
     }
