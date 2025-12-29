@@ -180,7 +180,7 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
     setIsClocking(true)
     try {
-      await clockOut(stats.currentAttendanceId, '매장') // 실제로는 GPS 정보 사용
+      await clockOut(stats.currentAttendanceId) // ✅ attendanceId만 전달
 
       alert('퇴근 처리되었습니다.')
       await loadDashboardStats() // 통계 새로고침

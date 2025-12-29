@@ -185,15 +185,22 @@ export async function clockIn(
   date: string,
   location?: { latitude: number; longitude: number }
 ): Promise<string> {
-  return createAttendance({
+  // [수정] undefined 값이 들어가지 않도록 객체 동적 생성
+  const attendanceData: any = {
     userId,
     companyId,
     storeId,
     date,
-    clockIn: serverTimestamp() as any,
+    clockIn: serverTimestamp(),
     status: 'present',
-    location,
-  });
+  };
+
+  // location이 있을 때만 추가
+  if (location) {
+    attendanceData.location = location;
+  }
+
+  return createAttendance(attendanceData);
 }
 
 export async function clockOut(
