@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { COLLECTIONS } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -41,11 +42,22 @@ interface EmployeeData {
   role: string
 }
 
+interface TabCounts {
+  notices: number
+  approvals: number
+  notifications: number
+}
+
 export default function EmployeeDashboardPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null)
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [tabCounts, setTabCounts] = useState<TabCounts>({
+    notices: 0,
+    approvals: 0,
+    notifications: 0
+  })
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
