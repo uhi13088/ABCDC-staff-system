@@ -11,7 +11,8 @@ import {
   DollarSign, 
   LogIn, 
   LogOut,
-  Loader2 
+  Loader2,
+  Bell
 } from 'lucide-react'
 import { 
   collection, 
@@ -48,6 +49,13 @@ interface DashboardStats {
   currentAttendanceId?: string
 }
 
+interface Notice {
+  id: string
+  title: string
+  content: string
+  createdAt: any
+}
+
 export default function DashboardTab({ employeeData }: DashboardTabProps) {
   const [stats, setStats] = useState<DashboardStats>({
     workDays: 0,
@@ -55,6 +63,7 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
     estimatedSalary: 0,
     todayStatus: 'not_clocked_in'
   })
+  const [notices, setNotices] = useState<Notice[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isClocking, setIsClocking] = useState(false)
 
@@ -141,7 +150,35 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
   useEffect(() => {
     loadDashboardStats()
+    loadNotices()
   }, [employeeData])
+
+  // 공지사항 로드 (최근 3개)
+  const loadNotices = async () => {
+    try {
+      const noticesRef = collection(db, COLLECTIONS.NOTICES)
+      const noticesQuery = query(
+        noticesRef,
+        where('companyId', '==', employeeData.companyId),
+        orderBy('createdAt', 'desc'),
+        limit(3)
+      )
+
+      const noticesSnapshot = await getDocs(noticesQuery)
+      const noticesList: Notice[] = []
+
+      noticesSnapshot.forEach((doc) => {
+        noticesList.push({
+          id: doc.id,
+          ...doc.data()
+        } as Notice)
+      })
+
+      setNotices(noticesList)
+    } catch (error) {
+      console.error('공지사항 로드 실패:', error)
+    }
+  }
 
   // 출근 처리
   const handleClockIn = async () => {
@@ -207,33 +244,33 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* 출퇴근 상태 카드 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">오늘의 출퇴근 상태</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* 출퇴근 상태 카드 - 간소화 */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="pt-6">
           <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              {stats.todayStatus === 'not_clocked_in' && (
-                <Badge variant="secondary" className="text-sm">출근 전</Badge>
-              )}
-              {stats.todayStatus === 'clocked_in' && (
-                <div className="space-y-1">
-                  <Badge variant="default" className="bg-green-500 text-sm">근무 중</Badge>
-                  <p className="text-sm text-gray-600">
-                    출근 시간: <span className="font-medium">{stats.todayClockIn}</span>
-                  </p>
-                </div>
-              )}
-              {stats.todayStatus === 'clocked_out' && (
-                <div className="space-y-1">
-                  <Badge variant="outline" className="text-sm">퇴근 완료</Badge>
-                  <p className="text-sm text-gray-600">
-                    출근: {stats.todayClockIn} / 퇴근: {stats.todayClockOut}
-                  </p>
-                </div>
-              )}
+            <div className="flex items-center gap-4">
+              <Clock className="w-8 h-8 text-blue-600" />
+              <div>
+                {stats.todayStatus === 'not_clocked_in' && (
+                  <div>
+                    <p className="text-sm text-gray-600">오늘의 출퇴근</p>
+                    <Badge variant="secondary" className="mt-1">출근 전</Badge>
+                  </div>
+                )}
+                {stats.todayStatus === 'clocked_in' && (
+                  <div>
+                    <p className="text-sm text-gray-600">출근 시간</p>
+                    <p className="text-lg font-bold text-green-600">{stats.todayClockIn}</p>
+                    <Badge variant="default" className="bg-green-500 mt-1">근무 중</Badge>
+                  </div>
+                )}
+                {stats.todayStatus === 'clocked_out' && (
+                  <div>
+                    <p className="text-sm text-gray-600">출근 {stats.todayClockIn} / 퇴근 {stats.todayClockOut}</p>
+                    <Badge variant="outline" className="mt-1">퇴근 완료</Badge>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2">
@@ -241,12 +278,13 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
                 <Button
                   onClick={handleClockIn}
                   disabled={isClocking}
+                  size="lg"
                   className="flex items-center gap-2"
                 >
                   {isClocking ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <LogIn className="w-4 h-4" />
+                    <LogIn className="w-5 h-5" />
                   )}
                   출근
                 </Button>
@@ -257,24 +295,52 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
                   onClick={handleClockOut}
                   disabled={isClocking}
                   variant="destructive"
+                  size="lg"
                   className="flex items-center gap-2"
                 >
                   {isClocking ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-5 h-5" />
                   )}
                   퇴근
                 </Button>
               )}
 
               {stats.todayStatus === 'clocked_out' && (
-                <Button disabled variant="outline">
+                <Button disabled variant="outline" size="lg">
                   퇴근 완료
                 </Button>
               )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 공지사항 섹션 추가 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Bell className="w-5 h-5 text-blue-600" />
+            공지사항
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {notices.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">등록된 공지사항이 없습니다.</p>
+          ) : (
+            <div className="space-y-3">
+              {notices.map((notice) => (
+                <div key={notice.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                  <h4 className="font-medium text-sm text-gray-900 mb-1">{notice.title}</h4>
+                  <p className="text-sm text-gray-600 line-clamp-2">{notice.content}</p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    {notice.createdAt && format(safeToDate(notice.createdAt) || new Date(), 'yyyy-MM-dd HH:mm', { locale: ko })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
