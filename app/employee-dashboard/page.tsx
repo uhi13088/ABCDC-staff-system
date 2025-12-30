@@ -186,16 +186,30 @@ export default function EmployeeDashboardPage() {
       const snapshot = await getDocs(attendanceQuery)
 
       if (!snapshot.empty) {
-        const doc = snapshot.docs[0]
-        const data = doc.data()
-        setCurrentAttendanceId(doc.id)
-        
-        if (data.clockOut) {
-          setTodayStatus('clocked_out')
-        } else {
+        // 가장 최근 출퇴근 기록 찾기 (clockOut이 없는 기록 우선)
+        let latestRecord = null
+        let hasActiveRecord = false
+
+        snapshot.forEach((doc) => {
+          const data = doc.data()
+          if (!data.clockOut) {
+            // clockOut이 없는 기록이 있으면 출근 상태
+            latestRecord = { id: doc.id, data }
+            hasActiveRecord = true
+          }
+        })
+
+        if (hasActiveRecord && latestRecord) {
+          // 출근 상태 (clockOut이 없는 기록 존재)
+          setCurrentAttendanceId(latestRecord.id)
           setTodayStatus('clocked_in')
+        } else {
+          // 모든 기록이 clockOut 있음 → 퇴근 완료 상태
+          setTodayStatus('clocked_out')
+          setCurrentAttendanceId(null)
         }
       } else {
+        // 오늘 출근 기록 없음
         setTodayStatus('not_clocked_in')
         setCurrentAttendanceId(null)
       }
@@ -321,7 +335,14 @@ export default function EmployeeDashboardPage() {
               )}
 
               {todayStatus === 'clocked_out' && (
-                <Badge className="px-4 py-2 text-base bg-gray-600">퇴근 완료</Badge>
+                <Button
+                  onClick={handleOpenQrScan}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2 shadow-lg"
+                >
+                  <QrCode className="w-5 h-5" />
+                  QR 재출근
+                </Button>
               )}
 
               <Button
