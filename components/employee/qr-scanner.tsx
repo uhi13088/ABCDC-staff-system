@@ -145,12 +145,13 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         throw new Error('이미 퇴근 처리되었습니다.');
       }
 
-      // 6. 출퇴근 기록 저장
+      // 6. 출퇴근 기록 저장 (자동 승인)
       if (existingRecord) {
         // 퇴근 처리
         const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, existingRecord.id);
         await updateDoc(attendanceRef, {
           clockOut: nowTimestamp,
+          status: 'approved', // 자동 승인
           updatedAt: nowTimestamp,
         });
 
@@ -168,6 +169,7 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           date: dateStr,
           clockIn: nowTimestamp,
           clockOut: null,
+          status: 'approved', // 자동 승인
           workType: 'QR출근',
           createdAt: nowTimestamp,
         });
