@@ -3,7 +3,7 @@
 > 맛남살롱을 위한 스마트한 직원 관리 시스템
 
 **버전**: v0.17.0  
-**최종 업데이트**: 2025-01-17  
+**최종 업데이트**: 2025-12-30  
 **상태**: ✅ Production Ready (보안 강화 완료)
 
 ---
@@ -175,9 +175,9 @@ git commit -m "feat: PDF 뷰어 추가
 
 ## 🌐 배포 URL
 
-### 📱 Sandbox (개발/테스트)
+### 🚀 Production (프로덕션)
 
-**베이스 URL**: `https://3005-iqaenljjzk6jv0c4l69ca-c07dda5e.sandbox.novita.ai`
+**베이스 URL**: `https://abcdc-staff-system.web.app`
 
 | 시스템 | 경로 | 용도 |
 |--------|------|------|
@@ -225,15 +225,18 @@ git commit -m "feat: PDF 뷰어 추가
 7. ✅ **알림**: 알림 목록, 읽음 처리
 8. ✅ **프로필**: 개인정보 수정, 계좌 정보, 건강진단서 업로드 🆕
 
-### 🔥 최신 기능 (v0.17.0)
-- ✅ **STAFF 역할 통일**: EMPLOYEE 제거, STAFF로 완전 통일 (일관성 개선) 🆕
-- ✅ **급여 조회 오류 수정**: 컬렉션 이름 불일치 해결 ('salaries' → 'salary') 🆕
-- ✅ **QR Scanner 안정성 개선**: DOM 렌더링 타이밍 오류 수정 🆕
-- ✅ **고정 QR 코드 시스템**: 매장당 1개 고정 QR 코드 (만료 없음, 영구 사용) 🆕
-- ✅ **매장 모달 통합**: QR 코드 관리를 매장 모달 안에 통합 (UI/UX 개선) 🆕
-- ✅ **브랜드 로고 자동 압축**: 10MB → 500KB 이하로 자동 축소 (browser-image-compression) 🆕
-- ✅ **건강진단서 업로드**: 직원 프로필에서 건강진단서 이미지 업로드 및 만료 알림 🆕
-- ✅ **Firebase Storage Rules v2.0**: 브랜드 로고 경로 개선 (`/brands/{companyId}/{fileName}`) 🆕
+### 🔥 최신 기능 (v0.17.0 - 2025-12-30)
+- ✅ **QR 중복 생성 버그 수정**: addDoc → setDoc 결정적 ID 사용 (userId_date_time 형식) 🆕
+- ✅ **허용시간 초과 시 이유 입력 강제**: 조기출근/지각/조기퇴근/연장근무 감지 시 이유 입력 모달 표시, warningReasonDetail 필드 추가 🆕
+- ✅ **Firestore 보안 규칙 강화**: 관리자 list 조회 권한 추가 (list/get 분리), Missing permissions 해결 🆕
+- ✅ **STAFF 역할 통일**: EMPLOYEE 제거, STAFF로 완전 통일 (일관성 개선)
+- ✅ **급여 조회 오류 수정**: 컬렉션 이름 불일치 해결 ('salaries' → 'salary')
+- ✅ **QR Scanner 안정성 개선**: DOM 렌더링 타이밍 오류 수정
+- ✅ **고정 QR 코드 시스템**: 매장당 1개 고정 QR 코드 (만료 없음, 영구 사용)
+- ✅ **매장 모달 통합**: QR 코드 관리를 매장 모달 안에 통합 (UI/UX 개선)
+- ✅ **브랜드 로고 자동 압축**: 10MB → 500KB 이하로 자동 축소 (browser-image-compression)
+- ✅ **건강진단서 업로드**: 직원 프로필에서 건강진단서 이미지 업로드 및 만료 알림
+- ✅ **Firebase Storage Rules v2.0**: 브랜드 로고 경로 개선 (`/brands/{companyId}/{fileName}`)
 - ✅ **Firebase Admin SDK 전환**: Rules 우회, 완전한 서버 권한
 - ✅ **초대 코드 검증 API**: Enumeration Attack 차단, Rate Limiting
 - ✅ **Firestore Rules 강화**: super_admin 기반 권한 체계
@@ -400,7 +403,10 @@ npm run dev
 
 ## 📝 변경 이력
 
-**v0.17.0 (2025-01-17)**: 
+**v0.17.0 (2025-12-30)**: 
+- 🐛 **QR 중복 생성 버그 수정**: addDoc → setDoc 결정적 ID 사용
+- ⚠️ **허용시간 초과 시 이유 입력 강제**: 조기출근/지각/조기퇴근/연장근무 감지 시 이유 입력 모달
+- 🔐 **Firestore 보안 규칙 강화**: 관리자 list 조회 권한 추가 (Missing permissions 해결)
 - 🎯 **고정 QR 코드 시스템**: 매장당 1개 고정 QR (만료 없음, 영구 사용)
 - 🖼️ **브랜드 로고 자동 압축**: 10MB → 500KB 이하 자동 축소
 - 📄 **건강진단서 업로드**: 직원 프로필 이미지 업로드 + 만료 알림
