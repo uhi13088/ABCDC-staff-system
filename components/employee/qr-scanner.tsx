@@ -231,15 +231,17 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
    */
   useEffect(() => {
     if (isOpen) {
-      // DOM이 완전히 렌더링될 때까지 약간 지연
+      // Dialog 애니메이션이 완료될 때까지 충분히 대기
       const timer = setTimeout(() => {
         const element = document.getElementById('qr-reader');
         if (element) {
+          console.log('✅ QR 스캐너 엘리먼트 찾음, 카메라 시작...');
           startScanner();
         } else {
-          setError('QR 스캐너를 초기화할 수 없습니다.');
+          console.error('❌ QR 스캐너 엘리먼트를 찾을 수 없습니다.');
+          setError('QR 스캐너를 초기화할 수 없습니다. 페이지를 새로고침해주세요.');
         }
-      }, 100);
+      }, 300); // 100ms → 300ms로 증가
       
       return () => {
         clearTimeout(timer);
@@ -266,6 +268,12 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         <div className="space-y-4 py-4">
           {/* QR 스캐너 */}
           <div className="flex flex-col items-center justify-center">
+            {/* QR 리더 div를 항상 렌더링 (display:none으로 숨김) */}
+            <div 
+              id="qr-reader" 
+              className={`w-full rounded-lg overflow-hidden ${!isScanning ? 'hidden' : ''}`}
+            ></div>
+
             {!isScanning && !error && (
               <div className="flex flex-col items-center gap-4 p-8">
                 <Camera className="w-16 h-16 text-zinc-400" />
@@ -276,17 +284,12 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
               </div>
             )}
 
-            {isScanning && (
-              <div className="relative w-full">
-                <div id="qr-reader" className="w-full rounded-lg overflow-hidden"></div>
-                {isProcessing && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-                    <div className="text-white text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-2"></div>
-                      <p>처리 중...</p>
-                    </div>
-                  </div>
-                )}
+            {isScanning && isProcessing && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-10">
+                <div className="text-white text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-2"></div>
+                  <p>처리 중...</p>
+                </div>
               </div>
             )}
 
