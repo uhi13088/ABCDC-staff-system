@@ -135,20 +135,23 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
       );
 
       const attendanceSnapshot = await getDocs(attendanceQuery);
-      const existingRecord = attendanceSnapshot.docs[0];
-
+      
       // 현재 시간을 Timestamp로 변환
       const nowTimestamp = Timestamp.now();
 
-      // 이미 퇴근 처리되었는지 확인
-      if (existingRecord && existingRecord.data().clockOut) {
-        throw new Error('이미 퇴근 처리되었습니다.');
-      }
+      // 오늘의 모든 출퇴근 기록 중 clockOut이 없는 기록 찾기 (가장 최근 출근)
+      let activeRecord = null;
+      attendanceSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (!data.clockOut) {
+          activeRecord = { id: doc.id, data };
+        }
+      });
 
       // 6. 출퇴근 기록 저장 (자동 승인)
-      if (existingRecord) {
-        // 퇴근 처리
-        const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, existingRecord.id);
+      if (activeRecord) {
+        // 퇴근 처리 (clockOut이 없는 기록에 퇴근 시간 추가)
+        const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, activeRecord.id);
         await updateDoc(attendanceRef, {
           clockOut: nowTimestamp,
           status: 'approved', // 자동 승인
@@ -157,7 +160,7 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
 
         alert(`✅ 퇴근 완료!\n\n시간: ${format(nowTimestamp.toDate(), 'HH:mm')}\n매장: ${qrData.storeName}`);
       } else {
-        // 출근 처리
+        // 출근 처리 (새로운 출근 기록 생성)
         await addDoc(collection(db, COLLECTIONS.ATTENDANCE), {
           userId: employeeData.uid,
           uid: employeeData.uid,
