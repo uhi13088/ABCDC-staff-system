@@ -62,15 +62,8 @@ export default function ContractsTab({ employeeData }: ContractsTabProps) {
         const data = doc.data();
         contractsList.push({
           id: doc.id,
-          contractType: data.contractType,
-          position: data.position,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          status: data.status,
-          employeeSignedAt: data.employeeSignedAt,
-          adminSignedAt: data.adminSignedAt,
-          createdAt: data.createdAt,
-        });
+          ...data, // 모든 필드 포함
+        } as Contract);
       });
 
       setContracts(contractsList);
