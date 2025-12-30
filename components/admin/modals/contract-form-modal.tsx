@@ -551,8 +551,21 @@ export function ContractFormModal({
         position,
         
         // 근무 조건
-        schedules,
-        breakTime,
+        schedules: schedules.map(schedule => ({
+          days: schedule.days,
+          ...(schedule.startHour && { startHour: schedule.startHour }),
+          ...(schedule.startMinute && { startMinute: schedule.startMinute }),
+          ...(schedule.endHour && { endHour: schedule.endHour }),
+          ...(schedule.endMinute && { endMinute: schedule.endMinute }),
+        })),
+        breakTime: {
+          ...(breakTime.hours && { hours: breakTime.hours }),
+          ...(breakTime.minutes && { minutes: breakTime.minutes }),
+          ...(breakTime.startHour && { startHour: breakTime.startHour }),
+          ...(breakTime.startMinute && { startMinute: breakTime.startMinute }),
+          ...(breakTime.endHour && { endHour: breakTime.endHour }),
+          ...(breakTime.endMinute && { endMinute: breakTime.endMinute }),
+        },
         
         // 급여 조건
         // 🔥 표준 필드: salaryType, salaryAmount
