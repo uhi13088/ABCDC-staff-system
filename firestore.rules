@@ -96,13 +96,14 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && (isOwner(resource.data.userId) || (isStoreManager() && isSameCompany(resource.data.companyId)));
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
-      // 직원은 서명만 가능 (employeeSignedAt, employeeSignedBy 업데이트)
+      // 직원은 서명만 가능 (employeeSignedAt, employeeSignedBy, employeeSignature 업데이트)
+      // 관리자는 모든 필드 업데이트 가능 (adminSignedAt, adminSignedBy, adminSignature 포함)
       allow update: if isAuthenticated()
         && (
           (isStoreManager() && isSameCompany(resource.data.companyId))
           || (
             isOwner(resource.data.userId)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['employeeSignedAt', 'employeeSignedBy', 'updatedAt', 'status'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['employeeSignedAt', 'employeeSignedBy', 'employeeSignature', 'updatedAt', 'status'])
           )
         );
       allow delete: if isManager() && isSameCompany(resource.data.companyId);

@@ -16,7 +16,6 @@ interface StaffListTabProps {
 interface Employee {
   userId: string
   name: string
-  email: string
   phone?: string
   role: string
   position?: string
@@ -57,7 +56,6 @@ export default function StaffListTab({ companyId }: StaffListTabProps) {
       const data = snapshot.docs.map(doc => ({
         userId: doc.id,
         name: doc.data().name || '이름 없음',
-        email: doc.data().email || '',
         phone: doc.data().phone || '-',
         role: doc.data().role || 'staff',
         position: doc.data().position || '',
