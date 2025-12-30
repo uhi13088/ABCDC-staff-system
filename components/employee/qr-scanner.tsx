@@ -82,18 +82,24 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
    * QR 스캔 성공 핸들러
    */
   const onScanSuccess = async (decodedText: string) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] 🎯 onScanSuccess 호출됨`);
+    console.log(`[${timestamp}] isProcessingRef.current:`, isProcessingRef.current);
+    
     // ref로 즉시 체크 (state는 비동기라 느림)
     if (isProcessingRef.current) {
-      console.log('⚠️ 이미 처리 중입니다. 중복 스캔 무시 (ref)');
+      console.log(`[${timestamp}] ⚠️ 이미 처리 중입니다. 중복 스캔 무시 (ref)`);
       return;
     }
 
-    console.log('🔄 QR 스캔 시작 - isProcessing 설정');
+    console.log(`[${timestamp}] 🔄 QR 스캔 시작 - isProcessing 설정`);
     isProcessingRef.current = true; // 즉시 잠금
     setIsProcessing(true);
 
     // 스캐너 즉시 중지
+    console.log(`[${timestamp}] 📷 스캐너 중지 시작`);
     await stopScanner();
+    console.log(`[${timestamp}] 📷 스캐너 중지 완료`);
 
     try {
       // 1. QR 코드 검증
@@ -259,6 +265,13 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           }
         }
 
+        console.log('📝 출근 기록 생성 시작:', {
+          userId: employeeData.uid,
+          name: employeeData.name,
+          date: dateStr,
+          clockIn: nowTimestamp.toDate().toISOString()
+        });
+        
         await addDoc(collection(db, COLLECTIONS.ATTENDANCE), {
           userId: employeeData.uid,
           uid: employeeData.uid,
@@ -276,6 +289,8 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           warning: warningMessage || null,
           warningReason: warningReason || null,
         });
+        
+        console.log('✅ 출근 기록 생성 완료');
 
         const alertMessage = warningMessage
           ? `✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}\n\n${warningMessage}`
