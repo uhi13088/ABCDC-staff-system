@@ -53,6 +53,13 @@ function EmployeeRegisterForm() {
     email: '',
     password: '',
     passwordConfirm: '',
+    
+    // 근무 정보 (선택사항)
+    workDays: [] as string[],  // 근무 요일 (예: ['월', '화', '수'])
+    workStartTime: '',          // 근무 시작 시간 (예: '09:00')
+    workEndTime: '',            // 근무 종료 시간 (예: '18:00')
+    breakStartTime: '',         // 휴게 시작 시간 (예: '12:00')
+    breakEndTime: '',           // 휴게 종료 시간 (예: '13:00')
   });
   
   // UI 상태
@@ -182,6 +189,13 @@ function EmployeeRegisterForm() {
         status: USER_STATUS.PENDING,  // 승인 대기 상태
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
+        
+        // 근무 정보 (선택사항)
+        ...(formData.workDays.length > 0 && { workDays: formData.workDays }),
+        ...(formData.workStartTime && { workStartTime: formData.workStartTime }),
+        ...(formData.workEndTime && { workEndTime: formData.workEndTime }),
+        ...(formData.breakStartTime && { breakStartTime: formData.breakStartTime }),
+        ...(formData.breakEndTime && { breakEndTime: formData.breakEndTime }),
       };
 
       // users 컬렉션에 저장
@@ -419,6 +433,75 @@ function EmployeeRegisterForm() {
                   </Select>
                   <p className="text-xs text-gray-500">시스템 설정에서 관리되는 직무 목록입니다</p>
                 </div>
+
+                {/* 근무 요일 (선택사항) */}
+                <div className="space-y-2">
+                  <Label>근무 요일 (선택사항)</Label>
+                  <div className="grid grid-cols-7 gap-2">
+                    {['월', '화', '수', '목', '금', '토', '일'].map((day) => (
+                      <Button
+                        key={day}
+                        type="button"
+                        variant={formData.workDays.includes(day) ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => {
+                          const newWorkDays = formData.workDays.includes(day)
+                            ? formData.workDays.filter(d => d !== day)
+                            : [...formData.workDays, day];
+                          setFormData({ ...formData, workDays: newWorkDays });
+                        }}
+                      >
+                        {day}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">근무하는 요일을 선택하세요 (계약서 작성 시 자동 입력됩니다)</p>
+                </div>
+
+                {/* 근무 시간 (선택사항) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="workStartTime">근무 시작 (선택사항)</Label>
+                    <Input
+                      id="workStartTime"
+                      type="time"
+                      value={formData.workStartTime}
+                      onChange={(e) => setFormData({ ...formData, workStartTime: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="workEndTime">근무 종료 (선택사항)</Label>
+                    <Input
+                      id="workEndTime"
+                      type="time"
+                      value={formData.workEndTime}
+                      onChange={(e) => setFormData({ ...formData, workEndTime: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* 휴게 시간 (선택사항) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="breakStartTime">휴게 시작 (선택사항)</Label>
+                    <Input
+                      id="breakStartTime"
+                      type="time"
+                      value={formData.breakStartTime}
+                      onChange={(e) => setFormData({ ...formData, breakStartTime: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="breakEndTime">휴게 종료 (선택사항)</Label>
+                    <Input
+                      id="breakEndTime"
+                      type="time"
+                      value={formData.breakEndTime}
+                      onChange={(e) => setFormData({ ...formData, breakEndTime: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">근무 시간과 휴게 시간을 입력하면 계약서 작성 시 자동으로 반영됩니다</p>
               </div>
 
               {/* 계정 정보 */}

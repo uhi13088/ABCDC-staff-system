@@ -186,6 +186,39 @@ export function ContractFormModal({
       setEmployeeBirth(employee.birth || '');
       setEmployeeAddress(employee.address || '');
       setEmployeePhone(employee.phone || '');
+      
+      // 직원 가입 시 입력한 정보 자동 입력
+      if (employee.storeId) {
+        setSelectedStoreId(employee.storeId);
+        loadStoreInfo(employee.storeId);
+      }
+      
+      if (employee.position) {
+        setPosition(employee.position);
+      }
+      
+      // 근무 요일 자동 입력
+      if (employee.workDays && employee.workDays.length > 0) {
+        setSchedules([{
+          days: employee.workDays,
+          startHour: employee.workStartTime ? employee.workStartTime.split(':')[0] : undefined,
+          startMinute: employee.workStartTime ? employee.workStartTime.split(':')[1] : undefined,
+          endHour: employee.workEndTime ? employee.workEndTime.split(':')[0] : undefined,
+          endMinute: employee.workEndTime ? employee.workEndTime.split(':')[1] : undefined,
+        }]);
+      }
+      
+      // 휴게 시간 자동 입력
+      if (employee.breakStartTime && employee.breakEndTime) {
+        setBreakTime({
+          hours: undefined,
+          minutes: undefined,
+          startHour: employee.breakStartTime.split(':')[0],
+          startMinute: employee.breakStartTime.split(':')[1],
+          endHour: employee.breakEndTime.split(':')[0],
+          endMinute: employee.breakEndTime.split(':')[1],
+        });
+      }
     }
   };
 
