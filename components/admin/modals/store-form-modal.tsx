@@ -278,33 +278,39 @@ export function StoreFormModal({
 
     setSaving(true);
     try {
-      await onSave({
+      const storeData: StoreFormData = {
         id: store?.id,
         name: name.trim(),
-        brandId: brandId || undefined,
         companyId,
-        address: address.trim() || undefined,
-        phone: phone.trim() || undefined,
-        ceo: ceo.trim() || undefined,
-        businessNumber: businessNumber.trim() || undefined,
-        
         salaryPaymentDay,
         salaryCalculationType,
-        calculationStartMonth: salaryCalculationType === 'custom' ? calculationStartMonth : undefined,
-        calculationStartDay: salaryCalculationType === 'custom' ? calculationStartDay : undefined,
-        calculationEndMonth: salaryCalculationType === 'custom' ? calculationEndMonth : undefined,
-        calculationEndDay: salaryCalculationType === 'custom' ? calculationEndDay : undefined,
-        
         overtimeAllowance,
         nightAllowance,
         holidayAllowance,
-        
         openTime,
         closeTime,
-        
         earlyClockInThreshold,
         earlyClockOutThreshold,
-      });
+      };
+
+      // Optional fields - only add if they have values
+      if (brandId && brandId !== 'none') {
+        storeData.brandId = brandId;
+      }
+      if (address.trim()) storeData.address = address.trim();
+      if (phone.trim()) storeData.phone = phone.trim();
+      if (ceo.trim()) storeData.ceo = ceo.trim();
+      if (businessNumber.trim()) storeData.businessNumber = businessNumber.trim();
+
+      // Custom calculation period - only add if type is 'custom'
+      if (salaryCalculationType === 'custom') {
+        if (calculationStartMonth) storeData.calculationStartMonth = calculationStartMonth;
+        if (calculationStartDay) storeData.calculationStartDay = calculationStartDay;
+        if (calculationEndMonth) storeData.calculationEndMonth = calculationEndMonth;
+        if (calculationEndDay) storeData.calculationEndDay = calculationEndDay;
+      }
+
+      await onSave(storeData);
       onClose();
     } catch (error) {
       console.error('매장 저장 실패:', error);
