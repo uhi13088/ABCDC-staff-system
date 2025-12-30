@@ -72,11 +72,11 @@ service cloud.firestore {
     // 2. Users (사용자/직원)
     // ====================================
     match /users/{userId} {
-      // [수정] 본인 또는 같은 회사 직원이 읽기 가능 (대시보드 통계용)
+      // 본인 또는 매니저 이상 또는 같은 회사 직원 (이름, 전화번호만 조회)
       allow read: if isAuthenticated() 
         && (
           isOwner(userId) 
-          || isManager() 
+          || isManager()
           || isSameCompany(resource.data.companyId)
         );
       
