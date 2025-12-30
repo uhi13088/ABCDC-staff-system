@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Coffee, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Coffee, CheckCircle2, AlertCircle, Plus, Trash2 } from 'lucide-react';
 
 // 내부 컴포넌트 (useSearchParams 사용)
 function EmployeeRegisterForm() {
@@ -42,6 +42,26 @@ function EmployeeRegisterForm() {
   // 직무 목록
   const [availablePositions, setAvailablePositions] = useState<string[]>(['바리스타', '베이커']);
   
+  // 다중 시간대 인터페이스
+  interface TimeSchedule {
+    id: string;
+    days: string[];
+    startHour: string;
+    startMinute: string;
+    endHour: string;
+    endMinute: string;
+  }
+  
+  // 다중 시간대 상태
+  const [schedules, setSchedules] = useState<TimeSchedule[]>([{
+    id: '1',
+    days: [],
+    startHour: '09',
+    startMinute: '00',
+    endHour: '18',
+    endMinute: '00'
+  }]);
+  
   // 폼 데이터
   const [inviteCode, setInviteCode] = useState('');
   const [formData, setFormData] = useState({
@@ -54,10 +74,7 @@ function EmployeeRegisterForm() {
     password: '',
     passwordConfirm: '',
     
-    // 근무 정보 (선택사항)
-    workDays: [] as string[],  // 근무 요일 (예: ['월', '화', '수'])
-    workStartTime: '',          // 근무 시작 시간 (예: '09:00')
-    workEndTime: '',            // 근무 종료 시간 (예: '18:00')
+    // 휴게 시간 (선택사항)
     breakStartTime: '',         // 휴게 시작 시간 (예: '12:00')
     breakEndTime: '',           // 휴게 종료 시간 (예: '13:00')
   });
@@ -190,10 +207,17 @@ function EmployeeRegisterForm() {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         
-        // 근무 정보 (선택사항)
-        ...(formData.workDays.length > 0 && { workDays: formData.workDays }),
-        ...(formData.workStartTime && { workStartTime: formData.workStartTime }),
-        ...(formData.workEndTime && { workEndTime: formData.workEndTime }),
+        // 근무 시간대 (다중 시간대 저장)
+        ...(schedules.length > 0 && schedules.some(s => s.days.length > 0) && { 
+          workSchedules: schedules.filter(s => s.days.length > 0).map(s => ({
+            days: s.days,
+            startHour: s.startHour,
+            startMinute: s.startMinute,
+            endHour: s.endHour,
+            endMinute: s.endMinute
+          }))
+        }),
+        // 휴게 시간 (선택사항)
         ...(formData.breakStartTime && { breakStartTime: formData.breakStartTime }),
         ...(formData.breakEndTime && { breakEndTime: formData.breakEndTime }),
       };
@@ -434,50 +458,163 @@ function EmployeeRegisterForm() {
                   <p className="text-xs text-gray-500">시스템 설정에서 관리되는 직무 목록입니다</p>
                 </div>
 
-                {/* 근무 요일 (선택사항) */}
-                <div className="space-y-2">
-                  <Label>근무 요일 (선택사항)</Label>
-                  <div className="grid grid-cols-7 gap-2">
-                    {['월', '화', '수', '목', '금', '토', '일'].map((day) => (
-                      <Button
-                        key={day}
-                        type="button"
-                        variant={formData.workDays.includes(day) ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => {
-                          const newWorkDays = formData.workDays.includes(day)
-                            ? formData.workDays.filter(d => d !== day)
-                            : [...formData.workDays, day];
-                          setFormData({ ...formData, workDays: newWorkDays });
-                        }}
-                      >
-                        {day}
-                      </Button>
-                    ))}
+                {/* 다중 근무 시간대 */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>근무 시간 (선택사항)</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newId = (Math.max(...schedules.map(s => parseInt(s.id)), 0) + 1).toString();
+                        setSchedules([...schedules, {
+                          id: newId,
+                          days: [],
+                          startHour: '09',
+                          startMinute: '00',
+                          endHour: '18',
+                          endMinute: '00'
+                        }]);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      시간대 추가
+                    </Button>
                   </div>
-                  <p className="text-xs text-gray-500">근무하는 요일을 선택하세요 (계약서 작성 시 자동 입력됩니다)</p>
-                </div>
 
-                {/* 근무 시간 (선택사항) */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="workStartTime">근무 시작 (선택사항)</Label>
-                    <Input
-                      id="workStartTime"
-                      type="time"
-                      value={formData.workStartTime}
-                      onChange={(e) => setFormData({ ...formData, workStartTime: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="workEndTime">근무 종료 (선택사항)</Label>
-                    <Input
-                      id="workEndTime"
-                      type="time"
-                      value={formData.workEndTime}
-                      onChange={(e) => setFormData({ ...formData, workEndTime: e.target.value })}
-                    />
-                  </div>
+                  {schedules.map((schedule, index) => (
+                    <div key={schedule.id} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-700">
+                          시간대 {index + 1}
+                        </span>
+                        {schedules.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSchedules(schedules.filter(s => s.id !== schedule.id))}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* 요일 선택 */}
+                      <div className="space-y-2">
+                        <Label className="text-xs">근무 요일</Label>
+                        <div className="grid grid-cols-7 gap-2">
+                          {['월', '화', '수', '목', '금', '토', '일'].map((day) => (
+                            <Button
+                              key={day}
+                              type="button"
+                              variant={schedule.days.includes(day) ? 'default' : 'outline'}
+                              size="sm"
+                              className="text-xs px-2 py-1 h-8"
+                              onClick={() => {
+                                const newSchedules = schedules.map(s => {
+                                  if (s.id === schedule.id) {
+                                    const newDays = s.days.includes(day)
+                                      ? s.days.filter(d => d !== day)
+                                      : [...s.days, day];
+                                    return { ...s, days: newDays };
+                                  }
+                                  return s;
+                                });
+                                setSchedules(newSchedules);
+                              }}
+                            >
+                              {day}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 시간 입력 */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* 시작 시간 */}
+                        <div className="space-y-2">
+                          <Label className="text-xs">시작 시간</Label>
+                          <div className="flex gap-1">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="23"
+                              placeholder="HH"
+                              value={schedule.startHour}
+                              onChange={(e) => {
+                                const val = e.target.value.padStart(2, '0').slice(0, 2);
+                                const newSchedules = schedules.map(s => 
+                                  s.id === schedule.id ? { ...s, startHour: val } : s
+                                );
+                                setSchedules(newSchedules);
+                              }}
+                              className="w-16 text-center"
+                            />
+                            <span className="self-center">:</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="59"
+                              placeholder="MM"
+                              value={schedule.startMinute}
+                              onChange={(e) => {
+                                const val = e.target.value.padStart(2, '0').slice(0, 2);
+                                const newSchedules = schedules.map(s => 
+                                  s.id === schedule.id ? { ...s, startMinute: val } : s
+                                );
+                                setSchedules(newSchedules);
+                              }}
+                              className="w-16 text-center"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 종료 시간 */}
+                        <div className="space-y-2">
+                          <Label className="text-xs">종료 시간</Label>
+                          <div className="flex gap-1">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="23"
+                              placeholder="HH"
+                              value={schedule.endHour}
+                              onChange={(e) => {
+                                const val = e.target.value.padStart(2, '0').slice(0, 2);
+                                const newSchedules = schedules.map(s => 
+                                  s.id === schedule.id ? { ...s, endHour: val } : s
+                                );
+                                setSchedules(newSchedules);
+                              }}
+                              className="w-16 text-center"
+                            />
+                            <span className="self-center">:</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="59"
+                              placeholder="MM"
+                              value={schedule.endMinute}
+                              onChange={(e) => {
+                                const val = e.target.value.padStart(2, '0').slice(0, 2);
+                                const newSchedules = schedules.map(s => 
+                                  s.id === schedule.id ? { ...s, endMinute: val } : s
+                                );
+                                setSchedules(newSchedules);
+                              }}
+                              className="w-16 text-center"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <p className="text-xs text-gray-500">
+                    근무 시간을 입력하면 계약서 작성 시 자동으로 반영됩니다
+                  </p>
                 </div>
 
                 {/* 휴게 시간 (선택사항) */}
@@ -501,7 +638,6 @@ function EmployeeRegisterForm() {
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">근무 시간과 휴게 시간을 입력하면 계약서 작성 시 자동으로 반영됩니다</p>
               </div>
 
               {/* 계정 정보 */}
