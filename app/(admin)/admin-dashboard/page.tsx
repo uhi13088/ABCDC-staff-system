@@ -257,7 +257,7 @@ export default function AdminDashboard() {
             <TabsContent value="attendance" className="mt-0 focus-visible:outline-none"><AttendanceTab companyId={companyId} /></TabsContent>
             <TabsContent value="salary" className="mt-0 focus-visible:outline-none"><SalaryTab companyId={companyId} /></TabsContent>
             <TabsContent value="schedules" className="mt-0 focus-visible:outline-none"><SchedulesTab companyId={companyId} /></TabsContent>
-            <TabsContent value="contracts" className="mt-0 focus-visible:outline-none"><ContractsTab companyId={companyId} /></TabsContent>
+            <TabsContent value="contracts" className="mt-0 focus-visible:outline-none"><ContractsTab companyId={companyId} currentUserId={user?.uid} /></TabsContent>
             <TabsContent value="approvals" className="mt-0 focus-visible:outline-none"><ApprovalsTab companyId={companyId} userId={user?.uid} userName={user?.name} onCountChange={loadTabCounts} /></TabsContent>
             <TabsContent value="notice" className="mt-0 focus-visible:outline-none"><NoticesTab companyId={companyId} onCountChange={loadTabCounts} /></TabsContent>
             <TabsContent value="admins" className="mt-0 focus-visible:outline-none"><AdminsTab companyId={companyId} /></TabsContent>

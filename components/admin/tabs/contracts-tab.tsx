@@ -48,14 +48,15 @@ import { useContractsLogic } from '@/hooks/admin/useContractsLogic';
 import { Contract } from '@/lib/types/contract';
 import { ContractFormModal } from '@/components/admin/modals/contract-form-modal';
 import { safeToLocaleString, type TimestampInput } from '@/lib/utils/timestamp';
-import { ContractDetailModal } from '@/components/admin/modals/contract-detail-modal';
+import { ContractDetailModal } from '@/components/shared/contract-detail-modal'; // 공유 모달 사용
 import { ContractLinkModal } from '@/components/admin/modals/contract-link-modal';
 
 interface ContractsTabProps {
   companyId: string;
+  currentUserId?: string; // 관리자 UID
 }
 
-export function ContractsTab({ companyId }: ContractsTabProps) {
+export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
   const {
     contractGroups,
     loading,
@@ -74,6 +75,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isAdditionalMode, setIsAdditionalMode] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<string>('');
+  const [selectedContractData, setSelectedContractData] = useState<Contract | null>(null);
 
   useEffect(() => {
     if (companyId) {
@@ -156,9 +158,21 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
   /**
    * 계약서 상세 보기
    */
-  const handleViewContract = (contractId: string) => {
-    setSelectedContractId(contractId);
-    setIsDetailModalOpen(true);
+  const handleViewContract = async (contractId: string) => {
+    // contractGroups에서 해당 계약서 찾기
+    let foundContract: Contract | null = null;
+    for (const group of contractGroups) {
+      foundContract = [...group.normalContracts, ...group.additionalContracts].find(
+        c => c.id === contractId
+      ) || null;
+      if (foundContract) break;
+    }
+
+    if (foundContract) {
+      setSelectedContractData(foundContract);
+      setSelectedContractId(contractId);
+      setIsDetailModalOpen(true);
+    }
   };
 
   /**
@@ -170,6 +184,37 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
   };
   
   /**
+   * 서명 상태 뱃지 (직원/관리자 서명)
+   */
+  const getSignatureBadge = (contract: Contract) => {
+    const hasEmployeeSign = !!contract.employeeSignedAt;
+    const hasAdminSign = !!contract.adminSignedAt;
+
+    if (hasEmployeeSign && hasAdminSign) {
+      return (
+        <div className="flex flex-col gap-1">
+          <Badge className="bg-green-600 text-white">✓ 직원 서명</Badge>
+          <Badge className="bg-blue-600 text-white">✓ 관리자 서명</Badge>
+        </div>
+      );
+    } else if (hasEmployeeSign) {
+      return (
+        <div className="flex flex-col gap-1">
+          <Badge className="bg-green-600 text-white">✓ 직원 서명</Badge>
+          <Badge variant="secondary">관리자 서명 대기</Badge>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex flex-col gap-1">
+          <Badge variant="secondary">직원 서명 대기</Badge>
+          <Badge variant="secondary">관리자 서명 대기</Badge>
+        </div>
+      );
+    }
+  };
+  
+  /**
    * 모달 닫기 및 새로고침
    */
   const handleModalClose = () => {
@@ -177,6 +222,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
     setIsDetailModalOpen(false);
     setIsLinkModalOpen(false);
     setSelectedContractId('');
+    setSelectedContractData(null);
     loadContracts();
   };
 
@@ -295,7 +341,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
                   <TableHead className="font-bold text-slate-900">매장</TableHead>
                   <TableHead className="font-bold text-slate-900">계약 기간</TableHead>
                   <TableHead className="font-bold text-slate-900">작성일</TableHead>
-                  <TableHead className="font-bold text-slate-900">상태</TableHead>
+                  <TableHead className="font-bold text-slate-900">서명 상태</TableHead>
                   <TableHead className="font-bold text-slate-900">관리</TableHead>
                 </TableRow>
               </TableHeader>
@@ -376,7 +422,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  {getStatusBadge(selectedContract.status)}
+                                  {getSignatureBadge(selectedContract)}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex gap-2 flex-wrap">
@@ -436,7 +482,7 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
                                 {formatCreatedAt(contract.createdAt)}
                               </TableCell>
                               <TableCell>
-                                {getStatusBadge(contract.status)}
+                                {getSignatureBadge(contract)}
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-2 flex-wrap">
@@ -492,12 +538,16 @@ export function ContractsTab({ companyId }: ContractsTabProps) {
       />
       
       {/* 계약서 상세 보기 모달 */}
-      <ContractDetailModal
-        open={isDetailModalOpen}
-        onClose={handleModalClose}
-        contractId={selectedContractId}
-        companyId={companyId}
-      />
+      {isDetailModalOpen && selectedContractData && (
+        <ContractDetailModal
+          open={isDetailModalOpen}
+          onClose={handleModalClose}
+          contract={selectedContractData}
+          isEmployee={false}
+          currentUserId={currentUserId || ''}
+          onSuccess={handleModalClose}
+        />
+      )}
       
       {/* 계약서 링크 전송 모달 */}
       <ContractLinkModal

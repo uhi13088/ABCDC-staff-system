@@ -23,7 +23,8 @@ import {
   LogOut,
   LogIn,
   QrCode,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react'
 import { clockOut } from '@/services/attendanceService' // clockOut은 QR 스캐너에서 사용
 import { format } from 'date-fns'
@@ -38,6 +39,7 @@ import ApprovalsTab from '@/components/employee/tabs/approvals-tab'
 import NoticesTab from '@/components/employee/tabs/notices-tab'
 import NotificationsTab from '@/components/employee/tabs/notifications-tab'
 import ProfileTab from '@/components/employee/tabs/profile-tab'
+import ContractsTab from '@/components/employee/tabs/contracts-tab'
 
 interface EmployeeData {
   uid: string
@@ -360,7 +362,7 @@ export default function EmployeeDashboardPage() {
       {/* 메인 콘텐츠 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 lg:grid-cols-8 gap-2 h-auto p-2">
+          <TabsList className="grid grid-cols-4 lg:grid-cols-9 gap-2 h-auto p-2">
             <TabsTrigger value="dashboard" className="flex flex-col items-center gap-1 py-3">
               <LayoutDashboard className="w-5 h-5" />
               <span className="text-xs">대시보드</span>
@@ -376,6 +378,10 @@ export default function EmployeeDashboardPage() {
             <TabsTrigger value="schedule" className="flex flex-col items-center gap-1 py-3">
               <Calendar className="w-5 h-5" />
               <span className="text-xs">스케줄</span>
+            </TabsTrigger>
+            <TabsTrigger value="contracts" className="flex flex-col items-center gap-1 py-3">
+              <FileText className="w-5 h-5" />
+              <span className="text-xs">계약서</span>
             </TabsTrigger>
             <TabsTrigger value="approvals" className="flex flex-col items-center gap-1 py-3 relative">
               <FileCheck className="w-5 h-5" />
@@ -424,6 +430,10 @@ export default function EmployeeDashboardPage() {
 
           <TabsContent value="schedule">
             <ScheduleTab employeeData={employeeData} />
+          </TabsContent>
+
+          <TabsContent value="contracts">
+            <ContractsTab employeeData={employeeData} />
           </TabsContent>
 
           <TabsContent value="approvals">
