@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Camera, X, AlertCircle } from 'lucide-react';
 import { validateQRCode, validateLocation } from '@/lib/utils/qr-generator';
-import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, addDoc, updateDoc, setDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
 import { format } from 'date-fns';
@@ -272,7 +272,13 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           clockIn: nowTimestamp.toDate().toISOString()
         });
         
-        await addDoc(collection(db, COLLECTIONS.ATTENDANCE), {
+        // 🔧 해결책: addDoc 대신 setDoc 사용 (결정적 ID)
+        // 문서 ID: {userId}_{date}_출근시간(HH-mm-ss)
+        const clockInTime = format(nowTimestamp.toDate(), 'HH-mm-ss');
+        const docId = `${employeeData.uid}_${dateStr}_${clockInTime}`;
+        const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, docId);
+        
+        await setDoc(attendanceRef, {
           userId: employeeData.uid,
           uid: employeeData.uid,
           name: employeeData.name,
@@ -290,7 +296,7 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           warningReason: warningReason || null,
         });
         
-        console.log('✅ 출근 기록 생성 완료');
+        console.log('✅ 출근 기록 생성 완료 (docId:', docId, ')');
 
         const alertMessage = warningMessage
           ? `✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}\n\n${warningMessage}`
