@@ -7,8 +7,24 @@
 
 import type { TimestampInput } from '@/lib/utils/timestamp';
 
-export type ApprovalType = 'purchase' | 'disposal' | 'resignation' | 'absence' | 'shift';
+export type ApprovalType = 'vacation' | 'overtime' | 'absence' | 'shift' | 'purchase' | 'disposal' | 'resignation';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+// 휴가 승인 데이터
+export interface VacationData {
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
+}
+
+// 연장근무 승인 데이터
+export interface OvertimeData {
+  date: string;
+  startTime: string;
+  endTime: string;
+  reason?: string;
+}
 
 // 구매 승인 데이터
 export interface PurchaseData {
@@ -59,7 +75,7 @@ export interface Approval {
   status: ApprovalStatus;
   createdAt: TimestampInput;
   companyId?: string;
-  data: PurchaseData | DisposalData | ResignationData | AbsenceData | ShiftData;
+  data: VacationData | OvertimeData | PurchaseData | DisposalData | ResignationData | AbsenceData | ShiftData;
 }
 
 // 교대근무 요청 (shift_requests 컬렉션)

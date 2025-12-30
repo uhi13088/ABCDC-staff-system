@@ -18,6 +18,8 @@ import type { Approval, ApprovalType } from '@/lib/types/approval';
 import { safeToLocaleString } from '@/lib/utils/timestamp';
 
 const TYPE_EMOJI: Record<ApprovalType, string> = {
+  'vacation': '🏖️',
+  'overtime': '⏰',
   'purchase': '💳',
   'disposal': '🗑️',
   'resignation': '📄',
@@ -26,6 +28,8 @@ const TYPE_EMOJI: Record<ApprovalType, string> = {
 };
 
 const TYPE_TEXT: Record<ApprovalType, string> = {
+  'vacation': '휴가',
+  'overtime': '연장근무',
   'purchase': '구매',
   'disposal': '폐기',
   'resignation': '퇴직서',
@@ -34,7 +38,13 @@ const TYPE_TEXT: Record<ApprovalType, string> = {
 };
 
 function getApprovalSummary(approval: Approval): string {
-  if (approval.type === 'purchase') {
+  if (approval.type === 'vacation') {
+    const data = approval.data as any;
+    return `${data.date || '-'} ${data.startTime ? `${data.startTime}~${data.endTime}` : '종일'}`;
+  } else if (approval.type === 'overtime') {
+    const data = approval.data as any;
+    return `${data.date || '-'} ${data.startTime}~${data.endTime}`;
+  } else if (approval.type === 'purchase') {
     const data = approval.data as any;
     return `${data.item || '-'} (${data.quantity || '-'}개)`;
   } else if (approval.type === 'disposal') {

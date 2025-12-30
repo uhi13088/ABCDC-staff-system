@@ -58,7 +58,7 @@ interface ApprovalRequest {
   details: unknown
 }
 
-type RequestType = 'vacation' | 'overtime' | 'absence' | 'shift_change'
+type RequestType = 'vacation' | 'overtime' | 'absence' | 'shift' | 'purchase' | 'disposal' | 'resignation'
 
 export default function ApprovalsTab({ employeeData, onCountChange }: ApprovalsTabProps) {
   const [requests, setRequests] = useState<ApprovalRequest[]>([])
@@ -175,7 +175,10 @@ export default function ApprovalsTab({ employeeData, onCountChange }: ApprovalsT
       vacation: { label: '휴가', color: 'bg-blue-500' },
       overtime: { label: '연장근무', color: 'bg-purple-500' },
       absence: { label: '결근', color: 'bg-orange-500' },
-      shift_change: { label: '근무조정', color: 'bg-green-500' }
+      shift: { label: '교대근무', color: 'bg-green-500' },
+      purchase: { label: '구매', color: 'bg-cyan-500' },
+      disposal: { label: '폐기', color: 'bg-red-500' },
+      resignation: { label: '퇴직서', color: 'bg-gray-500' }
     }
     const config = typeMap[type] || { label: type, color: 'bg-gray-500' }
     return <Badge className={config.color}>{config.label}</Badge>
@@ -278,10 +281,13 @@ export default function ApprovalsTab({ employeeData, onCountChange }: ApprovalsT
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="vacation">휴가</SelectItem>
-                  <SelectItem value="overtime">연장근무</SelectItem>
-                  <SelectItem value="absence">결근</SelectItem>
-                  <SelectItem value="shift_change">근무조정</SelectItem>
+                  <SelectItem value="vacation">🏖️ 휴가</SelectItem>
+                  <SelectItem value="overtime">⏰ 연장근무</SelectItem>
+                  <SelectItem value="absence">🏥 결근</SelectItem>
+                  <SelectItem value="shift">🔄 교대근무</SelectItem>
+                  <SelectItem value="purchase">💳 구매</SelectItem>
+                  <SelectItem value="disposal">🗑️ 폐기</SelectItem>
+                  <SelectItem value="resignation">📄 퇴직서</SelectItem>
                 </SelectContent>
               </Select>
             </div>
