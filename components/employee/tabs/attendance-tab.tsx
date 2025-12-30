@@ -98,7 +98,7 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
             workHours = `${hours}시간 ${mins}분`
           }
 
-          loadedRecords.push({
+          const record = {
             id: doc.id,
             date: format(clockInDate, 'yyyy-MM-dd (EEE)', { locale: ko }),
             clockIn: format(clockInDate, 'HH:mm'),
@@ -107,11 +107,16 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
             location: data.location || '-',
             warning: data.warning || undefined,
             warningReason: data.warningReason || undefined
-          })
+          };
+          
+          console.log('📝 출퇴근 기록 추가:', record);
+          loadedRecords.push(record);
         }
       })
 
       setRecords(loadedRecords)
+      console.log('✅ 출퇴근 탭 로드 완료:', loadedRecords.length, '건');
+      console.log('기록 ID 목록:', loadedRecords.map(r => r.id));
     } catch (error) {
       console.error('출근 기록 로드 실패:', error)
     } finally {
