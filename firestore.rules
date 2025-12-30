@@ -72,8 +72,13 @@ service cloud.firestore {
     // 2. Users (사용자/직원)
     // ====================================
     match /users/{userId} {
-      // [수정] 본인 또는 매니저가 읽기 가능 (Storage Rules 호환)
-      allow read: if isAuthenticated() && (isOwner(userId) || isManager());
+      // [수정] 본인 또는 같은 회사 직원이 읽기 가능 (대시보드 통계용)
+      allow read: if isAuthenticated() 
+        && (
+          isOwner(userId) 
+          || isManager() 
+          || isSameCompany(resource.data.companyId)
+        );
       
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
