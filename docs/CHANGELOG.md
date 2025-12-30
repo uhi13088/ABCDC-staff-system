@@ -6,43 +6,70 @@
 
 ---
 
-## [0.17.0] - 2025-01-17
+## [0.17.0] - 2025-12-30
 
 ### ✨ Features (새 기능)
+
+#### 허용시간 초과 시 이유 입력 강제
+- **경고 모달**: 조기출근/지각/조기퇴근/연장근무 감지 시 이유 입력 모달 자동 표시
+- **필수 입력**: 이유 미입력 시 저장 불가 (최소 1자 이상)
+- **필드 추가**: 
+  - `warning`: 경고 메시지 (예: "⚠️ 조기출근: 계약시간보다 30분 일찍 출근")
+  - `warningReason`: 경고 사유 (예: "조기출근", "지각", "연장근무")
+  - `warningReasonDetail`: 사용자 입력 상세 이유 (예: "교통 체증으로 인한 지각")
+- **출퇴근 탭**: 경고 아이콘과 함께 사유 표시
+- 관련 커밋: `09a9528d`
+
+#### 계약서 시간 불일치 경고
+- **자동 감지**: QR 출퇴근 시 계약서 근무시간과 비교
+- **경고 생성**: 허용시간 초과 시 자동으로 warning 필드 생성
+- **출퇴근 탭 표시**: ⚠️ 아이콘과 함께 경고 메시지 표시
+- 관련 커밋: `0ecc5f9b`
 
 #### STAFF 역할 통일
 - **EMPLOYEE 제거**: `USER_ROLES.EMPLOYEE` 제거, `STAFF`로 완전 통일
 - **코드베이스 정리**: 13개 파일에서 'employee' → 'staff' 일관성 확보
 - **호환성 유지**: 기존 'employee' 데이터도 조회 가능하도록 필터링 조건 확장
 - **문서화**: `docs/STAFF_UNIFICATION.md` 작업 보고서 추가
-- 관련 커밋: `cd0e7320`, `ecb69372`, `f6148a91`
 
 #### 고정 QR 코드 시스템
 - **만료 제거**: QR 코드에서 유효기간 필드 제거, 영구 사용 가능
 - **타입 추가**: `type: 'store_checkin'`, `version: '1.0'` 필드로 QR 코드 식별
 - **UI 개선**: 유효시간 입력 제거, "만료 없음 - 영구 사용 가능" 표시
 - **1회 프린트로 영구 사용**: 관리 부담 대폭 감소
-- 관련 커밋: `49410cb5`, `2a7e1b10`
 
 #### 매장 관리 모달 QR 통합
 - **통합 UI**: 매장 수정 모달에 QR 코드 섹션 직접 표시
 - **자동 생성**: 매장 수정 시 자동으로 QR 코드 생성
 - **다운로드/저장**: QR 이미지 다운로드 및 Firestore 저장 기능
-- 관련 커밋: `2a7e1b10`
 
 ### 🐛 Bug Fixes (버그 수정)
+
+#### QR 중복 생성 버그 수정
+- **문제**: 같은 시각에 출퇴근 기록 2개 생성됨 (예: 23:14 및 23:48)
+- **원인**: Race Condition - `addDoc` 사용 시 동시 스캔으로 중복 생성
+- **해결**: `setDoc`으로 결정적 ID 사용 (`{userId}_{date}_{HH-mm-ss}` 형식)
+- **효과**: 동일 초 내 중복 스캔 시 1건으로 덮어쓰기 (upsert)
+- 관련 커밋: `edbfbcfc`, `3d2481f4`, `e89d3d8c`
+
+#### Firestore 보안 규칙 수정 - 관리자 list 조회 권한 추가
+- **문제**: 관리자 페이지에서 "Missing or insufficient permissions" 오류
+- **원인**: `resource.data` 검증 로직이 list 조회 시 실패 (resource가 null)
+- **해결**: `read` 권한을 `list`와 `get`으로 분리
+  - `list`: 관리자 역할만 검증 (isManager(), isStoreManager())
+  - `get`: 본인/권한자 + companyId 검증 (기존 로직 유지)
+- **영향받는 컬렉션**: USERS, CONTRACTS, ATTENDANCE, SALARY, APPROVALS
+- 관련 커밋: `8618200a`
 
 #### 급여 조회 오류 수정
 - **문제**: 관리자 대시보드에서 "Missing or insufficient permissions" 오류
 - **원인**: 하드코딩된 `'salaries'` 컬렉션 이름 사용 (Firestore Rules는 `salary`)
 - **해결**: `COLLECTIONS.SALARY` 상수로 통일 (3곳 수정)
-- 관련 커밋: `d8a2e857`
 
 #### 직원 가입 후 목록 표시 오류 수정
 - **문제**: 신규 직원 가입 후 관리자 페이지에 표시되지 않음
 - **원인**: 가입 시 `role='employee'`, 조회 시 `role='staff'` 불일치
 - **해결**: 가입 시 `role='staff'`로 변경, 조회 시 호환성 유지
-- 관련 커밋: `8324dd7e`
 
 #### QR Scanner DOM 렌더링 타이밍 오류 수정
 - **문제**: "HTML Element with id=qr-reader not found" 오류
@@ -50,11 +77,22 @@
 - **해결**: 100ms 지연 후 DOM 요소 확인 로직 추가
 - 관련 파일: `components/employee/qr-scanner.tsx`
 
-#### GitHub Actions Storage 배포 오류 수정
-- **문제**: "Could not find rules for the following storage targets: rules"
-- **원인**: `storage:rules` → Firebase CLI가 타겟으로 잘못 해석
-- **해결**: `storage:rules` → `storage`로 변경
-- 관련 커밋: `84236ede`
+### 📝 Documentation (문서)
+
+#### 문서 정리 및 업데이트
+- **불필요한 문서 삭제**: 
+  - `GITHUB_WORKFLOW_SETUP.md` (중복 문서)
+  - `DEPLOYMENT_GUIDE.md` (사용 안 함)
+  - `_legacy/README.md` (레거시 백업용)
+- **README.md 업데이트**:
+  - 최종 업데이트 날짜: 2025-12-30
+  - 배포 URL: Firebase Hosting 프로덕션 URL 반영
+  - 최신 기능 추가: QR 중복 생성 버그 수정, 허용시간 초과 시 이유 입력 강제
+- **필드명 명세 업데이트**:
+  - `FIELD_NAMING_STANDARD.md`: attendance 컬렉션 경고 필드 3개 추가
+  - `FIRESTORE_COLLECTIONS.md`: attendance 인터페이스 경고 필드 추가
+  - 버전 업데이트: v1.0.0 → v1.1.0
+- 관련 커밋: `982faef8`, `1f31b7ee`
 
 ### 🔐 Security Fixes (보안 수정)
 
