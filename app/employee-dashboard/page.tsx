@@ -114,6 +114,50 @@ export default function EmployeeDashboardPage() {
     return () => unsubscribe()
   }, [router])
 
+  // 탭 카운트 로드
+  useEffect(() => {
+    if (employeeData) {
+      loadTabCounts()
+    }
+  }, [employeeData])
+
+  const loadTabCounts = async () => {
+    if (!employeeData) return
+
+    try {
+      // 공지사항 개수 (전체)
+      const noticesQuery = query(
+        collection(db, COLLECTIONS.NOTICES),
+        where('companyId', '==', employeeData.companyId)
+      )
+      const noticesSnapshot = await getDocs(noticesQuery)
+
+      // 승인 대기 결재 개수
+      const approvalsQuery = query(
+        collection(db, COLLECTIONS.APPROVALS),
+        where('userId', '==', employeeData.uid),
+        where('status', '==', 'pending')
+      )
+      const approvalsSnapshot = await getDocs(approvalsQuery)
+
+      // 읽지 않은 알림 개수
+      const notificationsQuery = query(
+        collection(db, COLLECTIONS.NOTIFICATIONS),
+        where('userId', '==', employeeData.uid),
+        where('read', '==', false)
+      )
+      const notificationsSnapshot = await getDocs(notificationsQuery)
+
+      setTabCounts({
+        notices: noticesSnapshot.size,
+        approvals: approvalsSnapshot.size,
+        notifications: notificationsSnapshot.size
+      })
+    } catch (error) {
+      console.error('탭 카운트 로드 실패:', error)
+    }
+  }
+
   const handleLogout = async () => {
     if (confirm('로그아웃 하시겠습니까?')) {
       try {
@@ -188,17 +232,32 @@ export default function EmployeeDashboardPage() {
               <Calendar className="w-5 h-5" />
               <span className="text-xs">스케줄</span>
             </TabsTrigger>
-            <TabsTrigger value="approvals" className="flex flex-col items-center gap-1 py-3">
+            <TabsTrigger value="approvals" className="flex flex-col items-center gap-1 py-3 relative">
               <FileCheck className="w-5 h-5" />
               <span className="text-xs">결재</span>
+              {tabCounts.approvals > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs">
+                  {tabCounts.approvals}
+                </Badge>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="notices" className="flex flex-col items-center gap-1 py-3">
+            <TabsTrigger value="notices" className="flex flex-col items-center gap-1 py-3 relative">
               <Megaphone className="w-5 h-5" />
               <span className="text-xs">공지</span>
+              {tabCounts.notices > 0 && (
+                <Badge variant="default" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs bg-blue-600">
+                  {tabCounts.notices}
+                </Badge>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex flex-col items-center gap-1 py-3">
+            <TabsTrigger value="notifications" className="flex flex-col items-center gap-1 py-3 relative">
               <Bell className="w-5 h-5" />
               <span className="text-xs">알림</span>
+              {tabCounts.notifications > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs">
+                  {tabCounts.notifications}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="profile" className="flex flex-col items-center gap-1 py-3">
               <User className="w-5 h-5" />

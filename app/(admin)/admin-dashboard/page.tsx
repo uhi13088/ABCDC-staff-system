@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { COLLECTIONS } from '@/lib/constants';
 import type { BaseUser } from '@/lib/types/common';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { 
   BarChart3, Users, Clock, DollarSign, CalendarDays, 
   CheckCircle, FileText, Bell, Store, UserPlus, Settings, LogOut,
@@ -40,6 +42,11 @@ export default function AdminDashboard() {
   const [companyId, setCompanyId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [totalEmployees, setTotalEmployees] = useState(0);
+  const [tabCounts, setTabCounts] = useState({
+    employees: 0,
+    approvals: 0,
+    notices: 0
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -62,6 +69,50 @@ export default function AdminDashboard() {
     });
     return () => unsubscribe();
   }, [router]);
+
+  // 탭 카운트 로드
+  useEffect(() => {
+    if (companyId) {
+      loadTabCounts();
+    }
+  }, [companyId]);
+
+  const loadTabCounts = async () => {
+    if (!companyId) return;
+
+    try {
+      // 승인 대기 직원 수
+      const employeesQuery = query(
+        collection(db, COLLECTIONS.USERS),
+        where('companyId', '==', companyId),
+        where('status', '==', 'pending')
+      );
+      const employeesSnapshot = await getDocs(employeesQuery);
+
+      // 승인 대기 결재 수
+      const approvalsQuery = query(
+        collection(db, COLLECTIONS.APPROVALS),
+        where('companyId', '==', companyId),
+        where('status', '==', 'pending')
+      );
+      const approvalsSnapshot = await getDocs(approvalsQuery);
+
+      // 공지사항 수 (전체)
+      const noticesQuery = query(
+        collection(db, COLLECTIONS.NOTICES),
+        where('companyId', '==', companyId)
+      );
+      const noticesSnapshot = await getDocs(noticesQuery);
+
+      setTabCounts({
+        employees: employeesSnapshot.size,
+        approvals: approvalsSnapshot.size,
+        notices: noticesSnapshot.size
+      });
+    } catch (error) {
+      console.error('탭 카운트 로드 실패:', error);
+    }
+  };
 
   const handleLogout = async () => {
     if (confirm('로그아웃 하시겠습니까?')) {
@@ -167,20 +218,33 @@ export default function AdminDashboard() {
           {/* 3. 탭 메뉴 리스트 (가로 스크롤 가능, 깔끔한 버튼형) */}
           <div className="sticky top-16 z-40 bg-slate-50/95 backdrop-blur py-2 -mx-4 px-4 border-b border-slate-200/50 md:static md:bg-transparent md:border-0 md:p-0 md:backdrop-none">
             <TabsList className="w-full justify-start overflow-x-auto bg-white p-1 border border-slate-200 rounded-lg shadow-sm h-auto scrollbar-hide">
-              {tabs.map((tab) => (
-                <TabsTrigger 
-                  key={tab.id} 
-                  value={tab.id}
-                  className="
-                    flex-shrink-0 px-4 py-2 rounded-md text-sm font-medium transition-all
-                    data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none
-                    text-slate-600 hover:text-slate-900 hover:bg-slate-100
-                  "
-                >
-                  <tab.icon className="w-4 h-4 mr-2" />
-                  {tab.label}
-                </TabsTrigger>
-              ))}
+              {tabs.map((tab) => {
+                // 뱃지 카운트 계산
+                let badgeCount = 0;
+                if (tab.id === 'employees' && tabCounts.employees > 0) badgeCount = tabCounts.employees;
+                if (tab.id === 'approvals' && tabCounts.approvals > 0) badgeCount = tabCounts.approvals;
+                if (tab.id === 'notice' && tabCounts.notices > 0) badgeCount = tabCounts.notices;
+
+                return (
+                  <TabsTrigger 
+                    key={tab.id} 
+                    value={tab.id}
+                    className="
+                      flex-shrink-0 px-4 py-2 rounded-md text-sm font-medium transition-all relative
+                      data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none
+                      text-slate-600 hover:text-slate-900 hover:bg-slate-100
+                    "
+                  >
+                    <tab.icon className="w-4 h-4 mr-2" />
+                    {tab.label}
+                    {badgeCount > 0 && (
+                      <Badge variant="destructive" className="ml-2 h-5 min-w-5 flex items-center justify-center p-0 text-xs">
+                        {badgeCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </div>
 
