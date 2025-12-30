@@ -34,9 +34,10 @@ import { ContractDetailModal } from '@/components/admin/modals/contract-detail-m
 interface EmployeesTabProps {
   companyId: string;
   onTabChange?: (tab: string) => void; // 초대 탭으로 이동
+  onCountChange?: () => void; // 카운트 변경 콜백
 }
 
-export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabProps) {
+export default function EmployeesTab({ companyId, onTabChange, onCountChange }: EmployeesTabProps) {
   const {
     employees,
     loading,
@@ -295,7 +296,10 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
                               <Button 
                                 size="sm" 
                                 variant="ghost"
-                                onClick={() => approveEmployee(employee.id)}
+                                onClick={async () => {
+                                  await approveEmployee(employee.id)
+                                  onCountChange?.() // 카운트 새로고침
+                                }}
                                 className="text-green-600 hover:text-green-700 hover:bg-green-50"
                               >
                                 <CheckCircle className="w-4 h-4" />
@@ -303,7 +307,10 @@ export default function EmployeesTab({ companyId, onTabChange }: EmployeesTabPro
                               <Button 
                                 size="sm" 
                                 variant="ghost"
-                                onClick={() => rejectEmployee(employee.id)}
+                                onClick={async () => {
+                                  await rejectEmployee(employee.id)
+                                  onCountChange?.() // 카운트 새로고침
+                                }}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               >
                                 <XCircle className="w-4 h-4" />

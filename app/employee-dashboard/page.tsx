@@ -403,15 +403,15 @@ export default function EmployeeDashboardPage() {
           </TabsContent>
 
           <TabsContent value="approvals">
-            <ApprovalsTab employeeData={employeeData} />
+            <ApprovalsTab employeeData={employeeData} onCountChange={loadTabCounts} />
           </TabsContent>
 
           <TabsContent value="notices">
-            <NoticesTab employeeData={employeeData} />
+            <NoticesTab employeeData={employeeData} onCountChange={loadTabCounts} />
           </TabsContent>
 
           <TabsContent value="notifications">
-            <NotificationsTab employeeData={employeeData} />
+            <NotificationsTab employeeData={employeeData} onCountChange={loadTabCounts} />
           </TabsContent>
 
           <TabsContent value="profile">

@@ -19,6 +19,7 @@ interface NotificationsTabProps {
     uid: string
     companyId: string
   }
+  onCountChange?: () => void // 카운트 변경 콜백
 }
 
 interface Notification {
@@ -30,7 +31,7 @@ interface Notification {
   createdAt: string
 }
 
-export default function NotificationsTab({ employeeData }: NotificationsTabProps) {
+export default function NotificationsTab({ employeeData, onCountChange }: NotificationsTabProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -80,6 +81,7 @@ export default function NotificationsTab({ employeeData }: NotificationsTabProps
     try {
       await markAsRead(notificationId)
       await loadNotifications() // 새로고침
+      onCountChange?.() // 카운트 새로고침
     } catch (error) {
       console.error('알림 읽음 처리 실패:', error)
     }
@@ -92,6 +94,7 @@ export default function NotificationsTab({ employeeData }: NotificationsTabProps
     try {
       await markAllAsRead(employeeData.uid)
       await loadNotifications() // 새로고침
+      onCountChange?.() // 카운트 새로고침
       alert('모든 알림이 읽음 처리되었습니다.')
     } catch (error) {
       console.error('전체 읽음 처리 실패:', error)

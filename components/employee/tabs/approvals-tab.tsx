@@ -46,6 +46,7 @@ interface ApprovalsTabProps {
     storeId: string
     name: string
   }
+  onCountChange?: () => void // 카운트 변경 콜백
 }
 
 interface ApprovalRequest {
@@ -59,7 +60,7 @@ interface ApprovalRequest {
 
 type RequestType = 'vacation' | 'overtime' | 'absence' | 'shift_change'
 
-export default function ApprovalsTab({ employeeData }: ApprovalsTabProps) {
+export default function ApprovalsTab({ employeeData, onCountChange }: ApprovalsTabProps) {
   const [requests, setRequests] = useState<ApprovalRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showRequestModal, setShowRequestModal] = useState(false)
@@ -151,6 +152,7 @@ export default function ApprovalsTab({ employeeData }: ApprovalsTabProps) {
       setShowRequestModal(false)
       resetForm()
       await loadApprovalRequests()
+      onCountChange?.() // 카운트 새로고침
     } catch (error) {
       console.error('결재 요청 제출 실패:', error)
       alert(error.message || '결재 요청 제출 중 오류가 발생했습니다.')

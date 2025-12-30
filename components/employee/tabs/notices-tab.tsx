@@ -23,6 +23,7 @@ interface NoticesTabProps {
   employeeData: {
     companyId: string
   }
+  onCountChange?: () => void // 카운트 변경 콜백
 }
 
 interface Notice {
@@ -34,7 +35,7 @@ interface Notice {
   author: string
 }
 
-export default function NoticesTab({ employeeData }: NoticesTabProps) {
+export default function NoticesTab({ employeeData, onCountChange }: NoticesTabProps) {
   const [notices, setNotices] = useState<Notice[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null)

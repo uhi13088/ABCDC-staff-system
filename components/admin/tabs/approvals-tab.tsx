@@ -53,7 +53,14 @@ function getApprovalSummary(approval: Approval): string {
   return '-';
 }
 
-export function ApprovalsTab() {
+interface ApprovalsTabProps {
+  companyId?: string;
+  userId?: string;
+  userName?: string;
+  onCountChange?: () => void; // 카운트 변경 콜백
+}
+
+export function ApprovalsTab({ companyId, userId, userName, onCountChange }: ApprovalsTabProps) {
   const {
     approvals,
     loading,
@@ -84,6 +91,8 @@ export function ApprovalsTab() {
     } else {
       await approveDocument(approval.id);
     }
+    
+    onCountChange?.(); // 카운트 새로고침
   };
   
   const handleReject = async (approval: Approval) => {
@@ -96,6 +105,8 @@ export function ApprovalsTab() {
     } else {
       await rejectDocument(approval.id, reason);
     }
+    
+    onCountChange?.(); // 카운트 새로고침
   };
   
   return (

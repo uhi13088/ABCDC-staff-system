@@ -26,9 +26,10 @@ import type { Notice } from '@/lib/types/notice';
 
 interface NoticesTabProps {
   companyId: string;
+  onCountChange?: () => void; // 카운트 변경 콜백
 }
 
-export function NoticesTab({ companyId }: NoticesTabProps) {
+export function NoticesTab({ companyId, onCountChange }: NoticesTabProps) {
   const {
     notices,
     loading,
@@ -71,6 +72,7 @@ export function NoticesTab({ companyId }: NoticesTabProps) {
     } else {
       await addNotice(data);
     }
+    onCountChange?.(); // 카운트 새로고침
   };
 
   /**
@@ -79,6 +81,7 @@ export function NoticesTab({ companyId }: NoticesTabProps) {
   const handleDeleteNotice = async () => {
     if (selectedNotice?.id) {
       await deleteNotice(selectedNotice.id);
+      onCountChange?.(); // 카운트 새로고침
     }
   };
 
