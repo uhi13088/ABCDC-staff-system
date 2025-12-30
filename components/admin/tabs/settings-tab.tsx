@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Settings as SettingsIcon, Briefcase, Plus, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Settings as SettingsIcon, Briefcase, Plus, X, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface SettingsTabProps {
   companyId: string;
@@ -25,11 +27,13 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [autoApproveEdit, setAutoApproveEdit] = useState(false);
 
   // 초기 로드
   useEffect(() => {
     if (companyId) {
       loadPositions();
+      loadAttendanceSettings();
     }
   }, [companyId]);
 
@@ -102,6 +106,43 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
     } catch (err) {
       console.error('❌ 직무 삭제 실패:', err);
       setError('직무 삭제에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 출퇴근 설정 로드
+  const loadAttendanceSettings = async () => {
+    try {
+      const settingsRef = doc(db, 'companies', companyId, 'settings', 'attendance');
+      const settingsSnap = await getDoc(settingsRef);
+
+      if (settingsSnap.exists()) {
+        setAutoApproveEdit(settingsSnap.data().autoApproveEdit || false);
+      }
+    } catch (err) {
+      console.error('❌ 출퇴근 설정 로드 실패:', err);
+    }
+  };
+
+  // 출퇴근 설정 저장
+  const saveAttendanceSettings = async (value: boolean) => {
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const settingsRef = doc(db, 'companies', companyId, 'settings', 'attendance');
+      await setDoc(settingsRef, { autoApproveEdit: value }, { merge: true });
+
+      setAutoApproveEdit(value);
+      setSuccess(value 
+        ? '✅ 직원의 출퇴근 수정이 즉시 반영됩니다.'
+        : '✅ 직원의 출퇴근 수정은 관리자 승인 후 반영됩니다.'
+      );
+    } catch (err) {
+      console.error('❌ 출퇴근 설정 저장 실패:', err);
+      setError('설정 저장에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -183,6 +224,71 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
             <p className="text-xs text-slate-500 mt-1">
               ⚠️ 직무를 삭제해도 이미 등록된 직원의 직무는 변경되지 않습니다.
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 출퇴근 기록 수정 정책 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Clock className="w-5 h-5 text-green-600" />
+            출퇴근 기록 수정 정책
+          </CardTitle>
+          <CardDescription>직원이 출퇴근 기록을 수정할 때 적용되는 정책을 설정합니다</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 에러/성공 메시지 */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert className="border-green-500 bg-green-50">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* 자동 승인 설정 */}
+          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="space-y-1">
+              <Label htmlFor="auto-approve" className="text-base font-semibold cursor-pointer">
+                출퇴근 수정 즉시 반영
+              </Label>
+              <p className="text-sm text-gray-500">
+                {autoApproveEdit 
+                  ? '✅ 직원이 출퇴근 시간을 수정하면 즉시 반영됩니다. (관리자에게 알림만 전송)'
+                  : '⏳ 직원이 출퇴근 시간을 수정하면 관리자 승인 후 반영됩니다.'
+                }
+              </p>
+            </div>
+            <Switch
+              id="auto-approve"
+              checked={autoApproveEdit}
+              onCheckedChange={saveAttendanceSettings}
+              disabled={loading}
+            />
+          </div>
+
+          {/* 안내 메시지 */}
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+            <p className="text-sm font-semibold text-blue-900">
+              💡 수정 정책 설명
+            </p>
+            <div className="space-y-1 text-xs text-blue-800">
+              <p>
+                <strong>• 즉시 반영 (ON):</strong> 직원이 수정하면 바로 출퇴근 기록에 반영되며, 관리자에게 알림만 전송됩니다.
+              </p>
+              <p>
+                <strong>• 승인 필요 (OFF):</strong> 직원이 수정 요청하면 관리자가 승인해야 반영됩니다. (결재 탭에서 확인)
+              </p>
+              <p className="mt-2 text-blue-700">
+                ⚠️ 두 방식 모두 직원이 수정 사유를 작성해야 하며, 관리자에게 알림이 전송됩니다.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

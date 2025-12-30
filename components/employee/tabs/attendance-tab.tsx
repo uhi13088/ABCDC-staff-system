@@ -20,13 +20,14 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { Calendar as CalendarIcon } from 'lucide-react'
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { Calendar as CalendarIcon, Edit2 } from 'lucide-react'
+import { collection, query, where, getDocs, orderBy, addDoc, doc, getDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { COLLECTIONS } from '@/lib/constants'
 import { safeToDate } from '@/lib/utils/timestamp'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import EditAttendanceModal from '@/components/employee/modals/edit-attendance-modal'
 
 
 interface AttendanceTabProps {
@@ -52,6 +53,9 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null)
+  const [autoApprove, setAutoApprove] = useState(false)
 
 
   // 출근 기록 로드
@@ -113,9 +117,90 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
     }
   }
 
+  // 회사 설정 로드
+  useEffect(() => {
+    loadCompanySettings()
+  }, [employeeData.companyId])
+
   useEffect(() => {
     loadAttendanceRecords()
   }, [selectedMonth, employeeData])
+
+  // 회사 설정 로드 (자동 승인 여부)
+  const loadCompanySettings = async () => {
+    try {
+      const settingsRef = doc(db, 'companies', employeeData.companyId, 'settings', 'attendance')
+      const settingsSnap = await getDoc(settingsRef)
+      if (settingsSnap.exists()) {
+        setAutoApprove(settingsSnap.data().autoApproveEdit || false)
+      }
+    } catch (error) {
+      console.error('설정 로드 실패:', error)
+    }
+  }
+
+  // 수정 요청 제출
+  const handleEditSubmit = async (data: { clockIn: string; clockOut: string; reason: string }) => {
+    if (!selectedAttendance) return
+
+    try {
+      // 수정 요청 생성
+      const editRequest = {
+        type: 'attendance_edit',
+        companyId: employeeData.companyId,
+        userId: employeeData.uid,
+        userName: employeeData.name,
+        attendanceId: selectedAttendance.id,
+        originalData: {
+          date: selectedAttendance.date,
+          clockIn: selectedAttendance.clockIn,
+          clockOut: selectedAttendance.clockOut
+        },
+        requestedData: {
+          clockIn: data.clockIn,
+          clockOut: data.clockOut
+        },
+        reason: data.reason,
+        status: autoApprove ? 'approved' : 'pending',
+        autoApproved: autoApprove,
+        createdAt: Timestamp.now(),
+        processedAt: autoApprove ? Timestamp.now() : null
+      }
+
+      await addDoc(collection(db, COLLECTIONS.APPROVALS), editRequest)
+
+      // 관리자에게 알림 생성
+      const notificationData = {
+        type: 'attendance_edit_request',
+        companyId: employeeData.companyId,
+        title: autoApprove ? '출퇴근 기록이 수정되었습니다' : '출퇴근 기록 수정 요청',
+        message: `${employeeData.name}님이 ${selectedAttendance.date} 출퇴근 기록을 수정${autoApprove ? '했습니다' : ' 요청했습니다'}.`,
+        userId: 'admin', // 관리자에게 전송
+        read: false,
+        requestId: editRequest.attendanceId,
+        createdAt: Timestamp.now()
+      }
+
+      await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), notificationData)
+
+      alert(autoApprove 
+        ? '✅ 출퇴근 기록이 수정되었습니다.'
+        : '✅ 수정 요청이 제출되었습니다. 관리자 승인 후 반영됩니다.'
+      )
+
+      // 목록 새로고침
+      await loadAttendanceRecords()
+    } catch (error) {
+      console.error('수정 요청 실패:', error)
+      throw new Error('수정 요청에 실패했습니다. 다시 시도해주세요.')
+    }
+  }
+
+  // 수정 버튼 클릭
+  const handleEditClick = (record: AttendanceRecord) => {
+    setSelectedAttendance(record)
+    setEditModalOpen(true)
+  }
 
   // 월 선택 옵션 생성 (최근 12개월)
   const getMonthOptions = () => {
@@ -193,6 +278,7 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
                     <TableHead>근무시간</TableHead>
                     <TableHead>위치</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead className="w-[100px]">관리</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -204,6 +290,16 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
                       <TableCell>{record.workHours}</TableCell>
                       <TableCell>{record.location}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditClick(record)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -230,6 +326,16 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* 수정 모달 */}
+      {selectedAttendance && (
+        <EditAttendanceModal
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          attendance={selectedAttendance}
+          onSubmit={handleEditSubmit}
+        />
+      )}
     </div>
   )
 }
