@@ -136,6 +136,16 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
 
       const attendanceSnapshot = await getDocs(attendanceQuery);
       
+      console.log('🔍 오늘 출퇴근 기록 조회:', {
+        dateStr,
+        totalRecords: attendanceSnapshot.size,
+        records: attendanceSnapshot.docs.map(doc => ({
+          id: doc.id,
+          clockIn: doc.data().clockIn,
+          clockOut: doc.data().clockOut
+        }))
+      });
+      
       // 현재 시간을 Timestamp로 변환
       const nowTimestamp = Timestamp.now();
 
@@ -145,8 +155,15 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         const data = doc.data();
         if (!data.clockOut) {
           activeRecord = { id: doc.id, data };
+          console.log('✅ 활성 출근 기록 발견:', { id: doc.id, clockIn: data.clockIn });
         }
       });
+
+      if (!activeRecord) {
+        console.log('📝 활성 출근 기록 없음 → 새로운 출근 처리');
+      } else {
+        console.log('🚪 활성 출근 기록 있음 → 퇴근 처리');
+      }
 
       // 6. 출퇴근 기록 저장 (자동 승인)
       if (activeRecord) {

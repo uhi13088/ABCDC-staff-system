@@ -45,7 +45,6 @@ interface AttendanceRecord {
   clockIn: string
   clockOut: string
   workHours: string
-  status: 'approved' | 'pending' | 'rejected'
   location: string
 }
 
@@ -103,7 +102,6 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
             clockIn: format(clockInDate, 'HH:mm'),
             clockOut: clockOutDate ? format(clockOutDate, 'HH:mm') : '-',
             workHours,
-            status: data.status || 'pending',
             location: data.location || '-'
           })
         }
@@ -217,19 +215,6 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
     return options
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge variant="default" className="bg-green-500">승인</Badge>
-      case 'pending':
-        return <Badge variant="secondary">대기</Badge>
-      case 'rejected':
-        return <Badge variant="destructive">반려</Badge>
-      default:
-        return <Badge variant="outline">-</Badge>
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -277,7 +262,6 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
                     <TableHead>퇴근</TableHead>
                     <TableHead>근무시간</TableHead>
                     <TableHead>위치</TableHead>
-                    <TableHead>상태</TableHead>
                     <TableHead className="w-[100px]">관리</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -289,7 +273,6 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
                       <TableCell>{record.clockOut}</TableCell>
                       <TableCell>{record.workHours}</TableCell>
                       <TableCell>{record.location}</TableCell>
-                      <TableCell>{getStatusBadge(record.status)}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
