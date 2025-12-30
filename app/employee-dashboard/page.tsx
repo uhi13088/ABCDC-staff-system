@@ -17,7 +17,6 @@ import {
   DollarSign, 
   Calendar, 
   FileCheck, 
-  Bell, 
   Megaphone, 
   User,
   LogOut,
@@ -38,7 +37,6 @@ import SalaryTab from '@/components/employee/tabs/salary-tab'
 import ScheduleTab from '@/components/employee/tabs/schedule-tab'
 import ApprovalsTab from '@/components/employee/tabs/approvals-tab'
 import NoticesTab from '@/components/employee/tabs/notices-tab'
-import NotificationsTab from '@/components/employee/tabs/notifications-tab'
 import ProfileTab from '@/components/employee/tabs/profile-tab'
 import ContractsTab from '@/components/employee/tabs/contracts-tab'
 import StaffListTab from '@/components/employee/tabs/staff-list-tab'
@@ -57,7 +55,6 @@ interface EmployeeData {
 interface TabCounts {
   notices: number
   approvals: number
-  notifications: number
 }
 
 export default function EmployeeDashboardPage() {
@@ -67,8 +64,7 @@ export default function EmployeeDashboardPage() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [tabCounts, setTabCounts] = useState<TabCounts>({
     notices: 0,
-    approvals: 0,
-    notifications: 0
+    approvals: 0
   })
   
   // 출퇴근 상태
@@ -161,18 +157,9 @@ export default function EmployeeDashboardPage() {
       )
       const approvalsSnapshot = await getDocs(approvalsQuery)
 
-      // 읽지 않은 알림 개수
-      const notificationsQuery = query(
-        collection(db, COLLECTIONS.NOTIFICATIONS),
-        where('userId', '==', employeeData.uid),
-        where('read', '==', false)
-      )
-      const notificationsSnapshot = await getDocs(notificationsQuery)
-
       setTabCounts({
         notices: noticesSnapshot.size,
-        approvals: approvalsSnapshot.size,
-        notifications: notificationsSnapshot.size
+        approvals: approvalsSnapshot.size
       })
     } catch (error) {
       console.error('탭 카운트 로드 실패:', error)
@@ -364,7 +351,7 @@ export default function EmployeeDashboardPage() {
       {/* 메인 콘텐츠 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 lg:grid-cols-10 gap-2 h-auto p-2">
+          <TabsList className="grid grid-cols-4 lg:grid-cols-9 gap-2 h-auto p-2">
             <TabsTrigger value="dashboard" className="flex flex-col items-center gap-1 py-3">
               <LayoutDashboard className="w-5 h-5" />
               <span className="text-xs">대시보드</span>
@@ -407,15 +394,6 @@ export default function EmployeeDashboardPage() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex flex-col items-center gap-1 py-3 relative">
-              <Bell className="w-5 h-5" />
-              <span className="text-xs">알림</span>
-              {tabCounts.notifications > 0 && (
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs">
-                  {tabCounts.notifications}
-                </Badge>
-              )}
-            </TabsTrigger>
             <TabsTrigger value="profile" className="flex flex-col items-center gap-1 py-3">
               <User className="w-5 h-5" />
               <span className="text-xs">프로필</span>
@@ -452,10 +430,6 @@ export default function EmployeeDashboardPage() {
 
           <TabsContent value="notices">
             <NoticesTab employeeData={employeeData} onCountChange={loadTabCounts} />
-          </TabsContent>
-
-          <TabsContent value="notifications">
-            <NotificationsTab employeeData={employeeData} onCountChange={loadTabCounts} />
           </TabsContent>
 
           <TabsContent value="profile">
