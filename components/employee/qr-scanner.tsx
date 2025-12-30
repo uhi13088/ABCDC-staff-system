@@ -31,6 +31,7 @@ interface QRScannerProps {
 
 export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isProcessingRef = useRef<boolean>(false); // 즉시 동기화를 위한 ref
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -81,12 +82,14 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
    * QR 스캔 성공 핸들러
    */
   const onScanSuccess = async (decodedText: string) => {
-    if (isProcessing) {
-      console.log('⚠️ 이미 처리 중입니다. 중복 스캔 무시');
-      return; // 중복 처리 방지
+    // ref로 즉시 체크 (state는 비동기라 느림)
+    if (isProcessingRef.current) {
+      console.log('⚠️ 이미 처리 중입니다. 중복 스캔 무시 (ref)');
+      return;
     }
 
     console.log('🔄 QR 스캔 시작 - isProcessing 설정');
+    isProcessingRef.current = true; // 즉시 잠금
     setIsProcessing(true);
 
     // 스캐너 즉시 중지
@@ -287,6 +290,7 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
     } catch (error) {
       console.error('❌ QR 처리 실패:', error);
       setError(error.message || 'QR 코드 처리에 실패했습니다.');
+      isProcessingRef.current = false; // 재시도 가능하도록 해제
       setIsProcessing(false);
     }
   };
