@@ -310,16 +310,30 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
           {/* 요약 정보 */}
           {records.length > 0 && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">총 근무일수:</span>
-                  <span className="ml-2 font-semibold">{records.length}일</span>
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-3 text-sm">
+                <div className="text-center">
+                  <div className="text-gray-600 text-xs mb-1">총 근무일</div>
+                  <div className="font-bold text-lg">{records.length}일</div>
                 </div>
-                <div>
-                  <span className="text-gray-600">승인된 근무:</span>
-                  <span className="ml-2 font-semibold">
-                    {records.filter(r => r.status === 'approved').length}일
-                  </span>
+                <div className="text-center">
+                  <div className="text-gray-600 text-xs mb-1">휴가</div>
+                  <div className="font-bold text-lg text-blue-600">0일</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-gray-600 text-xs mb-1">연장근무</div>
+                  <div className="font-bold text-lg text-purple-600">0일</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-gray-600 text-xs mb-1">결근</div>
+                  <div className="font-bold text-lg text-red-600">0일</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-gray-600 text-xs mb-1">지각</div>
+                  <div className="font-bold text-lg text-orange-600">0회</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-gray-600 text-xs mb-1">조퇴</div>
+                  <div className="font-bold text-lg text-yellow-600">0회</div>
                 </div>
               </div>
             </div>
