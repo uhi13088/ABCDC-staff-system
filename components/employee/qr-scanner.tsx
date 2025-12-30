@@ -9,6 +9,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Camera, X, AlertCircle } from 'lucide-react';
 import { validateQRCode, validateLocation } from '@/lib/utils/qr-generator';
 import { doc, getDoc, addDoc, updateDoc, setDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
@@ -35,6 +38,11 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // 이유 입력 모달 상태
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [reasonDetail, setReasonDetail] = useState('');
+  const [pendingData, setPendingData] = useState<any>(null);
 
   /**
    * 카메라 시작
@@ -76,6 +84,76 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
       }
     }
     setIsScanning(false);
+  };
+
+  /**
+   * 이유 입력 모달 저장 핸들러
+   */
+  const handleReasonSubmit = async () => {
+    if (!reasonDetail.trim()) {
+      alert('이유를 입력해주세요.');
+      return;
+    }
+
+    if (!pendingData) {
+      alert('저장할 데이터가 없습니다.');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+
+      if (pendingData.type === 'clockIn') {
+        // 출근 기록 저장
+        const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, pendingData.docId);
+        await setDoc(attendanceRef, {
+          userId: employeeData.uid,
+          uid: employeeData.uid,
+          name: employeeData.name,
+          employeeName: employeeData.name,
+          companyId: employeeData.companyId,
+          storeId: pendingData.qrData.storeId,
+          store: pendingData.qrData.storeName,
+          date: pendingData.dateStr,
+          clockIn: pendingData.nowTimestamp,
+          clockOut: null,
+          status: 'approved',
+          workType: 'QR출근',
+          createdAt: pendingData.nowTimestamp,
+          warning: pendingData.warningMessage,
+          warningReason: pendingData.warningReason,
+          warningReasonDetail: reasonDetail.trim(),
+        });
+
+        alert(`✅ 출근 완료!\n\n시간: ${pendingData.clockInTime}\n매장: ${pendingData.qrData.storeName}\n\n${pendingData.warningMessage}\n\n사유: ${reasonDetail.trim()}`);
+      } else if (pendingData.type === 'clockOut') {
+        // 퇴근 기록 업데이트
+        const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, pendingData.attendanceId);
+        await updateDoc(attendanceRef, {
+          clockOut: pendingData.nowTimestamp,
+          status: 'approved',
+          updatedAt: pendingData.nowTimestamp,
+          warning: pendingData.warningMessage,
+          warningReason: pendingData.warningReason,
+          warningReasonDetail: reasonDetail.trim(),
+        });
+
+        alert(`✅ 퇴근 완료!\n\n시간: ${pendingData.clockOutTime}\n매장: ${pendingData.qrData.storeName}\n\n${pendingData.warningMessage}\n\n사유: ${reasonDetail.trim()}`);
+      }
+
+      // 모달 닫기 및 상태 초기화
+      setShowReasonModal(false);
+      setReasonDetail('');
+      setPendingData(null);
+      onSuccess?.();
+      onClose();
+    } catch (error) {
+      console.error('❌ 저장 실패:', error);
+      alert(error.message || '저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsProcessing(false);
+      isProcessingRef.current = false;
+    }
   };
 
   /**
@@ -227,19 +305,34 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           }
         }
 
+        // 경고 발생 시 이유 입력 모달 표시
+        if (warningMessage) {
+          console.log('⚠️ 경고 발생 → 이유 입력 모달 표시');
+          setPendingData({
+            type: 'clockOut',
+            attendanceId: activeRecord.id,
+            clockOutTime,
+            warningMessage,
+            warningReason,
+            nowTimestamp,
+            qrData
+          });
+          setShowReasonModal(true);
+          return; // 모달에서 저장 처리
+        }
+
+        // 경고 없으면 바로 저장
         const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, activeRecord.id);
         await updateDoc(attendanceRef, {
           clockOut: nowTimestamp,
           status: 'approved', // 자동 승인
           updatedAt: nowTimestamp,
-          warning: warningMessage || null,
-          warningReason: warningReason || null,
+          warning: null,
+          warningReason: null,
+          warningReasonDetail: null,
         });
 
-        const alertMessage = warningMessage
-          ? `✅ 퇴근 완료!\n\n시간: ${clockOutTime}\n매장: ${qrData.storeName}\n\n${warningMessage}`
-          : `✅ 퇴근 완료!\n\n시간: ${clockOutTime}\n매장: ${qrData.storeName}`;
-        alert(alertMessage);
+        alert(`✅ 퇴근 완료!\n\n시간: ${clockOutTime}\n매장: ${qrData.storeName}`);
       } else {
         // 출근 처리 (새로운 출근 기록 생성)
         const clockInTime = format(nowTimestamp.toDate(), 'HH:mm');
@@ -263,6 +356,24 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
             warningMessage = `⚠️ 지각: 계약시간(${contractSchedule.startTime})보다 ${Math.floor((actualMinutes - contractMinutes) / 60)}시간 ${(actualMinutes - contractMinutes) % 60}분 늦게 출근`;
             warningReason = '지각';
           }
+        }
+
+        // 경고 발생 시 이유 입력 모달 표시
+        if (warningMessage) {
+          console.log('⚠️ 경고 발생 → 이유 입력 모달 표시');
+          setPendingData({
+            type: 'clockIn',
+            clockInTime,
+            clockInTimeForId,
+            docId,
+            warningMessage,
+            warningReason,
+            nowTimestamp,
+            dateStr,
+            qrData
+          });
+          setShowReasonModal(true);
+          return; // 모달에서 저장 처리
         }
 
         console.log('📝 출근 기록 생성 시작:', {
@@ -292,16 +403,14 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           status: 'approved', // 자동 승인
           workType: 'QR출근',
           createdAt: nowTimestamp,
-          warning: warningMessage || null,
-          warningReason: warningReason || null,
+          warning: null,
+          warningReason: null,
+          warningReasonDetail: null,
         });
         
         console.log('✅ 출근 기록 생성 완료 (docId:', docId, ')');
 
-        const alertMessage = warningMessage
-          ? `✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}\n\n${warningMessage}`
-          : `✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}`;
-        alert(alertMessage);
+        alert(`✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}`);
       }
 
       // 8. 성공 처리
@@ -385,6 +494,7 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
   }, [isOpen]);
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -467,5 +577,61 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* 이유 입력 모달 */}
+    <Dialog open={showReasonModal} onOpenChange={setShowReasonModal}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-orange-600">
+            <AlertCircle className="h-5 w-5" />
+            허용시간 초과 - 이유 입력 필요
+          </DialogTitle>
+          <DialogDescription>
+            {pendingData?.warningMessage}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="reason" className="text-sm font-semibold">
+              상세 이유 <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="reason"
+              placeholder="예: 교통 체증, 긴급 업무, 고객 응대 등"
+              value={reasonDetail}
+              onChange={(e) => setReasonDetail(e.target.value)}
+              rows={4}
+              className="resize-none"
+            />
+            <p className="text-xs text-zinc-500">
+              * 허용시간을 벗어난 경우 반드시 이유를 입력해야 합니다.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowReasonModal(false);
+              setReasonDetail('');
+              setPendingData(null);
+              isProcessingRef.current = false;
+              setIsProcessing(false);
+            }}
+          >
+            취소
+          </Button>
+          <Button
+            onClick={handleReasonSubmit}
+            disabled={!reasonDetail.trim() || isProcessing}
+          >
+            {isProcessing ? '저장 중...' : '저장하고 완료'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }

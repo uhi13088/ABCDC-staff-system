@@ -54,6 +54,11 @@ export interface AttendanceRecord {
   absentReason?: string;
   reasonSubmittedAt?: DateTimeType;
   
+  // 경고 및 사유 (허용시간 초과 시)
+  warning?: string | null;              // 경고 메시지 (예: "⚠️ 조기출근: 계약시간보다 30분 일찍 출근")
+  warningReason?: string | null;        // 경고 사유 (예: "조기출근", "지각", "연장근무")
+  warningReasonDetail?: string | null;  // 사용자가 입력한 상세 이유 (예: "교통 체증으로 인한 지각")
+  
   // 메타데이터
   createdAt?: DateTimeType;
   updatedAt?: DateTimeType;
