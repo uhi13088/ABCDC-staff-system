@@ -274,8 +274,8 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         
         // 🔧 해결책: addDoc 대신 setDoc 사용 (결정적 ID)
         // 문서 ID: {userId}_{date}_출근시간(HH-mm-ss)
-        const clockInTime = format(nowTimestamp.toDate(), 'HH-mm-ss');
-        const docId = `${employeeData.uid}_${dateStr}_${clockInTime}`;
+        const clockInTimeForId = format(nowTimestamp.toDate(), 'HH-mm-ss');
+        const docId = `${employeeData.uid}_${dateStr}_${clockInTimeForId}`;
         const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, docId);
         
         await setDoc(attendanceRef, {
