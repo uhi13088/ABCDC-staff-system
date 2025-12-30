@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -19,8 +20,14 @@ import {
   Bell, 
   Megaphone, 
   User,
-  LogOut
+  LogOut,
+  LogIn,
+  QrCode,
+  Clock
 } from 'lucide-react'
+import { clockOut } from '@/services/attendanceService' // clockOut은 QR 스캐너에서 사용
+import { format } from 'date-fns'
+import { QRScanner } from '@/components/employee/qr-scanner'
 
 // 탭 컴포넌트 (동적 import로 나중에 구현)
 import DashboardTab from '@/components/employee/tabs/dashboard-tab'
@@ -58,6 +65,14 @@ export default function EmployeeDashboardPage() {
     approvals: 0,
     notifications: 0
   })
+  
+  // 출퇴근 상태
+  const [todayStatus, setTodayStatus] = useState<'not_clocked_in' | 'clocked_in' | 'clocked_out'>('not_clocked_in')
+  const [currentAttendanceId, setCurrentAttendanceId] = useState<string | null>(null)
+  const [isClocking, setIsClocking] = useState(false)
+  
+  // QR 스캔 모달
+  const [qrScanOpen, setQrScanOpen] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -158,6 +173,71 @@ export default function EmployeeDashboardPage() {
     }
   }
 
+  // 오늘 출퇴근 상태 로드
+  useEffect(() => {
+    if (employeeData) {
+      loadTodayAttendance()
+    }
+  }, [employeeData])
+
+  const loadTodayAttendance = async () => {
+    if (!employeeData) return
+
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const attendanceQuery = query(
+        collection(db, COLLECTIONS.ATTENDANCE),
+        where('userId', '==', employeeData.uid),
+        where('date', '==', today)
+      )
+      const snapshot = await getDocs(attendanceQuery)
+
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0]
+        const data = doc.data()
+        setCurrentAttendanceId(doc.id)
+        
+        if (data.clockOut) {
+          setTodayStatus('clocked_out')
+        } else {
+          setTodayStatus('clocked_in')
+        }
+      } else {
+        setTodayStatus('not_clocked_in')
+        setCurrentAttendanceId(null)
+      }
+    } catch (error) {
+      console.error('출퇴근 상태 로드 실패:', error)
+    }
+  }
+
+  // QR 스캔 열기
+  const handleOpenQrScan = () => {
+    setQrScanOpen(true)
+  }
+
+  // 퇴근 처리 (사용 안 함 - QR 스캔으로 통합)
+  // const handleClockOut = async () => {
+  //   if (!currentAttendanceId) {
+  //     alert('출근 기록을 찾을 수 없습니다.')
+  //     return
+  //   }
+
+  //   if (!confirm('퇴근 처리하시겠습니까?')) return
+
+  //   setIsClocking(true)
+  //   try {
+  //     await clockOut(currentAttendanceId)
+  //     alert('퇴근 처리되었습니다.')
+  //     await loadTodayAttendance()
+  //   } catch (error: any) {
+  //     console.error('퇴근 처리 실패:', error)
+  //     alert(error.message || '퇴근 처리 중 오류가 발생했습니다.')
+  //   } finally {
+  //     setIsClocking(false)
+  //   }
+  // }
+
   const handleLogout = async () => {
     if (confirm('로그아웃 하시겠습니까?')) {
       try {
@@ -189,7 +269,7 @@ export default function EmployeeDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div>
@@ -200,17 +280,58 @@ export default function EmployeeDashboardPage() {
                 소속: <span className="font-medium">{employeeData.storeName}</span>
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={handleLogout}
-              className="flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              로그아웃
-            </Button>
+            
+            <div className="flex items-center gap-3">
+              {/* 출퇴근 버튼 */}
+              {todayStatus === 'not_clocked_in' && (
+                <Button
+                  onClick={handleOpenQrScan}
+                  size="lg"
+                  className="bg-green-600 hover:bg-green-700 flex items-center gap-2 shadow-lg"
+                >
+                  <QrCode className="w-5 h-5" />
+                  QR 출근
+                </Button>
+              )}
+
+              {todayStatus === 'clocked_in' && (
+                <Button
+                  onClick={handleOpenQrScan}
+                  size="lg"
+                  className="bg-red-600 hover:bg-red-700 flex items-center gap-2 shadow-lg"
+                >
+                  <QrCode className="w-5 h-5" />
+                  QR 퇴근
+                </Button>
+              )}
+
+              {todayStatus === 'clocked_out' && (
+                <Badge className="px-4 py-2 text-base bg-gray-600">퇴근 완료</Badge>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                로그아웃
+              </Button>
+            </div>
           </div>
         </div>
       </header>
+
+      {/* QR 스캐너 모달 */}
+      <QRScanner
+        isOpen={qrScanOpen}
+        onClose={() => setQrScanOpen(false)}
+        employeeData={employeeData}
+        onSuccess={() => {
+          setQrScanOpen(false)
+          loadTodayAttendance() // 출퇴근 상태 새로고침
+        }}
+      />
 
       {/* 메인 콘텐츠 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

@@ -20,14 +20,14 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { QrCode, Calendar as CalendarIcon } from 'lucide-react'
+import { Calendar as CalendarIcon } from 'lucide-react'
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { COLLECTIONS } from '@/lib/constants'
 import { safeToDate } from '@/lib/utils/timestamp'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { QRScanner } from '@/components/employee/qr-scanner'
+
 
 interface AttendanceTabProps {
   employeeData: {
@@ -52,7 +52,7 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
-  const [showQRModal, setShowQRModal] = useState(false)
+
 
   // 출근 기록 로드
   const loadAttendanceRecords = async () => {
@@ -156,37 +156,6 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* QR 체크인 카드 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">QR 코드 출퇴근</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              매장에 비치된 QR 코드를 스캔하여 출퇴근을 기록하세요
-            </p>
-            <Button
-              onClick={() => setShowQRModal(true)}
-              className="flex items-center gap-2"
-            >
-              <QrCode className="w-4 h-4" />
-              QR 스캔
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* QR 스캐너 모달 */}
-      <QRScanner
-        isOpen={showQRModal}
-        onClose={() => setShowQRModal(false)}
-        employeeData={employeeData}
-        onSuccess={() => {
-          loadAttendanceRecords() // 출퇴근 기록 새로고침
-        }}
-      />
-
       {/* 근무 내역 테이블 */}
       <Card>
         <CardHeader>
