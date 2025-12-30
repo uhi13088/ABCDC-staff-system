@@ -14,6 +14,7 @@ import { validateQRCode, validateLocation } from '@/lib/utils/qr-generator';
 import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
+import { format } from 'date-fns';
 import type { Store } from '@/lib/types/store';
 
 interface QRScannerProps {
@@ -136,8 +137,10 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
       const attendanceSnapshot = await getDocs(attendanceQuery);
       const existingRecord = attendanceSnapshot.docs[0];
 
-      const now = today.toTimeString().slice(0, 5); // HH:MM
+      // 현재 시간을 Timestamp로 변환
+      const nowTimestamp = Timestamp.now();
 
+      // 이미 퇴근 처리되었는지 확인
       if (existingRecord && existingRecord.data().clockOut) {
         throw new Error('이미 퇴근 처리되었습니다.');
       }
@@ -147,11 +150,11 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         // 퇴근 처리
         const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, existingRecord.id);
         await updateDoc(attendanceRef, {
-          clockOut: now,
-          updatedAt: Timestamp.now(),
+          clockOut: nowTimestamp,
+          updatedAt: nowTimestamp,
         });
 
-        alert(`✅ 퇴근 완료!\n\n시간: ${now}\n매장: ${qrData.storeName}`);
+        alert(`✅ 퇴근 완료!\n\n시간: ${format(nowTimestamp.toDate(), 'HH:mm')}\n매장: ${qrData.storeName}`);
       } else {
         // 출근 처리
         await addDoc(collection(db, COLLECTIONS.ATTENDANCE), {
@@ -163,13 +166,13 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           storeId: qrData.storeId,
           store: qrData.storeName,
           date: dateStr,
-          clockIn: now,
+          clockIn: nowTimestamp,
           clockOut: null,
           workType: 'QR출근',
-          createdAt: Timestamp.now(),
+          createdAt: nowTimestamp,
         });
 
-        alert(`✅ 출근 완료!\n\n시간: ${now}\n매장: ${qrData.storeName}`);
+        alert(`✅ 출근 완료!\n\n시간: ${format(nowTimestamp.toDate(), 'HH:mm')}\n매장: ${qrData.storeName}`);
       }
 
       // 7. 성공 처리
