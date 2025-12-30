@@ -119,11 +119,18 @@ export function ContractFormModal({
   
   // 7. 계약서 본문
   const [contractContent, setContractContent] = useState('');
+  
+  // 8. 임시저장 상태
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const DRAFT_KEY = `contract_draft_${companyId}_${employeeId || 'new'}`;
 
   useEffect(() => {
     if (open && companyId) {
       loadEmployees();
       loadStores();
+      loadDraft(); // 임시저장 데이터 불러오기
     }
   }, [open, companyId]);
 
@@ -133,6 +140,19 @@ export function ContractFormModal({
       loadEmployeeInfo(employeeId);
     }
   }, [employeeId]);
+
+  // 자동 저장 (1분마다)
+  useEffect(() => {
+    if (!open) return;
+
+    const autoSaveInterval = setInterval(() => {
+      if (selectedEmployeeId) {
+        saveDraft(true); // 자동 저장
+      }
+    }, 60000); // 60초
+
+    return () => clearInterval(autoSaveInterval);
+  }, [open, selectedEmployeeId]);
 
   /**
    * 직원 목록 로드 (승인된 직원만)
@@ -238,6 +258,171 @@ export function ContractFormModal({
       setAllowOvertime(store.overtimeAllowance || false);
       setAllowNight(store.nightAllowance || false);
       setAllowHoliday(store.holidayAllowance || false);
+    }
+  };
+
+  /**
+   * 임시저장 데이터 로드
+   */
+  const loadDraft = () => {
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_KEY);
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        
+        // 기본 정보
+        if (draft.selectedEmployeeId) setSelectedEmployeeId(draft.selectedEmployeeId);
+        if (draft.selectedStoreId) setSelectedStoreId(draft.selectedStoreId);
+        
+        // 직원 정보
+        if (draft.employeeName) setEmployeeName(draft.employeeName);
+        if (draft.employeeBirth) setEmployeeBirth(draft.employeeBirth);
+        if (draft.employeeAddress) setEmployeeAddress(draft.employeeAddress);
+        if (draft.employeePhone) setEmployeePhone(draft.employeePhone);
+        
+        // 회사 정보
+        if (draft.companyCEO) setCompanyCEO(draft.companyCEO);
+        if (draft.companyBusinessNumber) setCompanyBusinessNumber(draft.companyBusinessNumber);
+        if (draft.companyPhone) setCompanyPhone(draft.companyPhone);
+        if (draft.companyAddress) setCompanyAddress(draft.companyAddress);
+        
+        // 계약 정보
+        if (draft.contractType) setContractType(draft.contractType);
+        if (draft.workStore) setWorkStore(draft.workStore);
+        if (draft.startDate) setStartDate(draft.startDate);
+        if (draft.endDate) setEndDate(draft.endDate);
+        if (draft.position) setPosition(draft.position);
+        
+        // 근무 조건
+        if (draft.schedules) setSchedules(draft.schedules);
+        if (draft.breakTime) setBreakTime(draft.breakTime);
+        
+        // 급여 조건
+        if (draft.salaryType) setSalaryType(draft.salaryType);
+        if (draft.salaryAmount) setSalaryAmount(draft.salaryAmount);
+        if (draft.paymentDay) setPaymentDay(draft.paymentDay);
+        if (draft.paymentMethod) setPaymentMethod(draft.paymentMethod);
+        
+        // 수당
+        if (draft.allowOvertime !== undefined) setAllowOvertime(draft.allowOvertime);
+        if (draft.allowNight !== undefined) setAllowNight(draft.allowNight);
+        if (draft.allowHoliday !== undefined) setAllowHoliday(draft.allowHoliday);
+        
+        // 보험
+        if (draft.insuranceType) setInsuranceType(draft.insuranceType);
+        if (draft.allowSeverancePay !== undefined) setAllowSeverancePay(draft.allowSeverancePay);
+        
+        // 계약서 본문
+        if (draft.contractContent) setContractContent(draft.contractContent);
+        
+        // 저장 시간
+        if (draft.savedAt) setLastSaved(new Date(draft.savedAt));
+        
+        console.log('✅ 임시저장 데이터 로드 완료');
+      }
+    } catch (error) {
+      console.error('임시저장 데이터 로드 실패:', error);
+    }
+  };
+
+  /**
+   * 임시저장
+   */
+  const saveDraft = (isAuto = false) => {
+    try {
+      setIsSaving(true);
+      
+      const draft = {
+        // 기본 정보
+        selectedEmployeeId,
+        selectedStoreId,
+        
+        // 직원 정보
+        employeeName,
+        employeeBirth,
+        employeeAddress,
+        employeePhone,
+        
+        // 회사 정보
+        companyCEO,
+        companyBusinessNumber,
+        companyPhone,
+        companyAddress,
+        
+        // 계약 정보
+        contractType,
+        workStore,
+        startDate,
+        endDate,
+        position,
+        
+        // 근무 조건
+        schedules,
+        breakTime,
+        
+        // 급여 조건
+        salaryType,
+        salaryAmount,
+        paymentDay,
+        paymentMethod,
+        
+        // 수당
+        allowOvertime,
+        allowNight,
+        allowHoliday,
+        
+        // 보험
+        insuranceType,
+        allowSeverancePay,
+        
+        // 계약서 본문
+        contractContent,
+        
+        // 저장 시간
+        savedAt: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      setLastSaved(new Date());
+      
+      if (!isAuto) {
+        alert('✅ 임시저장이 완료되었습니다.');
+      }
+      
+      console.log('✅ 임시저장 완료');
+    } catch (error) {
+      console.error('임시저장 실패:', error);
+      if (!isAuto) {
+        alert('임시저장 중 오류가 발생했습니다.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * 임시저장 데이터 삭제
+   */
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      setLastSaved(null);
+      console.log('✅ 임시저장 데이터 삭제 완료');
+    } catch (error) {
+      console.error('임시저장 데이터 삭제 실패:', error);
+    }
+  };
+
+  /**
+   * 모달 닫기 (임시저장 확인)
+   */
+  const handleClose = () => {
+    if (selectedEmployeeId && lastSaved) {
+      if (confirm('작성 중인 내용이 임시저장되었습니다.\n모달을 닫으시겠습니까?\n\n(임시저장 데이터는 다음에 다시 불러올 수 있습니다)')) {
+        onClose();
+      }
+    } else {
+      onClose();
     }
   };
 
@@ -406,6 +591,7 @@ export function ContractFormModal({
       });
 
       console.log('✅ 계약서 저장 완료:', docRef.id);
+      clearDraft(); // 임시저장 데이터 삭제
       alert('계약서가 생성되었습니다!');
       onClose();
     } catch (error) {
@@ -415,7 +601,7 @@ export function ContractFormModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">
@@ -435,10 +621,19 @@ export function ContractFormModal({
                 미리보기
               </TabsTrigger>
             </TabsList>
-            <Button variant="outline" onClick={() => alert('저장 기능 추후 구현')}>
+            <Button 
+              variant="outline" 
+              onClick={() => saveDraft(false)}
+              disabled={isSaving || !selectedEmployeeId}
+            >
               <Save className="w-4 h-4 mr-2" />
-              임시 저장
+              {isSaving ? '저장 중...' : '임시 저장'}
             </Button>
+            {lastSaved && (
+              <p className="text-xs text-gray-500">
+                마지막 저장: {lastSaved.toLocaleTimeString('ko-KR')}
+              </p>
+            )}
           </div>
 
           {/* ==================== 작성 폼 탭 ==================== */}
