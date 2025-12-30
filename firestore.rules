@@ -301,7 +301,8 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow read: if isAuthenticated()
         && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
-      allow create: if isManager() && isSameCompany(request.resource.data.companyId);
+      // 직원도 알림 생성 가능 (출퇴근 수정 요청 알림 등)
+      allow create: if isAuthenticated() && isSameCompany(request.resource.data.companyId);
       allow update: if isAuthenticated()
         && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
       allow delete: if isAuthenticated()

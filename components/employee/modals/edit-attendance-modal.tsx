@@ -51,11 +51,6 @@ export default function EditAttendanceModal({
       return
     }
 
-    if (reason.trim().length < 10) {
-      setError('수정 사유를 10자 이상 입력해주세요.')
-      return
-    }
-
     setIsSubmitting(true)
     try {
       await onSubmit({
@@ -136,14 +131,14 @@ export default function EditAttendanceModal({
             </Label>
             <Textarea
               id="reason"
-              placeholder="출퇴근 시간을 수정하는 이유를 상세히 작성해주세요. (최소 10자)"
+              placeholder="출퇴근 시간을 수정하는 이유를 작성해주세요."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={4}
               required
             />
             <p className="text-xs text-gray-500">
-              {reason.length}/10자 이상 필수
+              {reason.length}자
             </p>
           </div>
 
