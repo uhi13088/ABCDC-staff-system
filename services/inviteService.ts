@@ -61,6 +61,7 @@ export const verifyInviteCode = async (code: string): Promise<{
       storeId: inviteData.storeId,
       storeName: inviteData.storeName,
       role: inviteData.role,
+      position: inviteData.position, // 직무
       status: inviteData.status,
       maxUses: inviteData.maxUses,
       usedCount: inviteData.usedCount || 0,
@@ -149,6 +150,7 @@ export const getCompanyInvite = async (inviteId: string): Promise<CompanyInvite 
       storeId: inviteData.storeId,
       storeName: inviteData.storeName,
       role: inviteData.role,
+      position: inviteData.position, // 직무
       status: inviteData.status,
       maxUses: inviteData.maxUses,
       usedCount: inviteData.usedCount || 0,
@@ -191,6 +193,7 @@ export const getCompanyInvites = async (companyId: string): Promise<CompanyInvit
         storeId: data.storeId,
         storeName: data.storeName,
         role: data.role,
+        position: data.position, // 직무
         status: data.status,
         maxUses: data.maxUses,
         usedCount: data.usedCount || 0,
@@ -228,6 +231,7 @@ export const createCompanyInvite = async (
       storeId: options.storeId,
       storeName: options.storeName || '',
       role: options.role,
+      position: options.position || '', // 직무 (선택)
       status: 'active' as const,
       maxUses: options.maxUses,
       usedCount: 0,

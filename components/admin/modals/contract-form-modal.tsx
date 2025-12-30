@@ -489,7 +489,7 @@ export function ContractFormModal({
     if (!selectedStoreId) return '매장을 선택해주세요.';
     if (!contractType) return '계약 유형을 선택해주세요.';
     if (!startDate) return '계약 시작일을 입력해주세요.';
-    if (!position) return '직책/직무를 입력해주세요.';
+    if (!position) return '직무/직책을 입력해주세요.';
     
     // 근무 조건 검증
     for (const schedule of schedules) {
@@ -814,7 +814,7 @@ export function ContractFormModal({
                   </div>
                   
                   <div className="col-span-2">
-                    <Label>직책/직무 *</Label>
+                    <Label>직무/직책 *</Label>
                     <Input 
                       value={position}
                       onChange={(e) => setPosition(e.target.value)}

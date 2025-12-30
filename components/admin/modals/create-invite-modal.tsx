@@ -32,6 +32,7 @@ export default function CreateInviteModal({
 }: CreateInviteModalProps) {
   const [storeId, setStoreId] = useState('');
   const [role, setRole] = useState('staff');
+  const [position, setPosition] = useState(''); // 직무
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
@@ -52,6 +53,7 @@ export default function CreateInviteModal({
       const code = await onCreateInvite({
         storeId,
         role,
+        position: position || undefined, // 직무 (선택)
         maxUses: 999999,  // 무제한 (매우 큰 숫자)
       });
 
@@ -72,6 +74,7 @@ export default function CreateInviteModal({
   const handleClose = () => {
     setStoreId('');
     setRole('staff');
+    setPosition(''); // 직무 초기화
     setError('');
     setGeneratedCode('');
     onOpenChange(false);
@@ -83,7 +86,7 @@ export default function CreateInviteModal({
         <DialogHeader>
           <DialogTitle>초대 코드 생성</DialogTitle>
           <DialogDescription>
-            직원을 초대할 매장과 직급을 선택하세요.
+            직원을 초대할 매장, 직급, 직무를 선택하세요.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,6 +129,25 @@ export default function CreateInviteModal({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* 직무 입력 */}
+          <div className="space-y-2">
+            <Label htmlFor="position">직무 (선택)</Label>
+            <Input
+              id="position"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              placeholder="예: 바리스타, 베이커, 경리 등"
+              maxLength={50}
+            />
+            <p className="text-xs text-slate-500">
+              💡 직무는 초대 코드로 가입한 직원의 계약서에 자동 반영됩니다.
+            </p>
+          </div>
+
+          {/* 안내 */}
+          <div className="space-y-2">
             <p className="text-xs text-slate-500">
               💡 초대 코드는 무제한으로 사용 가능하며 만료되지 않습니다.
             </p>

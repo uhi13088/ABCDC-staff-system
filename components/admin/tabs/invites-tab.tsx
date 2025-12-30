@@ -67,6 +67,7 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
                   <TableHead>코드</TableHead>
                   <TableHead>매장</TableHead>
                   <TableHead>직급</TableHead>
+                  <TableHead>직무</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead>관리</TableHead>
                 </TableRow>
@@ -85,6 +86,7 @@ export default function InvitesTab({ companyId }: InvitesTabProps) {
                       <TableCell className="font-mono font-medium text-blue-600">{invite.code}</TableCell>
                       <TableCell>{invite.storeName || invite.companyName || '-'}</TableCell>
                       <TableCell>{roleLabel}</TableCell>
+                      <TableCell>{invite.position || '-'}</TableCell>
                       <TableCell>
                         <Badge 
                           variant={invite.status === 'active' ? 'default' : 'secondary'}

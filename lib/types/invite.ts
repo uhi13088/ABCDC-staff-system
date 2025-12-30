@@ -58,6 +58,7 @@ export interface CompanyInvite {
   
   // 권한 정보
   role: 'staff' | 'store_manager' | 'manager';
+  position?: string;              // 직무 (예: 바리스타, 베이커, 경리 등)
   
   // 사용 정보
   status: 'active' | 'inactive';
@@ -93,6 +94,7 @@ export interface CompanyInviteCreateOptions {
   storeId: string;
   storeName?: string;             // 자동으로 채워짐
   role: 'staff' | 'store_manager' | 'manager';
+  position?: string;              // 직무 (선택)
   maxUses: number;
   expiresAt?: Date;
 }

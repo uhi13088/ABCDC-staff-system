@@ -47,6 +47,7 @@ interface EmployeeData {
   storeId: string
   storeName: string
   role: string
+  position?: string // 직무
 }
 
 interface TabCounts {
@@ -115,7 +116,8 @@ export default function EmployeeDashboardPage() {
           companyId: userData.companyId,
           storeId: userData.storeId,
           storeName: storeName,
-          role: userData.role
+          role: userData.role,
+          position: userData.position // 직무
         })
       } catch (error) {
         console.error('사용자 정보 로드 실패:', error)
@@ -276,9 +278,31 @@ export default function EmployeeDashboardPage() {
               <h1 className="text-2xl font-bold text-gray-900">
                 {employeeData.name}님, 환영합니다
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                소속: <span className="font-medium">{employeeData.storeName}</span>
-              </p>
+              <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                <span>
+                  소속: <span className="font-medium">{employeeData.storeName}</span>
+                </span>
+                <span className="text-gray-400">|</span>
+                <span>
+                  직급: <span className="font-medium">
+                    {employeeData.role === 'staff' || employeeData.role === 'employee' 
+                      ? '일반 직원' 
+                      : employeeData.role === 'store_manager' 
+                      ? '매장 매니저' 
+                      : employeeData.role === 'manager' 
+                      ? '관리자' 
+                      : employeeData.role}
+                  </span>
+                </span>
+                {employeeData.position && (
+                  <>
+                    <span className="text-gray-400">|</span>
+                    <span>
+                      직무: <span className="font-medium">{employeeData.position}</span>
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
             
             <div className="flex items-center gap-3">
