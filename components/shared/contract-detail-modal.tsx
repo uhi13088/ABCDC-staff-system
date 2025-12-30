@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle2, FileText, User as UserIcon, Trash2 } from 'lucide-react';
+import { CheckCircle2, FileText, User as UserIcon, Trash2, Download, Eye } from 'lucide-react';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
 import { format } from 'date-fns';
 import dynamic from 'next/dynamic';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // 서명 패드 동적 import (SSR 방지)
 const SignatureCanvas = dynamic(() => import('react-signature-canvas'), { ssr: false });
@@ -34,8 +36,10 @@ export function ContractDetailModal({
   onSuccess,
 }: ContractDetailModalProps) {
   const [isSigning, setIsSigning] = useState(false);
-  const [activeTab, setActiveTab] = useState<'view' | 'sign'>('view');
+  const [activeTab, setActiveTab] = useState<'view' | 'sign' | 'preview'>('view');
   const signaturePadRef = useRef<any>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const canEmployeeSign = isEmployee && !contract.employeeSignedAt;
   const canAdminSign = !isEmployee && !contract.adminSignedAt; // 직원 서명 여부와 관계없이 관리자는 서명 가능
@@ -111,6 +115,53 @@ export function ContractDetailModal({
     }
   };
 
+  // PDF 다운로드 함수
+  const handleDownloadPDF = async () => {
+    if (!previewRef.current) return;
+
+    setIsGeneratingPDF(true);
+    try {
+      const element = previewRef.current;
+      
+      // HTML을 Canvas로 변환
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+
+      // Canvas를 이미지로 변환
+      const imgData = canvas.toDataURL('image/png');
+      
+      // PDF 생성 (A4 세로)
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // 이미지 비율 계산
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 10;
+      
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      
+      // PDF 다운로드
+      const fileName = `근로계약서_${contract.employeeName}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+      pdf.save(fileName);
+      
+      alert('✅ PDF 다운로드가 완료되었습니다!');
+    } catch (error) {
+      console.error('❌ PDF 생성 실패:', error);
+      alert('❌ PDF 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -137,11 +188,15 @@ export function ContractDetailModal({
           </div>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'view' | 'sign')}>
-          <TabsList className="grid grid-cols-2 w-full">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'view' | 'sign' | 'preview')}>
+          <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="view">계약서 보기</TabsTrigger>
             <TabsTrigger value="sign" disabled={!canEmployeeSign && !canAdminSign}>
               서명하기
+            </TabsTrigger>
+            <TabsTrigger value="preview">
+              <Eye className="w-4 h-4 mr-1" />
+              PDF 미리보기
             </TabsTrigger>
           </TabsList>
 
@@ -377,6 +432,214 @@ export function ContractDetailModal({
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* PDF 미리보기 탭 */}
+          <TabsContent value="preview" className="space-y-4 mt-4">
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+                className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {isGeneratingPDF ? 'PDF 생성 중...' : 'PDF 다운로드'}
+              </Button>
+            </div>
+
+            {/* PDF 미리보기 영역 */}
+            <div ref={previewRef} className="bg-white p-8 border rounded-lg">
+              {/* 제목 */}
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold mb-2">근로계약서</h1>
+                <p className="text-gray-600">Standard Labor Contract</p>
+              </div>
+
+              {/* 1. 근로자 정보 */}
+              <div className="mb-6">
+                <h2 className="text-xl font-bold mb-3 pb-2 border-b-2 border-gray-300">1. 근로자 정보</h2>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-semibold text-gray-700">이름:</span>
+                    <span className="ml-2">{contract.employeeName}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">주민등록번호:</span>
+                    <span className="ml-2">{contract.employeeBirth}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="font-semibold text-gray-700">주소:</span>
+                    <span className="ml-2">{contract.employeeAddress}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">연락처:</span>
+                    <span className="ml-2">{contract.employeePhone}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. 회사 정보 */}
+              <div className="mb-6">
+                <h2 className="text-xl font-bold mb-3 pb-2 border-b-2 border-gray-300">2. 사용자 (회사) 정보</h2>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-semibold text-gray-700">근무 매장:</span>
+                    <span className="ml-2">{contract.storeName}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">대표자명:</span>
+                    <span className="ml-2">{contract.companyCEO}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="font-semibold text-gray-700">사업자등록번호:</span>
+                    <span className="ml-2">{contract.companyBusinessNumber}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. 계약 정보 */}
+              <div className="mb-6">
+                <h2 className="text-xl font-bold mb-3 pb-2 border-b-2 border-gray-300">3. 계약 정보</h2>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-semibold text-gray-700">계약 유형:</span>
+                    <span className="ml-2">{contract.contractType}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">직무/직책:</span>
+                    <span className="ml-2">{contract.position}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">계약 시작일:</span>
+                    <span className="ml-2">
+                      {contract.startDate?.toDate ? format(contract.startDate.toDate(), 'yyyy년 MM월 dd일') : '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">계약 종료일:</span>
+                    <span className="ml-2">
+                      {contract.endDate?.toDate ? format(contract.endDate.toDate(), 'yyyy년 MM월 dd일') : '기간의 정함 없음'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. 급여 정보 */}
+              <div className="mb-6">
+                <h2 className="text-xl font-bold mb-3 pb-2 border-b-2 border-gray-300">4. 급여 조건</h2>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-semibold text-gray-700">급여 형태:</span>
+                    <span className="ml-2">{contract.salaryType}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">급여 금액:</span>
+                    <span className="ml-2">{contract.salaryAmount?.toLocaleString()}원</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">지급일:</span>
+                    <span className="ml-2">매월 {contract.salaryPaymentDay}일</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-700">지급 방법:</span>
+                    <span className="ml-2">{contract.paymentMethod}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. 근무 조건 */}
+              {contract.schedules && contract.schedules.length > 0 && (
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold mb-3 pb-2 border-b-2 border-gray-300">5. 근무 조건</h2>
+                  {contract.schedules.map((schedule: any, index: number) => (
+                    <div key={index} className="mb-3 text-sm bg-gray-50 p-3 rounded">
+                      <div className="font-semibold mb-1">시간대 {index + 1}</div>
+                      <div className="text-gray-700">
+                        근무일: {schedule.days?.join(', ')} <br />
+                        시간: {schedule.startHour}:{schedule.startMinute} ~ {schedule.endHour}:{schedule.endMinute}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 6. 계약서 본문 */}
+              {contract.contractContent && (
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold mb-3 pb-2 border-b-2 border-gray-300">6. 계약 내용</h2>
+                  <div className="text-sm whitespace-pre-wrap bg-gray-50 p-4 rounded leading-relaxed">
+                    {contract.contractContent}
+                  </div>
+                </div>
+              )}
+
+              {/* 서명 영역 */}
+              <div className="mt-8 pt-6 border-t-2 border-gray-300">
+                <h2 className="text-xl font-bold mb-6">서명</h2>
+                <div className="grid grid-cols-2 gap-8">
+                  {/* 직원 서명 */}
+                  <div>
+                    <div className="text-center mb-2">
+                      <span className="font-semibold text-gray-700">근로자 (직원)</span>
+                    </div>
+                    {contract.employeeSignature ? (
+                      <div className="border-2 border-gray-300 rounded p-2 bg-white">
+                        <img 
+                          src={contract.employeeSignature} 
+                          alt="직원 서명" 
+                          className="w-full h-32 object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 rounded p-2 h-32 flex items-center justify-center bg-gray-50">
+                        <span className="text-gray-400">서명 없음</span>
+                      </div>
+                    )}
+                    <div className="text-center mt-2 text-sm text-gray-600">
+                      {contract.employeeSignedAt ? (
+                        <span>서명일: {format(contract.employeeSignedAt.toDate(), 'yyyy-MM-dd HH:mm')}</span>
+                      ) : (
+                        <span>미서명</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 관리자 서명 */}
+                  <div>
+                    <div className="text-center mb-2">
+                      <span className="font-semibold text-gray-700">사용자 (관리자)</span>
+                    </div>
+                    {contract.adminSignature ? (
+                      <div className="border-2 border-gray-300 rounded p-2 bg-white">
+                        <img 
+                          src={contract.adminSignature} 
+                          alt="관리자 서명" 
+                          className="w-full h-32 object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 rounded p-2 h-32 flex items-center justify-center bg-gray-50">
+                        <span className="text-gray-400">서명 없음</span>
+                      </div>
+                    )}
+                    <div className="text-center mt-2 text-sm text-gray-600">
+                      {contract.adminSignedAt ? (
+                        <span>서명일: {format(contract.adminSignedAt.toDate(), 'yyyy-MM-dd HH:mm')}</span>
+                      ) : (
+                        <span>미서명</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 계약일 */}
+              <div className="text-center mt-8 pt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  계약일: {contract.createdAt?.toDate ? format(contract.createdAt.toDate(), 'yyyy년 MM월 dd일') : '-'}
+                </p>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
