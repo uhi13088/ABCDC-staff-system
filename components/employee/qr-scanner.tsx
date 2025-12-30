@@ -81,9 +81,16 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
    * QR 스캔 성공 핸들러
    */
   const onScanSuccess = async (decodedText: string) => {
-    if (isProcessing) return; // 중복 처리 방지
+    if (isProcessing) {
+      console.log('⚠️ 이미 처리 중입니다. 중복 스캔 무시');
+      return; // 중복 처리 방지
+    }
 
+    console.log('🔄 QR 스캔 시작 - isProcessing 설정');
     setIsProcessing(true);
+
+    // 스캐너 즉시 중지
+    await stopScanner();
 
     try {
       // 1. QR 코드 검증
@@ -274,13 +281,12 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
       }
 
       // 8. 성공 처리
-      await stopScanner();
+      console.log('✅ QR 처리 완료');
       onSuccess?.();
       onClose();
     } catch (error) {
-      console.error('QR 처리 실패:', error);
+      console.error('❌ QR 처리 실패:', error);
       setError(error.message || 'QR 코드 처리에 실패했습니다.');
-    } finally {
       setIsProcessing(false);
     }
   };
