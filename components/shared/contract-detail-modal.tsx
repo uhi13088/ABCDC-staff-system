@@ -33,7 +33,15 @@ export function ContractDetailModal({
   const [activeTab, setActiveTab] = useState<'view' | 'sign'>('view');
 
   const canEmployeeSign = isEmployee && !contract.employeeSignedAt;
-  const canAdminSign = !isEmployee && contract.employeeSignedAt && !contract.adminSignedAt;
+  const canAdminSign = !isEmployee && !contract.adminSignedAt; // 직원 서명 여부와 관계없이 관리자는 서명 가능
+
+  console.log('🔍 서명 조건 확인:', {
+    isEmployee,
+    employeeSignedAt: contract.employeeSignedAt,
+    adminSignedAt: contract.adminSignedAt,
+    canEmployeeSign,
+    canAdminSign
+  });
 
   const handleSign = async () => {
     if (!confirm('계약서에 서명하시겠습니까?\n\n서명 후에는 취소할 수 없습니다.')) {
@@ -50,11 +58,18 @@ export function ContractDetailModal({
       if (isEmployee) {
         updateData.employeeSignedAt = Timestamp.now();
         updateData.employeeSignedBy = currentUserId;
+        // 관리자도 이미 서명했다면 활성화
+        if (contract.adminSignedAt) {
+          updateData.status = 'active';
+        }
         console.log('✅ 직원 서명 완료');
       } else {
         updateData.adminSignedAt = Timestamp.now();
         updateData.adminSignedBy = currentUserId;
-        updateData.status = 'active'; // 양측 서명 완료 시 활성화
+        // 직원도 이미 서명했다면 활성화
+        if (contract.employeeSignedAt) {
+          updateData.status = 'active';
+        }
         console.log('✅ 관리자 서명 완료');
       }
 

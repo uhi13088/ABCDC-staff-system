@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Check, FileEdit, Eye, Save, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 import { COLLECTIONS } from '@/lib/constants';
 
@@ -543,9 +543,9 @@ export function ContractFormModal({
         isAdditional,
         
         // 계약 기간
-        // 🔥 표준 필드: startDate, endDate
-        startDate,
-        endDate,
+        // 🔥 표준 필드: startDate, endDate (Timestamp로 변환)
+        startDate: startDate ? Timestamp.fromDate(new Date(startDate)) : null,
+        endDate: endDate ? Timestamp.fromDate(new Date(endDate)) : null,
         
         // 직책
         position,
