@@ -87,9 +87,19 @@ service cloud.firestore {
     // 3. Contracts (계약서)
     // ====================================
     match /contracts/{contractId} {
-      allow read: if isStoreManager() && isSameCompany(resource.data.companyId);
+      // 본인 계약서 또는 매니저가 읽기 가능
+      allow read: if isAuthenticated()
+        && (isOwner(resource.data.userId) || (isStoreManager() && isSameCompany(resource.data.companyId)));
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
-      allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
+      // 직원은 서명만 가능 (employeeSignedAt, employeeSignedBy 업데이트)
+      allow update: if isAuthenticated()
+        && (
+          (isStoreManager() && isSameCompany(resource.data.companyId))
+          || (
+            isOwner(resource.data.userId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['employeeSignedAt', 'employeeSignedBy', 'updatedAt', 'status'])
+          )
+        );
       allow delete: if isManager() && isSameCompany(resource.data.companyId);
     }
     
