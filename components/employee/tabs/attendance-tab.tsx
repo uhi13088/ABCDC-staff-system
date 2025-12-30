@@ -46,6 +46,8 @@ interface AttendanceRecord {
   clockOut: string
   workHours: string
   location: string
+  warning?: string
+  warningReason?: string
 }
 
 export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
@@ -102,7 +104,9 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
             clockIn: format(clockInDate, 'HH:mm'),
             clockOut: clockOutDate ? format(clockOutDate, 'HH:mm') : '-',
             workHours,
-            location: data.location || '-'
+            location: data.location || '-',
+            warning: data.warning || undefined,
+            warningReason: data.warningReason || undefined
           })
         }
       })
@@ -268,7 +272,14 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
                 <TableBody>
                   {records.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell className="font-medium">{record.date}</TableCell>
+                      <TableCell className="font-medium">
+                        {record.date}
+                        {record.warning && (
+                          <div className="text-xs text-orange-600 mt-1">
+                            ⚠️ {record.warningReason || '확인 필요'}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{record.clockIn}</TableCell>
                       <TableCell>{record.clockOut}</TableCell>
                       <TableCell>{record.workHours}</TableCell>

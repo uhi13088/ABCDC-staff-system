@@ -123,7 +123,26 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         }
       }
 
-      // 5. 오늘 출퇴근 기록 확인
+      // 5. 계약서 정보 로드 (출퇴근 시간 확인)
+      let contractSchedule = null;
+      try {
+        const contractQuery = query(
+          collection(db, COLLECTIONS.CONTRACTS),
+          where('userId', '==', employeeData.uid),
+          where('companyId', '==', employeeData.companyId),
+          where('status', '==', 'active')
+        );
+        const contractSnapshot = await getDocs(contractQuery);
+        if (!contractSnapshot.empty) {
+          const contractData = contractSnapshot.docs[0].data();
+          contractSchedule = contractData.schedules?.[0]; // 첫 번째 스케줄 사용
+          console.log('📋 계약서 근무 시간:', contractSchedule);
+        }
+      } catch (error) {
+        console.warn('계약서 정보 로드 실패:', error);
+      }
+
+      // 6. 오늘 출퇴근 기록 확인
       const today = new Date();
       const dateStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
 
@@ -165,19 +184,71 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         console.log('🚪 활성 출근 기록 있음 → 퇴근 처리');
       }
 
-      // 6. 출퇴근 기록 저장 (자동 승인)
+      // 7. 출퇴근 기록 저장 (자동 승인)
       if (activeRecord) {
         // 퇴근 처리 (clockOut이 없는 기록에 퇴근 시간 추가)
+        const clockOutTime = format(nowTimestamp.toDate(), 'HH:mm');
+        let warningMessage = '';
+        let warningReason = '';
+
+        // 계약서 시간과 비교
+        if (contractSchedule?.endTime) {
+          const [contractHour, contractMin] = contractSchedule.endTime.split(':').map(Number);
+          const [actualHour, actualMin] = clockOutTime.split(':').map(Number);
+          const contractMinutes = contractHour * 60 + contractMin;
+          const actualMinutes = actualHour * 60 + actualMin;
+          const diffMinutes = Math.abs(actualMinutes - contractMinutes);
+
+          // 매장 허용시간 확인
+          const earlyThreshold = storeData.earlyClockOutThreshold || 5;
+
+          if (actualMinutes < contractMinutes - earlyThreshold) {
+            warningMessage = `⚠️ 조기퇴근: 계약시간(${contractSchedule.endTime})보다 ${Math.floor((contractMinutes - actualMinutes) / 60)}시간 ${(contractMinutes - actualMinutes) % 60}분 일찍 퇴근`;
+            warningReason = '조기퇴근';
+          } else if (actualMinutes > contractMinutes + 60) {
+            warningMessage = `⚠️ 연장근무: 계약시간(${contractSchedule.endTime})보다 ${Math.floor((actualMinutes - contractMinutes) / 60)}시간 ${(actualMinutes - contractMinutes) % 60}분 늦게 퇴근`;
+            warningReason = '연장근무';
+          }
+        }
+
         const attendanceRef = doc(db, COLLECTIONS.ATTENDANCE, activeRecord.id);
         await updateDoc(attendanceRef, {
           clockOut: nowTimestamp,
           status: 'approved', // 자동 승인
           updatedAt: nowTimestamp,
+          warning: warningMessage || null,
+          warningReason: warningReason || null,
         });
 
-        alert(`✅ 퇴근 완료!\n\n시간: ${format(nowTimestamp.toDate(), 'HH:mm')}\n매장: ${qrData.storeName}`);
+        const alertMessage = warningMessage
+          ? `✅ 퇴근 완료!\n\n시간: ${clockOutTime}\n매장: ${qrData.storeName}\n\n${warningMessage}`
+          : `✅ 퇴근 완료!\n\n시간: ${clockOutTime}\n매장: ${qrData.storeName}`;
+        alert(alertMessage);
       } else {
         // 출근 처리 (새로운 출근 기록 생성)
+        const clockInTime = format(nowTimestamp.toDate(), 'HH:mm');
+        let warningMessage = '';
+        let warningReason = '';
+
+        // 계약서 시간과 비교
+        if (contractSchedule?.startTime) {
+          const [contractHour, contractMin] = contractSchedule.startTime.split(':').map(Number);
+          const [actualHour, actualMin] = clockInTime.split(':').map(Number);
+          const contractMinutes = contractHour * 60 + contractMin;
+          const actualMinutes = actualHour * 60 + actualMin;
+
+          // 매장 허용시간 확인
+          const earlyThreshold = storeData.earlyClockInThreshold || 15;
+
+          if (actualMinutes < contractMinutes - earlyThreshold) {
+            warningMessage = `⚠️ 조기출근: 계약시간(${contractSchedule.startTime})보다 ${Math.floor((contractMinutes - actualMinutes) / 60)}시간 ${(contractMinutes - actualMinutes) % 60}분 일찍 출근`;
+            warningReason = '조기출근';
+          } else if (actualMinutes > contractMinutes + 5) {
+            warningMessage = `⚠️ 지각: 계약시간(${contractSchedule.startTime})보다 ${Math.floor((actualMinutes - contractMinutes) / 60)}시간 ${(actualMinutes - contractMinutes) % 60}분 늦게 출근`;
+            warningReason = '지각';
+          }
+        }
+
         await addDoc(collection(db, COLLECTIONS.ATTENDANCE), {
           userId: employeeData.uid,
           uid: employeeData.uid,
@@ -192,12 +263,17 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           status: 'approved', // 자동 승인
           workType: 'QR출근',
           createdAt: nowTimestamp,
+          warning: warningMessage || null,
+          warningReason: warningReason || null,
         });
 
-        alert(`✅ 출근 완료!\n\n시간: ${format(nowTimestamp.toDate(), 'HH:mm')}\n매장: ${qrData.storeName}`);
+        const alertMessage = warningMessage
+          ? `✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}\n\n${warningMessage}`
+          : `✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}`;
+        alert(alertMessage);
       }
 
-      // 7. 성공 처리
+      // 8. 성공 처리
       await stopScanner();
       onSuccess?.();
       onClose();
