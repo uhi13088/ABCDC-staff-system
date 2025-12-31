@@ -1,7 +1,7 @@
 # SYSTEM_PROMPT.md
 
-**Version**: v1.0.0  
-**Last Updated**: 2025-12-26  
+**Version**: v2.0.0 (대수술 완료)  
+**Last Updated**: 2025-12-31  
 **Purpose**: ABC Staff System의 기술 스택, 코딩 컨벤션, 제약사항을 명시하여 AI가 일관된 코드를 생성하도록 함
 
 ---
@@ -15,6 +15,15 @@
 - **제약사항을 무시하지 마세요**
 - **기존 패턴을 따르세요**
 
+### **🔥 v2.0.0 주요 변경사항 (대수술 완료)**
+
+**⚠️ [CRITICAL] 이 프로젝트는 서버 중심의 견고한 시스템입니다!**
+
+1. **급여/근태 계산은 무조건 서버(Cloud Functions)에서 수행**
+2. **클라이언트는 서버의 계산 결과를 표시(Display)만**
+3. **데이터 저장 시 parseMoney, 조회 시 sanitizeTimestamps 사용 필수**
+4. **표준 필드명(salaryAmount, clockIn, userId) 전면 적용**
+
 ---
 
 ## 📚 **목차**
@@ -27,6 +36,7 @@
 6. [보안 규칙](#6-보안-규칙)
 7. [금지 사항](#7-금지-사항)
 8. [필수 패턴](#8-필수-패턴)
+9. [서버 중심 아키텍처](#9-서버-중심-아키텍처)
 
 ---
 
@@ -95,6 +105,7 @@ webapp/
 │   └── ui/                        # Shadcn/UI 컴포넌트
 ├── hooks/                         # Custom Hooks
 │   ├── admin/                     # 관리자 훅
+│   │   └── useSalaryLogic.ts      # 급여 로직 (서버 호출만)
 │   └── employee/                  # 직원 훅
 ├── lib/                           # 유틸리티 라이브러리
 │   ├── firebase.ts                # Firebase Client SDK
@@ -103,19 +114,24 @@ webapp/
 │   ├── constants.ts               # 상수 (COLLECTIONS 등)
 │   ├── types/                     # TypeScript 타입
 │   └── utils/                     # 유틸리티 함수
-│       ├── salary-calculator.ts   # 급여 계산 유틸
-│       ├── calculate-monthly-salary.ts  # 레거시
-│       └── timezone.ts            # 시간대 유틸
+│       ├── salary-calculator.ts   # 타입 정의만 (계산 로직 제거됨)
+│       ├── timestamp.ts           # 시간대 유틸 (sanitizeTimestamps)
+│       └── money.ts               # 금액 유틸 (parseMoney)
 ├── services/                      # 비즈니스 로직 레이어
 │   ├── salaryService.ts           # 급여 서비스
-│   ├── scheduleService.ts         # 스케줄 서비스 🆕
+│   ├── scheduleService.ts         # 스케줄 서비스
 │   ├── cloudFunctionsSalaryService.ts  # Cloud Functions 호출
 │   └── notificationService.ts     # 알림 서비스
-├── functions/                     # Cloud Functions
+├── functions/                     # Cloud Functions (급여 계산 엔진)
 │   ├── src/
-│   │   └── index.ts               # 급여 계산 Function
+│   │   ├── index.ts               # 급여 계산 14단계 파이프라인
+│   │   └── types/
+│   │       └── salary.ts          # 서버 타입 정의 (Zod 스키마)
 │   ├── package.json
 │   └── tsconfig.json
+├── scripts/                       # 데이터 마이그레이션 스크립트
+│   ├── clean-db.ts                # 데이터 정화 스크립트
+│   └── README.md                  # 스크립트 가이드
 ├── public/                        # 정적 파일
 ├── firestore.rules                # Firestore 보안 규칙
 ├── middleware.ts                  # Next.js Middleware
@@ -135,10 +151,18 @@ webapp/
 |------|------|----------|
 | `app/` | Next.js 페이지 및 라우팅 | `page.tsx`, `layout.tsx` |
 | `components/` | React 컴포넌트 | `dashboard-tab.tsx`, `salary-modal.tsx` |
-| `hooks/` | Custom Hooks | `useSalaryLogic.ts`, `useAttendance.ts` |
+| `hooks/` | Custom Hooks (**서버 호출만**) | `useSalaryLogic.ts`, `useAttendance.ts` |
 | `lib/` | 라이브러리 및 유틸 | `firebase.ts`, `constants.ts` |
-| `services/` | 비즈니스 로직 | `salaryService.ts`, `scheduleService.ts`, `approvalService.ts` |
-| `functions/` | Cloud Functions | `index.ts` (급여 계산) |
+| `services/` | 비즈니스 로직 (서버 호출) | `salaryService.ts`, `scheduleService.ts` |
+| `functions/` | **Cloud Functions (급여 계산 엔진)** | `index.ts` (14단계 파이프라인) |
+| `scripts/` | 데이터 마이그레이션 | `clean-db.ts` |
+
+### **⚠️ 중요: 클라이언트 vs 서버 역할**
+
+| 위치 | 역할 | 금지 사항 |
+|------|------|----------|
+| **클라이언트** (hooks, components, services) | 서버 호출 + 결과 표시만 | ❌ 급여/근태 계산 로직 |
+| **서버** (functions/src/index.ts) | 급여 계산 14단계 파이프라인 | ✅ 유일한 계산 로직 |
 
 ---
 
@@ -151,7 +175,7 @@ webapp/
 ```typescript
 // ✅ GOOD: interface 사용 (객체 타입)
 interface User {
-  uid: string;
+  userId: string;  // ✅ 표준 필드명
   name: string;
   role: 'admin' | 'manager' | 'employee';
   companyId: string;
@@ -171,23 +195,24 @@ const data: User = getData();
 #### **타입 파일 위치**
 
 ```typescript
-// ✅ GOOD: lib/types/ 디렉토리에 타입 정의
-// lib/types/salary.ts
-export interface MonthlySalaryResult {
-  employeeName: string;
-  basePay: number;
-  netPay: number;
+// ✅ GOOD: functions/src/types/salary.ts (서버 타입)
+export const SalaryCalculationResultSchema = z.object({
+  employeeName: z.string(),
+  basePay: z.number(),
+  netPay: z.number(),
   // ...
-}
+});
 
-// ❌ BAD: 컴포넌트 파일 내부에 타입 정의
+export type SalaryCalculationResult = z.infer<typeof SalaryCalculationResultSchema>;
+
+// ✅ GOOD: lib/types/ (클라이언트 타입, 필요시만)
 ```
 
 #### **함수 타입**
 
 ```typescript
 // ✅ GOOD: 명시적 반환 타입
-async function calculateSalary(userId: string): Promise<MonthlySalaryResult> {
+async function calculateSalary(userId: string): Promise<SalaryCalculationResult> {
   // ...
 }
 
@@ -286,6 +311,8 @@ const attendance = {
 | 매장 이름 | `storeName` | `store` |
 | 출근 시간 | `clockIn` | `checkIn` |
 | 퇴근 시간 | `clockOut` | `checkOut` |
+| 급여 금액 | `salaryAmount` | `wage`, `wageAmount` |
+| 급여 형태 | `salaryType` | `wageType` |
 
 ### **3.4 React 컴포넌트**
 
@@ -303,7 +330,7 @@ interface SalaryTabProps {
 
 export function SalaryTab({ userId, companyId }: SalaryTabProps) {
   // 1. State
-  const [salaries, setSalaries] = useState<Salary[]>([]);
+  const [salaries, setSalaries] = useState<SalaryCalculationResult[]>([]);
   const [loading, setLoading] = useState(false);
   
   // 2. Effects
@@ -311,11 +338,18 @@ export function SalaryTab({ userId, companyId }: SalaryTabProps) {
     loadSalaries();
   }, [userId]);
   
-  // 3. Handlers
+  // 3. Handlers (서버 호출만)
   const loadSalaries = async () => {
     setLoading(true);
-    // ...
-    setLoading(false);
+    try {
+      // ✅ 서버 호출
+      const result = await calculateSalaryViaFunction(userId, yearMonth);
+      setSalaries([result]);
+    } catch (error) {
+      console.error('급여 조회 실패:', error);
+    } finally {
+      setLoading(false);
+    }
   };
   
   // 4. Render
@@ -333,7 +367,7 @@ export function SalaryTab({ userId, companyId }: SalaryTabProps) {
 
 ```typescript
 // ✅ GOOD: 명시적 props
-<SalaryTab userId={user.uid} companyId={user.companyId} />
+<SalaryTab userId={user.userId} companyId={user.companyId} />
 
 // ❌ BAD: 전체 객체 전달 (불필요한 의존성)
 <SalaryTab user={user} />
@@ -423,6 +457,21 @@ await addDoc(collection(db, COLLECTIONS.USERS), {
   createdAt: new Date(),  // 클라이언트 시간
   updatedAt: new Date()
 });
+```
+
+#### **sanitizeTimestamps 사용 (필수)**
+
+```typescript
+// ✅ GOOD: sanitizeTimestamps로 Timestamp 변환
+import { sanitizeTimestamps } from '@/lib/utils/timestamp';
+
+const snapshot = await getDocs(attendancesQuery);
+const attendances = snapshot.docs.map(doc => 
+  sanitizeTimestamps(doc.data())  // ✅ 필수!
+);
+
+// ❌ BAD: Timestamp 변환 없음 (React Error #31 발생)
+const attendances = snapshot.docs.map(doc => doc.data());
 ```
 
 ### **4.3 Admin SDK vs Client SDK**
@@ -608,6 +657,8 @@ if (user.role !== 'admin') {
 | ❌ **console.log (운영)** | 민감 정보 노출 (개발 환경만 허용) |
 | ❌ **하드코딩 API 키** | .env.local 사용 필수 |
 | ❌ **클라이언트 급여 계산** | Cloud Functions 사용 필수 |
+| ❌ **parseMoney 없이 숫자 저장** | NaN/콤마 방지 필수 |
+| ❌ **sanitizeTimestamps 없이 조회** | React Error #31 방지 필수 |
 
 ### **7.2 지양 사항**
 
@@ -623,22 +674,29 @@ if (user.role !== 'admin') {
 
 ## 8. 필수 패턴
 
-### **8.1 Custom Hook 패턴**
+### **8.1 Custom Hook 패턴 (서버 호출만)**
 
 ```typescript
 // ✅ GOOD: Custom Hook (hooks/admin/useSalaryLogic.ts)
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { calculateSalaryViaFunction } from '@/services/cloudFunctionsSalaryService';
+import { sanitizeTimestamps } from '@/lib/utils/timestamp';
 
 export function useSalaryLogic() {
   const { user } = useAuth();
-  const [salaries, setSalaries] = useState<Salary[]>([]);
+  const [salaries, setSalaries] = useState<SalaryCalculationResult[]>([]);
   const [loading, setLoading] = useState(false);
   
   const loadSalaries = async () => {
     setLoading(true);
     try {
-      // 로직...
+      // ✅ 서버 호출만
+      const result = await calculateSalaryViaFunction(userId, yearMonth);
+      
+      // ✅ sanitizeTimestamps 필수
+      const sanitized = sanitizeTimestamps(result);
+      setSalaries([sanitized]);
     } catch (error) {
       console.error('급여 조회 실패:', error);
     } finally {
@@ -658,6 +716,11 @@ export function useSalaryLogic() {
     loadSalaries
   };
 }
+
+// ❌ BAD: 클라이언트에서 계산 (절대 금지!)
+const calculateSalaryLocally = () => {
+  // ❌ 급여 계산 로직 (금지!)
+};
 ```
 
 ### **8.2 Service 레이어 패턴**
@@ -667,9 +730,10 @@ export function useSalaryLogic() {
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
+import { sanitizeTimestamps } from '@/lib/utils/timestamp';
 
 export class SalaryService {
-  async getSalaries(companyId: string, yearMonth: string): Promise<Salary[]> {
+  async getSalaries(companyId: string, yearMonth: string): Promise<SalaryCalculationResult[]> {
     const salariesQuery = query(
       collection(db, COLLECTIONS.SALARY),
       where('companyId', '==', companyId),
@@ -677,10 +741,14 @@ export class SalaryService {
     );
     
     const snapshot = await getDocs(salariesQuery);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Salary[];
+    
+    // ✅ sanitizeTimestamps 필수
+    return snapshot.docs.map(doc => 
+      sanitizeTimestamps({
+        id: doc.id,
+        ...doc.data()
+      })
+    ) as SalaryCalculationResult[];
   }
 }
 
@@ -696,7 +764,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 export async function calculateSalaryViaFunction(
   employeeUid: string,
   yearMonth: string
-): Promise<MonthlySalaryResult> {
+): Promise<SalaryCalculationResult> {
   const functions = getFunctions(undefined, 'asia-northeast3');
   const calculateSalary = httpsCallable(functions, 'calculateMonthlySalary');
   
@@ -715,7 +783,7 @@ export async function calculateSalaryViaFunction(
 ```typescript
 // ✅ GOOD: 명확한 에러 메시지
 try {
-  await salaryService.calculateSalary(userId, yearMonth);
+  await calculateSalaryViaFunction(userId, yearMonth);
   alert('급여 계산 완료');
 } catch (error) {
   console.error('급여 계산 실패:', error);
@@ -724,7 +792,7 @@ try {
 
 // ❌ BAD: 일반적인 에러 메시지
 try {
-  await salaryService.calculateSalary(userId, yearMonth);
+  await calculateSalaryViaFunction(userId, yearMonth);
 } catch (error) {
   alert('에러 발생');  // 무슨 에러인지 알 수 없음
 }
@@ -735,9 +803,9 @@ try {
 ```typescript
 // ✅ GOOD: Modal 상태 관리
 const [isModalOpen, setIsModalOpen] = useState(false);
-const [selectedSalary, setSelectedSalary] = useState<Salary | null>(null);
+const [selectedSalary, setSelectedSalary] = useState<SalaryCalculationResult | null>(null);
 
-const openModal = (salary: Salary) => {
+const openModal = (salary: SalaryCalculationResult) => {
   setSelectedSalary(salary);
   setIsModalOpen(true);
 };
@@ -763,22 +831,169 @@ return (
 
 ---
 
+## 9. 서버 중심 아키텍처
+
+### **9.1 급여 계산 아키텍처**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      클라이언트 (Next.js)                      │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  hooks/admin/useSalaryLogic.ts                         │ │
+│  │  - 서버 호출만 (calculateSalaryViaFunction)             │ │
+│  │  - 결과 표시 (sanitizeTimestamps 적용)                  │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                             ↓                                │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  services/cloudFunctionsSalaryService.ts               │ │
+│  │  - Cloud Functions 호출 래퍼                            │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                             ↓ HTTPS
+┌─────────────────────────────────────────────────────────────┐
+│               서버 (Cloud Functions)                          │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  functions/src/index.ts                                │ │
+│  │  - calculateMonthlySalary() 함수                        │ │
+│  │  - 14단계 급여 계산 파이프라인                            │ │
+│  │    1. 공휴일 데이터 로드                                  │ │
+│  │    2. 매장 출퇴근 허용시간 조회                            │ │
+│  │    3. 급여 기본 정보 파싱 (parseMoney)                    │ │
+│  │    4. 출퇴근 기록 분석 준비                                │ │
+│  │    5. 기록 순회 및 계산                                   │ │
+│  │    6. 기본급 계산                                        │ │
+│  │    7. 연장근로 수당                                       │ │
+│  │    8. 야간/휴일/특별 수당                                 │ │
+│  │    9. 주휴수당                                          │ │
+│  │   10. 퇴직금                                            │ │
+│  │   11. 총 수당/총 지급액                                   │ │
+│  │   12. 4대보험 공제                                       │ │
+│  │   13. 총 공제액 및 실지급액                               │ │
+│  │   14. 계약서 기준 정보                                   │ │
+│  └────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  functions/src/types/salary.ts                         │ │
+│  │  - Zod 스키마 정의                                       │ │
+│  │  - parseMoney, safeParseDate 유틸                       │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Firestore Database                         │
+│  - attendance (출퇴근 기록)                                   │
+│  - contracts (계산서)                                        │
+│  - salary (급여 결과 저장)                                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### **9.2 데이터 무결성 보장**
+
+#### **저장 시: parseMoney**
+
+```typescript
+// ✅ GOOD: parseMoney 사용 (functions/src/types/salary.ts)
+export function parseMoney(value: any): number {
+  if (!value && value !== 0) return 0;
+  
+  // 문자열에서 콤마 제거
+  const stringValue = String(value).replace(/,/g, '').trim();
+  const parsed = parseFloat(stringValue);
+  
+  if (isNaN(parsed)) {
+    console.warn(`[parseMoney] Invalid value: ${value}, returning 0`);
+    return 0;
+  }
+  
+  return parsed;
+}
+
+// 사용 예시
+const salaryAmount = parseMoney(contract.salaryAmount);  // "3,000,000" → 3000000
+```
+
+#### **조회 시: sanitizeTimestamps**
+
+```typescript
+// ✅ GOOD: sanitizeTimestamps 사용 (lib/utils/timestamp.ts)
+export function sanitizeTimestamps(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  
+  // Firestore Timestamp → Date
+  if (obj?.toDate && typeof obj.toDate === 'function') {
+    return obj.toDate();
+  }
+  
+  // 배열 재귀 처리
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeTimestamps(item));
+  }
+  
+  // 객체 재귀 처리
+  if (typeof obj === 'object') {
+    const sanitized: any = {};
+    for (const key in obj) {
+      sanitized[key] = sanitizeTimestamps(obj[key]);
+    }
+    return sanitized;
+  }
+  
+  return obj;
+}
+
+// 사용 예시
+const attendances = snapshot.docs.map(doc => 
+  sanitizeTimestamps(doc.data())  // ✅ 필수!
+);
+```
+
+### **9.3 표준 필드명 전면 적용**
+
+**⚠️ [CRITICAL] 표준 필드명만 사용!**
+
+```typescript
+// ✅ GOOD: 표준 필드명
+const contract = {
+  salaryAmount: 3000000,     // ✅ 표준
+  salaryType: '월급',        // ✅ 표준
+  userId: 'user_123',        // ✅ 표준
+  storeName: '맛남살롱',      // ✅ 표준
+  clockIn: '09:00',          // ✅ 표준
+  clockOut: '18:00'          // ✅ 표준
+};
+
+// ❌ BAD: 레거시 필드명 (읽기만 허용)
+const contract = {
+  wage: 3000000,             // ❌ 레거시
+  wageAmount: 3000000,       // ❌ 레거시
+  wageType: '월급',          // ❌ 레거시
+  uid: 'user_123',           // ❌ 레거시
+  store: '맛남살롱',          // ❌ 레거시
+  checkIn: '09:00',          // ❌ 레거시
+  checkOut: '18:00'          // ❌ 레거시
+};
+```
+
+---
+
 ## 📌 **AI가 코드 작성 시 체크리스트**
 
 ### **작업 시작 전**
-- [ ] 이 문서(SYSTEM_PROMPT.md) 읽음
-- [ ] BUSINESS_LOGIC.md에서 관련 로직 확인
-- [ ] FIELD_NAMING_STANDARD.md에서 필드명 확인
+- [ ] 이 문서(SYSTEM_PROMPT.md) v2.0.0 읽음
+- [ ] BUSINESS_LOGIC.md에서 14단계 파이프라인 확인
+- [ ] FIELD_NAMING_STANDARD.md에서 표준 필드명 확인
 - [ ] 기존 코드 패턴 확인
 
 ### **코드 작성 중**
 - [ ] TypeScript 사용 (JavaScript 금지)
-- [ ] 표준 필드명 사용 (`userId`, `storeId`, `clockIn` 등)
+- [ ] 표준 필드명 사용 (`userId`, `salaryAmount`, `clockIn` 등)
 - [ ] `COLLECTIONS` 상수 사용
 - [ ] Tailwind CSS 클래스 순서 준수
 - [ ] Shadcn/UI 컴포넌트 사용
 - [ ] try-catch 에러 핸들링
 - [ ] companyId 필터 추가
+- [ ] **parseMoney 사용 (저장 시)**
+- [ ] **sanitizeTimestamps 사용 (조회 시)**
+- [ ] **급여 계산은 서버(Cloud Functions)만**
 - [ ] 민감한 로그 제거
 
 ### **작업 완료 후**
@@ -791,17 +1006,18 @@ return (
 
 ## 🔗 **관련 문서**
 
-- [README.md](./README.md) - 프로젝트 개요
+- [README.md](./README.md) - 프로젝트 개요 (v0.17.0 대수술 완료)
 - [STRUCTURE.md](./STRUCTURE.md) - 사용자 계층 구조
 - [FIRESTORE_COLLECTIONS.md](./FIRESTORE_COLLECTIONS.md) - 컬렉션 명세
 - [FIELD_NAMING_STANDARD.md](./FIELD_NAMING_STANDARD.md) - 필드 명명 규칙
-- [BUSINESS_LOGIC.md](./BUSINESS_LOGIC.md) - 비즈니스 로직 알고리즘
+- [BUSINESS_LOGIC.md](./BUSINESS_LOGIC.md) - 비즈니스 로직 (14단계 파이프라인)
+- [LEGACY_MIGRATION.md](./LEGACY_MIGRATION.md) - 대수술 완료 기록
 - [SECURITY.md](./SECURITY.md) - 보안 가이드
 
 ---
 
-**마지막 업데이트**: 2025-12-26  
-**버전**: v1.0.0  
+**마지막 업데이트**: 2025-12-31  
+**버전**: v2.0.0 (대수술 완료)  
 **작성자**: Claude Code Assistant (사장님과 함께)
 
 ---
@@ -821,6 +1037,10 @@ import { adminDb, adminAuth } from '@/lib/firebase-admin';
 // Constants
 import { COLLECTIONS } from '@/lib/constants';
 
+// Utilities (CRITICAL)
+import { sanitizeTimestamps } from '@/lib/utils/timestamp';
+import { parseMoney, safeParseDate } from '@/functions/src/types/salary';
+
 // UI Components
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -837,29 +1057,39 @@ import { useAuth } from '@/lib/auth-context';
 ### **자주 사용하는 패턴**
 
 ```typescript
-// 1. Firestore 쿼리
+// 1. Firestore 쿼리 + sanitizeTimestamps
 const usersQuery = query(
   collection(db, COLLECTIONS.USERS),
   where('companyId', '==', companyId),
   where('status', '==', 'active')
 );
 const snapshot = await getDocs(usersQuery);
+const users = snapshot.docs.map(doc => 
+  sanitizeTimestamps({ id: doc.id, ...doc.data() })  // ✅ 필수!
+);
 
-// 2. 문서 추가
-await addDoc(collection(db, COLLECTIONS.USERS), {
-  name: 'John Doe',
+// 2. 문서 추가 (parseMoney 사용)
+await addDoc(collection(db, COLLECTIONS.CONTRACTS), {
+  userId: userId,
+  salaryAmount: parseMoney(salaryAmount),  // ✅ 필수!
+  salaryType: salaryType,
   companyId: companyId,
   createdAt: serverTimestamp(),
   updatedAt: serverTimestamp()
 });
 
-// 3. 문서 수정
+// 3. 급여 계산 (서버 호출만)
+const result = await calculateSalaryViaFunction(userId, yearMonth);
+const sanitized = sanitizeTimestamps(result);  // ✅ 필수!
+setSalary(sanitized);
+
+// 4. 문서 수정
 await updateDoc(doc(db, COLLECTIONS.USERS, userId), {
   name: 'Updated Name',
   updatedAt: serverTimestamp()
 });
 
-// 4. 문서 삭제
+// 5. 문서 삭제
 await deleteDoc(doc(db, COLLECTIONS.USERS, userId));
 ```
 
