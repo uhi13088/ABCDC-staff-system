@@ -60,6 +60,7 @@ export async function generateSchedulesForRange(
     range: `${startDate} ~ ${endDate}`,
   });
 
+  // 필수 필드 검증 (userId와 schedules만 체크)
   if (!contract.id || !contract.userId || !contract.schedules) {
     console.error('❌ 필수 필드 누락:', contract);
     throw new Error('계약서 필수 필드가 누락되었습니다.');
@@ -201,20 +202,30 @@ export async function generateMonthlySchedules(
   contract: Contract,
   creatorUid: string
 ): Promise<void> {
+  // 날짜 필드 통합 (startDate 또는 contractStartDate 중 하나라도 있으면 사용)
+  const contractStartDate = contract.startDate || contract.contractStartDate;
+  
   console.log('📅 스케줄 자동 생성 시작:', {
     contractId: contract.id,
     userId: contract.userId,
     isAdditional: contract.isAdditional,
-    startDate: contract.startDate,
+    startDate: contractStartDate,
   });
 
-  if (!contract.id || !contract.userId || !contract.startDate || !contract.schedules) {
-    console.error('❌ 필수 필드 누락:', contract);
+  // 필수 필드 검증 (날짜 필드는 통합된 변수 사용)
+  if (!contract.id || !contract.userId || !contractStartDate || !contract.schedules) {
+    console.error('❌ 필수 필드 누락:', {
+      id: contract.id,
+      userId: contract.userId,
+      startDate: contract.startDate,
+      contractStartDate: contract.contractStartDate,
+      schedules: contract.schedules?.length,
+    });
     throw new Error('계약서 필수 필드가 누락되었습니다.');
   }
 
   // 1. 계약 시작월의 첫날과 말일 계산
-  const startDate = new Date(contract.startDate);
+  const startDate = new Date(contractStartDate);
   const year = startDate.getFullYear();
   const month = startDate.getMonth();
 
