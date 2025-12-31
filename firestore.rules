@@ -209,62 +209,91 @@ service cloud.firestore {
     // 8. Notices (공지사항)
     // ====================================
     match /notices/{noticeId} {
-      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // 단건 조회: 같은 회사
+      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
+      
+      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
+      allow list: if isAuthenticated();
+      
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
-      allow update: if isManager() && isSameCompany(resource.data.companyId);
-      allow delete: if isManager() && isSameCompany(resource.data.companyId);
+      allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isManager() && resource != null && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
     // 9. Brands (브랜드)
     // ====================================
     match /brands/{brandId} {
-      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // 단건 조회: 같은 회사
+      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
+      
+      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
+      allow list: if isAuthenticated();
+      
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
     // 10. Stores (매장)
     // ====================================
     match /stores/{storeId} {
-      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // 단건 조회: 본인 또는 같은 회사
+      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
+      
+      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
+      allow list: if isAuthenticated();
+      
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
     // 11. Invites (초대 코드 - 매장용)
     // ====================================
     match /invites/{inviteId} {
-      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // 단건 조회: 같은 회사
+      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
+      
+      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
+      allow list: if isAuthenticated();
+      
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
     // 11-2. Company Invites (직원 초대 코드)
     // ====================================
     match /company_invites/{inviteId} {
-      // [수정 완료] 보안 취약점 제거: || request.auth != null 삭제함
-      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // [수정 완료] 보안 취약점 제거 및 resource != null 체크
+      // 단건 조회: 같은 회사
+      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
+      
+      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
+      allow list: if isAuthenticated();
       
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
     // 12. Shift Requests (교대근무 요청)
     // ====================================
     match /shift_requests/{shiftId} {
-      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // 단건 조회: 같은 회사
+      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
+      
+      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
+      allow list: if isAuthenticated();
+      
       allow create: if isAuthenticated() && isSameCompany(request.resource.data.companyId);
-      allow update: if isManager() && isSameCompany(resource.data.companyId);
-      allow delete: if isManager() && isSameCompany(resource.data.companyId);
+      allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isManager() && resource != null && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
@@ -335,10 +364,15 @@ service cloud.firestore {
     // 18. Open Shifts (긴급 구인)
     // ====================================
     match /open_shifts/{shiftId} {
-      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // 단건 조회: 같은 회사
+      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
+      
+      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
+      allow list: if isAuthenticated();
+      
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
-      allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
-      allow delete: if isStoreManager() && isSameCompany(resource.data.companyId);
+      allow update: if isStoreManager() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isStoreManager() && resource != null && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
