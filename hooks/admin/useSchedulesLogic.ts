@@ -344,8 +344,11 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
             schedulesByDate[date] = [];
           }
           
+          // Timestamp 필드 제거하여 안전하게 전달
+          const { createdAt, updatedAt, createdBy, updatedBy, ...safeData } = data;
+          
           schedulesByDate[date].push({
-            ...data,
+            ...safeData,
             id: doc.id,
           });
         });

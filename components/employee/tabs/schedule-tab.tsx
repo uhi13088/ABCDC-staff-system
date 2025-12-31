@@ -84,7 +84,10 @@ export default function ScheduleTab({ employeeData }: ScheduleTabProps) {
       const loadedSchedules: ScheduleShift[] = []
 
       snapshot.forEach((doc) => {
-        const data = doc.data()
+        const rawData = doc.data()
+        
+        // Timestamp 필드 제거
+        const { createdAt, updatedAt, createdBy, updatedBy, ...data } = rawData as any
         
         // "매장 전체 보기" 옵션에 따라 필터링 (✅ userId 표준 필드 사용)
         if (!showAllEmployees && data.userId !== employeeData.uid) {
