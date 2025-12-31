@@ -125,6 +125,25 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           warningReasonDetail: reasonDetail.trim(),
         });
 
+        // 🔥 스케줄에 actualTime 업데이트
+        try {
+          const { updateScheduleActualTime } = await import('@/services/scheduleService');
+          await updateScheduleActualTime(
+            employeeData.uid,
+            pendingData.dateStr,
+            {
+              clockIn: pendingData.clockInTime,
+              attendanceId: pendingData.docId,
+              status: pendingData.warningReason === '지각' ? 'late' : 'on_time',
+              warning: pendingData.warningMessage,
+              warningReason: pendingData.warningReason,
+            }
+          );
+          console.log('✅ 스케줄 actualTime 업데이트 완료');
+        } catch (scheduleError) {
+          console.warn('⚠️ 스케줄 actualTime 업데이트 실패:', scheduleError);
+        }
+
         alert(`✅ 출근 완료!\n\n시간: ${pendingData.clockInTime}\n매장: ${pendingData.qrData.storeName}\n\n${pendingData.warningMessage}\n\n사유: ${reasonDetail.trim()}`);
       } else if (pendingData.type === 'clockOut') {
         // 퇴근 기록 업데이트
@@ -137,6 +156,31 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           warningReason: pendingData.warningReason,
           warningReasonDetail: reasonDetail.trim(),
         });
+
+        // 🔥 스케줄에 actualTime 업데이트
+        try {
+          const { updateScheduleActualTime } = await import('@/services/scheduleService');
+          // pendingData에 clockInTime이 없으므로 attendance 기록을 다시 조회해야 함
+          const attendanceDoc = await getDoc(doc(db, COLLECTIONS.ATTENDANCE, pendingData.attendanceId));
+          const attendanceData = attendanceDoc.data();
+          
+          await updateScheduleActualTime(
+            employeeData.uid,
+            pendingData.dateStr || format(pendingData.nowTimestamp.toDate(), 'yyyy-MM-dd'),
+            {
+              clockIn: attendanceData?.clockIn ? format(attendanceData.clockIn.toDate(), 'HH:mm') : undefined,
+              clockOut: pendingData.clockOutTime,
+              attendanceId: pendingData.attendanceId,
+              status: pendingData.warningReason === '조기퇴근' ? 'early_leave' : 
+                      pendingData.warningReason === '연장근무' ? 'overtime' : 'on_time',
+              warning: pendingData.warningMessage,
+              warningReason: pendingData.warningReason,
+            }
+          );
+          console.log('✅ 스케줄 actualTime 업데이트 완료');
+        } catch (scheduleError) {
+          console.warn('⚠️ 스케줄 actualTime 업데이트 실패:', scheduleError);
+        }
 
         alert(`✅ 퇴근 완료!\n\n시간: ${pendingData.clockOutTime}\n매장: ${pendingData.qrData.storeName}\n\n${pendingData.warningMessage}\n\n사유: ${reasonDetail.trim()}`);
       }
@@ -332,6 +376,24 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
           warningReasonDetail: null,
         });
 
+        // 🔥 스케줄에 actualTime 업데이트
+        try {
+          const { updateScheduleActualTime } = await import('@/services/scheduleService');
+          await updateScheduleActualTime(
+            employeeData.uid,
+            dateStr,
+            {
+              clockIn: format(activeRecord.data.clockIn.toDate(), 'HH:mm'),
+              clockOut: clockOutTime,
+              attendanceId: activeRecord.id,
+              status: 'on_time',
+            }
+          );
+          console.log('✅ 스케줄 actualTime 업데이트 완료');
+        } catch (scheduleError) {
+          console.warn('⚠️ 스케줄 actualTime 업데이트 실패:', scheduleError);
+        }
+
         alert(`✅ 퇴근 완료!\n\n시간: ${clockOutTime}\n매장: ${qrData.storeName}`);
       } else {
         // 출근 처리 (새로운 출근 기록 생성)
@@ -409,6 +471,23 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
         });
         
         console.log('✅ 출근 기록 생성 완료 (docId:', docId, ')');
+
+        // 🔥 스케줄에 actualTime 업데이트
+        try {
+          const { updateScheduleActualTime } = await import('@/services/scheduleService');
+          await updateScheduleActualTime(
+            employeeData.uid,
+            dateStr,
+            {
+              clockIn: clockInTime,
+              attendanceId: docId,
+              status: 'on_time',
+            }
+          );
+          console.log('✅ 스케줄 actualTime 업데이트 완료');
+        } catch (scheduleError) {
+          console.warn('⚠️ 스케줄 actualTime 업데이트 실패:', scheduleError);
+        }
 
         alert(`✅ 출근 완료!\n\n시간: ${clockInTime}\n매장: ${qrData.storeName}`);
       }

@@ -358,16 +358,43 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
           const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월=0, ..., 일=6
           const dayName = days[dayIndex];
           
-          // 모든 스케줄 추가 (기본 + 대체근무)
+          // 각 날짜의 스케줄 처리
           dateSchedules.forEach(schedule => {
-            schedules[dayName].push({
-              isWorkDay: true,
-              startTime: schedule.startTime,
-              endTime: schedule.endTime,
-              hours: schedule.workHours,
-              breakTime: schedule.breakTime,
-              isShiftReplacement: schedule.isShiftReplacement || false,
-            });
+            const plannedTimes = schedule.plannedTimes || [];
+            
+            // plannedTimes 배열의 각 항목을 스케줄로 추가 (여러 계약서 병합 지원)
+            if (plannedTimes.length > 0) {
+              plannedTimes.forEach(planned => {
+                schedules[dayName].push({
+                  isWorkDay: true,
+                  startTime: planned.startTime,
+                  endTime: planned.endTime,
+                  hours: planned.workHours,
+                  breakTime: planned.breakTime,
+                  isShiftReplacement: false, // 교대 구분은 shiftType으로
+                  contractId: planned.contractId,
+                  isAdditional: planned.isAdditional,
+                  shiftType: planned.shiftType,
+                  isHoliday: planned.isHoliday,
+                });
+              });
+            } else {
+              // Legacy 호환: plannedTimes 없으면 startTime/endTime 직접 사용
+              schedules[dayName].push({
+                isWorkDay: true,
+                startTime: schedule.startTime || '',
+                endTime: schedule.endTime || '',
+                hours: schedule.workHours,
+                breakTime: schedule.breakTime,
+                isShiftReplacement: schedule.isShiftReplacement || false,
+              });
+            }
+            
+            // actualTime이 있으면 별도 표시 (실제 출퇴근 기록)
+            if (schedule.actualTime) {
+              // TODO: actualTime 표시 로직 추가
+              console.log('  📍 실제 출퇴근:', schedule.actualTime);
+            }
           });
         });
         

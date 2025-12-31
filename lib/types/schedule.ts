@@ -135,6 +135,12 @@ export interface ScheduleDetail {
   isShiftReplacement?: boolean;   // ⚠️ Legacy
   status?: string;                // 상태 (출퇴근 기록 모드)
   statusText?: string;            // 상태 텍스트
+  
+  // v2.0: 추가 필드 (plannedTimes 배열 지원)
+  contractId?: string;            // 계약서 ID
+  isAdditional?: boolean;         // 추가 계약서 여부
+  shiftType?: string;             // 교대 구분
+  isHoliday?: boolean;            // 휴가일 여부
 }
 
 /**
