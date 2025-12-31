@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Check, FileEdit, Eye, Save, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 import { COLLECTIONS } from '@/lib/constants';
 
@@ -593,7 +593,6 @@ export function ContractFormModal({
       };
 
       // Firestore에 저장
-      const { addDoc, collection, Timestamp } = await import('firebase/firestore');
       const docRef = await addDoc(collection(db, COLLECTIONS.CONTRACTS), {
         ...contractData,
         companyId,
