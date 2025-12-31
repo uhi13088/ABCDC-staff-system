@@ -164,7 +164,9 @@ export function useSalaryLogic() {
         // 클라이언트에서 최신 계약서 찾기
         const contracts: any[] = [];
         contractsSnapshot.forEach(doc => {
-          contracts.push({ id: doc.id, ...doc.data() });
+          // 🔒 Timestamp 필드를 재귀적으로 안전하게 변환
+          const contractData = sanitizeTimestamps(doc.data());
+          contracts.push({ id: doc.id, ...contractData });
         });
         contracts.sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -432,7 +434,9 @@ export function useSalaryLogic() {
       // 클라이언트에서 최신 계약서 찾기
       const contracts: any[] = [];
       contractsSnapshot.forEach(doc => {
-        contracts.push({ id: doc.id, ...doc.data() });
+        // 🔒 Timestamp 필드를 재귀적으로 안전하게 변환 (React 렌더링 에러 완전 방지)
+        const contractData = sanitizeTimestamps(doc.data());
+        contracts.push({ id: doc.id, ...contractData });
       });
       contracts.sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;

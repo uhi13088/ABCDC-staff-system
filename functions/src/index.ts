@@ -58,6 +58,26 @@ function safeParseDate(value: any): Date | null {
   }
 }
 
+/**
+ * 안전한 금액 변환 (콤마 제거 및 NaN 방지)
+ * "3,000,000" → 3000000
+ */
+function parseMoney(value: any): number {
+  if (!value) return 0;
+  
+  // 콤마 제거 및 trim
+  const strVal = String(value).replace(/,/g, '').trim();
+  const num = parseFloat(strVal);
+  
+  // NaN 체크
+  if (isNaN(num)) {
+    console.warn('⚠️ Invalid number:', value);
+    return 0;
+  }
+  
+  return num;
+}
+
 // ===========================================
 // 타입 정의
 // ===========================================
@@ -321,7 +341,8 @@ async function performSalaryCalculation(
   };
   
   const salaryType = contract.salaryType || contract.wageType || '시급';
-  const salaryAmount = parseFloat(String(contract.salaryAmount || contract.wageAmount || 0));
+  // 🔒 안전한 금액 파싱 (콤마 제거 및 NaN 방지)
+  const salaryAmount = parseMoney(contract.salaryAmount || contract.wageAmount);
   
   if (salaryAmount === 0) {
     return result;

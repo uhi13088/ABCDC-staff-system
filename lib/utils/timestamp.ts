@@ -203,52 +203,54 @@ export function safeToDateArray(values: TimestampInput[]): Date[] {
 }
 
 /**
- * Firestore 문서 데이터에서 모든 Timestamp 필드를 자동으로 문자열로 변환
+ * Firestore 문서 데이터에서 모든 Timestamp 필드를 재귀적으로 문자열로 변환
+ * 중첩된 객체와 배열도 완벽하게 처리
  * React 렌더링 시 "Objects are not valid as a React child" 에러 완전 방지
  * 
- * @param data - Firestore 문서 데이터
+ * @param data - Firestore 문서 데이터 (객체, 배열, Timestamp 등)
  * @returns 모든 Timestamp가 ISO 문자열로 변환된 데이터
  * 
  * @example
  * ```typescript
  * const docData = doc.data();
  * const safeData = sanitizeTimestamps(docData);
- * // 모든 Timestamp 필드가 자동으로 ISO 문자열로 변환됨
+ * // 모든 Timestamp 필드가 자동으로 ISO 문자열로 변환됨 (중첩된 객체 포함)
  * ```
  */
-export function sanitizeTimestamps<T extends Record<string, any>>(data: T): T {
-  if (!data) return data;
-  
-  const result: any = { ...data };
+export function sanitizeTimestamps(data: any): any {
+  // null/undefined/primitive 타입은 그대로 반환
+  if (!data || typeof data !== 'object') return data;
 
-  Object.keys(result).forEach(key => {
-    const value = result[key];
-    
-    // null/undefined는 그대로 유지
-    if (!value) return;
-    
-    // 객체인 경우 Timestamp 여부 확인
-    if (typeof value === 'object') {
-      // toDate 메서드가 있으면 Firestore Timestamp
-      if (typeof value.toDate === 'function') {
-        try {
-          result[key] = value.toDate().toISOString();
-        } catch (error) {
-          console.warn(`⚠️ Timestamp 변환 실패 (${key}):`, error);
-          result[key] = null;
-        }
-      }
-      // seconds/nanoseconds 속성이 있으면 Timestamp 객체 (plain object)
-      else if ('seconds' in value && 'nanoseconds' in value) {
-        try {
-          result[key] = new Date(value.seconds * 1000).toISOString();
-        } catch (error) {
-          console.warn(`⚠️ Timestamp 변환 실패 (${key}):`, error);
-          result[key] = null;
-        }
-      }
+  // Date 객체 처리 (Firestore Timestamp의 toDate() 메서드)
+  if (typeof data.toDate === 'function') {
+    try {
+      return data.toDate().toISOString();
+    } catch (error) {
+      console.warn('⚠️ Timestamp.toDate() 실패:', error);
+      return null;
     }
+  }
+  
+  // Plain Timestamp 객체 처리 (seconds/nanoseconds)
+  if ('seconds' in data && 'nanoseconds' in data) {
+    try {
+      return new Date(data.seconds * 1000).toISOString();
+    } catch (error) {
+      console.warn('⚠️ Timestamp 변환 실패:', error);
+      return null;
+    }
+  }
+
+  // 배열 처리 (재귀)
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeTimestamps(item));
+  }
+
+  // 객체 처리 (재귀)
+  const result: any = {};
+  Object.keys(data).forEach(key => {
+    result[key] = sanitizeTimestamps(data[key]);
   });
   
-  return result as T;
+  return result;
 }
