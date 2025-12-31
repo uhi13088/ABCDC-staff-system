@@ -21,6 +21,7 @@ import {
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
 import type { Contract } from '@/lib/types/contract';
+import { sanitizeTimestamps } from '@/lib/utils/timestamp';
 
 /**
  * 계약서 목록 조회
@@ -55,10 +56,13 @@ export async function getContracts(
   const q = query(collection(db, COLLECTIONS.CONTRACTS), ...constraints);
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  } as Contract));
+  return snapshot.docs.map((doc) => {
+    const data = sanitizeTimestamps(doc.data());
+    return {
+      id: doc.id,
+      ...data,
+    } as Contract;
+  });
 }
 
 /**
@@ -72,9 +76,10 @@ export async function getContractById(contractId: string): Promise<Contract | nu
     return null;
   }
 
+  const data = sanitizeTimestamps(docSnap.data());
   return {
     id: docSnap.id,
-    ...docSnap.data(),
+    ...data,
   } as Contract;
 }
 
@@ -96,10 +101,13 @@ export async function getContractsByEmployee(
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  } as Contract));
+  return snapshot.docs.map((doc) => {
+    const data = sanitizeTimestamps(doc.data());
+    return {
+      id: doc.id,
+      ...data,
+    } as Contract;
+  });
 }
 
 /**

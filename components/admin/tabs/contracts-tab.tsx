@@ -118,10 +118,40 @@ export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
 
   /**
    * 계약 기간 포맷
+   * Firestore Timestamp 객체를 YYYY-MM-DD 형식으로 변환
    */
   const formatContractPeriod = (contract: Contract) => {
-    const start = contract.contractStartDate || contract.startDate || '-';
-    const end = contract.contractEndDate || contract.endDate || '-';
+    // Timestamp 객체를 YYYY-MM-DD 문자열로 변환
+    const formatDate = (dateValue: any): string => {
+      if (!dateValue) return '-';
+      
+      // 이미 문자열인 경우 (YYYY-MM-DD 형식)
+      if (typeof dateValue === 'string') {
+        return dateValue;
+      }
+      
+      // Timestamp 객체인 경우 (seconds 필드 포함)
+      if (dateValue?.seconds) {
+        const date = new Date(dateValue.seconds * 1000);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Date 객체인 경우
+      if (dateValue instanceof Date) {
+        const year = dateValue.getFullYear();
+        const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+        const day = String(dateValue.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      
+      return '-';
+    };
+    
+    const start = formatDate(contract.contractStartDate || contract.startDate);
+    const end = formatDate(contract.contractEndDate || contract.endDate);
     return `${start} ~ ${end}`;
   };
 
@@ -392,9 +422,11 @@ export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-slate-700">{selectedContract.contractType}</TableCell>
                                 <TableCell className="text-slate-700">
-                                  {selectedContract.workStore || selectedContract.companyName || '-'}
+                                  {selectedContract.contractType || '-'}
+                                </TableCell>
+                                <TableCell className="text-slate-700">
+                                  {selectedContract.storeName || selectedContract.workStore || selectedContract.companyName || '-'}
                                 </TableCell>
                                 <TableCell className="text-slate-700">
                                   {formatContractPeriod(selectedContract)}
@@ -471,9 +503,11 @@ export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
                                   </Badge>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-slate-700">{contract.contractType}</TableCell>
                               <TableCell className="text-slate-700">
-                                {contract.workStore || contract.companyName || '-'}
+                                {contract.contractType || '-'}
+                              </TableCell>
+                              <TableCell className="text-slate-700">
+                                {contract.storeName || contract.workStore || contract.companyName || '-'}
                               </TableCell>
                               <TableCell className="text-slate-700">
                                 {formatContractPeriod(contract)}
