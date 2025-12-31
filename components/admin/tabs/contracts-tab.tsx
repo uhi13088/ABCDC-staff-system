@@ -47,7 +47,6 @@ import {
 import { useContractsLogic } from '@/hooks/admin/useContractsLogic';
 import { Contract } from '@/lib/types/contract';
 import { ContractFormModal } from '@/components/admin/modals/contract-form-modal';
-import { safeToLocaleString, type TimestampInput } from '@/lib/utils/timestamp';
 import { ContractDetailModal } from '@/components/shared/contract-detail-modal'; // 공유 모달 사용
 import { ContractLinkModal } from '@/components/admin/modals/contract-link-modal';
 
@@ -156,17 +155,34 @@ export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
   };
 
   /**
-   * 작성일 포맷
+   * 작성일 포맷 (안전한 변환 보장)
    */
-  // 🔒 Phase I: Timestamp 안전 변환
-  const formatCreatedAt = (createdAt: TimestampInput) => {
-    return safeToLocaleString(createdAt, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatCreatedAt = (createdAt: any) => {
+    if (!createdAt) return '-';
+    
+    // 1. Firestore Timestamp 처리 (seconds 필드 포함)
+    if (createdAt.seconds) {
+      return new Date(createdAt.seconds * 1000).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+    
+    // 2. 문자열이나 Date 객체 처리
+    try {
+      return new Date(createdAt).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      return '-';
+    }
   };
 
   /**
