@@ -59,6 +59,16 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
   const [autoApprove, setAutoApprove] = useState(false)
 
 
+  // 통계 상태 추가
+  const [stats, setStats] = useState({
+    totalDays: 0,
+    leaveDays: 0,
+    overtimeDays: 0,
+    absentDays: 0,
+    lateCount: 0,
+    earlyLeaveCount: 0
+  })
+
   // 출근 기록 로드
   const loadAttendanceRecords = async () => {
     setIsLoading(true)
@@ -79,6 +89,9 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
       const snapshot = await getDocs(attendanceQuery)
       
       const loadedRecords: AttendanceRecord[] = []
+      
+      // 날짜별 데이터 수집 (중복 제거용)
+      const dateMap = new Map<string, { late: boolean; earlyLeave: boolean; overtime: boolean }>()
 
       snapshot.forEach((doc) => {
         const data = doc.data()
@@ -98,6 +111,21 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
             workHours = `${hours}시간 ${mins}분`
           }
 
+          const dateKey = format(clockInDate, 'yyyy-MM-dd')
+          
+          // 날짜별 경고 사유 수집
+          if (!dateMap.has(dateKey)) {
+            dateMap.set(dateKey, { late: false, earlyLeave: false, overtime: false })
+          }
+          const dayStats = dateMap.get(dateKey)!
+          
+          // 경고 사유 체크
+          if (data.warningReason) {
+            if (data.warningReason.includes('지각')) dayStats.late = true
+            if (data.warningReason.includes('조기퇴근')) dayStats.earlyLeave = true
+            if (data.warningReason.includes('연장근무')) dayStats.overtime = true
+          }
+          
           const record = {
             id: doc.id,
             date: format(clockInDate, 'yyyy-MM-dd (EEE)', { locale: ko }),
@@ -114,8 +142,35 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
         }
       })
 
+      // 날짜 단위 통계 계산
+      const uniqueDates = dateMap.size
+      let lateCount = 0
+      let earlyLeaveCount = 0
+      let overtimeCount = 0
+      
+      dateMap.forEach((dayStats) => {
+        if (dayStats.late) lateCount++
+        if (dayStats.earlyLeave) earlyLeaveCount++
+        if (dayStats.overtime) overtimeCount++
+      })
+      
+      setStats({
+        totalDays: uniqueDates,
+        leaveDays: 0, // TODO: 휴가 데이터 연동
+        overtimeDays: overtimeCount,
+        absentDays: 0, // TODO: 결근 데이터 연동
+        lateCount: lateCount,
+        earlyLeaveCount: earlyLeaveCount
+      })
+      
       setRecords(loadedRecords)
       console.log('✅ 출퇴근 탭 로드 완료:', loadedRecords.length, '건');
+      console.log('📊 날짜 단위 통계:', {
+        총근무일: uniqueDates,
+        지각: lateCount,
+        조퇴: earlyLeaveCount,
+        연장근무: overtimeCount
+      });
       console.log('기록 ID 목록:', loadedRecords.map(r => r.id));
     } catch (error) {
       console.error('출근 기록 로드 실패:', error)
@@ -312,27 +367,27 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
               <div className="grid grid-cols-3 md:grid-cols-6 gap-3 text-sm">
                 <div className="text-center">
                   <div className="text-gray-600 text-xs mb-1">총 근무일</div>
-                  <div className="font-bold text-lg">{records.length}일</div>
+                  <div className="font-bold text-lg">{stats.totalDays}일</div>
                 </div>
                 <div className="text-center">
                   <div className="text-gray-600 text-xs mb-1">휴가</div>
-                  <div className="font-bold text-lg text-blue-600">0일</div>
+                  <div className="font-bold text-lg text-blue-600">{stats.leaveDays}일</div>
                 </div>
                 <div className="text-center">
                   <div className="text-gray-600 text-xs mb-1">연장근무</div>
-                  <div className="font-bold text-lg text-purple-600">0일</div>
+                  <div className="font-bold text-lg text-purple-600">{stats.overtimeDays}일</div>
                 </div>
                 <div className="text-center">
                   <div className="text-gray-600 text-xs mb-1">결근</div>
-                  <div className="font-bold text-lg text-red-600">0일</div>
+                  <div className="font-bold text-lg text-red-600">{stats.absentDays}일</div>
                 </div>
                 <div className="text-center">
                   <div className="text-gray-600 text-xs mb-1">지각</div>
-                  <div className="font-bold text-lg text-orange-600">0회</div>
+                  <div className="font-bold text-lg text-orange-600">{stats.lateCount}일</div>
                 </div>
                 <div className="text-center">
                   <div className="text-gray-600 text-xs mb-1">조퇴</div>
-                  <div className="font-bold text-lg text-yellow-600">0회</div>
+                  <div className="font-bold text-lg text-yellow-600">{stats.earlyLeaveCount}일</div>
                 </div>
               </div>
             </div>
