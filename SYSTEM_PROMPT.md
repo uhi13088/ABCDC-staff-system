@@ -108,6 +108,7 @@ webapp/
 │       └── timezone.ts            # 시간대 유틸
 ├── services/                      # 비즈니스 로직 레이어
 │   ├── salaryService.ts           # 급여 서비스
+│   ├── scheduleService.ts         # 스케줄 서비스 🆕
 │   ├── cloudFunctionsSalaryService.ts  # Cloud Functions 호출
 │   └── notificationService.ts     # 알림 서비스
 ├── functions/                     # Cloud Functions
@@ -136,7 +137,7 @@ webapp/
 | `components/` | React 컴포넌트 | `dashboard-tab.tsx`, `salary-modal.tsx` |
 | `hooks/` | Custom Hooks | `useSalaryLogic.ts`, `useAttendance.ts` |
 | `lib/` | 라이브러리 및 유틸 | `firebase.ts`, `constants.ts` |
-| `services/` | 비즈니스 로직 | `salaryService.ts`, `approvalService.ts` |
+| `services/` | 비즈니스 로직 | `salaryService.ts`, `scheduleService.ts`, `approvalService.ts` |
 | `functions/` | Cloud Functions | `index.ts` (급여 계산) |
 
 ---
