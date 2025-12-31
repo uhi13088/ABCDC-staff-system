@@ -282,7 +282,8 @@ export function QRScanner({ isOpen, onClose, employeeData, onSuccess }: QRScanne
 
       // 6. 오늘 출퇴근 기록 확인
       const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+      // 🔧 타임존 수정: 로컬 시스템 시간(KST) 기준으로 YYYY-MM-DD 생성
+      const dateStr = format(today, 'yyyy-MM-dd'); // YYYY-MM-DD (로컬 시간)
 
       const attendanceQuery = query(
         collection(db, COLLECTIONS.ATTENDANCE),

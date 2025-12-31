@@ -39,7 +39,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<AttendanceFilterOptions>({
-    employmentStatus: 'active', // 기본값: 재직자만
+    employmentStatus: 'all', // 기본값: 전체 (개발/테스트 편의)
   });
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
 
@@ -141,6 +141,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
         endDate: filters.month ? `${filters.month}-31` : undefined,
       });
       
+      console.log('📊 DB Raw Records:', list);
       console.log(`✅ 총 근태 기록: ${list.length}건`);
       
       // 🔥 근무상태 필터는 직원 status와 조인이 필요하므로 클라이언트에서 처리
