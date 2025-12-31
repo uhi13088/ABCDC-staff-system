@@ -126,7 +126,7 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
             if (data.warningReason.includes('연장근무')) dayStats.overtime = true
           }
           
-          const record = {
+          const record: AttendanceRecord = {
             id: doc.id,
             date: format(clockInDate, 'yyyy-MM-dd (EEE)', { locale: ko }),
             clockIn: format(clockInDate, 'HH:mm'),
@@ -137,7 +137,6 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
             warningReason: data.warningReason || undefined
           };
           
-          console.log('📝 출퇴근 기록 추가:', record);
           loadedRecords.push(record);
         }
       })
