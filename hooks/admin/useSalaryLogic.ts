@@ -293,8 +293,8 @@ export function useSalaryLogic() {
       
       const confirmedSalaries: Record<string, { status: string; paid: boolean; docId: string }> = {};
       salariesSnapshot.forEach(doc => {
-        // 🔒 Timestamp 필드를 안전하게 변환 (React 렌더링 에러 방지)
-        const data = sanitizeTimestamps(doc.data(), ['createdAt', 'updatedAt', 'paidAt', 'calculatedAt']);
+        // 🔒 모든 Timestamp 필드를 자동으로 안전하게 변환 (React 렌더링 에러 완전 방지)
+        const data = sanitizeTimestamps(doc.data());
         confirmedSalaries[data.employeeUid || data.userId] = {
           status: data.status || 'confirmed',
           paid: data.paid || false,

@@ -19,6 +19,46 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // ===========================================
+// 날짜 변환 헬퍼 함수
+// ===========================================
+
+/**
+ * 안전한 날짜 변환 (Timestamp/Date/string 모두 처리)
+ * Firestore Timestamp를 Date로 변환하여 NaN 방지
+ */
+function safeParseDate(value: any): Date | null {
+  if (!value) return null;
+  
+  // Firestore Timestamp 객체 처리
+  if (typeof value.toDate === 'function') {
+    try {
+      return value.toDate();
+    } catch (error) {
+      console.warn('⚠️ Timestamp.toDate() 실패:', error);
+      return null;
+    }
+  }
+  
+  // 이미 Date 객체인 경우
+  if (value instanceof Date) {
+    return value;
+  }
+  
+  // 문자열 또는 숫자인 경우
+  try {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) {
+      console.warn('⚠️ Invalid Date:', value);
+      return null;
+    }
+    return date;
+  } catch (error) {
+    console.warn('⚠️ 날짜 변환 실패:', value, error);
+    return null;
+  }
+}
+
+// ===========================================
 // 타입 정의
 // ===========================================
 
@@ -462,21 +502,29 @@ async function performSalaryCalculation(
   // 퇴직금 계산
   try {
     if (contract.startDate) {
-      const contractStartDate = new Date(contract.startDate);
-      const now = nowKST();
-      const daysDiff = Math.floor((now.getTime() - contractStartDate.getTime()) / (1000 * 60 * 60 * 24));
-      const yearsDiff = daysDiff / 365;
+      // 🔒 안전한 날짜 변환 (Timestamp → Date, NaN 방지)
+      const contractStartDate = safeParseDate(contract.startDate);
       
-      const totalWeeks = Object.keys(weeklyWorkHours).length;
-      const avgWeeklyHours = totalWeeks > 0 ? totalWorkHours / totalWeeks : 0;
-      
-      if (yearsDiff >= 1 && avgWeeklyHours >= 15) {
-        const avgMonthlySalary = result.basePay + result.totalAllowances;
-        result.severancePay = Math.round((avgMonthlySalary * daysDiff / 365) * 30);
+      // 날짜 변환 실패 시 퇴직금 계산 스킵
+      if (!contractStartDate) {
+        functions.logger.warn('⚠️ 계약 시작일 변환 실패, 퇴직금 계산 스킵');
+      } else {
+        const now = nowKST();
+        const daysDiff = Math.floor((now.getTime() - contractStartDate.getTime()) / (1000 * 60 * 60 * 24));
+        const yearsDiff = daysDiff / 365;
+        
+        const totalWeeks = Object.keys(weeklyWorkHours).length;
+        const avgWeeklyHours = totalWeeks > 0 ? totalWorkHours / totalWeeks : 0;
+        
+        if (yearsDiff >= 1 && avgWeeklyHours >= 15) {
+          const avgMonthlySalary = result.basePay + result.totalAllowances;
+          result.severancePay = Math.round((avgMonthlySalary * daysDiff / 365) * 30);
+          functions.logger.info(`✅ 퇴직금 계산 완료: ${result.severancePay}원 (근속: ${yearsDiff.toFixed(1)}년)`);
+        }
       }
     }
   } catch (error) {
-    functions.logger.warn('퇴직금 계산 실패:', error);
+    functions.logger.warn('❌ 퇴직금 계산 실패:', error);
   }
   
   // 총 수당

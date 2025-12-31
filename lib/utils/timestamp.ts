@@ -203,33 +203,52 @@ export function safeToDateArray(values: TimestampInput[]): Date[] {
 }
 
 /**
- * Firestore 문서 데이터에서 Timestamp 필드를 문자열로 변환
- * React 렌더링 시 "Objects are not valid as a React child" 에러 방지
+ * Firestore 문서 데이터에서 모든 Timestamp 필드를 자동으로 문자열로 변환
+ * React 렌더링 시 "Objects are not valid as a React child" 에러 완전 방지
  * 
  * @param data - Firestore 문서 데이터
- * @param timestampFields - 변환할 Timestamp 필드명 배열
- * @returns Timestamp가 ISO 문자열로 변환된 데이터
+ * @returns 모든 Timestamp가 ISO 문자열로 변환된 데이터
  * 
  * @example
  * ```typescript
  * const docData = doc.data();
- * const safeData = sanitizeTimestamps(docData, ['createdAt', 'updatedAt', 'paidAt']);
- * // safeData.createdAt은 이제 ISO 문자열 (예: "2024-01-15T10:30:00.000Z")
+ * const safeData = sanitizeTimestamps(docData);
+ * // 모든 Timestamp 필드가 자동으로 ISO 문자열로 변환됨
  * ```
  */
-export function sanitizeTimestamps<T extends Record<string, any>>(
-  data: T,
-  timestampFields: (keyof T)[] = ['createdAt', 'updatedAt', 'paidAt', 'calculatedAt']
-): T {
-  const result = { ...data };
+export function sanitizeTimestamps<T extends Record<string, any>>(data: T): T {
+  if (!data) return data;
   
-  timestampFields.forEach(field => {
-    if (result[field]) {
-      const date = safeToDate(result[field], null);
-      // Timestamp 객체를 ISO 문자열로 변환
-      result[field] = date ? date.toISOString() : null;
+  const result: any = { ...data };
+
+  Object.keys(result).forEach(key => {
+    const value = result[key];
+    
+    // null/undefined는 그대로 유지
+    if (!value) return;
+    
+    // 객체인 경우 Timestamp 여부 확인
+    if (typeof value === 'object') {
+      // toDate 메서드가 있으면 Firestore Timestamp
+      if (typeof value.toDate === 'function') {
+        try {
+          result[key] = value.toDate().toISOString();
+        } catch (error) {
+          console.warn(`⚠️ Timestamp 변환 실패 (${key}):`, error);
+          result[key] = null;
+        }
+      }
+      // seconds/nanoseconds 속성이 있으면 Timestamp 객체 (plain object)
+      else if ('seconds' in value && 'nanoseconds' in value) {
+        try {
+          result[key] = new Date(value.seconds * 1000).toISOString();
+        } catch (error) {
+          console.warn(`⚠️ Timestamp 변환 실패 (${key}):`, error);
+          result[key] = null;
+        }
+      }
     }
   });
   
-  return result;
+  return result as T;
 }
