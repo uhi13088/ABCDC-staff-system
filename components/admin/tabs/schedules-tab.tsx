@@ -50,6 +50,7 @@ import { useSchedulesLogic } from '@/hooks/admin/useSchedulesLogic';
 import { useSimulatorLogic } from '@/hooks/admin/useSimulatorLogic';
 import { DayOfWeek } from '@/lib/types/schedule';
 import { ScheduleGanttChart } from '@/components/admin/schedule-gantt-chart';
+import { ScheduleCardView } from '@/components/admin/schedule-card-view';
 import { SimulatorModal } from '@/components/admin/modals/simulator-modal';
 import { PersonSettingsModal } from '@/components/admin/modals/person-settings-modal';
 
@@ -73,7 +74,7 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
   const simulatorLogic = useSimulatorLogic(companyId);
 
   // UI 상태
-  const [viewMode, setViewMode] = useState<'table' | 'gantt'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'gantt' | 'card'>('table');
   const [simulatorModalOpen, setSimulatorModalOpen] = useState(false);
   const [personSettingsModalOpen, setPersonSettingsModalOpen] = useState(false);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
@@ -334,6 +335,17 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
                     />
                     <span className="text-sm text-slate-700">간트차트</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="viewMode"
+                      value="card"
+                      checked={viewMode === 'card'}
+                      onChange={(e) => setViewMode('card')}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-sm text-slate-700">카드</span>
+                  </label>
                 </div>
               </div>
 
@@ -410,6 +422,10 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
           ) : viewMode === 'gantt' ? (
             <div className="py-6">
               <ScheduleGanttChart scheduleData={scheduleData} />
+            </div>
+          ) : viewMode === 'card' ? (
+            <div className="py-6">
+              <ScheduleCardView scheduleData={scheduleData} />
             </div>
           ) : (
             <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">

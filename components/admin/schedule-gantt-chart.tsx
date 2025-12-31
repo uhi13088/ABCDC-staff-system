@@ -3,7 +3,7 @@
  * 백업: schedule-viewer.js 라인 11-200 (renderScheduleGanttChart)
  * 
  * 기능:
- * - 시간대별 근무 시각화 (6시~25시)
+ * - 시간대별 근무 시각화 (00:00~24:00) 🆕
  * - 직원별 색상 구분
  * - 대체근무 표시 (🔄 아이콘)
  * - 휴게시간 표시
@@ -23,8 +23,8 @@ interface ScheduleGanttChartProps {
 
 export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
   const days: DayOfWeek[] = ['월', '화', '수', '목', '금', '토', '일'];
-  const startHour = 6;
-  const endHour = 25;
+  const startHour = 0;  // 00:00부터 시작
+  const endHour = 24;   // 24:00까지 (다음 날 00:00)
   const totalHours = endHour - startHour;
   const rowHeight = 35;
   const totalHeight = totalHours * rowHeight;
