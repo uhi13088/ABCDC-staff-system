@@ -11,7 +11,6 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-reac
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { COLLECTIONS } from '@/lib/constants'
-import { safeToDate } from '@/lib/utils/timestamp'
 import { 
   format, 
   startOfWeek, 
@@ -22,6 +21,7 @@ import {
   isSameDay 
 } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import type { PlannedTime, ActualTime } from '@/lib/types/schedule'
 
 interface ScheduleTabProps {
   employeeData: {
@@ -29,6 +29,7 @@ interface ScheduleTabProps {
     companyId: string
     storeId: string
     storeName: string
+    name: string
   }
 }
 
@@ -36,9 +37,10 @@ interface ScheduleShift {
   id: string
   date: string
   dayOfWeek: string
-  employeeName: string
-  startTime: string
-  endTime: string
+  userId: string
+  userName: string
+  plannedTimes: PlannedTime[]
+  actualTime?: ActualTime
   isMe: boolean
 }
 
@@ -54,48 +56,76 @@ export default function ScheduleTab({ employeeData }: ScheduleTabProps) {
     try {
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }) // 월요일 시작
       const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 })
+      const startStr = format(weekStart, 'yyyy-MM-dd')
+      const endStr = format(weekEnd, 'yyyy-MM-dd')
+
+      console.log('📅 스케줄 조회:', {
+        weekStart: startStr,
+        weekEnd: endStr,
+        showAllEmployees,
+        storeId: employeeData.storeId,
+        userId: employeeData.uid
+      })
 
       const schedulesRef = collection(db, COLLECTIONS.SCHEDULES)
+      
+      // Firestore 쿼리 (복합 인덱스 필요)
       const schedulesQuery = query(
         schedulesRef,
         where('companyId', '==', employeeData.companyId),
         where('storeId', '==', employeeData.storeId),
-        orderBy('date', 'asc'),
-        orderBy('startTime', 'asc')
+        where('date', '>=', startStr),
+        where('date', '<=', endStr)
       )
 
       const snapshot = await getDocs(schedulesQuery)
+      console.log(`  📊 조회된 스케줄: ${snapshot.size}개`)
       
       const loadedSchedules: ScheduleShift[] = []
 
       snapshot.forEach((doc) => {
         const data = doc.data()
-        const scheduleDate = safeToDate(data.date)
         
-        if (!scheduleDate) return
+        // "매장 전체 보기" 옵션에 따라 필터링 (✅ userId 표준 필드 사용)
+        if (!showAllEmployees && data.userId !== employeeData.uid) {
+          return // 내 스케줄만 보기
+        }
 
-        // 이번 주 데이터만 필터링
-        if (scheduleDate >= weekStart && scheduleDate <= weekEnd) {
-          // "매장 전체 보기" 옵션에 따라 필터링
-          if (!showAllEmployees && data.employeeId !== employeeData.uid) {
-            return // 내 스케줄만 보기
-          }
-
-          loadedSchedules.push({
-            id: doc.id,
-            date: format(scheduleDate, 'yyyy-MM-dd'),
-            dayOfWeek: format(scheduleDate, 'EEE', { locale: ko }),
-            employeeName: data.employeeName || '알 수 없음',
-            startTime: data.startTime || '-',
-            endTime: data.endTime || '-',
-            isMe: data.employeeId === employeeData.uid
+        // plannedTimes 배열 처리
+        const plannedTimes = data.plannedTimes || []
+        
+        // Legacy 호환: plannedTimes가 없으면 startTime/endTime 사용
+        if (plannedTimes.length === 0 && data.startTime && data.endTime) {
+          plannedTimes.push({
+            contractId: data.contractId || '',
+            isAdditional: data.isAdditional || false,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            breakTime: data.breakTime,
+            workHours: data.workHours
           })
         }
+
+        loadedSchedules.push({
+          id: doc.id,
+          date: data.date,
+          dayOfWeek: format(new Date(data.date + 'T00:00:00'), 'EEE', { locale: ko }),
+          userId: data.userId,
+          userName: data.userName || data.name || '알 수 없음',  // ✅ userName 표준 필드
+          plannedTimes,
+          actualTime: data.actualTime,
+          isMe: data.userId === employeeData.uid
+        })
       })
 
+      // 날짜순 정렬
+      loadedSchedules.sort((a, b) => a.date.localeCompare(b.date))
+
+      console.log(`  ✅ 필터링 후 스케줄: ${loadedSchedules.length}개`)
       setSchedules(loadedSchedules)
     } catch (error) {
-      console.error('스케줄 로드 실패:', error)
+      console.error('❌ 스케줄 로드 실패:', error)
+      alert('스케줄을 불러오는데 실패했습니다.')
     } finally {
       setIsLoading(false)
     }
@@ -227,23 +257,53 @@ export default function ScheduleTab({ employeeData }: ScheduleTabProps) {
                   </div>
                 ) : (
                   daySchedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      className={`p-2 rounded-lg text-xs ${
-                        schedule.isMe
-                          ? 'bg-blue-100 border border-blue-300'
-                          : 'bg-gray-100 border border-gray-200'
-                      }`}
-                    >
+                    <div key={schedule.id} className="space-y-2">
+                      {/* 직원명 표시 (매장 전체 보기 시) */}
                       {showAllEmployees && (
-                        <p className="font-medium mb-1 truncate">
-                          {schedule.employeeName}
-                          {schedule.isMe && <Badge variant="default" className="ml-1 text-xs py-0 px-1">나</Badge>}
-                        </p>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-xs font-medium truncate">
+                            {schedule.userName}
+                          </span>
+                          {schedule.isMe && (
+                            <Badge variant="default" className="text-xs py-0 px-1">나</Badge>
+                          )}
+                        </div>
                       )}
-                      <p className="text-gray-700">
-                        {schedule.startTime} - {schedule.endTime}
-                      </p>
+                      
+                      {/* 계획 시간 (plannedTimes 배열) */}
+                      {schedule.plannedTimes.map((planned, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-2 rounded-lg text-xs ${
+                            schedule.isMe
+                              ? 'bg-blue-100 border border-blue-300'
+                              : 'bg-gray-100 border border-gray-200'
+                          }`}
+                        >
+                          <p className="text-gray-700 font-medium">
+                            📅 {planned.startTime} - {planned.endTime}
+                          </p>
+                          {planned.isAdditional && (
+                            <Badge variant="outline" className="mt-1 text-xs py-0 px-1">
+                              추가 계약
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* 실제 출퇴근 시간 (actualTime) */}
+                      {schedule.actualTime && (
+                        <div className="p-2 rounded-lg text-xs bg-green-100 border border-green-300">
+                          <p className="text-green-700 font-medium">
+                            ✅ {schedule.actualTime.clockIn || '미출근'} - {schedule.actualTime.clockOut || '미퇴근'}
+                          </p>
+                          {schedule.actualTime.warning && (
+                            <p className="text-red-600 text-xs mt-1">
+                              {schedule.actualTime.warning}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -270,7 +330,7 @@ export default function ScheduleTab({ employeeData }: ScheduleTabProps) {
               <div>
                 <span className="text-gray-600">전체 근무자:</span>
                 <span className="ml-2 font-semibold">
-                  {new Set(schedules.map(s => s.employeeName)).size}명
+                  {new Set(schedules.map(s => s.userId)).size}명
                 </span>
               </div>
             )}

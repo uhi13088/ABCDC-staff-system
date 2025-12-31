@@ -187,13 +187,22 @@ const attendance = {
 |--------|------|------|------|
 | `companyId` | string | ✅ | 회사 UUID |
 | `storeId` | string | ✅ | 매장 UUID |
+| `storeName` | string | ⭕ | 매장명 (표시용) |
 | `userId` | string | ✅ | Firebase Auth UID |
+| `userName` | string | ⭕ | 직원명 (표시용) |
 | `date` | string | ✅ | 날짜 (YYYY-MM-DD) |
-| `startTime` | string | ✅ | 근무 시작 시간 (HH:mm) |
-| `endTime` | string | ✅ | 근무 종료 시간 (HH:mm) |
+| `plannedTimes` | array | ✅ | 계획 근무 시간 배열 (계약서 기반) 🆕 |
+| `actualTime` | object | ⭕ | 실제 출퇴근 시간 (출퇴근 기록 기반) 🆕 |
+| `startTime` | string | ⭕ | 근무 시작 시간 (HH:mm) ⚠️ Legacy |
+| `endTime` | string | ⭕ | 근무 종료 시간 (HH:mm) ⚠️ Legacy |
+
+**🆕 v2.0 구조 변경:**
+- `plannedTimes` 배열: 여러 계약서 병합 지원
+- `actualTime` 객체: 실시간 출퇴근 기록 반영
 
 **Legacy 필드 (읽기만):**
 - `store` (매장명) → `storeId`
+- `startTime`, `endTime` → `plannedTimes[0].startTime`, `plannedTimes[0].endTime` 사용 권장
 
 ---
 
