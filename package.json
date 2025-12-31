@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
+    "seed": "tsx scripts/seed-initial-data.ts",
     "clean-db": "tsx scripts/clean-db.ts",
     "clean-db:dry-run": "tsx scripts/clean-db.ts --dry-run",
     "clean-db:salary": "tsx scripts/clean-db.ts salary",
