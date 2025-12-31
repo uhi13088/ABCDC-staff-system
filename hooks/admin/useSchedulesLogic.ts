@@ -145,11 +145,11 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
       // 기존 리스너 해제
       detachAttendanceListener();
       
-      // 매장 정보 가져오기
+      // 매장 정보 가져오기 (디버깅용)
       const storeDoc = await getDoc(doc(db, 'stores', storeId));
       const storeName = storeDoc.exists() ? storeDoc.data().name : '';
       
-      console.log(`🔍 출퇴근 기록 실시간 리스너 설정: ${storeName}`);
+      console.log(`🔍 출퇴근 기록 실시간 리스너 설정: ${storeName} (storeId: ${storeId})`);
       
       // 주간 기간 계산
       const sunday = new Date(monday);
@@ -159,11 +159,11 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
       
       console.log(`📅 조회 기간: ${startDateStr} ~ ${endDateStr}`);
       
-      // 실시간 리스너 설정
+      // 실시간 리스너 설정 (storeId 기준으로 변경)
       const attendanceQuery = query(
         collection(db, COLLECTIONS.ATTENDANCE),
         where('companyId', '==', companyId),
-        where('storeName', '==', storeName),
+        where('storeId', '==', storeId),
         where('date', '>=', startDateStr),
         where('date', '<=', endDateStr)
       );

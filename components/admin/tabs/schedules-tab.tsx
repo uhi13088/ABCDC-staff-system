@@ -251,12 +251,15 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
       return;
     }
 
-    if (!scheduleData?.monday || !scheduleData?.sunday) {
-      alert('스케줄 데이터가 로드되지 않았습니다.');
-      return;
-    }
+    // 현재 주간 날짜 계산 (scheduleData 의존 제거)
+    const monday = new Date(filters.currentWeek);
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    
+    const mondayStr = monday.toISOString().split('T')[0];
+    const sundayStr = sunday.toISOString().split('T')[0];
 
-    const confirmMsg = `현재 주간(${scheduleData.monday} ~ ${scheduleData.sunday})의 스케줄을 재생성하시겠습니까?\n\n⚠️ 기존 스케줄은 덮어쓰기됩니다.`;
+    const confirmMsg = `현재 주간(${mondayStr} ~ ${sundayStr})의 스케줄을 재생성하시겠습니까?\n\n⚠️ 기존 스케줄은 덮어쓰기됩니다.`;
     
     if (!confirm(confirmMsg)) {
       return;
@@ -267,7 +270,7 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
     try {
       console.log('🔄 스케줄 재생성 시작:', {
         storeId: filters.storeId,
-        range: `${scheduleData.monday} ~ ${scheduleData.sunday}`,
+        range: `${mondayStr} ~ ${sundayStr}`,
       });
 
       // 1. 현재 선택된 매장의 활성 계약서 가져오기
@@ -287,8 +290,8 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
       for (const contract of contracts) {
         await generateSchedulesForRange(
           contract,
-          scheduleData.monday,
-          scheduleData.sunday,
+          mondayStr,
+          sundayStr,
           user.uid
         );
       }
