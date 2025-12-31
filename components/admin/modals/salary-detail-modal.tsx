@@ -13,6 +13,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SalaryCalculationResult } from '@/lib/utils/salary-calculator';
 import { formatHoursAndMinutes } from '@/lib/utils/salary-calculator';
 import type { Contract } from '@/lib/types/contract';
+import { format } from 'date-fns';
+import { safeToDate } from '@/lib/utils/timestamp';
 
 interface SalaryDetailModalProps {
   open: boolean;

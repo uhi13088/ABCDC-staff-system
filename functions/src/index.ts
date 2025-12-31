@@ -586,9 +586,9 @@ export const calculateMonthlySalary = functions
       const callerRole = callerData.role;
       const callerCompanyId = callerData.companyId;
 
-      // 권한 검사: admin, manager, store_manager, 또는 본인인 employee/staff
+      // 권한 검사: super_admin, admin, manager, store_manager, 또는 본인인 employee/staff
       const isAuthorized = 
-        ['admin', 'store_manager', 'manager'].includes(callerRole) ||
+        ['super_admin', 'admin', 'store_manager', 'manager'].includes(callerRole) ||
         (['employee', 'staff'].includes(callerRole) && employeeUid === callerUid);
 
       if (!isAuthorized) {
