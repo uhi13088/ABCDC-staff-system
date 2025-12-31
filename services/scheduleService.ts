@@ -40,6 +40,158 @@ const DAY_MAP: Record<string, number> = {
 };
 
 /**
+ * 지정된 기간 동안의 스케줄 생성 (주간/월간 범위 지원)
+ * 
+ * @param contract 계약서 데이터
+ * @param startDate 시작 날짜 (YYYY-MM-DD)
+ * @param endDate 종료 날짜 (YYYY-MM-DD)
+ * @param creatorUid 생성자 UID (admin)
+ */
+export async function generateSchedulesForRange(
+  contract: Contract,
+  startDate: string,
+  endDate: string,
+  creatorUid: string
+): Promise<void> {
+  console.log('📅 스케줄 범위 생성 시작:', {
+    contractId: contract.id,
+    userId: contract.userId,
+    isAdditional: contract.isAdditional,
+    range: `${startDate} ~ ${endDate}`,
+  });
+
+  if (!contract.id || !contract.userId || !contract.schedules) {
+    console.error('❌ 필수 필드 누락:', contract);
+    throw new Error('계약서 필수 필드가 누락되었습니다.');
+  }
+
+  // 1. 날짜 파싱
+  const rangeStart = new Date(startDate);
+  const rangeEnd = new Date(endDate);
+
+  console.log(`  📅 생성 범위: ${formatDate(rangeStart)} ~ ${formatDate(rangeEnd)}`);
+
+  // 2. 요일별 스케줄 매핑 (ContractSchedule[] -> Map)
+  const scheduleMap = new Map<number, ContractSchedule>();
+  contract.schedules.forEach((schedule) => {
+    const dayNum = DAY_MAP[schedule.day];
+    if (dayNum !== undefined) {
+      scheduleMap.set(dayNum, schedule);
+    }
+  });
+
+  // 3. 날짜별 스케줄 생성
+  const batch = writeBatch(db);
+  const dates: string[] = [];
+  let batchCount = 0;
+
+  for (let date = new Date(rangeStart); date <= rangeEnd; date.setDate(date.getDate() + 1)) {
+    const dayOfWeek = date.getDay(); // 0=일, 1=월, ..., 6=토
+    const contractSchedule = scheduleMap.get(dayOfWeek);
+
+    // 해당 요일에 근무가 없으면 스킵
+    if (!contractSchedule) {
+      continue;
+    }
+
+    const dateStr = formatDate(date);
+    dates.push(dateStr);
+
+    // PlannedTime 객체 생성
+    const plannedTime: PlannedTime = {
+      contractId: contract.id,
+      isAdditional: contract.isAdditional || false,
+      startTime: contractSchedule.startTime,
+      endTime: contractSchedule.endTime,
+      breakTime: contract.breakTime
+        ? {
+            start: contract.breakTime.start,
+            end: contract.breakTime.end,
+            minutes: contract.breakTime.minutes,
+            hours: contract.breakTime.hours,
+            isPaid: contract.breakTime.isPaid,
+            description: contract.breakTime.description,
+          }
+        : undefined,
+      workHours: calculateWorkHours(
+        contractSchedule.startTime,
+        contractSchedule.endTime,
+        contract.breakTime?.minutes || 0
+      ),
+    };
+
+    // 4. 기존 스케줄 확인 (추가 계약서 병합 처리)
+    const scheduleId = `${contract.userId}_${dateStr}`;
+
+    if (contract.isAdditional) {
+      // 추가 계약서: 기존 스케줄에 plannedTimes 추가
+      const scheduleRef = doc(db, COLLECTIONS.SCHEDULES, scheduleId);
+      const scheduleDoc = await getDoc(scheduleRef);
+
+      if (scheduleDoc.exists()) {
+        // 기존 스케줄 존재 -> plannedTimes 배열에 추가
+        const existingSchedule = scheduleDoc.data() as Schedule;
+        const updatedPlannedTimes = [...(existingSchedule.plannedTimes || []), plannedTime];
+
+        batch.update(scheduleRef, {
+          plannedTimes: updatedPlannedTimes,
+          updatedAt: serverTimestamp(),
+          updatedBy: creatorUid,
+        });
+      } else {
+        // 기존 스케줄 없음 -> 새로 생성
+        const newSchedule: Partial<Schedule> = {
+          companyId: contract.companyId!,
+          storeId: contract.storeId!,
+          storeName: contract.storeName,
+          userId: contract.userId,
+          userName: contract.employeeName,
+          date: dateStr,
+          plannedTimes: [plannedTime],
+          createdAt: serverTimestamp() as Timestamp,
+          createdBy: creatorUid,
+        };
+
+        batch.set(scheduleRef, newSchedule);
+      }
+    } else {
+      // 신규 계약서: 스케줄 생성 (덮어쓰기)
+      const newSchedule: Partial<Schedule> = {
+        companyId: contract.companyId!,
+        storeId: contract.storeId!,
+        storeName: contract.storeName,
+        userId: contract.userId,
+        userName: contract.employeeName,
+        date: dateStr,
+        plannedTimes: [plannedTime],
+        createdAt: serverTimestamp() as Timestamp,
+        createdBy: creatorUid,
+      };
+
+      const scheduleRef = doc(db, COLLECTIONS.SCHEDULES, scheduleId);
+      batch.set(scheduleRef, newSchedule, { merge: false }); // 덮어쓰기
+    }
+
+    batchCount++;
+
+    // Firestore batch는 최대 500개까지
+    if (batchCount >= 500) {
+      await batch.commit();
+      batchCount = 0;
+      console.log('  ✅ Batch 커밋 완료 (500개)');
+    }
+  }
+
+  // 남은 batch 커밋
+  if (batchCount > 0) {
+    await batch.commit();
+  }
+
+  console.log(`✅ 스케줄 범위 생성 완료: ${dates.length}일치 생성`);
+  console.log(`  생성된 날짜: ${dates.slice(0, 5).join(', ')}${dates.length > 5 ? ' ...' : ''}`);
+}
+
+/**
  * 계약서 기반 한 달치 스케줄 생성
  * 
  * @param contract 계약서 데이터

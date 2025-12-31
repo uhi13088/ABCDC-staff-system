@@ -53,6 +53,10 @@ import { ScheduleGanttChart } from '@/components/admin/schedule-gantt-chart';
 import { ScheduleCardView } from '@/components/admin/schedule-card-view';
 import { SimulatorModal } from '@/components/admin/modals/simulator-modal';
 import { PersonSettingsModal } from '@/components/admin/modals/person-settings-modal';
+import { generateSchedulesForRange } from '@/services/scheduleService';
+import { getContracts } from '@/services/contractService';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 interface SchedulesTabProps {
   companyId: string;
@@ -78,6 +82,10 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
   const [simulatorModalOpen, setSimulatorModalOpen] = useState(false);
   const [personSettingsModalOpen, setPersonSettingsModalOpen] = useState(false);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // Auth 정보
+  const { user } = useAuth();
 
   useEffect(() => {
     if (companyId) {
@@ -229,6 +237,76 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
     simulatorLogic.updatePerson(personId, updates);
   };
 
+  /**
+   * 🔄 스케줄 재생성 (현재 주간 기준)
+   */
+  const handleRegenerateSchedules = async () => {
+    if (!filters.storeId || filters.storeId === 'all') {
+      alert('매장을 먼저 선택해주세요.');
+      return;
+    }
+
+    if (!user?.uid) {
+      alert('로그인 정보가 없습니다.');
+      return;
+    }
+
+    if (!scheduleData?.monday || !scheduleData?.sunday) {
+      alert('스케줄 데이터가 로드되지 않았습니다.');
+      return;
+    }
+
+    const confirmMsg = `현재 주간(${scheduleData.monday} ~ ${scheduleData.sunday})의 스케줄을 재생성하시겠습니까?\n\n⚠️ 기존 스케줄은 덮어쓰기됩니다.`;
+    
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    setIsRegenerating(true);
+
+    try {
+      console.log('🔄 스케줄 재생성 시작:', {
+        storeId: filters.storeId,
+        range: `${scheduleData.monday} ~ ${scheduleData.sunday}`,
+      });
+
+      // 1. 현재 선택된 매장의 활성 계약서 가져오기
+      const contracts = await getContracts(companyId, {
+        storeId: filters.storeId,
+        status: '서명완료',
+      });
+
+      console.log(`  📄 가져온 계약서: ${contracts.length}개`);
+
+      if (contracts.length === 0) {
+        alert('해당 매장의 활성 계약서가 없습니다.');
+        return;
+      }
+
+      // 2. 각 계약서에 대해 스케줄 생성
+      for (const contract of contracts) {
+        await generateSchedulesForRange(
+          contract,
+          scheduleData.monday,
+          scheduleData.sunday,
+          user.uid
+        );
+      }
+
+      console.log('✅ 스케줄 재생성 완료');
+
+      // 3. 화면 새로고침
+      await loadSchedules();
+
+      alert('스케줄이 성공적으로 재생성되었습니다!');
+    } catch (error) {
+      console.error('❌ 스케줄 재생성 실패:', error);
+      alert(`스케줄 재생성에 실패했습니다.\n\n에러: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   // 편집 중인 person 객체 가져오기
   const editingPerson = editingPersonId
     ? simulatorLogic.persons.find(p => p.id === editingPersonId) || null
@@ -252,6 +330,18 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
               >
                 <Grid3x3 className="w-4 h-4 mr-2" />
                 스케줄 시뮬레이터
+              </Button>
+              <Button 
+                onClick={handleRegenerateSchedules}
+                disabled={isRegenerating || !filters.storeId || filters.storeId === 'all'}
+                className="bg-purple-600 hover:bg-purple-700 text-white disabled:bg-slate-400 disabled:cursor-not-allowed"
+              >
+                {isRegenerating ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                {isRegenerating ? '생성 중...' : '🔄 스케줄 재생성'}
               </Button>
               <Button 
                 onClick={handleExportPDF}
