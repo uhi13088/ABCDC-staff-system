@@ -57,6 +57,46 @@ export default function AttendanceTab({ companyId }: AttendanceTabProps) {
     }
   }, [companyId, filters.storeId]);
 
+  /**
+   * 시간 포맷팅 함수 (Timestamp 객체 → HH:mm 문자열)
+   */
+  const formatTime = (timeValue: any): string => {
+    if (!timeValue) return '-';
+    
+    // 1. Firestore Timestamp 객체 처리 (seconds 필드)
+    if (timeValue?.seconds) {
+      const date = new Date(timeValue.seconds * 1000);
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+    
+    // 2. ISO 문자열 처리
+    if (typeof timeValue === 'string') {
+      try {
+        const date = new Date(timeValue);
+        if (!isNaN(date.getTime())) {
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        }
+        // 이미 HH:mm 형식이면 그대로 반환
+        return timeValue;
+      } catch (e) {
+        return timeValue;
+      }
+    }
+    
+    // 3. Date 객체 처리
+    if (timeValue instanceof Date) {
+      const hours = String(timeValue.getHours()).padStart(2, '0');
+      const minutes = String(timeValue.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+    
+    return '-';
+  };
+
   // 상태 뱃지 색상 (백업: calculateAttendanceStatus 함수 결과 기반)
   const getStatusBadge = (text: string, badgeClass: string) => {
     const statusConfig: Record<string, { className: string }> = {
@@ -218,8 +258,8 @@ export default function AttendanceTab({ companyId }: AttendanceTabProps) {
                         <TableCell className="font-medium">{att.date || '-'}</TableCell>
                         <TableCell className="text-slate-600">{att.employeeName || att.name || '-'}</TableCell>
                         <TableCell className="text-slate-600">{att.store || '-'}</TableCell>
-                        <TableCell className="text-slate-600">{att.clockIn || '-'}</TableCell>
-                        <TableCell className="text-slate-600">{att.clockOut || '-'}</TableCell>
+                        <TableCell className="text-slate-600">{formatTime(att.clockIn)}</TableCell>
+                        <TableCell className="text-slate-600">{formatTime(att.clockOut)}</TableCell>
                         <TableCell>{getStatusBadge(statusResult.text, statusResult.class)}</TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-1">
