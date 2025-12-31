@@ -62,8 +62,11 @@ export function useStoresLogic({ companyId }: UseStoresLogicProps) {
    */
   const addStore = useCallback(async (data: StoreFormData) => {
     try {
+      // 🔒 id 필드 제거 (undefined 방지)
+      const { id, ...storeData } = data;
+      
       await addDoc(collection(db, COLLECTIONS.STORES), {
-        ...data,
+        ...storeData,
         createdAt: serverTimestamp(),
       });
       
