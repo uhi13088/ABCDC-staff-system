@@ -228,21 +228,27 @@ export default function AttendanceTab({ employeeData }: AttendanceTabProps) {
         processedAt: autoApprove ? Timestamp.now() : null
       }
 
-      await addDoc(collection(db, COLLECTIONS.APPROVALS), editRequest)
+      const docRef = await addDoc(collection(db, COLLECTIONS.APPROVALS), editRequest)
 
       // 관리자에게 알림 생성
-      const notificationData = {
-        type: 'attendance_edit_request',
-        companyId: employeeData.companyId,
-        title: autoApprove ? '출퇴근 기록이 수정되었습니다' : '출퇴근 기록 수정 요청',
-        message: `${employeeData.name}님이 ${selectedAttendance.date} 출퇴근 기록을 수정${autoApprove ? '했습니다' : ' 요청했습니다'}.`,
-        userId: 'admin', // 관리자에게 전송
-        read: false,
-        requestId: editRequest.attendanceId,
-        createdAt: Timestamp.now()
-      }
+      try {
+        const notificationData = {
+          type: 'attendance_edit_request',
+          companyId: employeeData.companyId,
+          title: autoApprove ? '출퇴근 기록이 수정되었습니다' : '출퇴근 기록 수정 요청',
+          message: `${employeeData.name}님이 ${selectedAttendance.date} 출퇴근 기록을 수정${autoApprove ? '했습니다' : ' 요청했습니다'}.`,
+          userId: 'admin', // 관리자에게 전송
+          read: false,
+          relatedId: docRef.id || selectedAttendance.id, // approval ID 또는 attendance ID 사용
+          relatedType: 'approval',
+          createdAt: Timestamp.now()
+        }
 
-      await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), notificationData)
+        await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), notificationData)
+        console.log('✅ 알림 생성 완료');
+      } catch (notifError) {
+        console.error('❌ 알림 생성 실패 (무시하고 진행):', notifError);
+      }
 
       alert(autoApprove 
         ? '✅ 출퇴근 기록이 수정되었습니다.'

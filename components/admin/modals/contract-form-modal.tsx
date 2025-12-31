@@ -28,7 +28,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Check, FileEdit, Eye, Save, X } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 import { COLLECTIONS } from '@/lib/constants';
@@ -613,7 +613,7 @@ export function ContractFormModal({
             id: docRef.id,
             companyId,
           },
-          user?.uid || ''
+          auth.currentUser?.uid || ''
         );
         console.log('✅ 스케줄 자동 생성 완료');
       } catch (scheduleError) {

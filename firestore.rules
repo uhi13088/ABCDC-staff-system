@@ -73,11 +73,14 @@ service cloud.firestore {
     // ==================================== 
     match /users/{userId} {
       // 조회: 본인 또는 같은 회사 매니저
-      allow read: if isAuthenticated() 
+      allow get: if isAuthenticated() 
         && (
           isOwner(userId) 
           || (resource != null && isManager() && isSameCompany(resource.data.companyId))
         );
+      
+      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 직원만 조회
+      allow list: if isAuthenticated() && isManager();
       
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
@@ -91,12 +94,15 @@ service cloud.firestore {
     // 3. Contracts (계약서)
     // ====================================
     match /contracts/{contractId} {
-      // 조회: 본인 계약서 또는 같은 회사 매니저
-      allow read: if isAuthenticated()
+      // 단건 조회: 본인 계약서 또는 같은 회사 매니저
+      allow get: if isAuthenticated()
         && (
           (resource != null && isOwner(resource.data.userId))
           || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
         );
+      
+      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 계약서만 조회
+      allow list: if isAuthenticated() && isStoreManager();
       
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       
@@ -116,12 +122,15 @@ service cloud.firestore {
     // 4. Attendance (출퇴근)
     // ====================================
     match /attendance/{attendanceId} {
-      // 조회: 본인 또는 같은 회사 매니저
-      allow read: if isAuthenticated()
+      // 단건 조회: 본인 또는 같은 회사 매니저
+      allow get: if isAuthenticated()
         && (
           (resource != null && isOwner(resource.data.userId))
           || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
         );
+      
+      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 출퇴근만 조회
+      allow list: if isAuthenticated() && isStoreManager();
       
       allow create: if isAuthenticated()
         && (isOwner(request.resource.data.userId) || (isStoreManager() && isSameCompany(request.resource.data.companyId)));
@@ -159,13 +168,16 @@ service cloud.firestore {
     // 6. Salary (급여)
     // ====================================
     match /salary/{salaryId} {
-      // 조회: 본인 또는 같은 회사 매니저
-      allow read: if isAuthenticated()
+      // 단건 조회: 본인 또는 같은 회사 매니저
+      allow get: if isAuthenticated()
         && resource != null
         && (
           isOwner(resource.data.userId) 
           || (isManager() && isSameCompany(resource.data.companyId))
         );
+      
+      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 급여만 조회
+      allow list: if isAuthenticated() && isManager();
       
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
@@ -176,13 +188,16 @@ service cloud.firestore {
     // 7. Approvals (승인 요청)
     // ====================================
     match /approvals/{approvalId} {
-      // 조회: 본인 또는 같은 회사 매니저
-      allow read: if isAuthenticated()
+      // 단건 조회: 본인 또는 같은 회사 매니저
+      allow get: if isAuthenticated()
         && resource != null
         && (
           isOwner(resource.data.userId) 
           || (isManager() && isSameCompany(resource.data.companyId))
         );
+      
+      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 승인만 조회
+      allow list: if isAuthenticated() && isManager();
       
       allow create: if isAuthenticated() 
         && isOwner(request.resource.data.userId)
