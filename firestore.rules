@@ -1,12 +1,9 @@
 rules_version = '2';
 
 /**
- * Firestore Security Rules
- * 표준 필드명 기반 (FIELD_NAMING_STANDARD.md 준수)
- * 핵심 원칙:
- * 1. 모든 데이터는 companyId로 격리
- * 2. 표준 필드명 (userId, storeId, clockIn 등) 검증
- * 3. 역할 기반 권한 (super_admin, admin, manager, store_manager, employee)
+ * Firestore Security Rules (보안 강화 수정본)
+ * 1. list 규칙에 isSameCompany() 강제 적용 -> 타 회사 데이터 접근 차단
+ * 2. 관리자라도 본인 회사의 데이터만 조회 가능하도록 수정
  */
 
 service cloud.firestore {
@@ -61,7 +58,6 @@ service cloud.firestore {
       allow update: if isAdmin() && isSameCompany(companyId);
       allow delete: if isSuperAdmin();
       
-      // 회사 설정 (서브컬렉션)
       match /settings/{settingId} {
         allow read: if isSameCompany(companyId);
         allow write: if isAdmin() && isSameCompany(companyId);
@@ -72,21 +68,16 @@ service cloud.firestore {
     // 2. Users (사용자/직원)
     // ==================================== 
     match /users/{userId} {
-      // 조회: 본인 또는 같은 회사 매니저
       allow get: if isAuthenticated() 
-        && (
-          isOwner(userId) 
-          || (resource != null && isManager() && isSameCompany(resource.data.companyId))
-        );
+        && (isOwner(userId) || (resource != null && isManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정 완료] 리스트 조회: 인증된 사용자 허용 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
+      // [수정] 같은 회사 직원만 리스트 조회 가능
+      allow list: if isAuthenticated() && isSameCompany(resource.data.companyId);
       
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
         && (isOwner(userId) || (isManager() && resource != null && isSameCompany(resource.data.companyId)))
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'companyId']) 
-            || isSuperAdmin());
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'companyId']) || isSuperAdmin());
       allow delete: if isManager() && resource != null && isSameCompany(resource.data.companyId);
     }
     
@@ -94,27 +85,17 @@ service cloud.firestore {
     // 3. Contracts (계약서)
     // ====================================
     match /contracts/{contractId} {
-      // 단건 조회: 본인 계약서 또는 같은 회사 매니저
       allow get: if isAuthenticated()
-        && (
-          (resource != null && isOwner(resource.data.userId))
-          || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
-        );
+        && ((resource != null && isOwner(resource.data.userId)) || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
-      allow list: if isAuthenticated() && (isStoreManager() || (resource.data.userId == request.auth.uid));
+      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
+      allow list: if isAuthenticated() 
+        && ((isStoreManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
       
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       
-      allow update: if isAuthenticated()
-        && resource != null
-        && (
-          (isStoreManager() && isSameCompany(resource.data.companyId))
-          || (
-            isOwner(resource.data.userId)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['employeeSignedAt', 'employeeSignedBy', 'employeeSignature', 'updatedAt', 'status'])
-          )
-        );
+      allow update: if isAuthenticated() && resource != null
+        && ((isStoreManager() && isSameCompany(resource.data.companyId)) || (isOwner(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['employeeSignedAt', 'employeeSignedBy', 'employeeSignature', 'updatedAt', 'status'])));
       allow delete: if isManager() && resource != null && isSameCompany(resource.data.companyId);
     }
     
@@ -122,25 +103,18 @@ service cloud.firestore {
     // 4. Attendance (출퇴근)
     // ====================================
     match /attendance/{attendanceId} {
-      // 단건 조회: 본인 또는 같은 회사 매니저
       allow get: if isAuthenticated()
-        && (
-          (resource != null && isOwner(resource.data.userId))
-          || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
-        );
+        && ((resource != null && isOwner(resource.data.userId)) || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
-      allow list: if isAuthenticated() && (isStoreManager() || (resource.data.userId == request.auth.uid));
+      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
+      allow list: if isAuthenticated() 
+        && ((isStoreManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
       
       allow create: if isAuthenticated()
         && (isOwner(request.resource.data.userId) || (isStoreManager() && isSameCompany(request.resource.data.companyId)));
       
-      allow update: if isAuthenticated()
-        && resource != null
-        && (
-          (isStoreManager() && isSameCompany(resource.data.companyId))
-          || isOwner(resource.data.userId)
-        );
+      allow update: if isAuthenticated() && resource != null
+        && ((isStoreManager() && isSameCompany(resource.data.companyId)) || isOwner(resource.data.userId));
       allow delete: if isManager() && resource != null && isSameCompany(resource.data.companyId);
     }
     
@@ -154,7 +128,6 @@ service cloud.firestore {
           || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
           || (resource != null && isSameCompany(resource.data.companyId))
         );
-        
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
       allow delete: if isStoreManager() && isSameCompany(resource.data.companyId);
@@ -164,16 +137,12 @@ service cloud.firestore {
     // 6. Salary (급여)
     // ====================================
     match /salary/{salaryId} {
-      // 단건 조회: 본인 또는 같은 회사 매니저
-      allow get: if isAuthenticated()
-        && resource != null
-        && (
-          isOwner(resource.data.userId) 
-          || (isManager() && isSameCompany(resource.data.companyId))
-        );
+      allow get: if isAuthenticated() && resource != null
+        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
-      allow list: if isAuthenticated() && (isManager() || (resource.data.userId == request.auth.uid));
+      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
+      allow list: if isAuthenticated() 
+        && ((isManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
       
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
@@ -184,191 +153,73 @@ service cloud.firestore {
     // 7. Approvals (승인 요청)
     // ====================================
     match /approvals/{approvalId} {
-      // 단건 조회: 본인 또는 같은 회사 매니저
-      allow get: if isAuthenticated()
-        && resource != null
-        && (
-          isOwner(resource.data.userId) 
-          || (isManager() && isSameCompany(resource.data.companyId))
-        );
-      
-      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
-      allow list: if isAuthenticated() && (isManager() || (resource.data.userId == request.auth.uid));
-      
-      allow create: if isAuthenticated() 
-        && isOwner(request.resource.data.userId)
-        && isSameCompany(request.resource.data.companyId);
-      
-      allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
-      allow delete: if isAuthenticated()
-        && resource != null
+      allow get: if isAuthenticated() && resource != null
         && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
+      
+      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
+      allow list: if isAuthenticated() 
+        && ((isManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
+      
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId) && isSameCompany(request.resource.data.companyId);
+      allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
+      allow delete: if isAuthenticated() && resource != null && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
     }
     
     // ====================================
-    // 8. Notices (공지사항)
+    // 8. Notices, Brands, Stores, Invites, Company Invites (공통: 같은 회사만 조회)
     // ====================================
     match /notices/{noticeId} {
-      // 단건 조회: 같은 회사
-      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      
-      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
-      
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
-      allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
-      allow delete: if isManager() && resource != null && isSameCompany(resource.data.companyId);
+      allow update: if isManager() && isSameCompany(resource.data.companyId);
+      allow delete: if isManager() && isSameCompany(resource.data.companyId);
     }
     
-    // ====================================
-    // 9. Brands (브랜드)
-    // ====================================
     match /brands/{brandId} {
-      // 단건 조회: 같은 회사
-      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      
-      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
-      
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
+      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
     }
     
-    // ====================================
-    // 10. Stores (매장)
-    // ====================================
     match /stores/{storeId} {
-      // 단건 조회: 본인 또는 같은 회사
-      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      
-      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
-      
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
+      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
     }
     
-    // ====================================
-    // 11. Invites (초대 코드 - 매장용)
-    // ====================================
     match /invites/{inviteId} {
-      // 단건 조회: 같은 회사
-      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      
-      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
-      
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
+      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
+      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
     }
     
-    // ====================================
-    // 11-2. Company Invites (직원 초대 코드)
-    // ====================================
     match /company_invites/{inviteId} {
-      // [수정 완료] 보안 취약점 제거 및 resource != null 체크
-      // 단건 조회: 같은 회사
-      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      
-      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
-      
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
-      allow delete: if isAdmin() && resource != null && isSameCompany(resource.data.companyId);
-    }
-    
-    // ====================================
-    // 12. Shift Requests (교대근무 요청)
-    // ====================================
-    match /shift_requests/{shiftId} {
-      // 단건 조회: 같은 회사
-      allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      
-      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
-      
-      allow create: if isAuthenticated() && isSameCompany(request.resource.data.companyId);
-      allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
-      allow delete: if isManager() && resource != null && isSameCompany(resource.data.companyId);
-    }
-    
-    // ====================================
-    // 13. Simulators (스케줄 시뮬레이터)
-    // ====================================
-    match /simulators/{simulatorId} {
-      // 🔒 list/get 분리 (resource null 체크)
-      allow get: if isAuthenticated() 
-        && resource != null 
-        && isSameCompany(resource.data.companyId);
-      
-      allow list: if isAuthenticated() && isStoreManager();
-      
-      allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
-      allow update: if isStoreManager() 
-        && resource != null 
-        && isSameCompany(resource.data.companyId);
-      allow delete: if isStoreManager() 
-        && resource != null 
-        && isSameCompany(resource.data.companyId);
-    }
-    
-    // ====================================
-    // 14. Signed Contracts (서명된 계약서)
-    // ====================================
-    match /signedContracts/{contractId} {
-      allow read: if isAuthenticated()
-        && ((isStoreManager() && isSameCompany(resource.data.companyId))
-        || isOwner(resource.data.userId));
-      allow create: if isAuthenticated()
-        && isOwner(request.resource.data.userId)
-        && isSameCompany(request.resource.data.companyId);
-      allow update: if false;
+      allow update: if isAdmin() && isSameCompany(resource.data.companyId);
       allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
-    // 15. Holidays (공휴일)
+    // 12. Shift Requests
     // ====================================
-    match /holidays/{holidayId} {
-      allow read: if isAuthenticated();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+    match /shift_requests/{shiftId} {
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      allow create: if isAuthenticated() && isSameCompany(request.resource.data.companyId);
+      allow update: if isManager() && isSameCompany(resource.data.companyId);
+      allow delete: if isManager() && isSameCompany(resource.data.companyId);
     }
     
     // ====================================
-    // 16. Subscription Plans (구독 플랜)
+    // 13. Simulators
     // ====================================
-    match /subscription_plans/{planId} {
-      allow read: if true;
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
-    }
-    
-    // ====================================
-    // 17. Invitation Codes (플랫폼 초대 코드)
-    // ====================================
-    match /invitation_codes/{codeId} {
-      allow read: if isSuperAdmin();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
-    }
-    
-    // ====================================
-    // 18. Open Shifts (긴급 구인)
-    // ====================================
-    match /open_shifts/{shiftId} {
-      // 단건 조회: 같은 회사
+    match /simulators/{simulatorId} {
       allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      
-      // 리스트 조회: 인증된 사용자 (클라이언트 필터링 필수)
-      allow list: if isAuthenticated();
+      // [수정] 스토어 매니저는 같은 회사 것만 리스트 조회
+      allow list: if isAuthenticated() && isStoreManager() && isSameCompany(resource.data.companyId);
       
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isStoreManager() && resource != null && isSameCompany(resource.data.companyId);
@@ -376,17 +227,48 @@ service cloud.firestore {
     }
     
     // ====================================
-    // 19. Notifications (알림)
+    // 14~19. 기타 규칙 (Signed Contracts, Open Shifts, Notifications 등)
     // ====================================
+    match /signedContracts/{contractId} {
+      allow read: if isAuthenticated() && ((isStoreManager() && isSameCompany(resource.data.companyId)) || isOwner(resource.data.userId));
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId) && isSameCompany(request.resource.data.companyId);
+      allow update: if false;
+      allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
+    }
+    
+    match /holidays/{holidayId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    match /subscription_plans/{planId} {
+      allow read: if true;
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    match /invitation_codes/{codeId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    match /open_shifts/{shiftId} {
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
+      allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
+      allow delete: if isStoreManager() && isSameCompany(resource.data.companyId);
+    }
+    
     match /notifications/{notifId} {
-      allow read: if isAuthenticated()
-        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
-      // 직원도 알림 생성 가능 (출퇴근 수정 요청 알림 등)
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
       allow create: if isAuthenticated() && isSameCompany(request.resource.data.companyId);
-      allow update: if isAuthenticated()
-        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
-      allow delete: if isAuthenticated()
-        && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
+      allow update: if isAuthenticated() && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
     }
     
     match /{document=**} {

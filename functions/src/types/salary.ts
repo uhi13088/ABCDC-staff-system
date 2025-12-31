@@ -78,6 +78,14 @@ export const ContractForSalarySchema = z.object({
   workStartTime: TimeStringSchema.optional().describe('근무 시작 시간'),
   workEndTime: TimeStringSchema.optional().describe('근무 종료 시간'),
   
+  // 휴게시간 (야간 수당 차감용)
+  breakTime: z.object({
+    startHour: z.number(),
+    startMinute: z.number().optional(),
+    endHour: z.number(),
+    endMinute: z.number().optional()
+  }).optional().describe('휴게시간'),
+  
   // 급여 계산 기간
   salaryPaymentDay: z.union([z.number(), z.null()]).optional(),
   salaryCalculationType: z.string().optional(),
@@ -266,6 +274,7 @@ export function normalizeContract(contract: any): ContractForSalary {
     weeklyHours: contract.weeklyHours,
     workStartTime: contract.workStartTime,
     workEndTime: contract.workEndTime,
+    breakTime: contract.breakTime,
     salaryPaymentDay: contract.salaryPaymentDay,
     salaryCalculationType: contract.salaryCalculationType,
     salaryCalculationPeriod: contract.salaryCalculationPeriod,

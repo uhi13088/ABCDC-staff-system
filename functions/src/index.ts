@@ -12,6 +12,13 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { 
+  AttendanceForSalary, 
+  ContractForSalary, 
+  SalaryCalculationResult as MonthlySalaryResult,
+  parseMoney,
+  safeParseDate
+} from './types/salary';
 
 // Firebase Admin SDK 초기화
 admin.initializeApp();
@@ -26,170 +33,18 @@ const db = admin.firestore();
  * 안전한 날짜 변환 (Timestamp/Date/string 모두 처리)
  * Firestore Timestamp를 Date로 변환하여 NaN 방지
  */
-function safeParseDate(value: any): Date | null {
-  if (!value) return null;
-  
-  // Firestore Timestamp 객체 처리
-  if (typeof value.toDate === 'function') {
-    try {
-      return value.toDate();
-    } catch (error) {
-      console.warn('⚠️ Timestamp.toDate() 실패:', error);
-      return null;
-    }
-  }
-  
-  // 이미 Date 객체인 경우
-  if (value instanceof Date) {
-    return value;
-  }
-  
-  // 문자열 또는 숫자인 경우
-  try {
-    const date = new Date(value);
-    if (isNaN(date.getTime())) {
-      console.warn('⚠️ Invalid Date:', value);
-      return null;
-    }
-    return date;
-  } catch (error) {
-    console.warn('⚠️ 날짜 변환 실패:', value, error);
-    return null;
-  }
-}
-
-/**
- * 안전한 금액 변환 (콤마 제거 및 NaN 방지)
- * "3,000,000" → 3000000
- */
-function parseMoney(value: any): number {
-  if (!value) return 0;
-  
-  // 콤마 제거 및 trim
-  const strVal = String(value).replace(/,/g, '').trim();
-  const num = parseFloat(strVal);
-  
-  // NaN 체크
-  if (isNaN(num)) {
-    console.warn('⚠️ Invalid number:', value);
-    return 0;
-  }
-  
-  return num;
-}
-
-// ===========================================
-// 타입 정의
-// ===========================================
-
-interface AttendanceThresholds {
-  earlyClockIn: number;
-  earlyClockOut: number;
-  overtime: number;
-}
-
-interface AttendanceForSalary {
-  date: string;
-  clockIn?: string;
-  checkIn?: string;
-  clockOut?: string;
-  checkOut?: string;
-  wageIncentive?: number;
-}
-
-interface ContractForSalary {
-  salaryType?: string;
-  wageType?: string;
-  salaryAmount?: number;
-  wageAmount?: number;
-  workStore?: string;
-  workDays?: string;
-  workStartTime?: string;
-  workEndTime?: string;
-  weeklyHours?: number;
-  startDate?: string;
-  companyId?: string;
-  allowances?: {
-    overtime?: boolean;
-    night?: boolean;
-    holiday?: boolean;
-    weeklyHoliday?: boolean;
-  };
-  insurance?: {
-    pension?: boolean;
-    health?: boolean;
-    employment?: boolean;
-    workComp?: boolean;
-  };
-}
-
-interface MonthlySalaryResult {
-  employeeName: string;
-  userId: string;
-  employeeUid: string;
-  storeName?: string;
-  yearMonth: string;
-  salaryType: string;
-  hourlyWage: number;
-  monthlyWage: number;
-  annualWage: number;
-  totalWorkHours: number;
-  basePay: number;
-  overtimePay: number;
-  overtimeHours?: number;
-  nightPay: number;
-  nightHours?: number;
-  holidayPay: number;
-  holidayHours?: number;
-  weeklyHolidayPay: number;
-  incentivePay: number;
-  severancePay: number;
-  totalAllowances: number;
-  nationalPension: number;
-  healthInsurance: number;
-  longTermCare: number;
-  employmentInsurance: number;
-  incomeTax: number;
-  totalDeductions: number;
-  totalPay: number;
-  netPay: number;
-  workDays: number;
-  attendanceDetails: any[];
-  contractInfo: {
-    weeklyHours: number;
-    isWeeklyHolidayEligible: boolean;
-    has4Insurance: boolean;
-    hasPension: boolean;
-    hasHealthInsurance: boolean;
-    hasEmploymentInsurance: boolean;
-    hasWorkCompInsurance: boolean;
-  };
-}
 
 // ===========================================
 // 유틸리티 함수들
 // ===========================================
 
 /**
- * 공휴일 데이터 (2025년)
+ * 출퇴근 허용시간 설정
  */
-const publicHolidays2025 = [
-  '2025-01-01', // 신정
-  '2025-01-28', '2025-01-29', '2025-01-30', // 설날 연휴
-  '2025-03-01', // 삼일절
-  '2025-03-05', // 부처님오신날
-  '2025-05-05', // 어린이날
-  '2025-05-06', // 대체공휴일
-  '2025-06-06', // 현충일
-  '2025-08-15', // 광복절
-  '2025-10-03', // 개천절
-  '2025-10-05', '2025-10-06', '2025-10-07', // 추석 연휴
-  '2025-10-09', // 한글날
-  '2025-12-25', // 크리스마스
-];
-
-function isPublicHoliday(dateStr: string): boolean {
-  return publicHolidays2025.includes(dateStr);
+interface AttendanceThresholds {
+  earlyClockIn: number;
+  earlyClockOut: number;
+  overtime: number;
 }
 
 function timeToMinutes(timeStr: string | undefined | null): number {
@@ -264,16 +119,35 @@ function nowKST(): Date {
 // 메인 급여 계산 함수
 // ===========================================
 
+/**
+ * 서버 급여 계산 함수 (표준 타입 적용)
+ * - 클라이언트 lib/utils/salary-calculator.ts 로직 이관
+ * - FIELD_NAMING_STANDARD.md 표준 필드명 준수
+ * - parseMoney, safeParseDate 방어 로직 포함
+ */
 async function performSalaryCalculation(
   employee: { uid: string; name: string; store?: string; companyId: string },
   contract: ContractForSalary,
   attendances: AttendanceForSalary[],
   yearMonth: string
 ): Promise<MonthlySalaryResult> {
+  functions.logger.info('💰 [서버] 급여 계산 시작:', employee.name, yearMonth);
   
   const [year, month] = yearMonth.split('-').map(Number);
   
-  // 매장 출퇴근 허용시간 설정
+  // ===========================================
+  // 1️⃣ 공휴일 데이터 로드 (2025년 하드코딩)
+  // ===========================================
+  const publicHolidays2025 = [
+    '2025-01-01', '2025-01-28', '2025-01-29', '2025-01-30',
+    '2025-03-01', '2025-03-05', '2025-05-05', '2025-05-06',
+    '2025-06-06', '2025-08-15', '2025-10-03', '2025-10-05',
+    '2025-10-06', '2025-10-07', '2025-10-09', '2025-12-25'
+  ];
+  
+  // ===========================================
+  // 2️⃣ 매장 출퇴근 허용시간 설정 조회
+  // ===========================================
   let thresholds: AttendanceThresholds = {
     earlyClockIn: 15,
     earlyClockOut: 5,
@@ -340,13 +214,19 @@ async function performSalaryCalculation(
     }
   };
   
+  // ===========================================
+  // 3️⃣ 급여 기본 정보 파싱 (표준 필드명 + 방어 로직)
+  // ===========================================
   const salaryType = contract.salaryType || contract.wageType || '시급';
   // 🔒 안전한 금액 파싱 (콤마 제거 및 NaN 방지)
   const salaryAmount = parseMoney(contract.salaryAmount || contract.wageAmount);
   
   if (salaryAmount === 0) {
+    functions.logger.warn('⚠️ 급여액이 0원, 계산 중단');
     return result;
   }
+  
+  functions.logger.info(`📋 급여 타입: ${salaryType}, 금액: ${salaryAmount.toLocaleString()}원`);
   
   // 급여 유형별 처리
   if (salaryType === '시급') {
@@ -360,21 +240,23 @@ async function performSalaryCalculation(
     result.hourlyWage = Math.round(salaryAmount / 12 / 209);
   }
   
-  // 출퇴근 기록 분석
+  // ===========================================
+  // 4️⃣ 출퇴근 기록 분석 준비
+  // ===========================================
   let totalWorkHours = 0;
   let totalOvertimeHours = 0;
   let totalNightHours = 0;
   let totalHolidayHours = 0;
-  let totalIncentiveAmount = 0;
-  const weeklyWorkHours: Record<string, number> = {};
-  const weeklyAbsences: Record<string, boolean> = {};
+  let totalIncentiveAmount = 0; // 🆕 Phase 5: 총 인센티브 금액
+  const weeklyWorkHours: Record<string, number> = {}; // 주차별 근무시간
+  const weeklyAbsences: Record<string, boolean> = {}; // 주차별 결근 여부
   
-  // 계약서 근무일정 파싱
-  const workDaysArray = contract.workDays ? contract.workDays.split(',').map(d => d.trim()) : [];
+  // 계약서의 근무일정 파싱
+  const workDaysArray = contract.workDays ? contract.workDays.split(',').map((d: string) => d.trim()) : [];
   const dayMap: Record<string, number> = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
-  const workDayNumbers = workDaysArray.map(day => dayMap[day]).filter(n => n !== undefined);
+  const workDayNumbers = workDaysArray.map((day: string) => dayMap[day]).filter((n: number | undefined) => n !== undefined);
   
-  // 결근 체크
+  // 출근해야 하는 날짜들을 먼저 파악 (결근 체크용)
   const attendanceDates = new Set(attendances.map(att => att.date));
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
@@ -383,128 +265,239 @@ async function performSalaryCalculation(
     const dayOfWeek = d.getDay();
     const dateStr = d.toISOString().split('T')[0];
     
+    // 근무일인데 출근 기록이 없으면 결근
     if (workDayNumbers.includes(dayOfWeek) && !attendanceDates.has(dateStr)) {
       const weekKey = getWeekOfMonth(d);
-      weeklyAbsences[weekKey] = true;
+      weeklyAbsences[weekKey] = true; // 이 주는 결근이 있음
+      functions.logger.warn(`⚠️ 결근 감지: ${dateStr} (${weekKey})`);
     }
   }
   
+  // ===========================================
+  // 5️⃣ 출퇴근 기록 순회 및 계산 (표준 필드명 사용)
+  // ===========================================
+  // ===========================================
+  // 5️⃣ 출퇴근 기록 순회 및 계산 (표준 필드명 사용)
+  // ===========================================
   attendances.forEach(att => {
-    if (!att.clockIn && !att.checkIn) return;
+    // 🔥 표준 필드명: clockIn/clockOut 우선 사용, 하위 호환성으로 checkIn/checkOut 지원
+    const clockIn = att.clockIn || att.checkIn;
+    if (!clockIn) return; // 출근 기록 없으면 스킵
     
-    let checkInTime = att.checkIn || att.clockIn || '';
-    let checkOutTime = att.checkOut || att.clockOut || '';
-    
-    if (!checkOutTime) {
-      const now = new Date();
-      checkOutTime = now.toTimeString().substring(0, 5);
+    let clockOut = att.clockOut || att.checkOut;
+    if (!clockOut) {
+      // 퇴근 기록이 없으면 현재 시간 사용 (실시간 급여 계산)
+      const now = nowKST();
+      clockOut = now.toTimeString().substring(0, 5); // "HH:MM"
+      functions.logger.info(`⏰ [${att.date}] 퇴근 기록 없음 - 현재 시간(${clockOut})까지 계산`);
     }
     
-    let adjustedCheckIn = checkInTime;
-    let adjustedCheckOut = checkOutTime;
+    // 계약서 근무시간과 비교해서 실제 근무시간 조정
+    let adjustedClockIn = clockIn;
+    let adjustedClockOut = clockOut;
     
     if (contract.workStartTime && contract.workEndTime) {
       const contractStartMinutes = timeToMinutes(contract.workStartTime);
       const contractEndMinutes = timeToMinutes(contract.workEndTime);
-      const actualStartMinutes = timeToMinutes(checkInTime);
-      const actualEndMinutes = timeToMinutes(checkOutTime);
+      const actualStartMinutes = timeToMinutes(clockIn);
+      const actualEndMinutes = timeToMinutes(clockOut);
       
+      // 조기출근 처리
       const earlyMinutes = contractStartMinutes - actualStartMinutes;
       if (earlyMinutes > 0 && earlyMinutes < thresholds.earlyClockIn) {
-        adjustedCheckIn = contract.workStartTime;
+        adjustedClockIn = contract.workStartTime;
+        functions.logger.info(`⏰ [${att.date}] 조기출근 ${earlyMinutes}분 (허용시간 ${thresholds.earlyClockIn}분 미만) → 수당 미적용`);
       }
       
+      // 조기퇴근 처리
       const earlyLeaveMinutes = contractEndMinutes - actualEndMinutes;
       if (earlyLeaveMinutes > 0 && earlyLeaveMinutes <= thresholds.earlyClockOut) {
-        adjustedCheckOut = contract.workEndTime;
+        adjustedClockOut = contract.workEndTime;
+        functions.logger.info(`⏰ [${att.date}] 조기퇴근 ${earlyLeaveMinutes}분 (허용시간 ${thresholds.earlyClockOut}분 이내) → 차감 없음`);
+      } else if (earlyLeaveMinutes > thresholds.earlyClockOut) {
+        functions.logger.warn(`⚠️ [${att.date}] 조기퇴근 ${earlyLeaveMinutes}분 (허용시간 ${thresholds.earlyClockOut}분 초과) → 차감`);
       }
       
+      // 초과근무 처리
       const overtimeMinutes = actualEndMinutes - contractEndMinutes;
       if (overtimeMinutes > 0 && overtimeMinutes < thresholds.overtime) {
-        adjustedCheckOut = contract.workEndTime;
+        adjustedClockOut = contract.workEndTime;
+        functions.logger.info(`⏰ [${att.date}] 초과근무 ${overtimeMinutes}분 (허용시간 ${thresholds.overtime}분 미만) → 수당 미적용`);
       }
     }
     
-    const workHours = calculateWorkHours(adjustedCheckIn, adjustedCheckOut);
-    const nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
-    const isHoliday = isPublicHoliday(att.date);
+    const workHours = calculateWorkHours(adjustedClockIn, adjustedClockOut);
+    const nightHours = calculateNightHours(adjustedClockIn, adjustedClockOut);
+    // 🔥 2025년 하드코딩 공휴일 체크
+    const isHoliday = publicHolidays2025.includes(att.date);
     
     totalWorkHours += workHours;
     result.workDays++;
     
+    // 야간 근무 시간 (휴게시간 차감 포함)
     if (contract.allowances?.night && nightHours > 0) {
-      totalNightHours += nightHours;
+      let adjustedNightHours = nightHours;
+      
+      // 휴게시간이 야간시간(22:00~06:00)에 겹치면 차감
+      if (contract.breakTime) {
+        const breakStart = contract.breakTime.startHour * 60 + (contract.breakTime.startMinute || 0);
+        const breakEnd = contract.breakTime.endHour * 60 + (contract.breakTime.endMinute || 0);
+        const nightStart = 22 * 60;
+        const nightEnd = 6 * 60;
+        
+        let breakNightMinutes = 0;
+        
+        // Case 1: 휴게시간이 22:00~24:00 사이에 겹침
+        if (breakStart < 24 * 60 && breakEnd < 24 * 60) {
+          const overlapStart = Math.max(breakStart, nightStart);
+          const overlapEnd = Math.min(breakEnd, 24 * 60);
+          if (overlapStart < overlapEnd) {
+            breakNightMinutes += overlapEnd - overlapStart;
+          }
+        }
+        
+        // Case 2: 휴게시간이 00:00~06:00 사이에 겹침
+        if (breakEnd > 0 && breakEnd <= nightEnd) {
+          const overlapStart = Math.max(breakStart, 0);
+          const overlapEnd = Math.min(breakEnd, nightEnd);
+          if (overlapStart < overlapEnd) {
+            breakNightMinutes += overlapEnd - overlapStart;
+          }
+        }
+        
+        adjustedNightHours = Math.max(0, nightHours - breakNightMinutes / 60);
+        
+        if (breakNightMinutes > 0) {
+          functions.logger.info(`🌙 [${att.date}] 야간 휴게시간 차감: ${nightHours.toFixed(2)}h - ${(breakNightMinutes / 60).toFixed(2)}h = ${adjustedNightHours.toFixed(2)}h`);
+        }
+      }
+      
+      totalNightHours += adjustedNightHours;
     }
     
+    // 공휴일 근무 시간
     if (isHoliday && contract.allowances?.holiday) {
       totalHolidayHours += workHours;
+      functions.logger.info(`🎉 [${att.date}] 공휴일 근무 감지: ${workHours.toFixed(2)}시간`);
     }
     
-    // 🔒 인센티브 안전 파싱 (콤마/문자열/NaN 방지)
+    // 🆕 Phase 5: 인센티브 수당 계산 (wageIncentive × 근무시간)
+    // 🔒 안전한 파싱 (콤마 제거 및 NaN 방지)
     const incentiveValue = parseMoney(att.wageIncentive);
     if (incentiveValue > 0) {
-      const incentiveAmount = Math.round(incentiveValue * workHours);
+      const incentiveAmount = incentiveValue * workHours;
       totalIncentiveAmount += incentiveAmount;
+      functions.logger.info(`💰 [${att.date}] 인센티브 수당: ${incentiveValue.toLocaleString()}원/시간 × ${workHours.toFixed(2)}h = ${incentiveAmount.toLocaleString()}원`);
     }
     
+    // 주차별 근무시간 누적 (주휴수당 계산용)
+    // 🔒 하루 최대 8시간만 주휴수당 계산에 포함 (법정 근로시간 기준)
     const date = new Date(att.date);
     const weekKey = getWeekOfMonth(date);
     const weeklyHoursForDay = Math.min(workHours, 8);
     weeklyWorkHours[weekKey] = (weeklyWorkHours[weekKey] || 0) + weeklyHoursForDay;
     
+    if (workHours > 8) {
+      functions.logger.info(`⚠️ [${att.date}] 근무시간 ${workHours.toFixed(2)}h → 주휴수당 계산용 ${weeklyHoursForDay}h (8시간 초과분 제외)`);
+    }
+    
+    // 출퇴근 상세 저장
     result.attendanceDetails.push({
       date: att.date,
-      checkIn: checkInTime,
-      checkOut: checkOutTime,
-      adjustedCheckIn: adjustedCheckIn,
-      adjustedCheckOut: adjustedCheckOut,
+      clockIn: clockIn,                     // 🔥 표준 필드명
+      clockOut: clockOut,                   // 🔥 표준 필드명
+      adjustedClockIn: adjustedClockIn,
+      adjustedClockOut: adjustedClockOut,
       workHours: workHours.toFixed(2),
       nightHours: nightHours.toFixed(2),
       isHoliday: isHoliday,
-      // 🔒 인센티브 안전 파싱
-      wageIncentive: parseMoney(att.wageIncentive),
-      isRealtime: !att.checkOut && !att.clockOut
+      wageIncentive: incentiveValue,
+      isRealtime: !att.clockOut && !att.checkOut
     });
   });
   
   result.totalWorkHours = totalWorkHours;
   
-  // 기본급 계산
+  
+  // ===========================================
+  // 6️⃣ 기본급 계산 (급여 유형별)
+  // ===========================================
   if (result.salaryType === '시급') {
     result.basePay = Math.round(result.hourlyWage * totalWorkHours);
   } else if (result.salaryType === '월급' || result.salaryType === '연봉') {
     result.basePay = result.monthlyWage;
   }
   
-  // 연장근로수당
+  // ===========================================
+  // 7️⃣ 연장근로수당 계산 (1일 8시간 초과 + 주 40시간 초과)
+  // ===========================================
   if (contract.allowances?.overtime) {
-    Object.values(weeklyWorkHours).forEach(weekHours => {
-      if (weekHours > 40) {
-        totalOvertimeHours += (weekHours - 40);
+    let totalDailyOvertimeHours = 0; // 일별 연장 누적
+    let totalWeeklyOvertimeHours = 0; // 주별 연장 누적
+    
+    // Step 1: 일별 연장근로 계산 (각 출근일마다 8시간 초과 체크)
+    result.attendanceDetails.forEach(detail => {
+      const dailyWork = parseFloat(detail.workHours) || 0;
+      const dailyOvertime = Math.max(dailyWork - 8, 0);
+      
+      if (dailyOvertime > 0) {
+        totalDailyOvertimeHours += dailyOvertime;
+        
+        if (dailyWork > 12) {
+          functions.logger.warn(`⚠️ [${detail.date}] 1일 12시간 초과 근무: ${dailyWork.toFixed(2)}h (법정 한도: 12h)`);
+        }
+        
+        functions.logger.info(`📊 [${detail.date}] 일별 연장: ${dailyWork.toFixed(2)}h - 8h = ${dailyOvertime.toFixed(2)}h`);
       }
     });
+    
+    // Step 2: 주별 연장근로 계산 (주 40시간 초과 체크)
+    Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
+      const weeklyOvertime = Math.max(weekHours - 40, 0);
+      
+      if (weeklyOvertime > 0) {
+        totalWeeklyOvertimeHours += weeklyOvertime;
+        
+        if (weekHours > 52) {
+          functions.logger.warn(`⚠️ [${weekKey}] 주 52시간 초과 근무: ${weekHours.toFixed(2)}h (법정 한도: 52h)`);
+        }
+        
+        functions.logger.info(`📊 [${weekKey}] 주별 연장: ${weekHours.toFixed(2)}h - 40h = ${weeklyOvertime.toFixed(2)}h`);
+      }
+    });
+    
+    // Step 3: 중복 제거 (법적으로 유리한 쪽 적용)
+    totalOvertimeHours = Math.max(totalDailyOvertimeHours, totalWeeklyOvertimeHours);
+    
     result.overtimeHours = totalOvertimeHours;
     result.overtimePay = Math.round(result.hourlyWage * 1.5 * totalOvertimeHours);
+    
+    functions.logger.info(`💰 연장근로수당 최종: 일별 ${totalDailyOvertimeHours.toFixed(2)}h vs 주별 ${totalWeeklyOvertimeHours.toFixed(2)}h → ${totalOvertimeHours.toFixed(2)}h × ${result.hourlyWage}원 × 1.5 = ${result.overtimePay.toLocaleString()}원`);
   }
   
-  // 야간근로수당
+  // ===========================================
+  // 8️⃣ 야간/휴일/특별 근무 수당
+  // ===========================================
   if (contract.allowances?.night && totalNightHours > 0) {
     result.nightHours = totalNightHours;
     result.nightPay = Math.round(result.hourlyWage * 0.5 * totalNightHours);
+    functions.logger.info(`🌙 야간근로수당: ${totalNightHours.toFixed(2)}h × ${result.hourlyWage}원 × 0.5 = ${result.nightPay.toLocaleString()}원`);
   }
   
-  // 휴일근로수당
   if (contract.allowances?.holiday && totalHolidayHours > 0) {
     result.holidayHours = totalHolidayHours;
     result.holidayPay = Math.round(result.hourlyWage * 1.5 * totalHolidayHours);
+    functions.logger.info(`🎉 휴일근로수당: ${totalHolidayHours.toFixed(2)}h × ${result.hourlyWage}원 × 1.5 = ${result.holidayPay.toLocaleString()}원`);
   }
   
-  // 특별 근무 수당
   if (totalIncentiveAmount > 0) {
     result.incentivePay = Math.round(totalIncentiveAmount);
+    functions.logger.info(`💰 특별 근무 수당: ${result.incentivePay.toLocaleString()}원`);
   }
   
-  // 주휴수당
+  // ===========================================
+  // 9️⃣ 주휴수당 계산 (법원 판결 기준: 주휴수당 = 시급 × 주 근무시간 ÷ 5)
+  // ===========================================
   // 🔒 주간 근무시간 안전 파싱 (콤마/문자열/NaN 방지)
   const contractWeeklyHours = parseMoney(contract.weeklyHours);
   const isWeeklyHolidayEligible = !!(contractWeeklyHours >= 15 || contract.allowances?.weeklyHoliday);
@@ -512,25 +505,35 @@ async function performSalaryCalculation(
   if (salaryType === '시급' && isWeeklyHolidayEligible) {
     let weeklyHolidayHours = 0;
     Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
+      // 결근이 있는 주는 주휴수당 제외
       if (weeklyAbsences[weekKey]) {
+        functions.logger.info(`❌ ${weekKey}: 결근으로 주휴수당 제외 (근무시간: ${weekHours.toFixed(2)}h)`);
         return;
       }
       
       if (weekHours >= 15) {
-        const weekHolidayHours = weekHours / 5;
+        // 법원 판결 기준: 주휴수당 시간 = 주 근무시간 ÷ 5 (최대 8시간)
+        const weekHolidayHours = Math.min(weekHours / 5, 8);
         weeklyHolidayHours += weekHolidayHours;
+        functions.logger.info(`✅ ${weekKey}: 주휴수당 적용 (근무: ${weekHours.toFixed(2)}h, 주휴: ${weekHolidayHours.toFixed(2)}h, 금액: ${Math.round(result.hourlyWage * weekHolidayHours).toLocaleString()}원)`);
+      } else {
+        functions.logger.info(`⚠️ ${weekKey}: 15시간 미만으로 주휴수당 제외 (근무: ${weekHours.toFixed(2)}h)`);
       }
     });
     result.weeklyHolidayPay = Math.round(result.hourlyWage * weeklyHolidayHours);
+    functions.logger.info(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}h × ${result.hourlyWage.toLocaleString()}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
+  } else {
+    functions.logger.info(`⚠️ 주휴수당 미적용 - 사유: ${salaryType !== '시급' ? '시급제 아님' : `주 ${contractWeeklyHours}시간 (15시간 미만)`}`);
   }
   
-  // 퇴직금 계산
+  // ===========================================
+  // 🔟 퇴직금 계산 (1년 이상 근속, 주 15시간 이상 근무)
+  // ===========================================
   try {
     if (contract.startDate) {
       // 🔒 안전한 날짜 변환 (Timestamp → Date, NaN 방지)
       const contractStartDate = safeParseDate(contract.startDate);
       
-      // 날짜 변환 실패 시 퇴직금 계산 스킵
       if (!contractStartDate) {
         functions.logger.warn('⚠️ 계약 시작일 변환 실패, 퇴직금 계산 스킵');
       } else {
@@ -544,7 +547,7 @@ async function performSalaryCalculation(
         if (yearsDiff >= 1 && avgWeeklyHours >= 15) {
           const avgMonthlySalary = result.basePay + result.totalAllowances;
           result.severancePay = Math.round((avgMonthlySalary * daysDiff / 365) * 30);
-          functions.logger.info(`✅ 퇴직금 계산 완료: ${result.severancePay}원 (근속: ${yearsDiff.toFixed(1)}년)`);
+          functions.logger.info(`💼 퇴직금 계산: 근속 ${daysDiff}일(${yearsDiff.toFixed(1)}년), 주평균 ${avgWeeklyHours.toFixed(1)}h, 퇴직금 ${result.severancePay.toLocaleString()}원`);
         }
       }
     }
@@ -552,40 +555,52 @@ async function performSalaryCalculation(
     functions.logger.warn('❌ 퇴직금 계산 실패:', error);
   }
   
-  // 총 수당
+  // ===========================================
+  // 1️⃣1️⃣ 총 수당 및 총 지급액 계산
+  // ===========================================
   result.totalAllowances = result.overtimePay + result.nightPay + result.holidayPay + 
                            result.weeklyHolidayPay + result.incentivePay + result.severancePay;
   
-  // 총 지급액
   result.totalPay = result.basePay + result.totalAllowances;
   
-  // 4대보험 공제
+  // ===========================================
+  // 1️⃣2️⃣ 4대보험 공제 계산 (계약서 개별 체크박스 기준)
+  // ===========================================
   const insurance = contract.insurance || {};
   
+  // 국민연금 (4.5% 근로자 부담)
   if (insurance.pension) {
     result.nationalPension = Math.round(result.totalPay * 0.045);
   }
   
+  // 건강보험 (3.545% 근로자 부담)
   if (insurance.health) {
     result.healthInsurance = Math.round(result.totalPay * 0.03545);
+    // 장기요양보험 (건강보험의 12.95%의 50% 근로자 부담)
     result.longTermCare = Math.round(result.healthInsurance * 0.1295 * 0.5);
   }
   
+  // 고용보험 (0.9% 근로자 부담)
   if (insurance.employment) {
     result.employmentInsurance = Math.round(result.totalPay * 0.009);
   }
   
+  // 소득세 (3.3% 근로자 전액 부담) - 어떤 보험이든 하나라도 있으면 적용
   if (insurance.pension || insurance.health || insurance.employment || insurance.workComp) {
     result.incomeTax = Math.round(result.totalPay * 0.033);
   }
   
+  // ===========================================
+  // 1️⃣3️⃣ 총 공제액 및 실지급액 계산
+  // ===========================================
   result.totalDeductions = result.nationalPension + result.healthInsurance + 
                            result.longTermCare + result.employmentInsurance + result.incomeTax;
   
-  // 실지급액
   result.netPay = result.totalPay - result.totalDeductions;
   
-  // 계약서 기준 정보
+  // ===========================================
+  // 1️⃣4️⃣ 계약서 기준 정보 추가 (렌더링 시 조건부 표시용)
+  // ===========================================
   result.contractInfo = {
     weeklyHours: contractWeeklyHours,
     isWeeklyHolidayEligible: isWeeklyHolidayEligible,
@@ -595,6 +610,15 @@ async function performSalaryCalculation(
     hasEmploymentInsurance: !!insurance.employment,
     hasWorkCompInsurance: !!insurance.workComp
   };
+  
+  functions.logger.info('✅ [서버] 급여 계산 완료:', {
+    employee: employee.name,
+    yearMonth: yearMonth,
+    basePay: result.basePay.toLocaleString(),
+    totalAllowances: result.totalAllowances.toLocaleString(),
+    totalDeductions: result.totalDeductions.toLocaleString(),
+    netPay: result.netPay.toLocaleString()
+  });
   
   return result;
 }
