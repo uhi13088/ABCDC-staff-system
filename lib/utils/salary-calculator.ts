@@ -1,224 +1,36 @@
 /**
- * 맛남살롱 급여 계산 모듈
- * - 공휴일 판별
- * - 근무 시간 계산
- * - 급여 계산 (시급제/월급제/연봉제)
- * - 각종 수당 계산 (연장/야간/휴일/주휴/퇴직금)
+ * 급여 계산 타입 정의
  * 
- * @source /home/user/webapp-backup/js/salary-calculator.js (완전 복원)
+ * ⚠️ 주의: 클라이언트 계산 로직은 서버(Cloud Functions)로 완전 이관되었습니다.
+ * 이 파일은 타입 정의만 남아있으며, 실제 계산은 calculateMonthlySalaryOnServer()를 사용하세요.
+ * 
+ * @deprecated 계산 함수들은 더 이상 사용하지 않습니다. 서버 API를 호출하세요.
+ * @see services/cloudFunctionsSalaryService.ts - calculateMonthlySalaryOnServer()
  */
 
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
-import type { Employee, Contract, Attendance } from '@/lib/types';
-import * as holidayService from '@/services/holidayService';
-
 // ===========================================
-// 공휴일 데이터 (2025년)
-// ===========================================
-
-export const publicHolidays2025 = [
-  '2025-01-01', // 신정
-  '2025-01-28', '2025-01-29', '2025-01-30', // 설날 연휴
-  '2025-03-01', // 삼일절
-  '2025-03-05', // 부처님오신날
-  '2025-05-05', // 어린이날
-  '2025-05-06', // 대체공휴일
-  '2025-06-06', // 현충일
-  '2025-08-15', // 광복절
-  '2025-10-03', // 개천절
-  '2025-10-05', '2025-10-06', '2025-10-07', // 추석 연휴
-  '2025-10-09', // 한글날
-  '2025-12-25', // 크리스마스
-];
-
-/**
- * 해당 날짜가 공휴일인지 확인
- * @param dateStr - "YYYY-MM-DD" 형식
- * @returns 공휴일 여부
- */
-export function isPublicHoliday(dateStr: string): boolean {
-  return publicHolidays2025.includes(dateStr);
-}
-
-// ===========================================
-// 급여 계산 유틸리티 함수들
+// 타입 정의 (표준 필드명 준수)
 // ===========================================
 
 /**
- * 시간 문자열을 분 단위로 변환
- * @param timeStr - "HH:MM" 형식
- * @returns 총 분
+ * 출퇴근 상세 정보
  */
-export function timeToMinutes(timeStr: string | undefined | null): number {
-  if (!timeStr || typeof timeStr !== 'string') return 0;
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  return (hours || 0) * 60 + (minutes || 0);
-}
-
-/**
- * 시간(소수점)을 "시간 분" 형식으로 변환
- * @param hours - 시간 (소수점)
- * @returns "X시간 Y분" 형식
- */
-export function formatHoursAndMinutes(hours: number): string {
-  const totalMinutes = Math.round(hours * 60);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  if (h === 0) return `${m}분`;
-  if (m === 0) return `${h}시간`;
-  return `${h}시간 ${m}분`;
-}
-
-/**
- * 두 시간 사이의 차이를 시간 단위로 계산
- * @param startTime - "HH:MM"
- * @param endTime - "HH:MM"
- * @returns 시간 (소수점)
- */
-export function calculateWorkHours(startTime: string, endTime: string): number {
-  const startMinutes = timeToMinutes(startTime);
-  let endMinutes = timeToMinutes(endTime);
-  
-  // 자정을 넘어가는 경우 처리
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
-  }
-  
-  return (endMinutes - startMinutes) / 60;
-}
-
-/**
- * 야간 근무 시간 계산 (22:00~06:00)
- * @param startTime - "HH:MM"
- * @param endTime - "HH:MM"
- * @returns 야간 근무 시간
- */
-export function calculateNightHours(startTime: string, endTime: string): number {
-  const start = timeToMinutes(startTime);
-  let end = timeToMinutes(endTime);
-  
-  // 자정을 넘는 경우 처리
-  if (end < start) end += 24 * 60;
-  
-  const nightStart = 22 * 60; // 22:00 (1320분)
-  const nightEnd = 6 * 60; // 06:00 (360분)
-  
-  let nightMinutes = 0;
-  
-  // 케이스 1: 당일 22:00~24:00 구간 (예: 21:00~23:00 또는 23:00~01:00)
-  const overlap1Start = Math.max(start, nightStart);
-  const overlap1End = Math.min(end, 24 * 60);
-  if (overlap1Start < overlap1End) {
-    nightMinutes += overlap1End - overlap1Start;
-  }
-  
-  // 케이스 2: 다음날 00:00~06:00 구간 (자정 넘는 경우, 예: 23:00~07:00)
-  if (end > 24 * 60) {
-    const overlap2Start = Math.max(start, 24 * 60);
-    const overlap2End = Math.min(end, 24 * 60 + nightEnd);
-    if (overlap2Start < overlap2End) {
-      nightMinutes += overlap2End - overlap2Start;
-    }
-  }
-  
-  // 케이스 3: 당일 새벽 00:00~06:00 구간 (예: 05:00~14:00)
-  // start와 end 모두 24시간 이하이면서, start가 06:00 이전인 경우
-  if (end <= 24 * 60 && start < nightEnd) {
-    const overlap3Start = start;
-    const overlap3End = Math.min(end, nightEnd);
-    if (overlap3Start < overlap3End) {
-      nightMinutes += overlap3End - overlap3Start;
-    }
-  }
-  
-  return nightMinutes / 60;
-}
-
-/**
- * 날짜가 속한 주차 구하기 (월 기준)
- * @param date - Date 객체
- * @returns "YYYY-MM-W주차"
- */
-export function getWeekOfMonth(date: Date): string {
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const weekNum = Math.ceil(day / 7);
-  return `${year}-${month.toString().padStart(2, '0')}-W${weekNum}`;
-}
-
-/**
- * 주급 계산 (법원 판결 기준)
- * @param totalHours - 주 총 근무시간
- * @param salaryType - 급여 유형 ('시급', 'hourly', '월급', 'monthly', '연봉', 'annual')
- * @param salaryAmount - 급여액
- * @param hasWeeklyHoliday - 주휴수당 적용 여부 (기본: true)
- * @returns { basePay, weeklyHolidayPay, weeklySalary, monthlyEstimate }
- */
-export function calculateWeeklySalary(
-  totalHours: number,
-  salaryType: string,
-  salaryAmount: number,
-  hasWeeklyHoliday: boolean = true
-): {
-  basePay: number;
-  weeklyHolidayPay: number;
-  weeklySalary: number;
-  monthlyEstimate: number;
-} {
-  let weeklySalary = 0;
-  let weeklyHolidayPay = 0;
-  let basePay = 0;
-  
-  if (salaryType === 'hourly' || salaryType === '시급') {
-    // 기본급: 시급 × 총 근무시간
-    basePay = totalHours * salaryAmount;
-    weeklySalary = basePay;
-    
-    // 주휴수당 (주 15시간 이상 근무 시)
-    // 법원 판결 기준: 주휴수당 = 시급 × (총 근무시간 ÷ 5)
-    if (hasWeeklyHoliday && totalHours >= 15) {
-      weeklyHolidayPay = salaryAmount * (totalHours / 5);
-      weeklySalary += weeklyHolidayPay;
-    }
-  } else if (salaryType === 'monthly' || salaryType === '월급') {
-    weeklySalary = salaryAmount / 4.345;
-    basePay = weeklySalary;
-  } else if (salaryType === 'annual' || salaryType === '연봉') {
-    weeklySalary = salaryAmount / 12 / 4.345;
-    basePay = weeklySalary;
-  }
-  
-  // 월 예상
-  const monthlyEstimate = weeklySalary * 4.345;
-  
-  return {
-    basePay: Math.round(basePay),
-    weeklyHolidayPay: Math.round(weeklyHolidayPay),
-    weeklySalary: Math.round(weeklySalary),
-    monthlyEstimate: Math.round(monthlyEstimate)
-  };
-}
-
-// ===========================================
-// 타입 정의
-// ===========================================
-
-// ✅ FIXED: clockIn/clockOut으로 통일
 export interface AttendanceDetail {
   date: string;
-  clockIn: string;              // 표준
-  clockOut: string;             // 표준
+  clockIn: string;              // 🔥 표준 필드
+  clockOut: string;             // 🔥 표준 필드
   adjustedClockIn: string;      // 조정된 출근시간
   adjustedClockOut: string;     // 조정된 퇴근시간
   workHours: string;
   nightHours: string;
   isHoliday: boolean;
-  wageIncentive: number;         // 인센티브 시급
-  isRealtime: boolean;           // 실시간 계산 여부
+  wageIncentive: number;        // 인센티브 시급
+  isRealtime: boolean;          // 실시간 계산 여부
 }
 
+/**
+ * 계약서 기준 정보
+ */
 export interface ContractInfo {
   weeklyHours: number;
   isWeeklyHolidayEligible: boolean;
@@ -229,7 +41,16 @@ export interface ContractInfo {
   hasWorkCompInsurance: boolean;
 }
 
+/**
+ * 급여 계산 결과
+ * 
+ * 🔥 표준 필드명 준수:
+ * - userId (표준), employeeUid (하위 호환)
+ * - salaryType, salaryAmount
+ * - clockIn, clockOut
+ */
 export interface SalaryCalculationResult {
+  // 기본 정보
   employeeName: string;
   userId: string;               // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
   employeeUid: string;          // 하위 호환성 (기존 코드 지원)
@@ -278,523 +99,88 @@ export interface SalaryCalculationResult {
   holidayHours?: number;
 }
 
+// ===========================================
+// 유틸리티 함수 (UI 표시용만 남김)
+// ===========================================
+
 /**
- * 한 달간 직원의 급여 계산
- * @param employee - 직원 정보
- * @param contract - 계약서 정보
- * @param attendances - 출퇴근 기록 배열
- * @param yearMonth - "YYYY-MM" 형식
- * @returns 급여 상세 내역
+ * 시간(소수점)을 "시간 분" 형식으로 변환
+ * @param hours - 시간 (소수점)
+ * @returns "X시간 Y분" 형식
  */
-export async function calculateMonthlySalary(
-  employee: Employee,
-  contract: Contract,
-  attendances: Attendance[],
-  yearMonth: string
-): Promise<SalaryCalculationResult> {
-  console.log('💰 급여 계산 시작:', employee.name, yearMonth);
-  
-  // yearMonth 파싱 (YYYY-MM 형식)
-  const [year, month] = yearMonth.split('-').map(Number);
-  
-  // 🆕 Phase F: 공휴일 자동 동기화 (DB에 없으면 API에서 가져오기)
-  let holidays: holidayService.Holiday[] = [];
-  try {
-    // 1. DB에서 해당 연도 공휴일 조회
-    holidays = await holidayService.getHolidays(year);
-    
-    // 2. DB에 공휴일이 없으면 API에서 자동 동기화
-    if (holidays.length === 0) {
-      console.log(`📅 ${year}년 공휴일이 DB에 없습니다. API에서 자동 동기화 시도...`);
-      const syncCount = await holidayService.syncHolidaysFromAPI(year);
-      
-      if (syncCount > 0) {
-        // 3. 동기화 성공 시 다시 조회
-        holidays = await holidayService.getHolidays(year);
-        console.log(`✅ ${year}년 공휴일 ${syncCount}개 자동 동기화 완료!`);
-      } else {
-        // 4. API 실패 시 하드코딩된 2025년 데이터로 Fallback
-        console.warn(`⚠️ API 동기화 실패. ${year === 2025 ? '2025년 하드코딩 데이터' : '빈 배열'} 사용`);
-        if (year === 2025) {
-          holidays = publicHolidays2025.map(date => ({ date, name: '공휴일', year: 2025 }));
-        }
-      }
-    } else {
-      console.log(`✅ ${year}년 공휴일 ${holidays.length}개 DB에서 조회 완료`);
-    }
-  } catch (error) {
-    console.error('❌ 공휴일 조회/동기화 실패:', error);
-    // Fallback: 2025년이면 하드코딩 데이터 사용
-    if (year === 2025) {
-      holidays = publicHolidays2025.map(date => ({ date, name: '공휴일', year: 2025 }));
-    }
-  }
-  
-  // 매장의 출퇴근 허용시간 설정 가져오기
-  let thresholds = {
-    earlyClockIn: 15,    // 기본값: 15분 이상 일찍 출근해야 수당 적용
-    earlyClockOut: 5,    // 기본값: 5분 이내 조기퇴근은 수당 미적용
-    overtime: 5          // 기본값: 5분 이상 늦게 퇴근해야 수당 적용
-  };
-  
-  try {
-    const storeName = employee.store || contract.workStore;
-    if (storeName) {
-      const companyId = employee.companyId || contract.companyId;
-      let storeQuery = query(
-        collection(db, 'stores'),
-        where('name', '==', storeName)
-      );
-      
-      if (companyId) {
-        storeQuery = query(storeQuery, where('companyId', '==', companyId));
-      }
-      
-      const storesSnapshot = await getDocs(query(storeQuery, limit(1)));
-      
-      if (!storesSnapshot.empty) {
-        const storeData = storesSnapshot.docs[0].data();
-        if (storeData.attendanceThresholds) {
-          thresholds = storeData.attendanceThresholds;
-          console.log('⚙️ 매장 출퇴근 허용시간:', thresholds);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('⚠️ 매장 설정 조회 실패:', error);
-  }
-  
-  const result: SalaryCalculationResult = {
-    employeeName: employee.name,
-    userId: employee.uid,             // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
-    employeeUid: employee.uid,        // 하위 호환성 (기존 코드 지원)
-    storeName: employee.store || contract.workStore,
-    yearMonth: yearMonth,
-    salaryType: contract.salaryType || contract.wageType || '시급',  // 호환성 유지
-    
-    // 기본 정보
-    hourlyWage: 0,
-    monthlyWage: 0,
-    annualWage: 0,
-    totalWorkHours: 0,
-    
-    // 지급 항목
-    basePay: 0,
-    overtimePay: 0,
-    nightPay: 0,
-    holidayPay: 0,
-    weeklyHolidayPay: 0,
-    incentivePay: 0, // 🆕 Phase 5: 특별 근무 수당 (근무 모집 인센티브)
-    severancePay: 0, // 퇴직금
-    totalAllowances: 0,
-    
-    // 공제 항목
-    nationalPension: 0,
-    healthInsurance: 0,
-    longTermCare: 0,
-    employmentInsurance: 0,
-    incomeTax: 0,
-    totalDeductions: 0,
-    
-    // 최종 금액
-    totalPay: 0,
-    netPay: 0,
-    
-    // 상세 정보
-    workDays: 0,
-    attendanceDetails: [],
-    
-    // 계약서 기준 정보
-    contractInfo: {
-      weeklyHours: 0,
-      isWeeklyHolidayEligible: false,
-      has4Insurance: false,
-      hasPension: false,
-      hasHealthInsurance: false,
-      hasEmploymentInsurance: false,
-      hasWorkCompInsurance: false
-    }
-  };
-  
-  const salaryType = contract.salaryType || contract.wageType || '시급';  // 호환성 유지
-  const salaryAmount = parseFloat(contract.salaryAmount || contract.wageAmount) || 0;  // 호환성 유지
-  
-  if (salaryAmount === 0) {
-    console.log('⚠️ 급여액이 0원');
-    return result;
-  }
-  
-  // 급여 유형별 처리
-  if (salaryType === '시급') {
-    result.hourlyWage = salaryAmount;
-  } else if (salaryType === '월급') {
-    result.monthlyWage = salaryAmount;
-    // 월급제는 209시간 기준 (주 40시간 × 52주 ÷ 12개월)
-    result.hourlyWage = Math.round(salaryAmount / 209);
-  } else if (salaryType === '연봉') {
-    result.annualWage = salaryAmount;
-    result.monthlyWage = Math.round(salaryAmount / 12);
-    result.hourlyWage = Math.round(salaryAmount / 12 / 209);
-  }
-  
-  // 출퇴근 기록 분석
-  let totalWorkHours = 0;
-  let totalOvertimeHours = 0;
-  let totalNightHours = 0;
-  let totalHolidayHours = 0;
-  let totalIncentiveAmount = 0; // 🆕 Phase 5: 총 인센티브 금액
-  const weeklyWorkHours: Record<string, number> = {}; // 주차별 근무시간
-  const weeklyAbsences: Record<string, boolean> = {}; // 주차별 결근 여부
-  
-  // 계약서의 근무일정 파싱
-  const workDaysArray = contract.workDays ? contract.workDays.split(',').map((d: string) => d.trim()) : [];
-  const dayMap: Record<string, number> = { '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6, '일': 0 };
-  const workDayNumbers = workDaysArray.map((day: string) => dayMap[day]).filter((n: number | undefined) => n !== undefined);
-  
-  // 출근해야 하는 날짜들을 먼저 파악 (결근 체크용)
-  const attendanceDates = new Set(attendances.map(att => att.date));
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0);
-  
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay();
-    const dateStr = d.toISOString().split('T')[0];
-    
-    // 근무일인데 출근 기록이 없으면 결근
-    if (workDayNumbers.includes(dayOfWeek) && !attendanceDates.has(dateStr)) {
-      const weekKey = getWeekOfMonth(d);
-      weeklyAbsences[weekKey] = true; // 이 주는 결근이 있음
-      console.log(`⚠️ 결근 감지: ${dateStr} (${weekKey})`);
-    }
-  }
-  
-  attendances.forEach(att => {
-    // 출근 기록이 있으면 처리 (퇴근 안 해도 현재 시간까지 계산)
-    // ✅ FIXED: clockIn 표준 사용
-    if (!att.clockIn) return;
-    
-    // 퇴근 시간이 없으면 현재 시간 사용 (실시간 급여 계산)
-    let checkInTime = att.clockIn;
-    let checkOutTime = att.clockOut;
-    
-    if (!checkOutTime) {
-      // 퇴근 기록이 없으면 현재 시간 사용
-      const now = new Date();
-      checkOutTime = now.toTimeString().substring(0, 5); // "HH:MM" 형식
-      console.log(`⏰ 퇴근 기록 없음 - 현재 시간(${checkOutTime})까지 계산`);
-    }
-    
-    // 계약서 근무시간과 비교해서 실제 근무시간 조정
-    let adjustedCheckIn = checkInTime;
-    let adjustedCheckOut = checkOutTime;
-    
-    if (contract.workStartTime && contract.workEndTime) {
-      const contractStartMinutes = timeToMinutes(contract.workStartTime);
-      const contractEndMinutes = timeToMinutes(contract.workEndTime);
-      const actualStartMinutes = timeToMinutes(checkInTime);
-      const actualEndMinutes = timeToMinutes(checkOutTime);
-      
-      // 조기출근 처리: 설정된 시간 이상 일찍 출근해야 수당 적용
-      const earlyMinutes = contractStartMinutes - actualStartMinutes;
-      if (earlyMinutes > 0 && earlyMinutes < thresholds.earlyClockIn) {
-        // 허용시간 미만 조기출근 → 계약시간부터 계산
-        adjustedCheckIn = contract.workStartTime;
-        console.log(`⏰ 조기출근 ${earlyMinutes}분 (허용시간 ${thresholds.earlyClockIn}분 미만) → 수당 미적용`);
-      }
-      
-      // 조기퇴근 처리: 설정된 시간 이내 조기퇴근은 수당 미적용
-      const earlyLeaveMinutes = contractEndMinutes - actualEndMinutes;
-      if (earlyLeaveMinutes > 0 && earlyLeaveMinutes <= thresholds.earlyClockOut) {
-        // 허용시간 이내 조기퇴근 → 계약시간까지 인정
-        adjustedCheckOut = contract.workEndTime;
-        console.log(`⏰ 조기퇴근 ${earlyLeaveMinutes}분 (허용시간 ${thresholds.earlyClockOut}분 이내) → 차감 없음`);
-      } else if (earlyLeaveMinutes > thresholds.earlyClockOut) {
-        // 허용시간 초과 조기퇴근 → 실제 퇴근시간으로 계산 (차감)
-        console.log(`⚠️ 조기퇴근 ${earlyLeaveMinutes}분 (허용시간 ${thresholds.earlyClockOut}분 초과) → 차감`);
-      }
-      
-      // 초과근무 처리: 설정된 시간 이상 늦게 퇴근해야 수당 적용
-      const overtimeMinutes = actualEndMinutes - contractEndMinutes;
-      if (overtimeMinutes > 0 && overtimeMinutes < thresholds.overtime) {
-        // 허용시간 미만 초과근무 → 계약시간까지만 계산
-        adjustedCheckOut = contract.workEndTime;
-        console.log(`⏰ 초과근무 ${overtimeMinutes}분 (허용시간 ${thresholds.overtime}분 미만) → 수당 미적용`);
-      }
-    }
-    
-    const workHours = calculateWorkHours(adjustedCheckIn, adjustedCheckOut);
-    const nightHours = calculateNightHours(adjustedCheckIn, adjustedCheckOut);
-    // 🆕 Phase F: DB 기반 공휴일 체크 (자동 동기화된 holidays 배열 사용)
-    const isHoliday = holidays.some(h => h.date === att.date);
-    
-    totalWorkHours += workHours;
-    result.workDays++;
-    
-    // 야간 근무 시간
-    if (contract.allowances?.night && nightHours > 0) {
-      // 🆕 Phase E: 휴게시간이 야간시간(22:00~06:00)에 겹치면 차감
-      if (contract.breakTime) {
-        const breakStart = contract.breakTime.startHour * 60 + (contract.breakTime.startMinute || 0);
-        const breakEnd = contract.breakTime.endHour * 60 + (contract.breakTime.endMinute || 0);
-        const nightStart = 22 * 60; // 22:00
-        const nightEnd = 6 * 60;   // 06:00 (다음날)
-        
-        // 휴게시간이 야간시간과 겹치는 부분 계산
-        let breakNightMinutes = 0;
-        
-        // Case 1: 휴게시간이 22:00~24:00 사이에 겹침
-        if (breakStart < 24 * 60 && breakEnd < 24 * 60) {
-          const overlapStart = Math.max(breakStart, nightStart);
-          const overlapEnd = Math.min(breakEnd, 24 * 60);
-          if (overlapStart < overlapEnd) {
-            breakNightMinutes += overlapEnd - overlapStart;
-          }
-        }
-        
-        // Case 2: 휴게시간이 00:00~06:00 사이에 겹침
-        if (breakEnd > 0 && breakEnd <= nightEnd) {
-          const overlapStart = Math.max(breakStart, 0);
-          const overlapEnd = Math.min(breakEnd, nightEnd);
-          if (overlapStart < overlapEnd) {
-            breakNightMinutes += overlapEnd - overlapStart;
-          }
-        }
-        
-        const adjustedNightHours = Math.max(0, nightHours - breakNightMinutes / 60);
-        totalNightHours += adjustedNightHours;
-        
-        if (breakNightMinutes > 0) {
-          console.log(`🌙 야간 휴게시간 차감: ${nightHours.toFixed(2)}시간 - ${(breakNightMinutes / 60).toFixed(2)}시간 = ${adjustedNightHours.toFixed(2)}시간`);
-        }
-      } else {
-        totalNightHours += nightHours;
-      }
-    }
-    
-    // 공휴일 근무 시간
-    if (isHoliday && contract.allowances?.holiday) {
-      totalHolidayHours += workHours;
-      console.log(`🎉 공휴일 근무 감지: ${att.date}, ${workHours.toFixed(2)}시간`);
-    }
-    
-    // 🆕 Phase 5: 인센티브 수당 계산 (wageIncentive × 근무시간)
-    if (att.wageIncentive && att.wageIncentive > 0) {
-      const incentiveAmount = att.wageIncentive * workHours;
-      totalIncentiveAmount += incentiveAmount;
-      console.log(`💰 인센티브 수당 감지: ${att.date}, ${att.wageIncentive.toLocaleString()}원/시간 × ${workHours.toFixed(2)}시간 = ${incentiveAmount.toLocaleString()}원`);
-    }
-    
-    // 주차별 근무시간 누적 (주휴수당 계산용)
-    // 🔒 하루 최대 8시간만 주휴수당 계산에 포함 (법정 근로시간 기준)
-    const date = new Date(att.date);
-    const weekKey = getWeekOfMonth(date);
-    const weeklyHoursForDay = Math.min(workHours, 8); // 하루 최대 8시간
-    weeklyWorkHours[weekKey] = (weeklyWorkHours[weekKey] || 0) + weeklyHoursForDay;
-    
-    if (workHours > 8) {
-      console.log(`⚠️ ${att.date}: 근무시간 ${workHours.toFixed(2)}시간 → 주휴수당 계산용 ${weeklyHoursForDay}시간 (8시간 초과분 제외)`);
-    }
-    
-    result.attendanceDetails.push({
-      date: att.date,
-      clockIn: checkInTime,               // ✅ FIXED: clockIn 표준
-      clockOut: checkOutTime,             // ✅ FIXED: clockOut 표준
-      adjustedClockIn: adjustedCheckIn,   // 조정된 출근시간
-      adjustedClockOut: adjustedCheckOut, // 조정된 퇴근시간
-      workHours: workHours.toFixed(2),
-      nightHours: nightHours.toFixed(2),
-      isHoliday: isHoliday,
-      wageIncentive: att.wageIncentive || 0, // 🆕 Phase 5: 인센티브 시급
-      isRealtime: !att.clockOut // 실시간 계산 여부
-    });
-  });
-  
-  result.totalWorkHours = totalWorkHours;
-  
-  // 기본급 계산 (급여 유형별)
-  if (result.salaryType === '시급') {
-    result.basePay = Math.round(result.hourlyWage * totalWorkHours);
-  } else if (result.salaryType === '월급' || result.salaryType === '연봉') {
-    // 월급/연봉제는 고정 월급
-    result.basePay = result.monthlyWage;
-  }
-  
-  // 연장근로수당 계산 (1일 8시간 초과 + 주 40시간 초과) - 계약서에 설정된 경우만
-  if (contract.allowances?.overtime) {
-    let totalDailyOvertimeHours = 0; // 일별 연장 누적
-    let totalWeeklyOvertimeHours = 0; // 주별 연장 누적
-    const dailyOvertimeByWeek: Record<string, number> = {}; // 주차별 일 연장 합계
-    
-    // Step 1: 일별 연장근로 계산 (각 출근일마다 8시간 초과 체크)
-    result.attendanceDetails.forEach(detail => {
-      const dailyWork = parseFloat(detail.workHours) || 0;
-      const dailyOvertime = Math.max(dailyWork - 8, 0);
-      
-      if (dailyOvertime > 0) {
-        totalDailyOvertimeHours += dailyOvertime;
-        
-        // 🚨 1일 12시간 초과 경고 (법정 한도)
-        if (dailyWork > 12) {
-          console.warn(`⚠️ [${detail.date}] 1일 12시간 초과 근무 감지: ${dailyWork.toFixed(2)}시간 (법정 한도: 12시간)`);
-        }
-        
-        // 주차별로 일 연장시간 누적
-        const date = new Date(detail.date);
-        const weekKey = getWeekOfMonth(date);
-        dailyOvertimeByWeek[weekKey] = (dailyOvertimeByWeek[weekKey] || 0) + dailyOvertime;
-        
-        console.log(`📊 [${detail.date}] 일별 연장근로: ${dailyWork.toFixed(2)}시간 - 8시간 = ${dailyOvertime.toFixed(2)}시간`);
-      }
-    });
-    
-    // Step 2: 주별 연장근로 계산 (주 40시간 초과 체크)
-    Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
-      const weeklyOvertime = Math.max(weekHours - 40, 0);
-      
-      if (weeklyOvertime > 0) {
-        totalWeeklyOvertimeHours += weeklyOvertime;
-        
-        // 🚨 주 52시간 초과 경고 (법정 한도)
-        if (weekHours > 52) {
-          console.warn(`⚠️ [${weekKey}] 주 52시간 초과 근무 감지: ${weekHours.toFixed(2)}시간 (법정 한도: 52시간)`);
-        }
-        
-        console.log(`📊 [${weekKey}] 주별 연장근로: ${weekHours.toFixed(2)}시간 - 40시간 = ${weeklyOvertime.toFixed(2)}시간`);
-      }
-    });
-    
-    // Step 3: 중복 제거 (법적으로 유리한 쪽 적용)
-    // 근로기준법: "1일 8시간 초과" 또는 "주 40시간 초과" 중 큰 값 적용
-    // 단, 동일한 시간을 중복 지급하지 않도록 처리
-    totalOvertimeHours = Math.max(totalDailyOvertimeHours, totalWeeklyOvertimeHours);
-    
-    result.overtimeHours = totalOvertimeHours;
-    result.overtimePay = Math.round(result.hourlyWage * 1.5 * totalOvertimeHours);
-    
-    console.log(`💰 연장근로수당 최종: 일별 ${totalDailyOvertimeHours.toFixed(2)}h vs 주별 ${totalWeeklyOvertimeHours.toFixed(2)}h → 최종 ${totalOvertimeHours.toFixed(2)}h × ${result.hourlyWage}원 × 1.5 = ${result.overtimePay.toLocaleString()}원`);
-  }
-  
-  // 야간근로수당 - 계약서에 설정된 경우만
-  if (contract.allowances?.night && totalNightHours > 0) {
-    result.nightHours = totalNightHours;
-    result.nightPay = Math.round(result.hourlyWage * 0.5 * totalNightHours);
-  }
-  
-  // 휴일근로수당 - 계약서에 설정된 경우만
-  if (contract.allowances?.holiday && totalHolidayHours > 0) {
-    result.holidayHours = totalHolidayHours;
-    result.holidayPay = Math.round(result.hourlyWage * 1.5 * totalHolidayHours);
-    console.log(`💰 휴일근로수당: ${totalHolidayHours.toFixed(2)}시간 × ${result.hourlyWage}원 × 1.5 = ${result.holidayPay.toLocaleString()}원`);
-  }
-  
-  // 🆕 Phase 5: 특별 근무 수당 (근무 모집 인센티브)
-  if (totalIncentiveAmount > 0) {
-    result.incentivePay = Math.round(totalIncentiveAmount);
-    console.log(`💰 특별 근무 수당: ${result.incentivePay.toLocaleString()}원`);
-  }
-  
-  // 주휴수당 - 계약서 기준 주 15시간 이상 근무 시 적용
-  // 법원 판결 기준: 주휴수당 = 시급 × (주 근무시간 ÷ 5)
-  // 계약서의 weeklyHours 또는 allowances.weeklyHoliday 체크
-  const contractWeeklyHours = parseFloat(contract.weeklyHours || 0);
-  const isWeeklyHolidayEligible = contractWeeklyHours >= 15 || contract.allowances?.weeklyHoliday;
-  
-  if (salaryType === '시급' && isWeeklyHolidayEligible) {
-    let weeklyHolidayHours = 0;
-    Object.entries(weeklyWorkHours).forEach(([weekKey, weekHours]) => {
-      // 결근이 있는 주는 주휴수당 제외
-      if (weeklyAbsences[weekKey]) {
-        console.log(`❌ ${weekKey}: 결근으로 인해 주휴수당 제외 (근무시간: ${weekHours.toFixed(2)}시간)`);
-        return;
-      }
-      
-      if (weekHours >= 15) {
-        // 법원 판결 기준: 주휴수당 시간 = 주 근무시간 ÷ 5 (최대 8시간)
-        const weekHolidayHours = Math.min(weekHours / 5, 8);
-        weeklyHolidayHours += weekHolidayHours;
-        console.log(`✅ ${weekKey}: 주휴수당 적용 (근무시간: ${weekHours.toFixed(2)}시간, 주휴수당 시간: ${weekHolidayHours.toFixed(2)}시간, 금액: ${Math.round(result.hourlyWage * weekHolidayHours).toLocaleString()}원)`);
-      } else {
-        console.log(`⚠️ ${weekKey}: 15시간 미만으로 주휴수당 제외 (근무시간: ${weekHours.toFixed(2)}시간)`);
-      }
-    });
-    result.weeklyHolidayPay = Math.round(result.hourlyWage * weeklyHolidayHours);
-    console.log(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}시간 × ${result.hourlyWage.toLocaleString()}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
-  } else {
-    console.log(`⚠️ 주휴수당 미적용 - 사유: ${salaryType !== '시급' ? '시급제 아님' : `주 ${contractWeeklyHours}시간 (15시간 미만)`}`);
-  }
-  
-  // 퇴직금 계산 (1년 이상 근속, 주 15시간 이상 근무)
-  try {
-    const contractStartDate = new Date(contract.startDate);
-    const now = new Date();
-    const daysDiff = Math.floor((now.getTime() - contractStartDate.getTime()) / (1000 * 60 * 60 * 24));
-    const yearsDiff = daysDiff / 365;
-    
-    // 주 평균 근무시간 계산
-    const totalWeeks = Object.keys(weeklyWorkHours).length;
-    const avgWeeklyHours = totalWeeks > 0 ? totalWorkHours / totalWeeks : 0;
-    
-    if (yearsDiff >= 1 && avgWeeklyHours >= 15) {
-      // 최근 3개월 평균 급여 계산 (간소화: 이번 달 급여로 대체)
-      const avgMonthlySalary = result.basePay + result.totalAllowances;
-      
-      // 퇴직금 = (평균급여 × 근속일수 / 365) × 30일
-      result.severancePay = Math.round((avgMonthlySalary * daysDiff / 365) * 30);
-      
-      console.log(`💼 퇴직금 계산: 근속 ${daysDiff}일, 주평균 ${avgWeeklyHours.toFixed(1)}시간, 퇴직금 ${result.severancePay.toLocaleString()}원`);
-    }
-  } catch (error) {
-    console.error('⚠️ 퇴직금 계산 실패:', error);
-  }
-  
-  // 총 수당 (🆕 Phase 5: incentivePay 포함)
-  result.totalAllowances = result.overtimePay + result.nightPay + result.holidayPay + result.weeklyHolidayPay + result.incentivePay + result.severancePay;
-  
-  // 총 지급액 (공제 전)
-  result.totalPay = result.basePay + result.totalAllowances;
-  
-  // 4대보험 공제 계산 (계약서 개별 체크박스 기준)
-  const insurance = contract.insurance || {};
-  
-  // 국민연금 (4.5% 근로자 부담)
-  if (insurance.pension) {
-    result.nationalPension = Math.round(result.totalPay * 0.045);
-  }
-  
-  // 건강보험 (3.545% 근로자 부담)
-  if (insurance.health) {
-    result.healthInsurance = Math.round(result.totalPay * 0.03545);
-    // 장기요양보험 (건강보험의 12.95%의 50% 근로자 부담)
-    result.longTermCare = Math.round(result.healthInsurance * 0.1295 * 0.5);
-  }
-  
-  // 고용보험 (0.9% 근로자 부담)
-  if (insurance.employment) {
-    result.employmentInsurance = Math.round(result.totalPay * 0.009);
-  }
-  
-  // 소득세 (3.3% 근로자 전액 부담) - 어떤 보험이든 하나라도 있으면 적용
-  if (insurance.pension || insurance.health || insurance.employment || insurance.workComp) {
-    result.incomeTax = Math.round(result.totalPay * 0.033);
-  }
-  
-  result.totalDeductions = result.nationalPension + result.healthInsurance + 
-                           result.longTermCare + result.employmentInsurance + result.incomeTax;
-  
-  // 실지급액
-  result.netPay = result.totalPay - result.totalDeductions;
-  
-  // 계약서 기준 정보 추가 (렌더링 시 조건부 표시용)
-  result.contractInfo = {
-    weeklyHours: contractWeeklyHours,
-    isWeeklyHolidayEligible: isWeeklyHolidayEligible,
-    has4Insurance: !!(insurance.pension || insurance.health || insurance.employment || insurance.workComp),
-    hasPension: insurance.pension || false,
-    hasHealthInsurance: insurance.health || false,
-    hasEmploymentInsurance: insurance.employment || false,
-    hasWorkCompInsurance: insurance.workComp || false
-  };
-  
-  console.log('✅ 급여 계산 완료:', result);
-  return result;
+export function formatHoursAndMinutes(hours: number): string {
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m}분`;
+  if (m === 0) return `${h}시간`;
+  return `${h}시간 ${m}분`;
+}
+
+// ===========================================
+// 더 이상 사용하지 않는 함수들 (서버로 이관됨)
+// ===========================================
+
+/**
+ * @deprecated 서버의 calculateMonthlySalaryOnServer()를 사용하세요.
+ * @see services/cloudFunctionsSalaryService.ts
+ */
+export function calculateMonthlySalary(): never {
+  throw new Error(
+    '❌ calculateMonthlySalary()는 더 이상 사용할 수 없습니다.\n' +
+    '서버의 calculateMonthlySalaryOnServer()를 사용하세요.\n' +
+    'import { calculateMonthlySalaryOnServer } from "@/services/cloudFunctionsSalaryService";'
+  );
+}
+
+/**
+ * @deprecated 공휴일 데이터는 서버에서 관리됩니다.
+ */
+export const publicHolidays2025 = [
+  '2025-01-01', '2025-01-28', '2025-01-29', '2025-01-30',
+  '2025-03-01', '2025-03-05', '2025-05-05', '2025-05-06',
+  '2025-06-06', '2025-08-15', '2025-10-03', '2025-10-05',
+  '2025-10-06', '2025-10-07', '2025-10-09', '2025-12-25'
+];
+
+/**
+ * @deprecated 서버에서 계산됩니다.
+ */
+export function isPublicHoliday(dateStr: string): boolean {
+  return publicHolidays2025.includes(dateStr);
+}
+
+/**
+ * @deprecated 서버에서 계산됩니다.
+ */
+export function timeToMinutes(): never {
+  throw new Error('❌ 이 함수는 서버로 이관되었습니다. 서버 API를 사용하세요.');
+}
+
+/**
+ * @deprecated 서버에서 계산됩니다.
+ */
+export function calculateWorkHours(): never {
+  throw new Error('❌ 이 함수는 서버로 이관되었습니다. 서버 API를 사용하세요.');
+}
+
+/**
+ * @deprecated 서버에서 계산됩니다.
+ */
+export function calculateNightHours(): never {
+  throw new Error('❌ 이 함수는 서버로 이관되었습니다. 서버 API를 사용하세요.');
+}
+
+/**
+ * @deprecated 서버에서 계산됩니다.
+ */
+export function getWeekOfMonth(): never {
+  throw new Error('❌ 이 함수는 서버로 이관되었습니다. 서버 API를 사용하세요.');
+}
+
+/**
+ * @deprecated 서버에서 계산됩니다.
+ */
+export function calculateWeeklySalary(): never {
+  throw new Error('❌ 이 함수는 서버로 이관되었습니다. 서버 API를 사용하세요.');
 }
