@@ -604,8 +604,26 @@ export function ContractFormModal({
       });
 
       console.log('✅ 계약서 저장 완료:', docRef.id);
+
+      // 🔥 스케줄 자동 생성
+      try {
+        const { generateMonthlySchedules } = await import('@/services/scheduleService');
+        await generateMonthlySchedules(
+          {
+            ...contractData,
+            id: docRef.id,
+            companyId,
+          },
+          user?.uid || ''
+        );
+        console.log('✅ 스케줄 자동 생성 완료');
+      } catch (scheduleError) {
+        console.error('❌ 스케줄 생성 실패:', scheduleError);
+        alert('계약서는 생성되었으나 스케줄 생성에 실패했습니다. 관리자에게 문의하세요.');
+      }
+
       clearDraft(); // 임시저장 데이터 삭제
-      alert('계약서가 생성되었습니다!');
+      alert('계약서 및 스케줄이 생성되었습니다!');
       onClose();
     } catch (error) {
       console.error('❌ 계약서 생성 실패:', error);

@@ -20,8 +20,8 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type {
 import { COLLECTIONS } from '@/lib/constants';
+import type {
   WorkSchedule,
   ScheduleGroup,
   ScheduleFilterOptions,
