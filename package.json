@@ -8,7 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest --passWithNoTests",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "clean-db": "ts-node scripts/clean-db.ts",
+    "clean-db:dry-run": "ts-node scripts/clean-db.ts --dry-run",
+    "clean-db:salary": "ts-node scripts/clean-db.ts salary",
+    "clean-db:attendance": "ts-node scripts/clean-db.ts attendance",
+    "clean-db:contracts": "ts-node scripts/clean-db.ts contracts",
+    "clean-db:users": "ts-node scripts/clean-db.ts users"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.0.4",
