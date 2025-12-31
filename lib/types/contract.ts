@@ -110,6 +110,12 @@ export interface Contract {
   schedules?: ContractSchedule[]; // ✅ 표준: 요일별 근무 시간 배열
   breakTime?: BreakTimeDetail;    // ✅ 표준: 휴게시간 상세 객체
   
+  // 🔄 레거시 스케줄 필드 (구버전 데이터 호환)
+  workDays?: string;              // 🔄 레거시: 근무 요일 (예: "월,화,수")
+  workStartTime?: string;         // 🔄 레거시: 근무 시작 시간 (예: "09:00")
+  workEndTime?: string;           // 🔄 레거시: 근무 종료 시간 (예: "18:00")
+  breakMinutes?: number;          // 🔄 레거시: 휴게 시간 (분)
+  
   // 🔥 급여 정보 (표준 필드)
   salaryType?: string;            // ✅ 표준: 급여 타입 (hourly/monthly)
   salaryAmount?: number | string; // ✅ 표준: 급여 금액

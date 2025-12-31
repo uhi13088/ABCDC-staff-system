@@ -53,16 +53,37 @@ export async function generateSchedulesForRange(
   endDate: string,
   creatorUid: string
 ): Promise<void> {
+  // 🔄 레거시 데이터 변환: workDays → schedules 배열
+  if (!contract.schedules && contract.workDays && contract.workStartTime && contract.workEndTime) {
+    console.log('🔄 레거시 데이터 감지: workDays 형식을 schedules 배열로 변환');
+    const days = contract.workDays.split(',').map(d => d.trim());
+    contract.schedules = days.map(day => ({
+      day,
+      startTime: contract.workStartTime!,
+      endTime: contract.workEndTime!,
+      breakMinutes: contract.breakMinutes || 0,
+    }));
+    console.log(`  ✅ 변환 완료: ${contract.schedules.length}개 요일 스케줄 생성`);
+  }
+  
   console.log('📅 스케줄 범위 생성 시작:', {
     contractId: contract.id,
     userId: contract.userId,
     isAdditional: contract.isAdditional,
     range: `${startDate} ~ ${endDate}`,
+    schedules: contract.schedules?.length,
   });
 
-  // 필수 필드 검증 (userId와 schedules만 체크)
+  // 필수 필드 검증 (userId와 schedules만 체크, schedules는 변환 후 체크)
   if (!contract.id || !contract.userId || !contract.schedules) {
-    console.error('❌ 필수 필드 누락:', contract);
+    console.error('❌ 필수 필드 누락:', {
+      id: contract.id,
+      userId: contract.userId,
+      schedules: contract.schedules?.length,
+      workDays: contract.workDays,
+      workStartTime: contract.workStartTime,
+      workEndTime: contract.workEndTime,
+    });
     throw new Error('계약서 필수 필드가 누락되었습니다.');
   }
 
@@ -205,14 +226,28 @@ export async function generateMonthlySchedules(
   // 날짜 필드 통합 (startDate 또는 contractStartDate 중 하나라도 있으면 사용)
   const contractStartDate = contract.startDate || contract.contractStartDate;
   
+  // 🔄 레거시 데이터 변환: workDays → schedules 배열
+  if (!contract.schedules && contract.workDays && contract.workStartTime && contract.workEndTime) {
+    console.log('🔄 레거시 데이터 감지: workDays 형식을 schedules 배열로 변환');
+    const days = contract.workDays.split(',').map(d => d.trim());
+    contract.schedules = days.map(day => ({
+      day,
+      startTime: contract.workStartTime!,
+      endTime: contract.workEndTime!,
+      breakMinutes: contract.breakMinutes || 0,
+    }));
+    console.log(`  ✅ 변환 완료: ${contract.schedules.length}개 요일 스케줄 생성`);
+  }
+  
   console.log('📅 스케줄 자동 생성 시작:', {
     contractId: contract.id,
     userId: contract.userId,
     isAdditional: contract.isAdditional,
     startDate: contractStartDate,
+    schedules: contract.schedules?.length,
   });
 
-  // 필수 필드 검증 (날짜 필드는 통합된 변수 사용)
+  // 필수 필드 검증 (날짜 필드는 통합된 변수 사용, schedules는 변환 후 체크)
   if (!contract.id || !contract.userId || !contractStartDate || !contract.schedules) {
     console.error('❌ 필수 필드 누락:', {
       id: contract.id,
@@ -220,6 +255,9 @@ export async function generateMonthlySchedules(
       startDate: contract.startDate,
       contractStartDate: contract.contractStartDate,
       schedules: contract.schedules?.length,
+      workDays: contract.workDays,
+      workStartTime: contract.workStartTime,
+      workEndTime: contract.workEndTime,
     });
     throw new Error('계약서 필수 필드가 누락되었습니다.');
   }
