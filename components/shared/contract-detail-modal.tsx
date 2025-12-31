@@ -11,6 +11,7 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
 import { format } from 'date-fns';
+import { safeToDate } from '@/lib/utils/timestamp';
 import dynamic from 'next/dynamic';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -261,13 +262,13 @@ export function ContractDetailModal({
                     <div>
                       <span className="text-gray-600">계약 시작일:</span>
                       <span className="ml-2 font-medium">
-                        {contract.startDate?.toDate ? format(contract.startDate.toDate(), 'yyyy년 MM월 dd일') : '-'}
+                        {contract.startDate ? format(safeToDate(contract.startDate), 'yyyy년 MM월 dd일') : '-'}
                       </span>
                     </div>
                     <div>
                       <span className="text-gray-600">계약 종료일:</span>
                       <span className="ml-2 font-medium">
-                        {contract.endDate?.toDate ? format(contract.endDate.toDate(), 'yyyy년 MM월 dd일') : '기간의 정함 없음'}
+                        {contract.endDate ? format(safeToDate(contract.endDate), 'yyyy년 MM월 dd일') : '기간의 정함 없음'}
                       </span>
                     </div>
                   </div>
@@ -331,7 +332,7 @@ export function ContractDetailModal({
                       <span className="ml-2">
                         {contract.employeeSignedAt ? (
                           <Badge className="bg-green-600">
-                            {format(contract.employeeSignedAt.toDate(), 'yyyy-MM-dd HH:mm')}
+                            {format(safeToDate(contract.employeeSignedAt)!, 'yyyy-MM-dd HH:mm')}
                           </Badge>
                         ) : (
                           <Badge variant="secondary">미서명</Badge>
@@ -343,7 +344,7 @@ export function ContractDetailModal({
                       <span className="ml-2">
                         {contract.adminSignedAt ? (
                           <Badge className="bg-blue-600">
-                            {format(contract.adminSignedAt.toDate(), 'yyyy-MM-dd HH:mm')}
+                            {format(safeToDate(contract.adminSignedAt)!, 'yyyy-MM-dd HH:mm')}
                           </Badge>
                         ) : (
                           <Badge variant="secondary">미서명</Badge>
@@ -512,13 +513,13 @@ export function ContractDetailModal({
                   <div>
                     <span className="font-semibold text-gray-700">계약 시작일:</span>
                     <span className="ml-2">
-                      {contract.startDate?.toDate ? format(contract.startDate.toDate(), 'yyyy년 MM월 dd일') : '-'}
+                      {contract.startDate ? format(safeToDate(contract.startDate), 'yyyy년 MM월 dd일') : '-'}
                     </span>
                   </div>
                   <div>
                     <span className="font-semibold text-gray-700">계약 종료일:</span>
                     <span className="ml-2">
-                      {contract.endDate?.toDate ? format(contract.endDate.toDate(), 'yyyy년 MM월 dd일') : '기간의 정함 없음'}
+                      {contract.endDate ? format(safeToDate(contract.endDate), 'yyyy년 MM월 dd일') : '기간의 정함 없음'}
                     </span>
                   </div>
                 </div>
@@ -597,7 +598,7 @@ export function ContractDetailModal({
                     )}
                     <div className="text-center mt-2 text-sm text-gray-600">
                       {contract.employeeSignedAt ? (
-                        <span>서명일: {format(contract.employeeSignedAt.toDate(), 'yyyy-MM-dd HH:mm')}</span>
+                        <span>서명일: {format(safeToDate(contract.employeeSignedAt)!, 'yyyy-MM-dd HH:mm')}</span>
                       ) : (
                         <span>미서명</span>
                       )}
@@ -624,7 +625,7 @@ export function ContractDetailModal({
                     )}
                     <div className="text-center mt-2 text-sm text-gray-600">
                       {contract.adminSignedAt ? (
-                        <span>서명일: {format(contract.adminSignedAt.toDate(), 'yyyy-MM-dd HH:mm')}</span>
+                        <span>서명일: {format(safeToDate(contract.adminSignedAt)!, 'yyyy-MM-dd HH:mm')}</span>
                       ) : (
                         <span>미서명</span>
                       )}
@@ -636,7 +637,7 @@ export function ContractDetailModal({
               {/* 계약일 */}
               <div className="text-center mt-8 pt-4 border-t border-gray-200">
                 <p className="text-sm text-gray-600">
-                  계약일: {contract.createdAt?.toDate ? format(contract.createdAt.toDate(), 'yyyy년 MM월 dd일') : '-'}
+                  계약일: {contract.createdAt ? format(safeToDate(contract.createdAt), 'yyyy년 MM월 dd일') : '-'}
                 </p>
               </div>
             </div>

@@ -586,10 +586,15 @@ export const calculateMonthlySalary = functions
       const callerRole = callerData.role;
       const callerCompanyId = callerData.companyId;
 
-      if (!['admin', 'store_manager', 'manager'].includes(callerRole)) {
+      // 권한 검사: admin, manager, store_manager, 또는 본인인 employee
+      const isAuthorized = 
+        ['admin', 'store_manager', 'manager'].includes(callerRole) ||
+        (callerRole === 'employee' && employeeUid === callerUid);
+
+      if (!isAuthorized) {
         throw new functions.https.HttpsError(
           'permission-denied',
-          '급여 계산 권한이 없습니다.'
+          '급여 계산 권한이 없습니다. 본인의 급여만 조회할 수 있습니다.'
         );
       }
 
