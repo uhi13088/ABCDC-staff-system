@@ -201,3 +201,35 @@ export function safeToDateArray(values: TimestampInput[]): Date[] {
     .map(v => safeToDate(v, null))
     .filter((d): d is Date => d !== null);
 }
+
+/**
+ * Firestore 문서 데이터에서 Timestamp 필드를 문자열로 변환
+ * React 렌더링 시 "Objects are not valid as a React child" 에러 방지
+ * 
+ * @param data - Firestore 문서 데이터
+ * @param timestampFields - 변환할 Timestamp 필드명 배열
+ * @returns Timestamp가 ISO 문자열로 변환된 데이터
+ * 
+ * @example
+ * ```typescript
+ * const docData = doc.data();
+ * const safeData = sanitizeTimestamps(docData, ['createdAt', 'updatedAt', 'paidAt']);
+ * // safeData.createdAt은 이제 ISO 문자열 (예: "2024-01-15T10:30:00.000Z")
+ * ```
+ */
+export function sanitizeTimestamps<T extends Record<string, any>>(
+  data: T,
+  timestampFields: (keyof T)[] = ['createdAt', 'updatedAt', 'paidAt', 'calculatedAt']
+): T {
+  const result = { ...data };
+  
+  timestampFields.forEach(field => {
+    if (result[field]) {
+      const date = safeToDate(result[field], null);
+      // Timestamp 객체를 ISO 문자열로 변환
+      result[field] = date ? date.toISOString() : null;
+    }
+  });
+  
+  return result;
+}

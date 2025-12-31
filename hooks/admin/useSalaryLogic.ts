@@ -15,6 +15,7 @@ import { COLLECTIONS } from '@/lib/constants';
 import * as storeService from '@/services/storeService';
 import * as salaryService from '@/services/salaryService';
 import { nowKST, nowISOKST, yearKST, monthKST } from '@/lib/utils/timezone';
+import { sanitizeTimestamps } from '@/lib/utils/timestamp';
 
 export interface SalaryWithStatus extends SalaryCalculationResult {
   status: 'unconfirmed' | 'confirmed' | 'paid';
@@ -292,7 +293,8 @@ export function useSalaryLogic() {
       
       const confirmedSalaries: Record<string, { status: string; paid: boolean; docId: string }> = {};
       salariesSnapshot.forEach(doc => {
-        const data = doc.data();
+        // 🔒 Timestamp 필드를 안전하게 변환 (React 렌더링 에러 방지)
+        const data = sanitizeTimestamps(doc.data(), ['createdAt', 'updatedAt', 'paidAt', 'calculatedAt']);
         confirmedSalaries[data.employeeUid || data.userId] = {
           status: data.status || 'confirmed',
           paid: data.paid || false,

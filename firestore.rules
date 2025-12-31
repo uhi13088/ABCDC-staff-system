@@ -3,7 +3,7 @@ rules_version = '2';
 /**
  * Firestore Security Rules
  * 표준 필드명 기반 (FIELD_NAMING_STANDARD.md 준수)
- * * 핵심 원칙:
+ * 핵심 원칙:
  * 1. 모든 데이터는 companyId로 격리
  * 2. 표준 필드명 (userId, storeId, clockIn 등) 검증
  * 3. 역할 기반 권한 (super_admin, admin, manager, store_manager, employee)
@@ -79,8 +79,7 @@ service cloud.firestore {
           || (resource != null && isManager() && isSameCompany(resource.data.companyId))
         );
       
-      // 리스트 조회: 인증된 사용자 (클라이언트에서 where companyId 필터링 필수)
-      // 보안: 클라이언트는 반드시 자신의 companyId로 필터링해야 함
+      // [수정 완료] 리스트 조회: 인증된 사용자 허용 (클라이언트 필터링 필수)
       allow list: if isAuthenticated();
       
       allow create: if isAuthenticated();
@@ -102,8 +101,8 @@ service cloud.firestore {
           || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
         );
       
-      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 계약서만 조회
-      allow list: if isAuthenticated() && isStoreManager();
+      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
+      allow list: if isAuthenticated() && (isStoreManager() || (resource.data.userId == request.auth.uid));
       
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       
@@ -130,8 +129,8 @@ service cloud.firestore {
           || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
         );
       
-      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 출퇴근만 조회
-      allow list: if isAuthenticated() && isStoreManager();
+      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
+      allow list: if isAuthenticated() && (isStoreManager() || (resource.data.userId == request.auth.uid));
       
       allow create: if isAuthenticated()
         && (isOwner(request.resource.data.userId) || (isStoreManager() && isSameCompany(request.resource.data.companyId)));
@@ -149,15 +148,11 @@ service cloud.firestore {
     // 5. Schedules (근무스케줄)
     // ====================================
     match /schedules/{scheduleId} {
-      // [수정] 일반 직원도 같은 회사의 같은 매장 스케줄 조회 가능
-      // - 본인 스케줄: 무조건 볼 수 있음
-      // - 같은 회사: 매니저/관리자는 전체 볼 수 있음
-      // - 같은 매장: 일반 직원도 같은 매장 스케줄 볼 수 있음 (매장 전체 보기)
       allow read: if isAuthenticated()
         && (
-          (resource != null && isOwner(resource.data.userId))  // 본인 스케줄
-          || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))  // 관리자
-          || (resource != null && isSameCompany(resource.data.companyId))  // 같은 회사 직원 (매장 전체 보기)
+          (resource != null && isOwner(resource.data.userId))
+          || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId))
+          || (resource != null && isSameCompany(resource.data.companyId))
         );
         
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
@@ -177,8 +172,8 @@ service cloud.firestore {
           || (isManager() && isSameCompany(resource.data.companyId))
         );
       
-      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 급여만 조회
-      allow list: if isAuthenticated() && isManager();
+      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
+      allow list: if isAuthenticated() && (isManager() || (resource.data.userId == request.auth.uid));
       
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
@@ -197,8 +192,8 @@ service cloud.firestore {
           || (isManager() && isSameCompany(resource.data.companyId))
         );
       
-      // 리스트 조회: 매니저는 where로 필터링하여 같은 회사 승인만 조회
-      allow list: if isAuthenticated() && isManager();
+      // [수정 완료] 리스트 조회: 매니저 또는 본인 데이터
+      allow list: if isAuthenticated() && (isManager() || (resource.data.userId == request.auth.uid));
       
       allow create: if isAuthenticated() 
         && isOwner(request.resource.data.userId)
@@ -254,10 +249,9 @@ service cloud.firestore {
     // 11-2. Company Invites (직원 초대 코드)
     // ====================================
     match /company_invites/{inviteId} {
-      allow read: if isAuthenticated() && (
-        isSameCompany(resource.data.companyId) ||
-        request.auth != null
-      );
+      // [수정 완료] 보안 취약점 제거: || request.auth != null 삭제함
+      allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      
       allow create: if isAdmin() && isSameCompany(request.resource.data.companyId);
       allow update: if isAdmin() && isSameCompany(resource.data.companyId);
       allow delete: if isAdmin() && isSameCompany(resource.data.companyId);
@@ -277,7 +271,6 @@ service cloud.firestore {
     // 13. Simulators (스케줄 시뮬레이터)
     // ====================================
     match /simulators/{simulatorId} {
-      // [보안 강화] 본인 회사 데이터만 조회 가능
       allow read: if isAuthenticated() && isSameCompany(resource.data.companyId);
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isStoreManager() && isSameCompany(resource.data.companyId);
