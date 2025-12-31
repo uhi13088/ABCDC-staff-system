@@ -440,8 +440,10 @@ async function performSalaryCalculation(
       totalHolidayHours += workHours;
     }
     
-    if (att.wageIncentive && att.wageIncentive > 0) {
-      const incentiveAmount = Math.round(att.wageIncentive * workHours);
+    // 🔒 인센티브 안전 파싱 (콤마/문자열/NaN 방지)
+    const incentiveValue = parseMoney(att.wageIncentive);
+    if (incentiveValue > 0) {
+      const incentiveAmount = Math.round(incentiveValue * workHours);
       totalIncentiveAmount += incentiveAmount;
     }
     
@@ -459,7 +461,8 @@ async function performSalaryCalculation(
       workHours: workHours.toFixed(2),
       nightHours: nightHours.toFixed(2),
       isHoliday: isHoliday,
-      wageIncentive: att.wageIncentive || 0,
+      // 🔒 인센티브 안전 파싱
+      wageIncentive: parseMoney(att.wageIncentive),
       isRealtime: !att.checkOut && !att.clockOut
     });
   });
@@ -502,7 +505,8 @@ async function performSalaryCalculation(
   }
   
   // 주휴수당
-  const contractWeeklyHours = parseFloat(String(contract.weeklyHours || 0));
+  // 🔒 주간 근무시간 안전 파싱 (콤마/문자열/NaN 방지)
+  const contractWeeklyHours = parseMoney(contract.weeklyHours);
   const isWeeklyHolidayEligible = !!(contractWeeklyHours >= 15 || contract.allowances?.weeklyHoliday);
   
   if (salaryType === '시급' && isWeeklyHolidayEligible) {

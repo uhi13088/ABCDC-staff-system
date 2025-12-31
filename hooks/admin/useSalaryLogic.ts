@@ -125,7 +125,8 @@ export function useSalaryLogic() {
       const salaryData: SalaryWithStatus[] = [];
       
       for (const empDoc of employeesSnapshot.docs) {
-        const employee = { uid: empDoc.id, ...empDoc.data() };
+        // 🔒 Timestamp 필드를 재귀적으로 안전하게 변환
+        const employee = { uid: empDoc.id, ...sanitizeTimestamps(empDoc.data()) };
         
         // 근무상태 필터 적용
         const empStatus = employee.status || 'approved';
@@ -266,7 +267,8 @@ export function useSalaryLogic() {
         
         const attendances: any[] = [];
         attendancesSnapshot.forEach(doc => {
-          attendances.push(doc.data());
+          // 🔒 Timestamp 필드를 재귀적으로 안전하게 변환
+          attendances.push(sanitizeTimestamps(doc.data()));
         });
         
         // 🔥 Cloud Functions로 급여 계산 (서버 사이드)
@@ -416,7 +418,8 @@ export function useSalaryLogic() {
         alert('❌ 직원 정보를 찾을 수 없습니다.');
         return;
       }
-      const employee = { uid: empDoc.id, ...empDoc.data() };
+      // 🔒 Timestamp 필드를 재귀적으로 안전하게 변환
+      const employee = { uid: empDoc.id, ...sanitizeTimestamps(empDoc.data()) };
       
       // 계약서 찾기 (복합 인덱스 없이 처리)
       const contractsQuery = query(
@@ -461,7 +464,8 @@ export function useSalaryLogic() {
       
       const attendances: any[] = [];
       attendancesSnapshot.forEach(doc => {
-        attendances.push(doc.data());
+        // 🔒 Timestamp 필드를 재귀적으로 안전하게 변환
+        attendances.push(sanitizeTimestamps(doc.data()));
       });
       
       // 🔥 Cloud Functions로 급여 계산 (서버 사이드)
