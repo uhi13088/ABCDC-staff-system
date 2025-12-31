@@ -273,16 +273,18 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
         range: `${mondayStr} ~ ${sundayStr}`,
       });
 
-      // 1. 현재 선택된 매장의 활성 계약서 가져오기
+      // 1. 현재 선택된 매장의 모든 계약서 가져오기 (status 필터 제거)
+      // - 작성된 모든 계약서(서명 대기, 서명 완료 등)의 스케줄 생성
+      // - 계약서가 존재하면 무조건 스케줄 생성
       const contracts = await getContracts(companyId, {
         storeId: filters.storeId,
-        status: '서명완료',
+        // status 필터 제거: 서명 여부와 관계없이 모든 계약서 포함
       });
 
-      console.log(`  📄 가져온 계약서: ${contracts.length}개`);
+      console.log(`  📄 가져온 계약서: ${contracts.length}개 (전체 상태 포함)`);
 
       if (contracts.length === 0) {
-        alert('해당 매장의 활성 계약서가 없습니다.');
+        alert('해당 매장의 계약서가 없습니다.\n\n계약서를 먼저 작성해주세요.');
         return;
       }
 
