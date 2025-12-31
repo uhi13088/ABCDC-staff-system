@@ -143,8 +143,20 @@ const DATE_FIELD_PATTERNS = [
 
 /**
  * 필드가 숫자 필드인지 확인
+ * 단, 객체 타입 필드는 제외
  */
-function isNumberField(fieldName: string): boolean {
+function isNumberField(fieldName: string, value: any): boolean {
+  // 객체나 배열은 숫자 필드가 아님
+  if (typeof value === 'object' && value !== null) {
+    return false;
+  }
+  
+  // 특정 필드명은 숫자가 아님
+  const excludedFields = ['salaryType', 'wageType', 'paymentMethod', 'salaryCalculationType', 'insurance', 'allowances'];
+  if (excludedFields.includes(fieldName)) {
+    return false;
+  }
+  
   return NUMBER_FIELD_PATTERNS.some(pattern => fieldName.includes(pattern));
 }
 
@@ -194,7 +206,7 @@ function cleanDocument(data: any, collectionName: string): { cleaned: any; hasCh
     let cleanedValue = value;
     
     // 1️⃣ 숫자 필드 정화
-    if (isNumberField(key)) {
+    if (isNumberField(key, value)) {
       const parsed = parseMoney(value);
       if (parsed !== value) {
         cleanedValue = parsed;
@@ -335,24 +347,10 @@ async function main() {
     console.log('계속하려면 10초 내에 아무 키나 누르세요...');
     console.log('취소하려면 Ctrl+C를 누르세요.\n');
     
-    // 10초 대기
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        console.log('⏰ 시간 초과. 스크립트를 종료합니다.');
-        process.exit(0);
-      }, 10000);
-      
-      process.stdin.once('data', () => {
-        clearTimeout(timeout);
-        console.log('✅ 확인되었습니다. 계속 진행합니다...\n');
-        resolve();
-      });
-      process.stdin.setRawMode(true);
-      process.stdin.resume();
-    });
-    
-    process.stdin.setRawMode(false);
-    process.stdin.pause();
+    // 3초 대기 (샌드박스 환경에서는 자동 진행)
+    console.log('⏳ 3초 후 자동으로 시작됩니다...\n');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log('✅ 시작합니다...\n');
   }
   
   const startTime = Date.now();

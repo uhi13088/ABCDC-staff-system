@@ -9,12 +9,12 @@
     "lint": "eslint",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
-    "clean-db": "ts-node scripts/clean-db.ts",
-    "clean-db:dry-run": "ts-node scripts/clean-db.ts --dry-run",
-    "clean-db:salary": "ts-node scripts/clean-db.ts salary",
-    "clean-db:attendance": "ts-node scripts/clean-db.ts attendance",
-    "clean-db:contracts": "ts-node scripts/clean-db.ts contracts",
-    "clean-db:users": "ts-node scripts/clean-db.ts users"
+    "clean-db": "tsx scripts/clean-db.ts",
+    "clean-db:dry-run": "tsx scripts/clean-db.ts --dry-run",
+    "clean-db:salary": "tsx scripts/clean-db.ts salary",
+    "clean-db:attendance": "tsx scripts/clean-db.ts attendance",
+    "clean-db:contracts": "tsx scripts/clean-db.ts contracts",
+    "clean-db:users": "tsx scripts/clean-db.ts users"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -51,7 +51,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.27",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "autoprefixer": "^10.0.0",
@@ -64,6 +64,8 @@
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
     "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   }
 }

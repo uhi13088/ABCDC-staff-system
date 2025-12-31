@@ -51,3 +51,4 @@ logs/
 firebase-emulator.log
 server.log
 # 업로드 대기 디렉토리 (Git에 포함하지 않음)
+service-account-key.json
