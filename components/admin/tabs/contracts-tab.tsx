@@ -117,19 +117,14 @@ export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
 
   /**
    * 계약 기간 포맷
-   * Firestore Timestamp 객체를 YYYY-MM-DD 형식으로 변환
+   * Timestamp, Date, ISO String 모든 형식 처리
    */
   const formatContractPeriod = (contract: Contract) => {
-    // Timestamp 객체를 YYYY-MM-DD 문자열로 변환
+    // 날짜를 YYYY-MM-DD 문자열로 변환
     const formatDate = (dateValue: any): string => {
-      if (!dateValue) return '-';
+      if (!dateValue) return null;
       
-      // 이미 문자열인 경우 (YYYY-MM-DD 형식)
-      if (typeof dateValue === 'string') {
-        return dateValue;
-      }
-      
-      // Timestamp 객체인 경우 (seconds 필드 포함)
+      // 1. Firestore Timestamp 객체 처리 (seconds 필드)
       if (dateValue?.seconds) {
         const date = new Date(dateValue.seconds * 1000);
         const year = date.getFullYear();
@@ -138,7 +133,23 @@ export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
         return `${year}-${month}-${day}`;
       }
       
-      // Date 객체인 경우
+      // 2. ISO 문자열 처리 (2025-11-30T15:00:00Z)
+      if (typeof dateValue === 'string') {
+        try {
+          const date = new Date(dateValue);
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          }
+        } catch (e) {
+          // ISO 문자열이 아닌 경우 그대로 반환
+          return dateValue;
+        }
+      }
+      
+      // 3. Date 객체 처리
       if (dateValue instanceof Date) {
         const year = dateValue.getFullYear();
         const month = String(dateValue.getMonth() + 1).padStart(2, '0');
@@ -146,11 +157,18 @@ export function ContractsTab({ companyId, currentUserId }: ContractsTabProps) {
         return `${year}-${month}-${day}`;
       }
       
-      return '-';
+      return null;
     };
     
     const start = formatDate(contract.contractStartDate || contract.startDate);
     const end = formatDate(contract.contractEndDate || contract.endDate);
+    
+    // 시작일이 없으면 '-'
+    if (!start) return '-';
+    
+    // 종료일이 없으면 "근무 중" 표시
+    if (!end) return `${start} ~ 근무 중`;
+    
     return `${start} ~ ${end}`;
   };
 

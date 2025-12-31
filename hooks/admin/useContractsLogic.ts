@@ -118,31 +118,73 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
   /**
    * 직원별 계약서 그룹화
    * 백업: admin-dashboard.html 라인 5715-5728
+   * 
+   * 🔥 userId 기준으로 확실하게 그룹핑
    */
   const groupContractsByEmployee = (contracts: Contract[]): ContractGroup[] => {
     const employeeGroups = new Map<string, Contract[]>();
     
     contracts.forEach(contract => {
-      const key = `${contract.employeeName}_${contract.employeeBirth}`;
+      // 🔥 userId 우선, 없으면 이름+생년월일 조합 사용
+      const userId = contract.userId || contract.uid;
+      const key = userId || `${contract.employeeName}_${contract.employeeBirth}`;
+      
       if (!employeeGroups.has(key)) {
         employeeGroups.set(key, []);
       }
       employeeGroups.get(key)!.push(contract);
     });
     
+    console.log('📊 직원별 그룹화 결과:', {
+      totalGroups: employeeGroups.size,
+      groups: Array.from(employeeGroups.entries()).map(([key, contracts]) => ({
+        key,
+        count: contracts.length,
+        contracts: contracts.map(c => ({ id: c.id, isAdditional: c.isAdditional }))
+      }))
+    });
+    
     // 각 그룹 정렬 (최신순)
     const groups: ContractGroup[] = [];
     employeeGroups.forEach((contracts, key) => {
+      // 🔥 createdAt 기준 정렬 (최신순)
       const sorted = contracts.sort((a, b) => {
-        const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
-        const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
-        return dateB.getTime() - dateA.getTime();
+        // Timestamp 객체 처리
+        const getTime = (timestamp: any): number => {
+          if (!timestamp) return 0;
+          if (timestamp.seconds) return timestamp.seconds * 1000;
+          if (timestamp instanceof Date) return timestamp.getTime();
+          try {
+            return new Date(timestamp).getTime();
+          } catch {
+            return 0;
+          }
+        };
+        
+        const timeA = getTime(a.createdAt);
+        const timeB = getTime(b.createdAt);
+        return timeB - timeA; // 최신순 (내림차순)
       });
       
+      // 일반 계약서와 추가 계약서 분리
       const normalContracts = sorted.filter(c => !c.isAdditional);
       const additionalContracts = sorted.filter(c => c.isAdditional);
       
-      const [employeeName, employeeBirth] = key.split('_');
+      // employeeKey에서 이름과 생년월일 추출
+      let employeeName = '';
+      let employeeBirth = '';
+      
+      if (key.includes('_')) {
+        // 이름_생년월일 형식
+        [employeeName, employeeBirth] = key.split('_');
+      } else {
+        // userId 형식 - 첫 번째 계약서에서 정보 가져오기
+        if (sorted.length > 0) {
+          employeeName = sorted[0].employeeName || '';
+          employeeBirth = sorted[0].employeeBirth || '';
+        }
+      }
+      
       groups.push({
         employeeKey: key,
         employeeName,
@@ -150,6 +192,15 @@ export function useContractsLogic({ companyId }: UseContractsLogicProps) {
         normalContracts,
         additionalContracts,
       });
+    });
+    
+    console.log('✅ 최종 그룹화 완료:', {
+      totalGroups: groups.length,
+      details: groups.map(g => ({
+        name: g.employeeName,
+        normalCount: g.normalContracts.length,
+        additionalCount: g.additionalContracts.length
+      }))
     });
     
     return groups;
