@@ -85,13 +85,21 @@ export default function EmployeeDashboardPage() {
 
       try {
         // Firestore에서 사용자 정보 가져오기
+        console.log('🔍 [직원 대시보드] 사용자 정보 조회 시작:', user.uid)
+        
         const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, user.uid))
+        console.log('✅ [직원 대시보드] 사용자 문서 조회 성공:', userDoc.exists())
         
         if (!userDoc.exists()) {
           throw new Error('사용자 정보를 찾을 수 없습니다.')
         }
 
         const userData = userDoc.data()
+        console.log('✅ [직원 대시보드] 사용자 데이터:', { 
+          role: userData.role, 
+          storeId: userData.storeId, 
+          companyId: userData.companyId 
+        })
 
         // 직원 권한 확인
         if (userData.role !== 'staff' && userData.role !== 'employee') {
@@ -103,9 +111,21 @@ export default function EmployeeDashboardPage() {
         // 매장 정보 가져오기
         let storeName = '알 수 없음'
         if (userData.storeId) {
-          const storeDoc = await getDoc(doc(db, COLLECTIONS.STORES, userData.storeId))
-          if (storeDoc.exists()) {
-            storeName = storeDoc.data().name
+          console.log('🔍 [직원 대시보드] 매장 정보 조회 시작:', userData.storeId)
+          
+          try {
+            const storeDoc = await getDoc(doc(db, COLLECTIONS.STORES, userData.storeId))
+            console.log('✅ [직원 대시보드] 매장 문서 조회 성공:', storeDoc.exists())
+            
+            if (storeDoc.exists()) {
+              storeName = storeDoc.data().name
+              console.log('✅ [직원 대시보드] 매장 이름:', storeName)
+            } else {
+              console.warn('⚠️ [직원 대시보드] 매장 문서가 존재하지 않음:', userData.storeId)
+            }
+          } catch (storeError) {
+            console.error('❌ [직원 대시보드] 매장 정보 조회 실패:', storeError)
+            // 매장 정보 조회 실패해도 계속 진행 (매장 이름만 "알 수 없음"으로 표시)
           }
         }
 
@@ -119,9 +139,12 @@ export default function EmployeeDashboardPage() {
           role: userData.role,
           position: userData.position // 직무
         })
+        
+        console.log('✅ [직원 대시보드] 사용자 정보 로드 완료')
       } catch (error) {
-        console.error('사용자 정보 로드 실패:', error)
-        alert('사용자 정보를 불러오는 중 오류가 발생했습니다.')
+        console.error('❌ [직원 대시보드] 사용자 정보 로드 실패:', error)
+        console.error('❌ [직원 대시보드] 에러 상세:', JSON.stringify(error, null, 2))
+        alert(`사용자 정보를 불러오는 중 오류가 발생했습니다.\n\n${error.message || error}`)
         router.push('/employee-login')
       } finally {
         setIsLoading(false)
