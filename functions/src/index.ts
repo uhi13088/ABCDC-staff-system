@@ -63,8 +63,11 @@ function safeNumber(value: number): number {
  * 
  * @param data - 정제할 객체
  * @returns undefined가 제거된 객체
+ * 
+ * @deprecated 현재 코드에서는 JSON.parse(JSON.stringify())를 직접 사용하고 있어 불필요
+ * 하지만 향후 재사용 가능성을 위해 보존 (언더스코어로 "사용 안 함" 표시)
  */
-function sanitizeForFirestore<T>(data: T): T {
+function _sanitizeForFirestore<T>(data: T): T {
   return JSON.parse(JSON.stringify(data));
 }
 
