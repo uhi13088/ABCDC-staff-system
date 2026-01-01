@@ -264,14 +264,14 @@ async function performSalaryCalculation(
   
   // 급여 유형별 처리
   if (salaryType === '시급') {
-    result.hourlyWage = salaryAmount;
+    result.hourlyWage = safeNumber(salaryAmount);
   } else if (salaryType === '월급') {
-    result.monthlyWage = salaryAmount;
-    result.hourlyWage = Math.round(salaryAmount / 209);
+    result.monthlyWage = safeNumber(salaryAmount);
+    result.hourlyWage = safeNumber(Math.round(salaryAmount / 209));
   } else if (salaryType === '연봉') {
-    result.annualWage = salaryAmount;
-    result.monthlyWage = Math.round(salaryAmount / 12);
-    result.hourlyWage = Math.round(salaryAmount / 12 / 209);
+    result.annualWage = safeNumber(salaryAmount);
+    result.monthlyWage = safeNumber(Math.round(salaryAmount / 12));
+    result.hourlyWage = safeNumber(Math.round(salaryAmount / 12 / 209));
   }
   
   // ===========================================
@@ -457,9 +457,9 @@ async function performSalaryCalculation(
   // 6️⃣ 기본급 계산 (급여 유형별)
   // ===========================================
   if (result.salaryType === '시급') {
-    result.basePay = Math.round(result.hourlyWage * totalWorkHours);
+    result.basePay = safeNumber(Math.round(result.hourlyWage * totalWorkHours));
   } else if (result.salaryType === '월급' || result.salaryType === '연봉') {
-    result.basePay = result.monthlyWage;
+    result.basePay = safeNumber(result.monthlyWage);
   }
   
   // ===========================================
@@ -580,7 +580,7 @@ async function performSalaryCalculation(
         
         if (yearsDiff >= 1 && avgWeeklyHours >= 15) {
           const avgMonthlySalary = result.basePay + result.totalAllowances;
-          result.severancePay = Math.round((avgMonthlySalary * daysDiff / 365) * 30);
+          result.severancePay = safeNumber(Math.round((avgMonthlySalary * daysDiff / 365) * 30));
           functions.logger.info(`💼 퇴직금 계산: 근속 ${daysDiff}일(${yearsDiff.toFixed(1)}년), 주평균 ${avgWeeklyHours.toFixed(1)}h, 퇴직금 ${result.severancePay.toLocaleString()}원`);
         }
       }
@@ -592,10 +592,12 @@ async function performSalaryCalculation(
   // ===========================================
   // 1️⃣1️⃣ 총 수당 및 총 지급액 계산
   // ===========================================
-  result.totalAllowances = result.overtimePay + result.nightPay + result.holidayPay + 
-                           result.weeklyHolidayPay + result.incentivePay + result.severancePay;
+  result.totalAllowances = safeNumber(
+    result.overtimePay + result.nightPay + result.holidayPay + 
+    result.weeklyHolidayPay + result.incentivePay + result.severancePay
+  );
   
-  result.totalPay = result.basePay + result.totalAllowances;
+  result.totalPay = safeNumber(result.basePay + result.totalAllowances);
   
   // ===========================================
   // 1️⃣2️⃣ 4대보험 공제 계산 (계약서 개별 체크박스 기준)
@@ -604,33 +606,35 @@ async function performSalaryCalculation(
   
   // 국민연금 (4.5% 근로자 부담)
   if (insurance.pension) {
-    result.nationalPension = Math.round(result.totalPay * 0.045);
+    result.nationalPension = safeNumber(Math.round(result.totalPay * 0.045));
   }
   
   // 건강보험 (3.545% 근로자 부담)
   if (insurance.health) {
-    result.healthInsurance = Math.round(result.totalPay * 0.03545);
+    result.healthInsurance = safeNumber(Math.round(result.totalPay * 0.03545));
     // 장기요양보험 (건강보험의 12.95%의 50% 근로자 부담)
-    result.longTermCare = Math.round(result.healthInsurance * 0.1295 * 0.5);
+    result.longTermCare = safeNumber(Math.round(result.healthInsurance * 0.1295 * 0.5));
   }
   
   // 고용보험 (0.9% 근로자 부담)
   if (insurance.employment) {
-    result.employmentInsurance = Math.round(result.totalPay * 0.009);
+    result.employmentInsurance = safeNumber(Math.round(result.totalPay * 0.009));
   }
   
   // 소득세 (3.3% 근로자 전액 부담) - 어떤 보험이든 하나라도 있으면 적용
   if (insurance.pension || insurance.health || insurance.employment || insurance.workComp) {
-    result.incomeTax = Math.round(result.totalPay * 0.033);
+    result.incomeTax = safeNumber(Math.round(result.totalPay * 0.033));
   }
   
   // ===========================================
   // 1️⃣3️⃣ 총 공제액 및 실지급액 계산
   // ===========================================
-  result.totalDeductions = result.nationalPension + result.healthInsurance + 
-                           result.longTermCare + result.employmentInsurance + result.incomeTax;
+  result.totalDeductions = safeNumber(
+    result.nationalPension + result.healthInsurance + 
+    result.longTermCare + result.employmentInsurance + result.incomeTax
+  );
   
-  result.netPay = result.totalPay - result.totalDeductions;
+  result.netPay = safeNumber(result.totalPay - result.totalDeductions);
   
   // ===========================================
   // 1️⃣4️⃣ 계약서 기준 정보 추가 (렌더링 시 조건부 표시용)
