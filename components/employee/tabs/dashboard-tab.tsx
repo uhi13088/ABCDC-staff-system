@@ -35,6 +35,7 @@ interface DashboardTabProps {
     uid: string
     companyId: string
     storeId: string
+    storeName: string  // 현재 소속 매장명
     name: string
   }
 }
@@ -85,7 +86,8 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
       const attendanceSnapshot = await getDocs(attendanceQuery)
       
-      let workDays = 0
+      // 🔧 [1] 근무일수 중복 집계 방지: Set을 사용하여 고유 날짜만 카운트
+      const uniqueDates = new Set<string>()
       let totalMinutes = 0
       let todayStatus: 'not_clocked_in' | 'clocked_in' | 'clocked_out' = 'not_clocked_in'
       let todayClockIn: string | undefined
@@ -101,7 +103,9 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
         // 이번 달 데이터만 집계
         if (clockInDate >= monthStart && clockInDate <= monthEnd) {
-          workDays++
+          // 🔧 [1] 날짜를 Set에 추가 (중복 자동 제거)
+          const dateKey = format(clockInDate, 'yyyy-MM-dd')
+          uniqueDates.add(dateKey)
 
           // 근무 시간 계산
           if (clockOutDate) {
@@ -127,7 +131,11 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
         }
       })
 
-      const workHours = Math.floor(totalMinutes / 60)
+      // 🔧 [1] 고유 날짜 개수로 근무일수 계산
+      const workDays = uniqueDates.size
+
+      // 🔧 [2] 소수점 첫째 자리까지 표시 (1.8시간 등도 정확히 표시)
+      const workHours = Number((totalMinutes / 60).toFixed(1))
 
       // 예상 급여 계산 (시급 9,860원 기준, 실제로는 계약서 데이터 참조 필요)
       const estimatedSalary = Math.floor(workHours * 9860)
@@ -244,6 +252,25 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* 🔧 [3] 소속 매장명 표시 */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Badge variant="default" className="px-3 py-1 text-sm font-medium">
+                현재 소속
+              </Badge>
+              <span className="text-lg font-bold text-gray-900">
+                {employeeData.storeName}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              {format(new Date(), 'yyyy년 MM월', { locale: ko })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 공지사항 섹션 */}
       <Card>
         <CardHeader>
