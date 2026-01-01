@@ -79,7 +79,7 @@ export async function calculateMonthlySalary(
     employeeName: employee.name,
     userId: employee.uid,             // 🔥 표준 필드 (FIELD_NAMING_STANDARD.md)
     employeeUid: employee.uid,        // 하위 호환성 (기존 코드 지원)
-    storeName: employee.store || contract.workStore,
+    storeName: employee.store || contract.workStore || '매장 미지정', // 🔧 [2] 기본값 추가
     yearMonth: yearMonth,
     salaryType: contract.salaryType || contract.wageType || '시급',
     
@@ -156,6 +156,9 @@ export async function calculateMonthlySalary(
   let totalIncentiveAmount = 0; // 🆕 Phase 5: 총 인센티브 금액
   const weeklyWorkHours: Record<string, number> = {}; // 주차별 근무시간
   const weeklyAbsences: Record<string, boolean> = {}; // 주차별 결근 여부
+  
+  // 🔧 [1] 근무일수 중복 집계 방지: Set을 사용하여 고유 날짜만 카운트
+  const uniqueDates = new Set<string>();
   
   // 계약서의 근무일정 파싱
   const workDaysArray = contract.workDays ? contract.workDays.split(',').map(d => d.trim()) : [];
@@ -237,7 +240,9 @@ export async function calculateMonthlySalary(
     const isHoliday = isPublicHoliday(att.date);
     
     totalWorkHours += workHours;
-    result.workDays++;
+    
+    // 🔧 [1] 날짜를 Set에 추가 (중복 자동 제거)
+    uniqueDates.add(att.date);
     
     // 야간 근무 시간
     if (contract.allowances?.night && nightHours > 0) {
@@ -282,7 +287,20 @@ export async function calculateMonthlySalary(
     });
   });
   
+  // 🔧 [1] 고유 날짜 개수로 근무일수 계산
+  result.workDays = uniqueDates.size;
   result.totalWorkHours = totalWorkHours;
+  
+  // 🔧 [2] 급여 0원 디버깅 로그
+  if (result.basePay === 0 && result.totalPay === 0) {
+    console.warn('⚠️ 급여 계산 결과 0원 발생:');
+    console.warn('  - 시급:', result.hourlyWage, '원');
+    console.warn('  - 총 근무시간:', totalWorkHours.toFixed(2), '시간');
+    console.warn('  - 근무일수:', result.workDays, '일');
+    console.warn('  - 출근 기록 수:', attendances.length, '건');
+    console.warn('  - 급여 유형:', result.salaryType);
+    console.warn('  - 계약 금액:', salaryAmount, '원');
+  }
   
   // 기본급 계산 (급여 유형별)
   if (result.salaryType === '시급') {
