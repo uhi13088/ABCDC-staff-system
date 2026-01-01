@@ -40,6 +40,18 @@ const DAY_MAP: Record<string, number> = {
 };
 
 /**
+ * Firestore 안전 데이터 정제 (undefined 제거)
+ * Firestore는 undefined 값을 저장할 수 없으므로, 모든 undefined를 제거
+ * 
+ * @param data 정제할 데이터 객체
+ * @returns undefined가 제거된 안전한 객체
+ */
+function sanitizeForFirestore<T>(data: T): T {
+  // JSON 직렬화를 통해 undefined 자동 제거
+  return JSON.parse(JSON.stringify(data));
+}
+
+/**
  * 지정된 기간 동안의 스케줄 생성 (주간/월간 범위 지원)
  * 
  * @param contract 계약서 데이터
@@ -119,25 +131,25 @@ export async function generateSchedulesForRange(
     const dateStr = formatDate(date);
     dates.push(dateStr);
 
-    // PlannedTime 객체 생성
+    // PlannedTime 객체 생성 (안전한 필드 처리)
     const plannedTime: PlannedTime = {
-      contractId: contract.id,
+      contractId: contract.id || '',
       isAdditional: contract.isAdditional || false,
-      startTime: contractSchedule.startTime,
-      endTime: contractSchedule.endTime,
+      startTime: contractSchedule.startTime || '',
+      endTime: contractSchedule.endTime || '',
       breakTime: contract.breakTime
         ? {
-            start: contract.breakTime.start,
-            end: contract.breakTime.end,
-            minutes: contract.breakTime.minutes,
-            hours: contract.breakTime.hours,
-            isPaid: contract.breakTime.isPaid,
-            description: contract.breakTime.description,
+            start: contract.breakTime.start || '',
+            end: contract.breakTime.end || '',
+            minutes: contract.breakTime.minutes || 0,
+            hours: contract.breakTime.hours || 0,
+            isPaid: contract.breakTime.isPaid || false,
+            description: contract.breakTime.description || '',
           }
-        : undefined,
+        : null, // [중요] undefined 대신 null 사용
       workHours: calculateWorkHours(
-        contractSchedule.startTime,
-        contractSchedule.endTime,
+        contractSchedule.startTime || '',
+        contractSchedule.endTime || '',
         contract.breakTime?.minutes || 0
       ),
     };
@@ -155,35 +167,37 @@ export async function generateSchedulesForRange(
         const existingSchedule = scheduleDoc.data() as Schedule;
         const updatedPlannedTimes = [...(existingSchedule.plannedTimes || []), plannedTime];
 
-        batch.update(scheduleRef, {
+        // [중요] undefined 제거 후 업데이트
+        batch.update(scheduleRef, sanitizeForFirestore({
           plannedTimes: updatedPlannedTimes,
           updatedAt: serverTimestamp(),
           updatedBy: creatorUid,
-        });
+        }));
       } else {
         // 기존 스케줄 없음 -> 새로 생성
         const newSchedule: Partial<Schedule> = {
-          companyId: contract.companyId!,
-          storeId: contract.storeId!,
-          storeName: contract.storeName,
-          userId: contract.userId,
-          userName: contract.employeeName,
+          companyId: contract.companyId || '',
+          storeId: contract.storeId || '',
+          storeName: contract.storeName || '',
+          userId: contract.userId || '',
+          userName: contract.employeeName || '',
           date: dateStr,
           plannedTimes: [plannedTime],
           createdAt: serverTimestamp() as Timestamp,
           createdBy: creatorUid,
         };
 
-        batch.set(scheduleRef, newSchedule);
+        // [중요] undefined 제거 후 저장
+        batch.set(scheduleRef, sanitizeForFirestore(newSchedule));
       }
     } else {
       // 신규 계약서: 스케줄 생성 (덮어쓰기)
       const newSchedule: Partial<Schedule> = {
-        companyId: contract.companyId!,
-        storeId: contract.storeId!,
-        storeName: contract.storeName,
-        userId: contract.userId,
-        userName: contract.employeeName,
+        companyId: contract.companyId || '',
+        storeId: contract.storeId || '',
+        storeName: contract.storeName || '',
+        userId: contract.userId || '',
+        userName: contract.employeeName || '',
         date: dateStr,
         plannedTimes: [plannedTime],
         createdAt: serverTimestamp() as Timestamp,
@@ -191,7 +205,8 @@ export async function generateSchedulesForRange(
       };
 
       const scheduleRef = doc(db, COLLECTIONS.SCHEDULES, scheduleId);
-      batch.set(scheduleRef, newSchedule, { merge: false }); // 덮어쓰기
+      // [중요] undefined 제거 후 저장
+      batch.set(scheduleRef, sanitizeForFirestore(newSchedule), { merge: false }); // 덮어쓰기
     }
 
     batchCount++;
@@ -298,25 +313,25 @@ export async function generateMonthlySchedules(
     const dateStr = formatDate(date);
     dates.push(dateStr);
 
-    // PlannedTime 객체 생성
+    // PlannedTime 객체 생성 (안전한 필드 처리)
     const plannedTime: PlannedTime = {
-      contractId: contract.id,
+      contractId: contract.id || '',
       isAdditional: contract.isAdditional || false,
-      startTime: contractSchedule.startTime,
-      endTime: contractSchedule.endTime,
+      startTime: contractSchedule.startTime || '',
+      endTime: contractSchedule.endTime || '',
       breakTime: contract.breakTime
         ? {
-            start: contract.breakTime.start,
-            end: contract.breakTime.end,
-            minutes: contract.breakTime.minutes,
-            hours: contract.breakTime.hours,
-            isPaid: contract.breakTime.isPaid,
-            description: contract.breakTime.description,
+            start: contract.breakTime.start || '',
+            end: contract.breakTime.end || '',
+            minutes: contract.breakTime.minutes || 0,
+            hours: contract.breakTime.hours || 0,
+            isPaid: contract.breakTime.isPaid || false,
+            description: contract.breakTime.description || '',
           }
-        : undefined,
+        : null, // [중요] undefined 대신 null 사용
       workHours: calculateWorkHours(
-        contractSchedule.startTime,
-        contractSchedule.endTime,
+        contractSchedule.startTime || '',
+        contractSchedule.endTime || '',
         contract.breakTime?.minutes || 0
       ),
     };
@@ -334,35 +349,37 @@ export async function generateMonthlySchedules(
         const existingSchedule = scheduleDoc.data() as Schedule;
         const updatedPlannedTimes = [...(existingSchedule.plannedTimes || []), plannedTime];
 
-        batch.update(scheduleRef, {
+        // [중요] undefined 제거 후 업데이트
+        batch.update(scheduleRef, sanitizeForFirestore({
           plannedTimes: updatedPlannedTimes,
           updatedAt: serverTimestamp(),
           updatedBy: creatorUid,
-        });
+        }));
       } else {
         // 기존 스케줄 없음 -> 새로 생성
         const newSchedule: Partial<Schedule> = {
-          companyId: contract.companyId!,
-          storeId: contract.storeId!,
-          storeName: contract.storeName,
-          userId: contract.userId,
-          userName: contract.employeeName,
+          companyId: contract.companyId || '',
+          storeId: contract.storeId || '',
+          storeName: contract.storeName || '',
+          userId: contract.userId || '',
+          userName: contract.employeeName || '',
           date: dateStr,
           plannedTimes: [plannedTime],
           createdAt: serverTimestamp() as Timestamp,
           createdBy: creatorUid,
         };
 
-        batch.set(scheduleRef, newSchedule);
+        // [중요] undefined 제거 후 저장
+        batch.set(scheduleRef, sanitizeForFirestore(newSchedule));
       }
     } else {
       // 신규 계약서: 스케줄 생성 (덮어쓰기)
       const newSchedule: Partial<Schedule> = {
-        companyId: contract.companyId!,
-        storeId: contract.storeId!,
-        storeName: contract.storeName,
-        userId: contract.userId,
-        userName: contract.employeeName,
+        companyId: contract.companyId || '',
+        storeId: contract.storeId || '',
+        storeName: contract.storeName || '',
+        userId: contract.userId || '',
+        userName: contract.employeeName || '',
         date: dateStr,
         plannedTimes: [plannedTime],
         createdAt: serverTimestamp() as Timestamp,
@@ -370,7 +387,8 @@ export async function generateMonthlySchedules(
       };
 
       const scheduleRef = doc(db, COLLECTIONS.SCHEDULES, scheduleId);
-      batch.set(scheduleRef, newSchedule, { merge: false }); // 덮어쓰기
+      // [중요] undefined 제거 후 저장
+      batch.set(scheduleRef, sanitizeForFirestore(newSchedule), { merge: false }); // 덮어쓰기
     }
 
     batchCount++;
