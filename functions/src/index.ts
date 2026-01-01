@@ -798,33 +798,64 @@ export const calculateMonthlySalary = functions
       );
 
       // 8. 계산 결과 Firestore에 저장
-      // 🔒 undefined 제거 및 NaN 방지 (Firestore 저장 실패 방지)
-      const sanitizedSalaryResult = sanitizeForFirestore({
+      // 🔒 1단계: undefined 제거 및 중첩 객체 정제 (JSON 직렬화)
+      functions.logger.info('💾 [저장 준비] 급여 계산 결과 정제 시작...');
+      
+      const sanitizedSalaryResult = JSON.parse(JSON.stringify({
         ...salaryResult,
         companyId: callerCompanyId,
         calculatedAt: admin.firestore.FieldValue.serverTimestamp(),
         calculatedBy: callerUid,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      }));
       
-      // 🔒 NaN 최종 검증 (로그 출력)
-      const hasNaN = Object.entries(sanitizedSalaryResult).some(([key, value]) => {
-        if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
-          functions.logger.error(`❌ Firestore 저장 차단: ${key}=${value} (NaN/Infinity 감지)`);
-          return true;
-        }
-        return false;
-      });
+      // 🔒 2단계: NaN/Infinity 최종 검증 (로그 출력)
+      const invalidFields: string[] = [];
       
-      if (hasNaN) {
+      // 중첩 객체 포함 전체 필드 검증
+      const validateObject = (obj: any, path: string = '') => {
+        Object.entries(obj).forEach(([key, value]) => {
+          const fullPath = path ? `${path}.${key}` : key;
+          
+          if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+            invalidFields.push(`${fullPath}=${value}`);
+            functions.logger.error(`❌ [NaN 감지] ${fullPath}=${value}`);
+          } else if (value === undefined) {
+            invalidFields.push(`${fullPath}=undefined`);
+            functions.logger.error(`❌ [undefined 감지] ${fullPath}=undefined`);
+          } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+            // 중첩 객체 재귀 검증 (attendanceDetails, contractInfo 등)
+            validateObject(value, fullPath);
+          } else if (Array.isArray(value)) {
+            // 배열 내부 객체 검증
+            value.forEach((item, index) => {
+              if (item && typeof item === 'object') {
+                validateObject(item, `${fullPath}[${index}]`);
+              }
+            });
+          }
+        });
+      };
+      
+      validateObject(sanitizedSalaryResult);
+      
+      // 🔒 3단계: 유효하지 않은 값 발견 시 차단
+      if (invalidFields.length > 0) {
+        functions.logger.error(`❌ [저장 차단] 유효하지 않은 필드 ${invalidFields.length}개 발견:`, invalidFields);
         throw new functions.https.HttpsError(
           'internal',
-          '급여 계산 결과에 유효하지 않은 값이 포함되어 있습니다. (NaN/Infinity)'
+          `급여 계산 결과에 유효하지 않은 값이 포함되어 있습니다. 필드: ${invalidFields.join(', ')}`
         );
       }
       
+      // 🔒 4단계: 저장 전 최종 로그
+      functions.logger.info('✅ [저장 검증 통과] 모든 필드 정상. Firestore 저장 시작...');
+      functions.logger.info(`💰 [급여 요약] 직원: ${salaryResult.employeeName}, 총지급액: ${salaryResult.totalPay?.toLocaleString() || 0}원, 실수령액: ${salaryResult.netPay?.toLocaleString() || 0}원`);
+      
       await db.collection('salary').add(sanitizedSalaryResult);
+      
+      functions.logger.info('🎉 [저장 완료] salary 컬렉션에 저장 성공!');
 
       // 9. 결과 반환
       return {
@@ -833,16 +864,30 @@ export const calculateMonthlySalary = functions
       };
 
     } catch (error: any) {
-      functions.logger.error('급여 계산 오류:', error);
+      // 🔒 상세 에러 로깅 (디버깅용)
+      functions.logger.error('❌ [급여 계산 실패] 오류 발생:', {
+        errorName: error.name,
+        errorMessage: error.message,
+        errorCode: error.code,
+        errorStack: error.stack?.substring(0, 500), // 스택 트레이스 일부만
+        employeeUid: data.employeeUid,
+        yearMonth: data.yearMonth,
+        callerUid: context.auth?.uid,
+      });
       
+      // HttpsError는 그대로 전달
       if (error instanceof functions.https.HttpsError) {
         throw error;
       }
 
+      // 일반 에러는 internal로 변환 (상세 메시지 포함)
       throw new functions.https.HttpsError(
         'internal',
-        '급여 계산 중 오류가 발생했습니다.',
-        error.message
+        `급여 계산 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`,
+        {
+          originalError: error.message,
+          errorType: error.constructor.name,
+        }
       );
     }
   });
