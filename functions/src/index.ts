@@ -35,6 +35,40 @@ const db = admin.firestore();
  */
 
 // ===========================================
+// 🔒 안전한 계산 헬퍼 (NaN/Infinity 방지)
+// ===========================================
+
+/**
+ * 안전한 숫자 변환 - NaN 또는 Infinity를 0으로 변환
+ * Firestore에 저장할 때 NaN/Infinity로 인한 500 에러 방지
+ * 
+ * @param value - 검증할 숫자 값
+ * @returns 유효한 숫자 또는 0
+ * 
+ * @example
+ * safeNumber(10 / 0) // 0 (Infinity 방지)
+ * safeNumber(0 / 0)  // 0 (NaN 방지)
+ * safeNumber(1000)   // 1000 (정상값 유지)
+ */
+function safeNumber(value: number): number {
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+    return 0;
+  }
+  return value;
+}
+
+/**
+ * Firestore 안전 데이터 정제 - undefined 값 제거
+ * Firestore는 undefined 저장을 허용하지 않으므로 JSON 직렬화로 제거
+ * 
+ * @param data - 정제할 객체
+ * @returns undefined가 제거된 객체
+ */
+function sanitizeForFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
+// ===========================================
 // 유틸리티 함수들
 // ===========================================
 
@@ -469,8 +503,8 @@ async function performSalaryCalculation(
     // Step 3: 중복 제거 (법적으로 유리한 쪽 적용)
     totalOvertimeHours = Math.max(totalDailyOvertimeHours, totalWeeklyOvertimeHours);
     
-    result.overtimeHours = totalOvertimeHours;
-    result.overtimePay = Math.round(result.hourlyWage * 1.5 * totalOvertimeHours);
+    result.overtimeHours = safeNumber(totalOvertimeHours);
+    result.overtimePay = safeNumber(Math.round(result.hourlyWage * 1.5 * totalOvertimeHours));
     
     functions.logger.info(`💰 연장근로수당 최종: 일별 ${totalDailyOvertimeHours.toFixed(2)}h vs 주별 ${totalWeeklyOvertimeHours.toFixed(2)}h → ${totalOvertimeHours.toFixed(2)}h × ${result.hourlyWage}원 × 1.5 = ${result.overtimePay.toLocaleString()}원`);
   }
@@ -479,19 +513,19 @@ async function performSalaryCalculation(
   // 8️⃣ 야간/휴일/특별 근무 수당
   // ===========================================
   if (contract.allowances?.night && totalNightHours > 0) {
-    result.nightHours = totalNightHours;
-    result.nightPay = Math.round(result.hourlyWage * 0.5 * totalNightHours);
+    result.nightHours = safeNumber(totalNightHours);
+    result.nightPay = safeNumber(Math.round(result.hourlyWage * 0.5 * totalNightHours));
     functions.logger.info(`🌙 야간근로수당: ${totalNightHours.toFixed(2)}h × ${result.hourlyWage}원 × 0.5 = ${result.nightPay.toLocaleString()}원`);
   }
   
   if (contract.allowances?.holiday && totalHolidayHours > 0) {
-    result.holidayHours = totalHolidayHours;
-    result.holidayPay = Math.round(result.hourlyWage * 1.5 * totalHolidayHours);
+    result.holidayHours = safeNumber(totalHolidayHours);
+    result.holidayPay = safeNumber(Math.round(result.hourlyWage * 1.5 * totalHolidayHours));
     functions.logger.info(`🎉 휴일근로수당: ${totalHolidayHours.toFixed(2)}h × ${result.hourlyWage}원 × 1.5 = ${result.holidayPay.toLocaleString()}원`);
   }
   
   if (totalIncentiveAmount > 0) {
-    result.incentivePay = Math.round(totalIncentiveAmount);
+    result.incentivePay = safeNumber(Math.round(totalIncentiveAmount));
     functions.logger.info(`💰 특별 근무 수당: ${result.incentivePay.toLocaleString()}원`);
   }
   
@@ -520,7 +554,7 @@ async function performSalaryCalculation(
         functions.logger.info(`⚠️ ${weekKey}: 15시간 미만으로 주휴수당 제외 (근무: ${weekHours.toFixed(2)}h)`);
       }
     });
-    result.weeklyHolidayPay = Math.round(result.hourlyWage * weeklyHolidayHours);
+    result.weeklyHolidayPay = safeNumber(Math.round(result.hourlyWage * weeklyHolidayHours));
     functions.logger.info(`💰 총 주휴수당: ${weeklyHolidayHours.toFixed(2)}h × ${result.hourlyWage.toLocaleString()}원 = ${result.weeklyHolidayPay.toLocaleString()}원`);
   } else {
     functions.logger.info(`⚠️ 주휴수당 미적용 - 사유: ${salaryType !== '시급' ? '시급제 아님' : `주 ${contractWeeklyHours}시간 (15시간 미만)`}`);
@@ -760,7 +794,8 @@ export const calculateMonthlySalary = functions
       );
 
       // 8. 계산 결과 Firestore에 저장
-      await db.collection('salary').add({
+      // 🔒 undefined 제거 및 NaN 방지 (Firestore 저장 실패 방지)
+      const sanitizedSalaryResult = sanitizeForFirestore({
         ...salaryResult,
         companyId: callerCompanyId,
         calculatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -768,6 +803,24 @@ export const calculateMonthlySalary = functions
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      
+      // 🔒 NaN 최종 검증 (로그 출력)
+      const hasNaN = Object.entries(sanitizedSalaryResult).some(([key, value]) => {
+        if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+          functions.logger.error(`❌ Firestore 저장 차단: ${key}=${value} (NaN/Infinity 감지)`);
+          return true;
+        }
+        return false;
+      });
+      
+      if (hasNaN) {
+        throw new functions.https.HttpsError(
+          'internal',
+          '급여 계산 결과에 유효하지 않은 값이 포함되어 있습니다. (NaN/Infinity)'
+        );
+      }
+      
+      await db.collection('salary').add(sanitizedSalaryResult);
 
       // 9. 결과 반환
       return {
