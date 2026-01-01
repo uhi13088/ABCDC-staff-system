@@ -101,7 +101,7 @@ export function useSalaryLogic() {
       // 🔒 companyId 조건 추가 (필수!)
       let employeesQuery = query(
         collection(db, COLLECTIONS.USERS),
-        where('role', 'in', ['staff', 'store_manager', 'manager']),
+        where('role', 'in', ['staff', 'employee', 'store_manager', 'manager']), // 'employee' 추가
         where('companyId', '==', companyId)
       );
       
@@ -144,10 +144,10 @@ export function useSalaryLogic() {
         }
         // else: 전체 = 재직자 + 퇴사자 모두 표시 (필터링 없음)
         
-        // 해당 직원의 계약서 찾기 (복합 인덱스 없이 처리)
+        // 해당 직원의 계약서 찾기 (userId 기반으로 정확도 향상)
         let contractQuery = query(
           collection(db, COLLECTIONS.CONTRACTS),
-          where('employeeName', '==', employee.name)
+          where('userId', '==', employee.uid) // employeeName 대신 userId 사용
         );
         
         // 🔒 companyId 조건 추가
@@ -158,7 +158,7 @@ export function useSalaryLogic() {
         const contractsSnapshot = await getDocs(contractQuery);
         
         if (contractsSnapshot.empty) {
-          console.log('⚠️ 계약서 없음:', employee.name);
+          console.log('⚠️ 계약서 없음:', employee.name, '(UID:', employee.uid, ')');
           continue;
         }
         
@@ -421,10 +421,10 @@ export function useSalaryLogic() {
       // 🔒 Timestamp 필드를 재귀적으로 안전하게 변환
       const employee = { uid: empDoc.id, ...sanitizeTimestamps(empDoc.data()) };
       
-      // 계약서 찾기 (복합 인덱스 없이 처리)
+      // 계약서 찾기 (userId 기반으로 정확도 향상)
       const contractsQuery = query(
         collection(db, COLLECTIONS.CONTRACTS),
-        where('employeeName', '==', employee.name),
+        where('userId', '==', employeeUid), // employeeName 대신 userId 사용
         where('companyId', '==', companyId)
       );
       const contractsSnapshot = await getDocs(contractsQuery);
