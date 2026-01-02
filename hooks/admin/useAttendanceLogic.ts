@@ -48,6 +48,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
    * 백업: calculateAttendanceStatus 함수 라인 3206~3245
    * 
    * ✅ 수정: 하드코딩된 09:00~18:00 대신 실제 스케줄 시간(scheduledStartTime, scheduledEndTime) 사용
+   * ✅ 연장 근무(Overtime) 판정 추가
    */
   const calculateAttendanceStatus = useCallback((att: AttendanceRecord): AttendanceStatusResult => {
     // 1) 수동 상태 확인 (직원이 수동으로 결근 표시한 경우)
@@ -77,19 +78,30 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
       return { text: '정상', class: 'success' };
     }
     
-    // 5) 지각/조퇴 판단 (실제 스케줄 시간과 비교)
-    const isLate = att.clockIn > scheduledStart;
-    const isEarlyLeave = att.clockOut < scheduledEnd;
+    // 5) 지각/조퇴/연장 판단 (실제 스케줄 시간과 비교)
+    const isLate = att.clockIn > scheduledStart;        // 늦게 출근
+    const isEarlyLeave = att.clockOut < scheduledEnd;   // 일찍 퇴근
+    const isOvertime = att.clockOut > scheduledEnd;     // 늦게 퇴근 (연장 근무)
     
+    // 6) 상태 우선순위에 따라 반환
     if (isLate && isEarlyLeave) {
+      // 늦게 오고 일찍 감
       return { text: '지각+조퇴', class: 'danger' };
+    } else if (isLate && isOvertime) {
+      // 늦게 왔지만 더 일하다 감
+      return { text: '지각+연장', class: 'info' };
     } else if (isLate) {
+      // 늦게 옴
       return { text: '지각', class: 'danger' };
     } else if (isEarlyLeave) {
+      // 일찍 감
       return { text: '조퇴', class: 'danger' };
+    } else if (isOvertime) {
+      // 제시간에 와서 더 일함
+      return { text: '연장', class: 'info' };
     }
     
-    // 6) 정상
+    // 7) 정상
     return { text: '정상', class: 'success' };
   }, []);
 
