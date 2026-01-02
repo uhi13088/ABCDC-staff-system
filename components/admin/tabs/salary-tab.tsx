@@ -55,10 +55,26 @@ export function SalaryTab() {
     recalculateSalary
   } = useSalaryLogic();
   
+  // 🔥 필터 변경 시 자동으로 급여 목록 로드
+  useEffect(() => {
+    if (selectedMonth) {
+      loadSalaryList();
+    }
+  }, [selectedMonth, selectedStore, employmentStatusFilter, loadSalaryList]);
+  
   return (
     <Card className="bg-white border-slate-200">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-slate-800">💰 급여 내역</CardTitle>
+        {/* 자동 정산 안내 문구 */}
+        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            ℹ️ <strong>급여는 매월 1일 새벽 4시에 자동으로 정산됩니다.</strong>
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            전월 급여가 자동 계산되어 '미확정' 상태로 저장됩니다. 확인 후 '확정' 처리해주세요.
+          </p>
+        </div>
       </CardHeader>
       
       <CardContent>
@@ -119,16 +135,8 @@ export function SalaryTab() {
           </div>
         </div>
         
-        {/* 조회 버튼 */}
-        <div className="mb-6">
-          <Button 
-            onClick={loadSalaryList}
-            disabled={loading || !selectedMonth}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {loading ? '조회 중...' : '🔍 조회'}
-          </Button>
-        </div>
+        {/* 🔥 자동 조회: 필터 변경 시 자동으로 급여 목록 로드 */}
+        {/* useEffect로 처리하므로 수동 조회 버튼 제거 */}
         
         {/* 급여 테이블 */}
         <div className="overflow-x-auto">

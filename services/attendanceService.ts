@@ -150,19 +150,25 @@ export async function updateAttendance(
     updatedAt: serverTimestamp(),
   });
 
-  if (options?.sendNotification && options?.editorId) {
+  if (options?.sendNotification && options?.editorId && options?.editorRole) {
     try {
       const originalDoc = await getDoc(docRef);
-      if (originalDoc.exists()) {
-        const originalData = originalDoc.data() as AttendanceRecord;
-        const { createNotification } = await import('./notificationService');
-        
+      if (!originalDoc.exists()) return;
+      
+      const originalData = originalDoc.data() as AttendanceRecord;
+      const { createNotification } = await import('./notificationService');
+      
+      // 🔥 수정자 역할에 따른 알림 분기
+      const isAdmin = ['admin', 'manager', 'store_manager'].includes(options.editorRole);
+      
+      if (isAdmin) {
+        // 1️⃣ 관리자가 수정 → 직원에게 알림
         await createNotification({
           companyId: originalData.companyId,
-          userId: originalData.userId,
+          userId: originalData.userId,  // 수신자: 해당 직원
           type: 'attendance_edited_by_admin',
           title: '출퇴근 기록이 수정되었습니다',
-          message: `${options.editorName || '관리자'}님이 ${originalData.date} 출퇴근 기록을 수정했습니다.`,
+          message: `${options.editorName || '관리자'}님이 ${originalData.date} 출퇴근 기록을 수정했습니다. 확인해주세요.`,
           relatedId: attendanceId,
           relatedType: 'attendance',
           senderId: options.editorId,
@@ -172,7 +178,45 @@ export async function updateAttendance(
           actionUrl: `/employee-dashboard?tab=attendance&id=${attendanceId}`,
           actionLabel: '확인하기',
         });
+        console.log(`✅ 관리자 수정 알림 전송: ${originalData.userId}`);
+      } else {
+        // 2️⃣ 직원이 수정 요청 → 점장/관리자에게 알림
+        // 해당 매장의 점장 및 관리자 찾기
+        const { getEmployees } = await import('./employeeService');
+        const managers = await getEmployees(originalData.companyId, {
+          storeId: originalData.storeId,
+          role: 'store_manager'  // 점장
+        });
+        
+        const admins = await getEmployees(originalData.companyId, {
+          role: 'admin'  // 관리자
+        });
+        
+        // 점장 + 관리자에게 알림 발송
+        const recipients = [...managers, ...admins];
+        
+        for (const recipient of recipients) {
+          if (recipient.id === options.editorId) continue; // 본인 제외
+          
+          await createNotification({
+            companyId: originalData.companyId,
+            userId: recipient.id!,  // 수신자: 점장/관리자
+            type: 'attendance_correction_request',
+            title: '출퇴근 기록 수정 요청',
+            message: `${originalData.name || options.editorName}님이 ${originalData.date} 출퇴근 기록 수정을 요청했습니다.`,
+            relatedId: attendanceId,
+            relatedType: 'attendance',
+            senderId: options.editorId,
+            senderName: options.editorName || originalData.name,
+            senderRole: options.editorRole,
+            storeId: originalData.storeId,
+            actionUrl: `/admin-dashboard?tab=attendance&id=${attendanceId}`,
+            actionLabel: '확인하기',
+          });
+        }
+        console.log(`✅ 직원 수정 요청 알림 전송: ${recipients.length}명`);
       }
+      
     } catch (error) {
       console.error('❌ 출퇴근 수정 알림 전송 실패:', error);
     }

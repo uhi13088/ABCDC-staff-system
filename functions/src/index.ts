@@ -1502,3 +1502,184 @@ export const autoCalculateSalaryOnAttendance = functions
       // 트리거 실패해도 출퇴근 기록 저장은 성공해야 하므로 에러 throw 안 함
     }
   });
+
+// ============================================================================
+// 🤖 매월 1일 자동 급여 정산 스케줄러
+// ============================================================================
+
+/**
+ * 매월 1일 새벽 4시(KST)에 전월 급여를 자동으로 정산
+ * Cron: "0 19 1 * *" (UTC 19:00 = KST 04:00, 매월 1일)
+ */
+export const scheduledMonthlySalaryCalculation = functions
+  .region('asia-northeast3')
+  .runWith({
+    timeoutSeconds: 540,
+    memory: '2GB'
+  })
+  .pubsub.schedule('0 19 1 * *')  // 매월 1일 UTC 19:00 (KST 04:00)
+  .timeZone('Asia/Seoul')
+  .onRun(async (context) => {
+    functions.logger.info('🤖 매월 자동 급여 정산 시작');
+    
+    try {
+      // 1. 전월 계산 (YYYY-MM 형식)
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth(); // 0-11
+      const prevYear = month === 0 ? year - 1 : year;
+      const prevMonth = month === 0 ? 12 : month;
+      const yearMonth = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+      
+      functions.logger.info(`📅 정산 대상 월: ${yearMonth}`);
+      
+      // 2. 전체 회사 목록 가져오기
+      const companiesSnapshot = await db.collection('companies').get();
+      let totalProcessed = 0;
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      
+      for (const companyDoc of companiesSnapshot.docs) {
+        const companyId = companyDoc.id;
+        const companyData = companyDoc.data();
+        functions.logger.info(`🏢 회사 처리 시작: ${companyData.name || companyId}`);
+        
+        try {
+          // 3. 해당 회사의 활성 직원 목록 가져오기
+          const usersSnapshot = await db.collection('users')
+            .where('companyId', '==', companyId)
+            .where('role', 'in', ['staff', 'employee', 'store_manager', 'manager'])
+            .get();
+          
+          functions.logger.info(`👥 활성 직원 수: ${usersSnapshot.size}명`);
+          
+          // 4. 각 직원에 대해 급여 계산
+          for (const userDoc of usersSnapshot.docs) {
+            totalProcessed++;
+            const userId = userDoc.id;
+            const userData = userDoc.data();
+            
+            try {
+              // 계약서 조회
+              const contractsSnapshot = await db.collection('contracts')
+                .where('userId', '==', userId)
+                .where('companyId', '==', companyId)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+              
+              if (contractsSnapshot.empty) {
+                functions.logger.warn(`⚠️ 계약서 없음: ${userData.name} (${userId})`);
+                continue;
+              }
+              
+              const contract = contractsSnapshot.docs[0].data() as ContractForSalary;
+              
+              // 출퇴근 기록 조회
+              const startDate = `${yearMonth}-01`;
+              const lastDay = new Date(prevYear, prevMonth, 0).getDate();
+              const endDate = `${yearMonth}-${String(lastDay).padStart(2, '0')}`;
+              
+              const attendancesSnapshot = await db.collection('attendance')
+                .where('userId', '==', userId)
+                .where('companyId', '==', companyId)
+                .where('date', '>=', startDate)
+                .where('date', '<=', endDate)
+                .get();
+              
+              const attendances: AttendanceForSalary[] = [];
+              attendancesSnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                attendances.push({
+                  date: data.date,
+                  checkIn: data.checkIn || data.clockIn,
+                  checkOut: data.checkOut || data.clockOut,
+                  clockIn: data.clockIn,
+                  clockOut: data.clockOut,
+                  wageIncentive: data.wageIncentive || 0
+                });
+              });
+              
+              // 급여 계산 실행
+              const salaryResult = await performSalaryCalculation(
+                { uid: userId, name: userData.name, store: userData.store, companyId },
+                contract,
+                attendances,
+                yearMonth
+              );
+              
+              // 기존 급여 문서 확인
+              const salaryQuery = await db.collection('salary')
+                .where('userId', '==', userId)
+                .where('companyId', '==', companyId)
+                .where('yearMonth', '==', yearMonth)
+                .limit(1)
+                .get();
+              
+              if (!salaryQuery.empty) {
+                // 기존 문서가 있으면 업데이트 (지급 완료가 아닌 경우만)
+                const existingDoc = salaryQuery.docs[0];
+                const existingData = existingDoc.data();
+                
+                if (existingData.status === 'paid') {
+                  functions.logger.info(`⏭️ 이미 지급 완료: ${userData.name} (${userId})`);
+                  continue;
+                }
+                
+                await db.collection('salary').doc(existingDoc.id).update({
+                  ...salaryResult,
+                  autoCalculated: true,
+                  autoCalculatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                functions.logger.info(`✅ 급여 업데이트: ${userData.name} (${userId}), ${salaryResult.netPay}원`);
+              } else {
+                // 새 문서 생성
+                await db.collection('salary').add({
+                  ...salaryResult,
+                  companyId,
+                  userId,
+                  employeeUid: userId,
+                  employeeName: userData.name,
+                  yearMonth,
+                  status: 'unconfirmed',
+                  paid: false,
+                  autoCalculated: true,
+                  autoCalculatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                functions.logger.info(`✅ 급여 생성: ${userData.name} (${userId}), ${salaryResult.netPay}원`);
+              }
+              
+              totalSuccess++;
+              
+            } catch (userError: any) {
+              totalFailed++;
+              functions.logger.error(`❌ 직원 급여 계산 실패: ${userData.name} (${userId})`, userError);
+            }
+          }
+          
+          functions.logger.info(`✅ 회사 처리 완료: ${companyData.name || companyId}`);
+          
+        } catch (companyError: any) {
+          functions.logger.error(`❌ 회사 처리 실패: ${companyId}`, companyError);
+        }
+      }
+      
+      // 5. 최종 결과 로그
+      functions.logger.info(`
+🎉 매월 자동 급여 정산 완료
+- 대상 월: ${yearMonth}
+- 처리 직원 수: ${totalProcessed}명
+- 성공: ${totalSuccess}명
+- 실패: ${totalFailed}명
+      `);
+      
+      return { success: true, yearMonth, totalProcessed, totalSuccess, totalFailed };
+      
+    } catch (error: any) {
+      functions.logger.error('❌ 매월 자동 급여 정산 실패:', error);
+      throw error;
+    }
+  });
