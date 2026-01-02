@@ -44,36 +44,42 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
 
   /**
-   * 근태 상태 자동 계산 (백업: calculateAttendanceStatus 함수 라인 3206~3245)
+   * 근태 상태 자동 계산 - 실제 계약 스케줄 시간 기반
+   * 백업: calculateAttendanceStatus 함수 라인 3206~3245
+   * 
+   * ✅ 수정: 하드코딩된 09:00~18:00 대신 실제 스케줄 시간(scheduledStartTime, scheduledEndTime) 사용
    */
   const calculateAttendanceStatus = useCallback((att: AttendanceRecord): AttendanceStatusResult => {
-    // attendance 문서에 status 필드가 있으면 우선 사용 (직원이 수동으로 결근 표시한 경우)
+    // 1) 수동 상태 확인 (직원이 수동으로 결근 표시한 경우)
     if (att.status === 'absent') {
       return { text: '결근', class: 'danger' };
     }
     
-    // 출근 기록 없음
+    // 2) 출근 기록 없음
     if (!att.clockIn) {
       return { text: '결근', class: 'danger' };
     }
     
-    // 퇴근 기록 없음 (아직 근무 중)
+    // 3) 퇴근 기록 없음 (아직 근무 중)
     if (!att.clockOut) {
       return { text: '근무중', class: 'info' };
     }
     
-    // 기본값: 정상
-    let status: AttendanceStatusResult = { text: '정상', class: 'success' };
+    // 4) 스케줄 시간 가져오기
+    // AttendanceRecord에 scheduledStartTime, scheduledEndTime 필드가 있어야 함
+    // 없으면 정상으로 처리 (판단 불가)
+    const scheduledStart = att.scheduledStartTime;
+    const scheduledEnd = att.scheduledEndTime;
     
-    // 지각/조퇴 판정을 위해 계약서 기준 시간이 필요하지만
-    // 여기서는 간단하게 일반적인 기준으로 판정
-    // TODO: 계약서 기준 시간과 비교하여 정확한 판정 가능
+    if (!scheduledStart || !scheduledEnd) {
+      // 스케줄 시간이 없으면 정상으로 처리 (판단 불가)
+      console.warn('⚠️ 스케줄 시간이 없음 (정상 처리):', att);
+      return { text: '정상', class: 'success' };
+    }
     
-    // 09:00 이후 출근은 지각으로 임시 판정
-    const isLate = att.clockIn > '09:00';
-    
-    // 18:00 이전 퇴근은 조퇴로 임시 판정
-    const isEarlyLeave = att.clockOut < '18:00';
+    // 5) 지각/조퇴 판단 (실제 스케줄 시간과 비교)
+    const isLate = att.clockIn > scheduledStart;
+    const isEarlyLeave = att.clockOut < scheduledEnd;
     
     if (isLate && isEarlyLeave) {
       return { text: '지각+조퇴', class: 'danger' };
@@ -83,7 +89,8 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
       return { text: '조퇴', class: 'danger' };
     }
     
-    return status;
+    // 6) 정상
+    return { text: '정상', class: 'success' };
   }, []);
 
   /**

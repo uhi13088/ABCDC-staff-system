@@ -41,6 +41,10 @@ export interface AttendanceRecord {
   clockIn?: string;           // HH:MM 형식
   clockOut?: string;          // HH:MM 형식
   
+  // 🔥 스케줄 시간 (근태 상태 판정용)
+  scheduledStartTime?: string;  // 계약서 기준 시작 시간 (HH:MM)
+  scheduledEndTime?: string;    // 계약서 기준 종료 시간 (HH:MM)
+  
   // 근무 유형
   workType?: string;          // '정규근무', '긴급근무' 등
   
