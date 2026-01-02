@@ -20,6 +20,36 @@ interface ScheduleCardViewProps {
   scheduleData: WeekScheduleData;
 }
 
+/**
+ * 🔒 안전한 시간 변환 함수
+ * Firestore Timestamp 객체 / Date 객체 / 문자열 모두 처리
+ * React Error #31 방지
+ */
+const safeTimeStr = (time: any): string => {
+  if (!time) return "00:00";
+  
+  // 이미 문자열이면 그대로 반환 (예: "09:00")
+  if (typeof time === "string") return time;
+  
+  // Firestore Timestamp 처리 ({seconds: number, nanoseconds: number})
+  if (time.seconds !== undefined) {
+    const date = new Date(time.seconds * 1000);
+    const h = String(date.getHours()).padStart(2, "0");
+    const m = String(date.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  
+  // Date 객체 처리
+  if (time instanceof Date) {
+    const h = String(time.getHours()).padStart(2, "0");
+    const m = String(time.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  
+  console.warn('⚠️ safeTimeStr: 알 수 없는 시간 형식:', time);
+  return "00:00";
+};
+
 export function ScheduleCardView({ scheduleData }: ScheduleCardViewProps) {
   const days: DayOfWeek[] = ['월', '화', '수', '목', '금', '토', '일'];
   
@@ -93,7 +123,7 @@ export function ScheduleCardView({ scheduleData }: ScheduleCardViewProps) {
                                   {schedule.isShiftReplacement ? '대체' : '정규'}
                                 </Badge>
                                 <span className="text-slate-700">
-                                  📅 {schedule.startTime} - {schedule.endTime}
+                                  📅 {safeTimeStr(schedule.startTime)} - {safeTimeStr(schedule.endTime)}
                                 </span>
                                 {schedule.hours && (
                                   <span className="text-slate-500">
@@ -105,7 +135,7 @@ export function ScheduleCardView({ scheduleData }: ScheduleCardViewProps) {
                               {/* 휴게시간 */}
                               {schedule.breakTime && (
                                 <div className="text-xs text-slate-500 ml-12">
-                                  휴게: {schedule.breakTime.start}-{schedule.breakTime.end} ({schedule.breakTime.minutes}분)
+                                  휴게: {safeTimeStr(schedule.breakTime.start)}-{safeTimeStr(schedule.breakTime.end)} ({schedule.breakTime.minutes}분)
                                 </div>
                               )}
                               
