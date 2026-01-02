@@ -21,6 +21,38 @@ import {
 } from './salary-calculator';
 
 /**
+ * 안전한 시간 변환 헬퍼 함수 (Firestore Timestamp → "HH:mm" 문자열)
+ * KST(UTC+9) 기준으로 변환
+ * 
+ * @param val - Firestore Timestamp | Date | string | null/undefined
+ * @returns "HH:mm" 형식 문자열 (예: "09:30", "23:45")
+ */
+const safeToTimeStr = (val: any): string => {
+  if (!val) return "00:00";
+  if (typeof val === 'string') return val; // 이미 "23:33" 형식이면 그대로
+  
+  let date: Date;
+  if (val.toDate) {
+    // Firestore Timestamp
+    date = val.toDate();
+  } else if (val.seconds) {
+    // Plain Object {seconds: 1234567890, nanoseconds: 0}
+    date = new Date(val.seconds * 1000);
+  } else if (val instanceof Date) {
+    date = val;
+  } else {
+    console.warn('⚠️ 알 수 없는 시간 형식:', val);
+    return "00:00";
+  }
+
+  // KST 변환 (UTC+9)
+  const kstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+  const h = kstDate.getUTCHours().toString().padStart(2, '0');
+  const m = kstDate.getUTCMinutes().toString().padStart(2, '0');
+  return `${h}:${m}`;
+};
+
+/**
  * 한 달간 직원의 급여 계산
  * @param employee - 직원 정보 (uid, name, store, companyId)
  * @param contract - 계약서 정보
@@ -186,14 +218,21 @@ export async function calculateMonthlySalary(
     // 출근 기록이 있으면 처리
     if (!att.clockIn && !att.checkIn) return;
     
-    // 퇴근 시간이 없으면 현재 시간 사용 (실시간 급여 계산)
-    let checkInTime = att.checkIn || att.clockIn || '';
-    let checkOutTime = att.checkOut || att.clockOut || '';
+    // 🔥 안전한 시간 변환: Firestore Timestamp → "HH:mm" 문자열
+    // checkIn/clockIn 중 있는 값을 안전하게 변환
+    let checkInTime = safeToTimeStr(att.checkIn || att.clockIn);
     
-    if (!checkOutTime) {
-      // 퇴근 기록이 없으면 현재 시간 사용
+    // checkOut/clockOut이 있으면 변환, 없으면 "현재 시간(KST)" 사용
+    let checkOutTime = "";
+    if (att.checkOut || att.clockOut) {
+      checkOutTime = safeToTimeStr(att.checkOut || att.clockOut);
+    } else {
+      // 퇴근 안 했으면 현재 시간 (KST)
       const now = new Date();
-      checkOutTime = now.toTimeString().substring(0, 5); // "HH:MM" 형식
+      const kstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      const h = kstNow.getUTCHours().toString().padStart(2, '0');
+      const m = kstNow.getUTCMinutes().toString().padStart(2, '0');
+      checkOutTime = `${h}:${m}`;
       console.log(`⏰ 퇴근 기록 없음 - 현재 시간(${checkOutTime})까지 계산`);
     }
     
