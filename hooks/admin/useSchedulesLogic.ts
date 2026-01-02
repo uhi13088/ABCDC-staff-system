@@ -46,6 +46,58 @@ interface Store {
   name: string;
 }
 
+/**
+ * 🔒 시간 차이 계산 헬퍼 함수
+ * clockIn과 clockOut을 사용하여 근무 시간 자동 계산
+ * Firestore Timestamp / Date 객체 / 문자열(HH:mm) 모두 처리
+ */
+const calculateDuration = (start: any, end: any): number => {
+  if (!start || !end) return 0;
+  
+  // Helper to get timestamp in ms or minutes
+  const getTime = (val: any): { value: number; isMinutes: boolean } => {
+    // Firestore Timestamp
+    if (val?.seconds !== undefined) {
+      return { value: val.seconds * 1000, isMinutes: false };
+    }
+    
+    // JS Date
+    if (val instanceof Date) {
+      return { value: val.getTime(), isMinutes: false };
+    }
+    
+    // "HH:mm" string
+    if (typeof val === 'string' && val.includes(':')) {
+      const [h, m] = val.split(':').map(Number);
+      if (!isNaN(h) && !isNaN(m)) {
+        return { value: h * 60 + m, isMinutes: true };
+      }
+    }
+    
+    return { value: 0, isMinutes: false };
+  };
+
+  const startResult = getTime(start);
+  const endResult = getTime(end);
+
+  if (startResult.value === 0 || endResult.value === 0) return 0;
+
+  // If using minutes (string format "HH:mm")
+  if (startResult.isMinutes && endResult.isMinutes) {
+    let diffMins = endResult.value - startResult.value;
+    // Overnight shift (e.g., 23:00 - 02:00)
+    if (diffMins < 0) diffMins += 24 * 60;
+    return Number((diffMins / 60).toFixed(1));
+  }
+
+  // If using timestamps (Date/Firestore Timestamp)
+  let diffMs = endResult.value - startResult.value;
+  // If result is negative (rare for timestamps unless error), return 0
+  if (diffMs < 0) return 0;
+  
+  return Number((diffMs / (1000 * 60 * 60)).toFixed(1));
+};
+
 export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
   const { user } = useAuth();
   
@@ -216,7 +268,7 @@ export function useSchedulesLogic({ companyId }: UseSchedulesLogicProps) {
             employeeMap[empUid].schedules[day] = [{
               startTime: data.clockIn || '',
               endTime: data.clockOut || '',
-              hours: data.actualHours || 0,
+              hours: data.actualHours || calculateDuration(data.clockIn, data.clockOut),
               isWorkDay: true,
               status,
               statusText,
