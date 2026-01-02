@@ -12,11 +12,11 @@ import {
   serverTimestamp,
   orderBy,
   QueryConstraint,
+  limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
 import type { AttendanceRecord } from '@/lib/types/attendance';
-import * as contractService from './contractService';
 
 /**
  * 출퇴근 기록 목록 조회 (최적화됨)
@@ -179,6 +179,14 @@ export async function updateAttendance(
   }
 }
 
+/**
+ * 요일 이름 변환 헬퍼 (date 문자열 → "월", "화", ... )
+ */
+const getDayName = (dateStr: string): string => {
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return days[new Date(dateStr).getDay()];
+};
+
 export async function clockIn(
   userId: string,
   companyId: string,
@@ -188,36 +196,49 @@ export async function clockIn(
 ): Promise<string> {
   console.log('🕐 clockIn 시작:', { userId, companyId, storeId, date });
   
-  // 1. 활성 계약서 조회 (스케줄 시간 가져오기)
+  // 1. 오늘 요일 파악
+  const dayName = getDayName(date);
+  console.log(`📅 오늘 요일: ${dayName}`);
+  
+  // 2. 활성 계약서 조회 (스케줄 시간 가져오기)
   let scheduledStartTime: string | undefined;
   let scheduledEndTime: string | undefined;
   
   try {
-    const contract = await contractService.getActiveContract(userId);
+    // 계약서 조회: userId 기준, 최신순 1개
+    const contractQuery = query(
+      collection(db, COLLECTIONS.CONTRACTS),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
     
-    if (contract) {
-      console.log('✅ 활성 계약서 발견:', contract.id);
+    const contractSnap = await getDocs(contractQuery);
+    
+    if (!contractSnap.empty) {
+      const contractDoc = contractSnap.docs[0];
+      const contract = contractDoc.data();
+      console.log('✅ 활성 계약서 발견:', contractDoc.id);
       
       // 계약서에서 근무 시간 추출
-      // 우선순위: schedules > workStartTime/workEndTime
-      if (contract.schedules && contract.schedules.length > 0) {
-        // 오늘 요일에 해당하는 스케줄 찾기
-        const today = new Date(date);
-        const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
-        const todaySchedule = contract.schedules.find(s => s.day === dayOfWeek);
+      // 우선순위: schedules 배열 (신규) > workStartTime/workEndTime (레거시)
+      if (contract.schedules && Array.isArray(contract.schedules)) {
+        const todaySchedule = contract.schedules.find((s: any) => s.day === dayName);
         
         if (todaySchedule) {
           scheduledStartTime = todaySchedule.startTime;
           scheduledEndTime = todaySchedule.endTime;
-          console.log(`📅 오늘(${dayOfWeek}) 스케줄:`, scheduledStartTime, '~', scheduledEndTime);
+          console.log(`📅 오늘(${dayName}) 스케줄:`, scheduledStartTime, '~', scheduledEndTime);
         } else {
-          console.warn(`⚠️ 오늘(${dayOfWeek}) 스케줄이 없음 (계약서에 없는 요일)`);
+          console.warn(`⚠️ 오늘(${dayName}) 스케줄이 없음 (계약서에 없는 요일)`);
         }
       } else if (contract.workStartTime && contract.workEndTime) {
         // 레거시: workStartTime/workEndTime 사용
         scheduledStartTime = contract.workStartTime;
         scheduledEndTime = contract.workEndTime;
         console.log('📋 레거시 근무시간:', scheduledStartTime, '~', scheduledEndTime);
+      } else {
+        console.warn('⚠️ 계약서에 근무 시간 정보가 없음');
       }
     } else {
       console.warn('⚠️ 활성 계약서가 없음 (스케줄 시간 없이 저장됨)');
@@ -226,7 +247,7 @@ export async function clockIn(
     console.error('❌ 계약서 조회 실패 (스케줄 시간 없이 저장됨):', error);
   }
   
-  // 2. 출근 기록 생성 (스케줄 시간 포함)
+  // 3. 출근 기록 생성 (스케줄 시간 포함)
   const attendanceData: any = {
     userId,
     companyId,
