@@ -499,6 +499,54 @@ export function useSalaryLogic() {
     setSalaryDetailOpen(false);
   };
   
+  /**
+   * 급여 재정산 (기존 문서 덮어쓰기)
+   * 확정은 되었지만 아직 지급되지 않은 급여를 다시 계산
+   */
+  const recalculateSalary = async (docId: string, employeeUid: string, yearMonth: string, employeeName: string) => {
+    if (!user?.uid) return;
+    
+    try {
+      console.log('🔄 급여 재정산 시작:', employeeName, yearMonth);
+      
+      // 1. 최신 로직으로 급여 다시 계산
+      const recalculatedSalary = await calculateMonthlySalaryOnServer(employeeUid, yearMonth);
+      
+      if (!recalculatedSalary) {
+        alert('❌ 급여 재계산에 실패했습니다.');
+        return;
+      }
+      
+      // 2. 기존 문서에 계산 결과 덮어쓰기 (삭제하지 않음!)
+      const salaryDocRef = doc(db, COLLECTIONS.SALARY, docId);
+      await updateDoc(salaryDocRef, {
+        // 급여 계산 결과 업데이트
+        ...recalculatedSalary,
+        
+        // 기존 메타데이터 유지 (status, paid, confirmedAt, confirmedBy)
+        // status는 confirmed 유지
+        // paid는 false 유지
+        
+        // 재정산 메타데이터 추가
+        recalculatedAt: nowISOKST(),
+        recalculatedBy: user.uid,
+        updatedAt: nowISOKST()
+      });
+      
+      console.log('✅ 급여 재정산 완료:', employeeName, yearMonth);
+      console.log('  - 실지급액:', recalculatedSalary.netPay.toLocaleString(), '원');
+      
+      // 3. 목록 새로고침
+      await loadSalaryList();
+      
+      alert(`✅ ${employeeName}님의 급여가 재정산되었습니다.\n실지급액: ${recalculatedSalary.netPay.toLocaleString()}원`);
+      
+    } catch (error) {
+      console.error('❌ 급여 재정산 실패:', error);
+      alert('급여 재정산 중 오류가 발생했습니다: ' + (error as Error).message);
+    }
+  };
+  
   // 자동 로딩 (월/매장/근무상태 필터 변경 시)
   useEffect(() => {
     if (user?.uid && selectedMonth) {
@@ -523,6 +571,7 @@ export function useSalaryLogic() {
     confirmSalary,
     markAsPaid,
     showSalaryDetail,
-    confirmSalaryFromDetail
+    confirmSalaryFromDetail,
+    recalculateSalary
   };
 }

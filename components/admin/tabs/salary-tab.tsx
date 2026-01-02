@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileDown } from 'lucide-react';
+import { FileDown, RotateCcw } from 'lucide-react';
 import { useSalaryLogic } from '@/hooks/admin/useSalaryLogic';
 import { SalaryDetailModal } from '@/components/admin/modals/salary-detail-modal';
 import { generateSalaryPDF, loadJsPDFScript } from '@/lib/utils/pdf-generator';
@@ -51,7 +51,8 @@ export function SalaryTab() {
     confirmSalary,
     markAsPaid,
     showSalaryDetail,
-    confirmSalaryFromDetail
+    confirmSalaryFromDetail,
+    recalculateSalary
   } = useSalaryLogic();
   
   return (
@@ -211,6 +212,7 @@ export function SalaryTab() {
                             상세
                           </Button>
                           
+                          {/* 미확정 상태: 급여 확정 버튼 */}
                           {isUnconfirmed && (
                             <Button
                               size="sm"
@@ -225,14 +227,39 @@ export function SalaryTab() {
                               💰 급여 확정
                             </Button>
                           )}
+                          
+                          {/* 확정됨 & 미지급 상태: 재정산 & 지급완료 버튼 */}
                           {isConfirmed && !isPaid && salary.docId && (
-                            <Button
-                              size="sm"
-                              onClick={() => markAsPaid(salary.docId!)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              ✅ 지급완료
-                            </Button>
+                            <>
+                              {/* 재정산 버튼 */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (window.confirm('기존 내역을 덮어쓰고 다시 계산하시겠습니까?')) {
+                                    recalculateSalary(
+                                      salary.docId!,
+                                      salary.userId,
+                                      salary.yearMonth,
+                                      salary.employeeName
+                                    );
+                                  }
+                                }}
+                                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                              >
+                                <RotateCcw className="w-4 h-4 mr-1" />
+                                재정산
+                              </Button>
+                              
+                              {/* 지급완료 버튼 */}
+                              <Button
+                                size="sm"
+                                onClick={() => markAsPaid(salary.docId!)}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                ✅ 지급완료
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
