@@ -26,8 +26,54 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // ===========================================
-// 날짜 변환 헬퍼 함수
+// 날짜 및 시간 변환 헬퍼 함수
 // ===========================================
+
+/**
+ * 안전한 시간 변환 (Timestamp/Date/string → HH:mm KST)
+ * Firestore Timestamp를 KST 시간 문자열로 변환
+ * 
+ * @param val - Timestamp, Date, string 중 하나
+ * @returns KST 기준 "HH:mm" 형식 문자열 (예: "09:30", "23:45")
+ */
+function safeToTimeStr(val: any): string {
+  if (!val) return '00:00';
+  
+  let date: Date;
+  
+  try {
+    // Firestore Timestamp 처리
+    if (val.toDate && typeof val.toDate === 'function') {
+      date = val.toDate();
+    }
+    // 평범한 객체 with seconds 처리
+    else if (val.seconds) {
+      date = new Date(val.seconds * 1000);
+    }
+    // Date 객체
+    else if (val instanceof Date) {
+      date = val;
+    }
+    // 문자열
+    else if (typeof val === 'string') {
+      return val; // 이미 "HH:mm" 형식이라고 가정
+    }
+    else {
+      functions.logger.warn('⚠️ 알 수 없는 시간 형식:', val);
+      return '00:00';
+    }
+    
+    // KST(UTC+9)로 변환하여 HH:mm 형식 반환
+    const kstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+    const hours = String(kstDate.getUTCHours()).padStart(2, '0');
+    const minutes = String(kstDate.getUTCMinutes()).padStart(2, '0');
+    
+    return `${hours}:${minutes}`;
+  } catch (error) {
+    functions.logger.error('❌ 시간 변환 실패:', error);
+    return '00:00';
+  }
+}
 
 /**
  * 안전한 날짜 변환 (Timestamp/Date/string 모두 처리)
@@ -318,15 +364,23 @@ async function performSalaryCalculation(
   // ===========================================
   attendances.forEach(att => {
     // 🔥 표준 필드명: clockIn/clockOut 우선 사용, 하위 호환성으로 checkIn/checkOut 지원
-    const clockIn = att.clockIn || att.checkIn;
-    if (!clockIn) return; // 출근 기록 없으면 스킵
+    const rawClockIn = att.clockIn || att.checkIn;
+    if (!rawClockIn) return; // 출근 기록 없으면 스킵
     
-    let clockOut = att.clockOut || att.checkOut;
-    if (!clockOut) {
+    // ✅ 안전한 시간 변환 (Timestamp → HH:mm KST)
+    const clockIn = safeToTimeStr(rawClockIn);
+    
+    let clockOut: string;
+    const rawClockOut = att.clockOut || att.checkOut;
+    
+    if (!rawClockOut) {
       // 퇴근 기록이 없으면 현재 시간 사용 (실시간 급여 계산)
       const now = nowKST();
-      clockOut = now.toTimeString().substring(0, 5); // "HH:MM"
+      clockOut = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       functions.logger.info(`⏰ [${att.date}] 퇴근 기록 없음 - 현재 시간(${clockOut})까지 계산`);
+    } else {
+      // ✅ 안전한 시간 변환 (Timestamp → HH:mm KST)
+      clockOut = safeToTimeStr(rawClockOut);
     }
     
     // 계약서 근무시간과 비교해서 실제 근무시간 조정
