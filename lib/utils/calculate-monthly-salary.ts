@@ -183,6 +183,7 @@ export async function calculateMonthlySalary(
   // 출퇴근 기록 분석
   let totalWorkHours = 0;
   let totalOvertimeHours = 0;
+  let totalDailyOvertime = 0;  // 🔥 일일 8시간 초과분 누적 (일간 연장수당)
   let totalNightHours = 0;
   let totalHolidayHours = 0;
   let totalIncentiveAmount = 0; // 🆕 Phase 5: 총 인센티브 금액
@@ -280,6 +281,13 @@ export async function calculateMonthlySalary(
     
     totalWorkHours += workHours;
     
+    // 🔥 일일 8시간 초과분 누적 (일간 연장수당)
+    const dailyOvertime = Math.max(workHours - 8, 0);
+    if (dailyOvertime > 0) {
+      totalDailyOvertime += dailyOvertime;
+      console.log(`⏰ 일일 연장근무: ${att.date}, ${workHours.toFixed(2)}시간 → ${dailyOvertime.toFixed(2)}시간 초과`);
+    }
+    
     // 🔧 [1] 날짜를 Set에 추가 (중복 자동 제거)
     uniqueDates.add(att.date);
     
@@ -349,15 +357,26 @@ export async function calculateMonthlySalary(
     result.basePay = result.monthlyWage;
   }
   
-  // 연장근로수당 (주 40시간 초과분) - 계약서에 설정된 경우만
+  // 연장근로수당 - 계약서에 설정된 경우만
+  // 🔥 주 40시간 초과분(주간)과 일 8시간 초과분(일간) 중 더 유리한 기준 적용
   if (contract.allowances?.overtime) {
+    // 1) 주 40시간 초과분 계산 (주간 연장수당)
+    let weeklyOvertime = 0;
     Object.values(weeklyWorkHours).forEach(weekHours => {
       if (weekHours > 40) {
-        totalOvertimeHours += (weekHours - 40);
+        weeklyOvertime += (weekHours - 40);
       }
     });
+    
+    // 2) 일 8시간 초과분은 이미 totalDailyOvertime에 누적됨
+    
+    // 3) 더 유리한 기준 선택 (근로자에게 유리한 방향)
+    totalOvertimeHours = Math.max(weeklyOvertime, totalDailyOvertime);
+    
     result.overtimeHours = totalOvertimeHours;
     result.overtimePay = Math.round(result.hourlyWage * 1.5 * totalOvertimeHours);
+    
+    console.log(`💰 연장수당: 주간 ${weeklyOvertime.toFixed(2)}시간 vs 일간 ${totalDailyOvertime.toFixed(2)}시간 → ${totalOvertimeHours.toFixed(2)}시간 적용`);
   }
   
   // 야간근로수당 - 계약서에 설정된 경우만
