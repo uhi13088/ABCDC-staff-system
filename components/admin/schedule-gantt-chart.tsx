@@ -21,6 +21,36 @@ interface ScheduleGanttChartProps {
   scheduleData: WeekScheduleData;
 }
 
+/**
+ * 🔒 안전한 시간 변환 함수
+ * Firestore Timestamp 객체 / Date 객체 / 문자열 모두 처리
+ * React Error #31 및 e.split is not a function 오류 방지
+ */
+const safeTimeStr = (time: any): string => {
+  if (!time) return "00:00";
+  
+  // 이미 문자열이면 그대로 반환 (예: "09:00")
+  if (typeof time === "string") return time;
+  
+  // Firestore Timestamp 처리 ({seconds: number, nanoseconds: number})
+  if (time.seconds !== undefined) {
+    const date = new Date(time.seconds * 1000);
+    const h = String(date.getHours()).padStart(2, "0");
+    const m = String(date.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  
+  // Date 객체 처리
+  if (time instanceof Date) {
+    const h = String(time.getHours()).padStart(2, "0");
+    const m = String(time.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  
+  console.warn('⚠️ safeTimeStr: 알 수 없는 시간 형식:', time);
+  return "00:00";
+};
+
 export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
   const days: DayOfWeek[] = ['월', '화', '수', '목', '금', '토', '일'];
   const startHour = 0;  // 00:00부터 시작
@@ -91,32 +121,15 @@ export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
   
   /**
    * 시간 → 위치 계산 (픽셀)
-   * 안전장치: null/undefined/Date 객체 처리
+   * 🔒 safeTimeStr로 먼저 변환하여 Timestamp 객체 안전 처리
    */
-  const timeToPosition = (time: string | null | undefined | Date): number => {
-    // 🔒 안전장치 1: null/undefined 체크
-    if (!time) return 0;
+  const timeToPosition = (time: any): number => {
+    // 🔒 안전장치: safeTimeStr로 먼저 변환
+    const timeStr = safeTimeStr(time);
     
-    // 🔒 안전장치 2: Date 객체인 경우 변환
-    if (time instanceof Date) {
-      time = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
-    }
+    const [h, m] = timeStr.split(':').map(Number);
     
-    // 🔒 안전장치 3: 문자열이 아닌 경우 문자열로 변환
-    if (typeof time !== 'string') {
-      console.warn('⚠️ timeToPosition: 유효하지 않은 시간 형식:', time);
-      return 0;
-    }
-    
-    // 🔒 안전장치 4: 형식 검증 (HH:MM)
-    if (!time.includes(':')) {
-      console.warn('⚠️ timeToPosition: 콜론(:)이 없는 시간 형식:', time);
-      return 0;
-    }
-    
-    const [h, m] = time.split(':').map(Number);
-    
-    // 🔒 안전장치 5: NaN 체크
+    // 🔒 NaN 체크
     if (isNaN(h) || isNaN(m)) {
       console.warn('⚠️ timeToPosition: 숫자 변환 실패:', time);
       return 0;
@@ -128,43 +141,27 @@ export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
   
   /**
    * 근무 시간 계산 (높이)
-   * 안전장치: null/undefined/Date 객체 처리, 현재 근무중 처리
+   * 🔒 safeTimeStr로 먼저 변환하여 Timestamp 객체 안전 처리, 현재 근무중 처리
    */
-  const calculateHeight = (startTime: string | null | undefined | Date, endTime: string | null | undefined | Date): number => {
+  const calculateHeight = (startTime: any, endTime: any): number => {
     // 🔒 안전장치 1: startTime이 없으면 0 반환
     if (!startTime) return 0;
     
-    // 🔒 안전장치 2: Date 객체 변환
-    if (startTime instanceof Date) {
-      startTime = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
-    }
-    if (endTime instanceof Date) {
-      endTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
-    }
+    // 🔒 안전장치 2: safeTimeStr로 변환
+    let startTimeStr = safeTimeStr(startTime);
+    let endTimeStr = safeTimeStr(endTime);
     
-    // 🔒 안전장치 3: 문자열 변환
-    if (typeof startTime !== 'string') {
-      console.warn('⚠️ calculateHeight: 유효하지 않은 startTime:', startTime);
-      return 0;
-    }
-    
-    // 🔒 안전장치 4: endTime이 없으면 현재 시간 사용 (근무중)
-    if (!endTime || typeof endTime !== 'string') {
+    // 🔒 안전장치 3: endTime이 "00:00"이면 현재 시간 사용 (근무중)
+    if (!endTime || endTimeStr === "00:00") {
       const now = new Date();
-      endTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      console.log('ℹ️ calculateHeight: 근무중 - 현재 시간 사용:', endTime);
+      endTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      console.log('ℹ️ calculateHeight: 근무중 - 현재 시간 사용:', endTimeStr);
     }
     
-    // 🔒 안전장치 5: 형식 검증
-    if (!startTime.includes(':') || !endTime.includes(':')) {
-      console.warn('⚠️ calculateHeight: 유효하지 않은 시간 형식:', { startTime, endTime });
-      return 0;
-    }
+    const [startH, startM] = startTimeStr.split(':').map(Number);
+    const [endH, endM] = endTimeStr.split(':').map(Number);
     
-    const [startH, startM] = startTime.split(':').map(Number);
-    const [endH, endM] = endTime.split(':').map(Number);
-    
-    // 🔒 안전장치 6: NaN 체크
+    // 🔒 안전장치 4: NaN 체크
     if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) {
       console.warn('⚠️ calculateHeight: 숫자 변환 실패:', { startTime, endTime });
       return 0;
@@ -178,7 +175,7 @@ export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
     
     const height = ((endMinutes - startMinutes) / 60) * rowHeight;
     
-    // 🔒 안전장치 7: 음수 방지
+    // 🔒 안전장치 5: 음수 방지
     return Math.max(height, 0);
   };
   
@@ -293,6 +290,10 @@ export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
                         ? 'border-2 border-yellow-500 bg-gradient-to-br from-yellow-100 to-yellow-200' 
                         : '';
                       
+                      // 🔒 title 속성에도 safeTimeStr 적용하여 객체 렌더링 방지
+                      const safeStart = safeTimeStr(worker.startTime);
+                      const safeEnd = safeTimeStr(worker.endTime);
+                      
                       return (
                         <div
                           key={workerIndex}
@@ -304,7 +305,7 @@ export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
                             height: `${height}px`,
                             backgroundColor: worker.isShiftReplacement ? undefined : worker.color,
                           }}
-                          title={`${worker.name}: ${worker.startTime}-${worker.endTime}`}
+                          title={`${worker.name}: ${safeStart}-${safeEnd}`}
                         >
                           {worker.isShiftReplacement && '🔄'}
                         </div>

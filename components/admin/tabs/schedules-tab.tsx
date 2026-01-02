@@ -62,6 +62,36 @@ interface SchedulesTabProps {
   companyId: string;
 }
 
+/**
+ * 🔒 안전한 시간 변환 함수
+ * Firestore Timestamp 객체 / Date 객체 / 문자열 모두 처리
+ * React Error #31 및 e.split is not a function 오류 방지
+ */
+const safeTimeStr = (time: any): string => {
+  if (!time) return "00:00";
+  
+  // 이미 문자열이면 그대로 반환 (예: "09:00")
+  if (typeof time === "string") return time;
+  
+  // Firestore Timestamp 처리 ({seconds: number, nanoseconds: number})
+  if (time.seconds !== undefined) {
+    const date = new Date(time.seconds * 1000);
+    const h = String(date.getHours()).padStart(2, "0");
+    const m = String(date.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  
+  // Date 객체 처리
+  if (time instanceof Date) {
+    const h = String(time.getHours()).padStart(2, "0");
+    const m = String(time.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  
+  console.warn('⚠️ safeTimeStr: 알 수 없는 시간 형식:', time);
+  return "00:00";
+};
+
 export function SchedulesTab({ companyId }: SchedulesTabProps) {
   const {
     scheduleData,
@@ -110,19 +140,23 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
 
   /**
    * 근무 시간 포맷
+   * 🔒 safeTimeStr로 감싸서 Timestamp 객체 안전 처리
    */
-  const formatWorkTime = (startTime: string, endTime: string, breakTime?: BreakTimeDetail) => {
+  const formatWorkTime = (startTime: any, endTime: any, breakTime?: BreakTimeDetail) => {
+    const safeStart = safeTimeStr(startTime);
+    const safeEnd = safeTimeStr(endTime);
+    
     if (breakTime) {
       return (
         <div className="text-xs">
-          <div className="font-semibold">{startTime} - {endTime}</div>
+          <div className="font-semibold">{safeStart} - {safeEnd}</div>
           <div className="text-slate-500">
-            휴게: {breakTime.start}-{breakTime.end} ({breakTime.minutes}분)
+            휴게: {safeTimeStr(breakTime.start)}-{safeTimeStr(breakTime.end)} ({breakTime.minutes}분)
           </div>
         </div>
       );
     }
-    return <div className="text-xs font-semibold">{startTime} - {endTime}</div>;
+    return <div className="text-xs font-semibold">{safeStart} - {safeEnd}</div>;
   };
 
   /**
