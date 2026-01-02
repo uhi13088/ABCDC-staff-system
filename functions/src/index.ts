@@ -1337,3 +1337,168 @@ export const checkHealthCertExpiry = functions
       functions.logger.error('건강진단서 알림 체크 오류:', error);
     }
   });
+
+// ===========================================
+// 🔄 급여 실시간 자동 정산 트리거
+// ===========================================
+
+/**
+ * 출퇴근 기록 변경 시 자동 급여 재계산
+ * 
+ * 트리거: attendance/{docId} onWrite (생성/수정/삭제)
+ * 
+ * 동작:
+ * 1. 출퇴근 기록이 생성/수정/삭제될 때 자동 실행
+ * 2. 해당 직원의 해당 월 급여를 다시 계산
+ * 3. salary 컬렉션에 자동으로 덮어쓰기
+ * 4. 단, 이미 지급 완료(paid)된 급여는 건드리지 않음
+ * 
+ * 효과:
+ * - 관리자가 정산 버튼을 누르지 않아도 급여가 실시간으로 최신 상태 유지
+ * - 출퇴근 기록 수정 시 즉시 급여에 반영
+ */
+export const autoCalculateSalaryOnAttendance = functions
+  .region('asia-northeast3')
+  .firestore
+  .document('attendance/{docId}')
+  .onWrite(async (change, context) => {
+    try {
+      // 삭제된 경우도 처리 (before 데이터 사용)
+      const attendanceData = change.after.exists ? change.after.data() : change.before.data();
+      
+      if (!attendanceData) {
+        functions.logger.warn('⚠️ 출퇴근 기록 데이터가 없음');
+        return;
+      }
+      
+      const userId = attendanceData.uid || attendanceData.userId;
+      const date = attendanceData.date; // YYYY-MM-DD 형식
+      const companyId = attendanceData.companyId;
+      
+      if (!userId || !date || !companyId) {
+        functions.logger.warn('⚠️ 필수 필드 누락:', { userId, date, companyId });
+        return;
+      }
+      
+      // 해당 월 추출 (YYYY-MM)
+      const yearMonth = date.substring(0, 7); // "2025-01-15" → "2025-01"
+      
+      functions.logger.info(`🔄 급여 자동 재계산 시작: userId=${userId}, yearMonth=${yearMonth}`);
+      
+      // 1. 해당 직원의 해당 월 급여 문서 찾기
+      const salaryQuery = await db.collection('salary')
+        .where('userId', '==', userId)
+        .where('yearMonth', '==', yearMonth)
+        .where('companyId', '==', companyId)
+        .limit(1)
+        .get();
+      
+      // 2. 이미 지급 완료된 급여는 건드리지 않음
+      if (!salaryQuery.empty) {
+        const existingSalary = salaryQuery.docs[0].data();
+        if (existingSalary.status === 'paid' || existingSalary.paid === true) {
+          functions.logger.info(`⏸️ 지급 완료된 급여는 재계산하지 않음: userId=${userId}, yearMonth=${yearMonth}`);
+          return;
+        }
+      }
+      
+      // 3. 급여 재계산 실행
+      try {
+        // performSalaryCalculation 함수를 직접 호출하여 급여 계산
+        const employee = await db.collection('users').doc(userId).get();
+        if (!employee.exists) {
+          functions.logger.warn(`⚠️ 직원 정보를 찾을 수 없음: userId=${userId}`);
+          return;
+        }
+        
+        const employeeData = employee.data()!;
+        
+        // 계약서 조회
+        const contractsQuery = await db.collection('contracts')
+          .where('userId', '==', userId)
+          .where('companyId', '==', companyId)
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+        
+        if (contractsQuery.empty) {
+          functions.logger.warn(`⚠️ 계약서를 찾을 수 없음: userId=${userId}`);
+          return;
+        }
+        
+        const contract = contractsQuery.docs[0].data();
+        
+        // 출퇴근 기록 조회
+        const [year, month] = yearMonth.split('-').map(Number);
+        const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+        
+        const attendancesQuery = await db.collection('attendance')
+          .where('uid', '==', userId)
+          .where('date', '>=', startDate)
+          .where('date', '<=', endDate)
+          .where('companyId', '==', companyId)
+          .get();
+        
+        const attendances: AttendanceForSalary[] = [];
+        attendancesQuery.forEach(doc => {
+          const data = doc.data();
+          attendances.push({
+            date: data.date,
+            checkIn: data.checkIn || data.clockIn,
+            checkOut: data.checkOut || data.clockOut,
+            clockIn: data.clockIn,
+            clockOut: data.clockOut,
+            wageIncentive: data.wageIncentive || 0
+          });
+        });
+        
+        // 급여 계산 실행
+        const salaryResult = await performSalaryCalculation(
+          { uid: userId, name: employeeData.name, store: employeeData.store, companyId },
+          contract as ContractForSalary,
+          attendances,
+          yearMonth
+        );
+        
+        // 4. 급여 문서 업데이트 또는 생성
+        if (!salaryQuery.empty) {
+          // 기존 문서 업데이트 (덮어쓰기)
+          const docId = salaryQuery.docs[0].id;
+          await db.collection('salary').doc(docId).update({
+            ...salaryResult,
+            autoCalculated: true,
+            autoCalculatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          functions.logger.info(`✅ 급여 자동 재계산 완료 (업데이트): userId=${userId}, yearMonth=${yearMonth}, netPay=${salaryResult.netPay}`);
+        } else {
+          // 새 문서 생성 (미확정 상태)
+          await db.collection('salary').add({
+            ...salaryResult,
+            companyId,
+            userId,
+            employeeUid: userId,
+            employeeName: employeeData.name,
+            yearMonth,
+            status: 'unconfirmed',
+            paid: false,
+            autoCalculated: true,
+            autoCalculatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          functions.logger.info(`✅ 급여 자동 계산 완료 (신규): userId=${userId}, yearMonth=${yearMonth}, netPay=${salaryResult.netPay}`);
+        }
+        
+      } catch (calcError: any) {
+        functions.logger.error(`❌ 급여 계산 실패: userId=${userId}, yearMonth=${yearMonth}`, calcError);
+        // 계산 실패는 로그만 남기고 트리거 자체는 실패시키지 않음
+      }
+      
+    } catch (error: any) {
+      functions.logger.error('❌ 급여 자동 정산 트리거 오류:', error);
+      // 트리거 실패해도 출퇴근 기록 저장은 성공해야 하므로 에러 throw 안 함
+    }
+  });

@@ -91,23 +91,95 @@ export function ScheduleGanttChart({ scheduleData }: ScheduleGanttChartProps) {
   
   /**
    * 시간 → 위치 계산 (픽셀)
+   * 안전장치: null/undefined/Date 객체 처리
    */
-  const timeToPosition = (time: string): number => {
+  const timeToPosition = (time: string | null | undefined | Date): number => {
+    // 🔒 안전장치 1: null/undefined 체크
+    if (!time) return 0;
+    
+    // 🔒 안전장치 2: Date 객체인 경우 변환
+    if (time instanceof Date) {
+      time = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+    }
+    
+    // 🔒 안전장치 3: 문자열이 아닌 경우 문자열로 변환
+    if (typeof time !== 'string') {
+      console.warn('⚠️ timeToPosition: 유효하지 않은 시간 형식:', time);
+      return 0;
+    }
+    
+    // 🔒 안전장치 4: 형식 검증 (HH:MM)
+    if (!time.includes(':')) {
+      console.warn('⚠️ timeToPosition: 콜론(:)이 없는 시간 형식:', time);
+      return 0;
+    }
+    
     const [h, m] = time.split(':').map(Number);
+    
+    // 🔒 안전장치 5: NaN 체크
+    if (isNaN(h) || isNaN(m)) {
+      console.warn('⚠️ timeToPosition: 숫자 변환 실패:', time);
+      return 0;
+    }
+    
     const minutes = (h - startHour) * 60 + m;
     return (minutes / 60) * rowHeight;
   };
   
   /**
    * 근무 시간 계산 (높이)
+   * 안전장치: null/undefined/Date 객체 처리, 현재 근무중 처리
    */
-  const calculateHeight = (startTime: string, endTime: string): number => {
+  const calculateHeight = (startTime: string | null | undefined | Date, endTime: string | null | undefined | Date): number => {
+    // 🔒 안전장치 1: startTime이 없으면 0 반환
+    if (!startTime) return 0;
+    
+    // 🔒 안전장치 2: Date 객체 변환
+    if (startTime instanceof Date) {
+      startTime = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
+    }
+    if (endTime instanceof Date) {
+      endTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+    }
+    
+    // 🔒 안전장치 3: 문자열 변환
+    if (typeof startTime !== 'string') {
+      console.warn('⚠️ calculateHeight: 유효하지 않은 startTime:', startTime);
+      return 0;
+    }
+    
+    // 🔒 안전장치 4: endTime이 없으면 현재 시간 사용 (근무중)
+    if (!endTime || typeof endTime !== 'string') {
+      const now = new Date();
+      endTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      console.log('ℹ️ calculateHeight: 근무중 - 현재 시간 사용:', endTime);
+    }
+    
+    // 🔒 안전장치 5: 형식 검증
+    if (!startTime.includes(':') || !endTime.includes(':')) {
+      console.warn('⚠️ calculateHeight: 유효하지 않은 시간 형식:', { startTime, endTime });
+      return 0;
+    }
+    
     const [startH, startM] = startTime.split(':').map(Number);
     const [endH, endM] = endTime.split(':').map(Number);
+    
+    // 🔒 안전장치 6: NaN 체크
+    if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) {
+      console.warn('⚠️ calculateHeight: 숫자 변환 실패:', { startTime, endTime });
+      return 0;
+    }
+    
     const startMinutes = (startH - startHour) * 60 + startM;
     let endMinutes = (endH - startHour) * 60 + endM;
+    
+    // 자정을 넘긴 경우 처리
     if (endMinutes < startMinutes) endMinutes += 24 * 60;
-    return ((endMinutes - startMinutes) / 60) * rowHeight;
+    
+    const height = ((endMinutes - startMinutes) / 60) * rowHeight;
+    
+    // 🔒 안전장치 7: 음수 방지
+    return Math.max(height, 0);
   };
   
   /**
