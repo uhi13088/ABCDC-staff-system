@@ -220,24 +220,8 @@ export function SalaryTab() {
                             상세
                           </Button>
                           
-                          {/* 미확정 상태: 급여 확정 버튼 */}
-                          {isUnconfirmed && (
-                            <Button
-                              size="sm"
-                              onClick={() => confirmSalary(
-                                salary.userId,
-                                salary.yearMonth,
-                                salary.netPay,
-                                salary.employeeName
-                              )}
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                              💰 급여 확정
-                            </Button>
-                          )}
-                          
-                          {/* 확정됨 & 미지급 상태: 재정산 & 지급완료 버튼 */}
-                          {isConfirmed && !isPaid && salary.docId && (
+                          {/* 🔥 미확정 또는 확정 상태 & 미지급: 재정산 & 지급완료 버튼 */}
+                          {!isPaid && salary.docId && (
                             <>
                               {/* 재정산 버튼 */}
                               <Button
@@ -262,7 +246,11 @@ export function SalaryTab() {
                               {/* 지급완료 버튼 */}
                               <Button
                                 size="sm"
-                                onClick={() => markAsPaid(salary.docId!)}
+                                onClick={() => {
+                                  if (window.confirm(`${salary.employeeName}님의 급여 ${salary.netPay?.toLocaleString()}원을 지급 처리하시겠습니까?`)) {
+                                    markAsPaid(salary.docId!);
+                                  }
+                                }}
                                 className="bg-green-600 hover:bg-green-700 text-white"
                               >
                                 ✅ 지급완료
