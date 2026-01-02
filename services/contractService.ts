@@ -111,6 +111,45 @@ export async function getContractsByEmployee(
 }
 
 /**
+ * 활성 계약서 조회 (userId 기준)
+ * 출근 시 스케줄 시간을 가져오기 위해 사용
+ */
+export async function getActiveContract(userId: string): Promise<Contract | null> {
+  console.log('🔍 활성 계약서 조회:', userId);
+  
+  try {
+    // userId 기준으로 계약서 조회 (최신순)
+    const q = query(
+      collection(db, COLLECTIONS.CONTRACTS),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.warn('⚠️ 계약서가 없음:', userId);
+      return null;
+    }
+
+    // 첫 번째 계약서 반환 (최신 계약서)
+    const firstDoc = snapshot.docs[0];
+    const data = sanitizeTimestamps(firstDoc.data());
+    const contract = {
+      id: firstDoc.id,
+      ...data,
+    } as Contract;
+
+    console.log('✅ 활성 계약서 발견:', contract.id);
+    return contract;
+
+  } catch (error) {
+    console.error('❌ 활성 계약서 조회 실패:', error);
+    return null;
+  }
+}
+
+/**
  * 계약서 생성
  * 🔔 Phase J: 알림 연동 - 계약서 서명 요청 시 직원에게 알림
  */

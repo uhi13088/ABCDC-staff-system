@@ -16,6 +16,7 @@ import {
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
 import type { AttendanceRecord } from '@/lib/types/attendance';
+import * as contractService from './contractService';
 
 /**
  * 출퇴근 기록 목록 조회 (최적화됨)
@@ -185,7 +186,47 @@ export async function clockIn(
   date: string,
   location?: { latitude: number; longitude: number }
 ): Promise<string> {
-  // [수정] undefined 값이 들어가지 않도록 객체 동적 생성
+  console.log('🕐 clockIn 시작:', { userId, companyId, storeId, date });
+  
+  // 1. 활성 계약서 조회 (스케줄 시간 가져오기)
+  let scheduledStartTime: string | undefined;
+  let scheduledEndTime: string | undefined;
+  
+  try {
+    const contract = await contractService.getActiveContract(userId);
+    
+    if (contract) {
+      console.log('✅ 활성 계약서 발견:', contract.id);
+      
+      // 계약서에서 근무 시간 추출
+      // 우선순위: schedules > workStartTime/workEndTime
+      if (contract.schedules && contract.schedules.length > 0) {
+        // 오늘 요일에 해당하는 스케줄 찾기
+        const today = new Date(date);
+        const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
+        const todaySchedule = contract.schedules.find(s => s.day === dayOfWeek);
+        
+        if (todaySchedule) {
+          scheduledStartTime = todaySchedule.startTime;
+          scheduledEndTime = todaySchedule.endTime;
+          console.log(`📅 오늘(${dayOfWeek}) 스케줄:`, scheduledStartTime, '~', scheduledEndTime);
+        } else {
+          console.warn(`⚠️ 오늘(${dayOfWeek}) 스케줄이 없음 (계약서에 없는 요일)`);
+        }
+      } else if (contract.workStartTime && contract.workEndTime) {
+        // 레거시: workStartTime/workEndTime 사용
+        scheduledStartTime = contract.workStartTime;
+        scheduledEndTime = contract.workEndTime;
+        console.log('📋 레거시 근무시간:', scheduledStartTime, '~', scheduledEndTime);
+      }
+    } else {
+      console.warn('⚠️ 활성 계약서가 없음 (스케줄 시간 없이 저장됨)');
+    }
+  } catch (error) {
+    console.error('❌ 계약서 조회 실패 (스케줄 시간 없이 저장됨):', error);
+  }
+  
+  // 2. 출근 기록 생성 (스케줄 시간 포함)
   const attendanceData: any = {
     userId,
     companyId,
@@ -194,12 +235,21 @@ export async function clockIn(
     clockIn: serverTimestamp(),
     status: 'present',
   };
+  
+  // 🔥 스케줄 시간 추가 (있을 때만)
+  if (scheduledStartTime) {
+    attendanceData.scheduledStartTime = scheduledStartTime;
+  }
+  if (scheduledEndTime) {
+    attendanceData.scheduledEndTime = scheduledEndTime;
+  }
 
   // location이 있을 때만 추가
   if (location) {
     attendanceData.location = location;
   }
-
+  
+  console.log('💾 출근 기록 저장:', attendanceData);
   return createAttendance(attendanceData);
 }
 
