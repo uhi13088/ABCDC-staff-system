@@ -51,8 +51,22 @@ export interface AttendanceRecord {
   // 근무시간 (원본 HTML에서는 계산됨)
   workMinutes?: number;
   
+  // 🔥 SSOT: 파생 필드 (퇴근 시 자동 계산 및 저장)
+  overtimeMinutes?: number;       // 연장 근무 시간 (분)
+  nightWorkMinutes?: number;      // 야간 근무 시간 (분)
+  holidayWorkMinutes?: number;    // 공휴일 근무 시간 (분)
+  
+  // 🔥 SSOT: 급여 필드 (퇴근 시 자동 계산 및 저장)
+  basePay?: number;               // 기본급
+  overtimePay?: number;           // 연장 수당
+  nightPay?: number;              // 야간 수당
+  holidayPay?: number;            // 공휴일 수당
+  dailyWage?: number;             // 일급 (총합)
+  
   // 상태 (백업에서 자동 계산됨)
-  status?: AttendanceStatus | string;  // 'present', 'absent', 'late', 'early_leave' 등
+  status?: AttendanceStatus | string;  // 'present', 'absent', 'late', 'early_leave', 'late_and_early_leave'
+  isLate?: boolean;               // 지각 여부
+  isEarlyLeave?: boolean;         // 조퇴 여부
   
   // 결근 사유
   absentReason?: string;

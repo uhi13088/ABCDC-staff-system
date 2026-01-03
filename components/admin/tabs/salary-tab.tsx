@@ -55,12 +55,12 @@ export function SalaryTab() {
     recalculateSalary
   } = useSalaryLogic();
   
-  // 🔥 필터 변경 시 자동으로 급여 목록 로드
-  useEffect(() => {
-    if (selectedMonth) {
-      loadSalaryList();
-    }
-  }, [selectedMonth, selectedStore, employmentStatusFilter, loadSalaryList]);
+  // 🔥 자동 조회 제거: 사용자가 '조회' 버튼 클릭해야만 로드
+  // useEffect(() => {
+  //   if (selectedMonth) {
+  //     loadSalaryList();
+  //   }
+  // }, [selectedMonth, selectedStore, employmentStatusFilter, loadSalaryList]);
   
   return (
     <Card className="bg-white border-slate-200">
@@ -135,8 +135,22 @@ export function SalaryTab() {
           </div>
         </div>
         
-        {/* 🔥 자동 조회: 필터 변경 시 자동으로 급여 목록 로드 */}
-        {/* useEffect로 처리하므로 수동 조회 버튼 제거 */}
+        {/* 조회 버튼 추가 */}
+        <div className="mb-6 flex gap-3">
+          <Button
+            onClick={loadSalaryList}
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+          >
+            {loading ? '조회 중...' : '📊 조회하기'}
+          </Button>
+          
+          <div className="flex-1 flex items-center text-sm text-slate-500">
+            {salaries.length > 0 && (
+              <span>총 {salaries.length}명의 급여 내역</span>
+            )}
+          </div>
+        </div>
         
         {/* 급여 테이블 */}
         <div className="overflow-x-auto">
@@ -182,16 +196,16 @@ export function SalaryTab() {
                         {salary.storeName || '-'}
                       </TableCell>
                       <TableCell className="text-right text-slate-800">
-                        {salary.basePay.toLocaleString()}원
+                        {salary.totalBasePay.toLocaleString()}원
                       </TableCell>
                       <TableCell className="text-right text-green-600">
-                        +{salary.totalAllowances.toLocaleString()}원
+                        +{(salary.totalOvertimePay + salary.totalNightPay + salary.totalHolidayPay).toLocaleString()}원
                       </TableCell>
                       <TableCell className="text-right text-red-600">
-                        -{salary.totalDeductions.toLocaleString()}원
+                        -0원
                       </TableCell>
                       <TableCell className="text-right font-bold text-blue-600">
-                        {salary.netPay.toLocaleString()}원
+                        {salary.totalPay.toLocaleString()}원
                       </TableCell>
                       <TableCell>
                         {isPaid ? (

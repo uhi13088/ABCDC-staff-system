@@ -50,7 +50,6 @@ export interface SalaryAggregation {
   userId: string;
   employeeName: string;
   storeName?: string;
-  yearMonth: string; // 추가
   totalWorkDays: number;
   totalWorkHours: number;
   totalBasePay: number;
@@ -241,7 +240,6 @@ export function useSalaryLogic() {
           userId: employee.uid,
           employeeName: employee.name || '',
           storeName: employee.store || '',
-          yearMonth: selectedMonth, // 추가
           totalWorkDays,
           totalWorkHours,
           totalBasePay,
