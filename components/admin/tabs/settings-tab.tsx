@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Settings as SettingsIcon, Briefcase, Plus, X, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Settings as SettingsIcon, Briefcase, Plus, X, AlertCircle, CheckCircle2, Clock, Mail } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
@@ -28,12 +28,17 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [autoApproveEdit, setAutoApproveEdit] = useState(false);
+  
+  // [추가] 세무사 정보 State
+  const [taxEmail, setTaxEmail] = useState('');
+  const [taxName, setTaxName] = useState('');
 
   // 초기 로드
   useEffect(() => {
     if (companyId) {
       loadPositions();
       loadAttendanceSettings();
+      loadTaxSettings(); // [추가]
     }
   }, [companyId]);
 
@@ -147,6 +152,48 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
       setLoading(false);
     }
   };
+  
+  // [추가] 세무사 정보 로드
+  const loadTaxSettings = async () => {
+    try {
+      const settingsRef = doc(db, 'companies', companyId, 'settings', 'tax');
+      const settingsSnap = await getDoc(settingsRef);
+      
+      if (settingsSnap.exists()) {
+        setTaxEmail(settingsSnap.data().email || '');
+        setTaxName(settingsSnap.data().name || '');
+      }
+    } catch (err) {
+      console.error('❌ 세무사 설정 로드 실패:', err);
+    }
+  };
+  
+  // [추가] 세무사 정보 저장
+  const saveTaxSettings = async () => {
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    
+    try {
+      const settingsRef = doc(db, 'companies', companyId, 'settings', 'tax');
+      await setDoc(settingsRef, {
+        email: taxEmail,
+        name: taxName
+      }, { merge: true });
+      
+      setSuccess('✅ 세무사 정보가 저장되었습니다.');
+    } catch (err) {
+      console.error('❌ 세무사 설정 저장 실패:', err);
+      setError('세무사 정보 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+      setError('설정 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -224,6 +271,78 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
             <p className="text-xs text-slate-500 mt-1">
               ⚠️ 직무를 삭제해도 이미 등록된 직원의 직무는 변경되지 않습니다.
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* [추가] 세무 대행 설정 카드 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Mail className="w-5 h-5 text-purple-600" />
+            세무 대행 설정
+          </CardTitle>
+          <CardDescription>급여 대장을 전송할 세무사 정보를 입력하세요.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 에러/성공 메시지 */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert className="border-green-500 bg-green-50">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="tax-name">세무사 이름 (담당자)</Label>
+              <Input 
+                id="tax-name"
+                placeholder="홍길동 세무사" 
+                value={taxName}
+                onChange={(e) => setTaxName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tax-email">이메일 주소</Label>
+              <Input 
+                id="tax-email"
+                type="email"
+                placeholder="tax@example.com" 
+                value={taxEmail}
+                onChange={(e) => setTaxEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end">
+            <Button 
+              onClick={saveTaxSettings} 
+              disabled={loading}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {loading ? '저장 중...' : '저장하기'}
+            </Button>
+          </div>
+          
+          {/* 안내 메시지 */}
+          <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <p className="text-sm text-purple-900 mb-2">
+              💡 <strong>세무사 연동 기능</strong>
+            </p>
+            <ul className="text-xs text-purple-800 space-y-1">
+              <li>• 급여 관리 탭에서 [세무사에게 전송] 버튼을 클릭하면 이메일로 급여 대장이 전송됩니다.</li>
+              <li>• 급여 대장에는 직원명, 주민번호 앞 6자리, 기본급, 수당, 공제액, 실지급액이 포함됩니다.</li>
+              <li>• 이메일 주소는 세무사의 실제 이메일을 입력하세요.</li>
+            </ul>
           </div>
         </CardContent>
       </Card>

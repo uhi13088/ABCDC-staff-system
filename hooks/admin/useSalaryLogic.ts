@@ -133,12 +133,16 @@ export function useSalaryLogic() {
    * - 실시간 구독 옵션 제공
    */
   const loadSalaryList = useCallback(async () => {
+    // [수정] 방어 코드 강화: companyId가 없으면 절대 실행하지 않음
+    if (!user?.uid || !user?.companyId) {
+      console.log('⏳ 사용자 정보 로딩 중...');
+      return;
+    }
+    
     if (!selectedMonth) {
       alert('⚠️ 조회할 월을 선택해주세요.');
       return;
     }
-    
-    if (!user?.uid || !user?.companyId) return;
     
     setLoading(true);
     

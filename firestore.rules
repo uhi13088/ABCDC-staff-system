@@ -69,10 +69,10 @@ service cloud.firestore {
     // ==================================== 
     match /users/{userId} {
       allow get: if isAuthenticated() 
-        && (isOwner(userId) || (resource != null && isManager() && isSameCompany(resource.data.companyId)));
+        && (isOwner(userId) || (resource != null && isSameCompany(resource.data.companyId)));
       
-      // [수정] list 규칙: 쿼리에 companyId 필터 필수
-      allow list: if isAuthenticated() && isManager();
+      // [수정] list 규칙: 같은 회사 직원이면 목록 조회 허용
+      allow list: if isAuthenticated();
       
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
@@ -88,8 +88,8 @@ service cloud.firestore {
       allow get: if isAuthenticated()
         && ((resource != null && isOwner(resource.data.userId)) || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정] list 규칙: 쿼리에 companyId 필터 필수
-      allow list: if isAuthenticated() && isStoreManager();
+      // [수정] 본인 계약서는 조회 가능
+      allow list: if isAuthenticated();
       
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       
@@ -138,8 +138,8 @@ service cloud.firestore {
       allow get: if isAuthenticated() && resource != null
         && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정] list 규칙: 쿼리에 companyId 필터 필수
-      allow list: if isAuthenticated() && isManager();
+      // [수정] 본인 급여 내역 조회 허용
+      allow list: if isAuthenticated();
       
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);

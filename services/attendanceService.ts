@@ -479,6 +479,65 @@ export async function forceClockOut(
 }
 
 // ========================================
+// 근태 기록 조회 (필터링 지원)
+// ========================================
+
+export async function getAttendanceRecords(
+  companyId: string,
+  filters?: {
+    storeId?: string;
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+  }
+): Promise<AttendanceRecord[]> {
+  console.log('📋 근태 기록 조회:', { companyId, filters });
+  
+  try {
+    // 1. 기본 쿼리: 회사 ID 필수
+    const constraints: any[] = [
+      where('companyId', '==', companyId)
+    ];
+
+    // 2. 필터 추가
+    if (filters?.storeId) {
+      constraints.push(where('storeId', '==', filters.storeId));
+    }
+    if (filters?.userId) {
+      constraints.push(where('userId', '==', filters.userId));
+    }
+    if (filters?.startDate) {
+      constraints.push(where('date', '>=', filters.startDate));
+    }
+    if (filters?.endDate) {
+      constraints.push(where('date', '<=', filters.endDate));
+    }
+
+    // 3. 쿼리 실행
+    const q = query(
+      collection(db, COLLECTIONS.ATTENDANCE),
+      ...constraints,
+      orderBy('date', 'desc'),
+      firestoreLimit(500)
+    );
+
+    const snapshot = await getDocs(q);
+    
+    const records = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as AttendanceRecord));
+    
+    console.log(`✅ 근태 기록 ${records.length}개 조회 완료`);
+    return records;
+    
+  } catch (error: any) {
+    console.error('❌ 근태 기록 조회 실패:', error);
+    throw new Error(error.message || '근태 기록 조회 중 오류가 발생했습니다.');
+  }
+}
+
+// ========================================
 // Export
 // ========================================
 
@@ -486,4 +545,5 @@ export default {
   clockIn,
   clockOut,
   forceClockOut,
+  getAttendanceRecords,
 };
