@@ -56,6 +56,10 @@ export interface StoreFormData {
   // 출퇴근 허용시간 (분 단위)
   earlyClockInThreshold?: number; // 조기출근 허용시간 (기본 15분)
   earlyClockOutThreshold?: number; // 조기퇴근 허용시간 (기본 5분)
+  
+  // 세무사 연동 (Feature 11)
+  taxAccountantEmail?: string; // 세무사 이메일
+  taxAccountantName?: string;  // 세무사 이름
 }
 
 interface StoreFormModalProps {
@@ -106,6 +110,10 @@ export function StoreFormModal({
   const [earlyClockInThreshold, setEarlyClockInThreshold] = useState(15);
   const [earlyClockOutThreshold, setEarlyClockOutThreshold] = useState(5);
   
+  // 세무사 연동
+  const [taxAccountantEmail, setTaxAccountantEmail] = useState('');
+  const [taxAccountantName, setTaxAccountantName] = useState('');
+  
   // QR 코드 관련 (고정 QR 코드 - 유효기간 제거)
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [qrData, setQrData] = useState<QRCodeData | null>(null);
@@ -140,6 +148,9 @@ export function StoreFormModal({
         
         setEarlyClockInThreshold(store.earlyClockInThreshold || 15);
         setEarlyClockOutThreshold(store.earlyClockOutThreshold || 5);
+        
+        setTaxAccountantEmail(store.taxAccountantEmail || '');
+        setTaxAccountantName(store.taxAccountantName || '');
       } else {
         // 작성 모드
         setName('');
@@ -165,6 +176,9 @@ export function StoreFormModal({
         
         setEarlyClockInThreshold(15);
         setEarlyClockOutThreshold(5);
+        
+        setTaxAccountantEmail('');
+        setTaxAccountantName('');
         
         // QR 초기화
         setQrDataUrl('');
@@ -301,6 +315,10 @@ export function StoreFormModal({
       if (phone.trim()) storeData.phone = phone.trim();
       if (ceo.trim()) storeData.ceo = ceo.trim();
       if (businessNumber.trim()) storeData.businessNumber = businessNumber.trim();
+      
+      // 세무사 정보 (Feature 11)
+      if (taxAccountantEmail.trim()) storeData.taxAccountantEmail = taxAccountantEmail.trim();
+      if (taxAccountantName.trim()) storeData.taxAccountantName = taxAccountantName.trim();
 
       // Custom calculation period - only add if type is 'custom'
       if (salaryCalculationType === 'custom') {
@@ -430,6 +448,33 @@ export function StoreFormModal({
                     value={businessNumber}
                     onChange={(e) => setBusinessNumber(e.target.value)}
                     placeholder="123-45-67890"
+                    disabled={saving}
+                  />
+                </div>
+                
+                {/* 세무사 정보 (Feature 11) */}
+                <div>
+                  <Label htmlFor="taxAccountantEmail">세무사 이메일</Label>
+                  <Input
+                    id="taxAccountantEmail"
+                    type="email"
+                    value={taxAccountantEmail}
+                    onChange={(e) => setTaxAccountantEmail(e.target.value)}
+                    placeholder="tax@example.com"
+                    disabled={saving}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    💰 급여 대장 전송에 사용됩니다
+                  </p>
+                </div>
+                
+                <div>
+                  <Label htmlFor="taxAccountantName">세무사 이름</Label>
+                  <Input
+                    id="taxAccountantName"
+                    value={taxAccountantName}
+                    onChange={(e) => setTaxAccountantName(e.target.value)}
+                    placeholder="홍길동 세무사"
                     disabled={saving}
                   />
                 </div>

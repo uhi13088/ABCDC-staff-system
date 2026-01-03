@@ -57,6 +57,8 @@ import { generateSchedulesForRange } from '@/services/scheduleService';
 import { getContracts } from '@/services/contractService';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import HealthCertService from '@/services/healthCertService';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SchedulesTabProps {
   companyId: string;
@@ -571,10 +573,27 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {scheduleData.employees.map((employee) => (
+                    {scheduleData.employees.map((employee) => {
+                      const healthBadge = HealthCertService.getHealthCertBadge(employee.healthCertExpiry);
+                      
+                      return (
                       <TableRow key={employee.uid}>
                         <TableCell className="font-semibold text-slate-900">
-                          {employee.name}
+                          <div className="flex items-center gap-2">
+                            <span>{employee.name}</span>
+                            {healthBadge && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <span className="text-lg">{healthBadge}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{HealthCertService.getHealthCertStatus(employee.healthCertExpiry)}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </TableCell>
                         {days.map(day => {
                           const daySchedules = employee.schedules[day];
@@ -646,7 +665,8 @@ export function SchedulesTab({ companyId }: SchedulesTabProps) {
                           );
                         })}
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

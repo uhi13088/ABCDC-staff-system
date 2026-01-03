@@ -25,6 +25,8 @@ import { RefreshCw, UserPlus, CheckCircle, XCircle, Trash2, FileText, AlertCircl
 import { useEmployeeLogic } from '@/hooks/admin/useEmployeeLogic';
 import { EmployeeDetailModal } from '@/components/admin/modals/employee-detail-modal';
 import { ContractDetailModal } from '@/components/admin/modals/contract-detail-modal';
+import HealthCertService from '@/services/healthCertService';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 /**
  * 직원 관리 탭 (Shadcn Blue Theme 완벽 적용)
@@ -281,9 +283,28 @@ export default function EmployeesTab({ companyId, onTabChange, onCountChange }: 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {employees.map((employee) => (
+                  {employees.map((employee) => {
+                    const healthBadge = HealthCertService.getHealthCertBadge(employee.healthCertExpiry);
+                    
+                    return (
                     <TableRow key={employee.id} className="hover:bg-slate-50">
-                      <TableCell className="font-medium">{employee.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{employee.name}</span>
+                          {healthBadge && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <span className="text-lg">{healthBadge}</span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{HealthCertService.getHealthCertStatus(employee.healthCertExpiry)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-slate-600">{employee.storeName || '-'}</TableCell>
                       <TableCell className="text-slate-600">{getRoleDisplayName(employee.role)}</TableCell>
                       <TableCell className="text-slate-600">{employee.position || '-'}</TableCell>
@@ -350,7 +371,8 @@ export default function EmployeesTab({ companyId, onTabChange, onCountChange }: 
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

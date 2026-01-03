@@ -13,14 +13,22 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileDown, RotateCcw } from 'lucide-react';
+import { FileDown, RotateCcw, Mail, Download, DollarSign } from 'lucide-react';
 import { useSalaryLogic } from '@/hooks/admin/useSalaryLogic';
 import { SalaryDetailModal } from '@/components/admin/modals/salary-detail-modal';
 import { generateSalaryPDF, loadJsPDFScript } from '@/lib/utils/pdf-generator';
+import TaxService from '@/services/taxService';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 export function SalaryTab() {
   const [pdfReady, setPdfReady] = useState(false);
+  const { user } = useAuth();
+  
+  // 세무사/급여 관리 버튼 로딩 상태
+  const [taxLoading, setTaxLoading] = useState(false);
+  const [payrollLoading, setPayrollLoading] = useState(false);
+  const [transferLoading, setTransferLoading] = useState(false);
 
   // jsPDF CDN 로드
   useEffect(() => {
@@ -61,6 +69,77 @@ export function SalaryTab() {
   //     loadSalaryList();
   //   }
   // }, [selectedMonth, selectedStore, employmentStatusFilter, loadSalaryList]);
+  
+  /**
+   * 세무사에게 급여 대장 전송
+   */
+  const handleSendToTaxAccountant = async () => {
+    if (!user?.companyId) {
+      alert('회사 정보를 찾을 수 없습니다.');
+      return;
+    }
+    
+    // TODO: Store에서 taxAccountantEmail 조회 필요
+    const taxAccountantEmail = prompt('세무사 이메일을 입력하세요:');
+    if (!taxAccountantEmail) return;
+    
+    setTaxLoading(true);
+    try {
+      await TaxService.sendPayrollToTaxAccountant(
+        user.companyId,
+        selectedMonth,
+        taxAccountantEmail
+      );
+      alert('✅ 세무사에게 급여 대장이 전송되었습니다!');
+    } catch (error) {
+      console.error('❌ 세무사 전송 실패:', error);
+      alert('세무사 전송에 실패했습니다.');
+    } finally {
+      setTaxLoading(false);
+    }
+  };
+  
+  /**
+   * 급여 대장 엑셀 다운로드
+   */
+  const handleDownloadPayroll = async () => {
+    if (!user?.companyId) {
+      alert('회사 정보를 찾을 수 없습니다.');
+      return;
+    }
+    
+    setPayrollLoading(true);
+    try {
+      await TaxService.downloadPayrollExcel(user.companyId, selectedMonth);
+      alert('✅ 급여 대장이 다운로드되었습니다!');
+    } catch (error) {
+      console.error('❌ 급여 대장 다운로드 실패:', error);
+      alert('급여 대장 다운로드에 실패했습니다.');
+    } finally {
+      setPayrollLoading(false);
+    }
+  };
+  
+  /**
+   * 은행 이체용 엑셀 다운로드
+   */
+  const handleDownloadBankTransfer = async () => {
+    if (!user?.companyId) {
+      alert('회사 정보를 찾을 수 없습니다.');
+      return;
+    }
+    
+    setTransferLoading(true);
+    try {
+      await TaxService.downloadBankTransferExcel(user.companyId, selectedMonth);
+      alert('✅ 은행 이체용 엑셀이 다운로드되었습니다!');
+    } catch (error) {
+      console.error('❌ 이체용 엑셀 다운로드 실패:', error);
+      alert('이체용 엑셀 다운로드에 실패했습니다.');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
   
   return (
     <Card className="bg-white border-slate-200">
@@ -133,6 +212,63 @@ export function SalaryTab() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+        
+        {/* 급여 관리 버튼 그룹 */}
+        <div className="mb-4 flex flex-wrap gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <Button
+            onClick={handleSendToTaxAccountant}
+            disabled={taxLoading || !selectedMonth || salaries.length === 0}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 flex items-center gap-2"
+          >
+            {taxLoading ? (
+              <>
+                <RotateCcw className="w-4 h-4 animate-spin" />
+                <span>전송 중...</span>
+              </>
+            ) : (
+              <>
+                <Mail className="w-4 h-4" />
+                <span>📤 세무사에게 전송</span>
+              </>
+            )}
+          </Button>
+          
+          <Button
+            onClick={handleDownloadPayroll}
+            disabled={payrollLoading || !selectedMonth || salaries.length === 0}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+          >
+            {payrollLoading ? (
+              <>
+                <RotateCcw className="w-4 h-4 animate-spin" />
+                <span>다운로드 중...</span>
+              </>
+            ) : (
+              <>
+                <FileDown className="w-4 h-4" />
+                <span>📥 급여 대장 다운로드</span>
+              </>
+            )}
+          </Button>
+          
+          <Button
+            onClick={handleDownloadBankTransfer}
+            disabled={transferLoading || !selectedMonth || salaries.length === 0}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 flex items-center gap-2"
+          >
+            {transferLoading ? (
+              <>
+                <RotateCcw className="w-4 h-4 animate-spin" />
+                <span>다운로드 중...</span>
+              </>
+            ) : (
+              <>
+                <DollarSign className="w-4 h-4" />
+                <span>💰 이체용 엑셀 다운로드</span>
+              </>
+            )}
+          </Button>
         </div>
         
         {/* 조회 버튼 추가 */}

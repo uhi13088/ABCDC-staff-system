@@ -1346,6 +1346,21 @@ export function ContractFormModal({
               </CardContent>
             </Card>
 
+            {/* 휴게시간 법정 안내 */}
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-yellow-900 mb-1">주의: 근로기준법상 휴게시간 필수 부여</p>
+                  <ul className="text-sm text-yellow-800 space-y-1">
+                    <li>• 4시간 근무 시 30분 이상의 휴게시간 부여 필요</li>
+                    <li>• 8시간 근무 시 1시간 이상의 휴게시간 부여 필요</li>
+                    <li>• 휴게시간은 근로자가 자유롭게 이용할 수 있는 시간입니다</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             {/* 액션 버튼 */}
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => setActiveTab('form')}>
