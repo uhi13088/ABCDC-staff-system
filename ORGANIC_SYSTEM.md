@@ -865,3 +865,84 @@ await TaxService.downloadBankTransferExcel(companyId, '2025-01');
 이제 시스템은 하나의 유기체처럼 스스로 작동합니다! 🌱
 
 **전체 자동화 체인: 1~12번 완성! 🎊🎊**
+
+---
+
+## 🎨 UI 통합 완료 사항
+
+### 1. Settings & Employee Form (설정 및 직원 폼)
+
+#### StoreFormModal (매장 설정 폼)
+- ✅ **세무사 정보 입력 필드**
+  - `taxAccountantEmail`: 세무사 이메일
+  - `taxAccountantName`: 세무사 이름
+
+#### EmployeeDetailModal (직원 상세 정보 수정)
+- ✅ **은행 계좌 정보**
+  - `bankName`: 은행명 (Select)
+  - `accountNumber`: 계좌번호 (숫자 전용 유효성)
+  - `accountHolder`: 예금주
+- ✅ **보건증 정보**
+  - `healthCertExpiry`: 보건증 만료일 (Date 입력)
+  - 만료 30일 전 알림 안내 문구 표시
+
+### 2. 급여 관리 페이지 (SalaryTab)
+
+- ✅ **3개 관리 버튼 추가** (상단 배치, 로딩 상태 포함)
+  1. **📤 세무사에게 전송**
+     - TaxService.sendPayrollToTaxAccountant() 호출
+     - 로딩 중: 스피너 + 버튼 비활성화
+     - 성공: "✅ 세무사에게 급여 대장이 전송되었습니다!"
+  2. **📥 급여 대장 다운로드**
+     - TaxService.downloadPayrollExcel() 호출
+     - 급여 대장 엑셀 파일 즉시 다운로드
+  3. **💰 이체용 엑셀 다운로드**
+     - TaxService.downloadBankTransferExcel() 호출
+     - 은행 이체용 CSV 파일 다운로드
+
+- ✅ **버튼 활성화 조건**
+  - `selectedMonth`가 선택되어야 함
+  - `salaries.length > 0` (급여 데이터 존재)
+  - 로딩 중일 때 비활성화
+
+### 3. 보건증 알림 배지 (Health Certificate Badge)
+
+#### EmployeesTab (직원 관리 탭)
+- ✅ **직원명 옆 배지 표시**
+  - 🟢 **정상** (만료 30일 이상 남음)
+  - 🟡 **주의** (만료 30일 이내)
+  - 🔴 **긴급** (만료됨 또는 만료 7일 이내)
+- ✅ **툴팁 표시**
+  - Hover 시 상태 텍스트 표시
+  - 예: "만료 10일 전", "만료됨", "정상"
+
+#### SchedulesTab (스케줄 관리 탭)
+- ✅ **스케줄표 직원명 옆 배지**
+  - 테이블 뷰에서 직원명과 함께 배지 표시
+  - 툴팁으로 상세 상태 확인 가능
+
+### 4. 계약서 작성 모달 (ContractFormModal)
+
+- ✅ **휴게시간 법정 안내 (노란색 경고박스)**
+  - 위치: 계약서 생성 버튼 바로 위
+  - 내용:
+    - ⚠️ **주의: 근로기준법상 휴게시간 필수 부여**
+    - 4시간 근무 시 30분 이상의 휴게시간 부여 필요
+    - 8시간 근무 시 1시간 이상의 휴게시간 부여 필요
+    - 휴게시간은 근로자가 자유롭게 이용할 수 있는 시간입니다
+
+### 5. 새로 추가된 UI 컴포넌트
+
+- ✅ **Tooltip 컴포넌트**
+  - `components/ui/tooltip.tsx` 생성
+  - `@radix-ui/react-tooltip` 설치
+  - TooltipProvider, Tooltip, TooltipTrigger, TooltipContent 제공
+
+---
+
+## 🚀 배포 상태
+
+- **GitHub Repository**: https://github.com/uhi13088/ABCDC-staff-system.git
+- **최신 커밋**: `8449a9de` (UI 통합 완료)
+- **자동 배포**: GitHub Actions via Firebase Hosting
+- **배포 확인**: https://github.com/uhi13088/ABCDC-staff-system/actions
