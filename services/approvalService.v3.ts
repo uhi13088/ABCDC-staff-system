@@ -33,6 +33,7 @@ import {
   serverTime,
   type SystemEvent,
 } from '@/lib/eventSystem';
+import NotificationService from './notificationService';
 
 // ========================================
 // 타입 정의
@@ -338,36 +339,17 @@ async function sendApprovalNotification(
 ): Promise<void> {
   console.log('  🔔 알림 발송 시작');
   
-  const { userId, companyId, type } = payload;
+  const { userId, companyId, type, approvalId } = payload;
   
-  // 타입별 메시지
-  const typeMessages: Record<ApprovalType, string> = {
-    leave: '휴가 신청',
-    overtime: '연장근무 신청',
-    schedule_change: '스케줄 변경 신청',
-    other: '요청',
-  };
-  
-  const statusMessages = {
-    approved: '승인되었습니다',
-    rejected: '거부되었습니다',
-  };
-  
-  const title = `${typeMessages[type]} ${statusMessages[status]}`;
-  const message = status === 'approved'
-    ? `${typeMessages[type]}이 승인되어 자동으로 처리되었습니다.`
-    : `${typeMessages[type]}이 거부되었습니다.`;
-  
-  // 알림 생성
-  await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), {
-    companyId,
+  // NotificationService 사용
+  await NotificationService.notifyApprovalResult(
     userId,
-    type: `approval_${status}`,
-    title,
-    message,
-    read: false,
-    createdAt: serverTime(),
-  });
+    companyId,
+    approvalId,
+    type === 'leave' ? 'leave' : 'overtime',
+    status === 'approved',
+    status === 'rejected' ? '관리자가 거부하였습니다.' : undefined
+  );
   
   console.log('  ✅ 알림 발송 완료');
 }

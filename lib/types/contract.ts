@@ -127,6 +127,10 @@ export interface Contract {
   // 급여 지급 항목 (백업: 라인 9582-9588)
   allowances?: ContractAllowances;
   
+  // 🆕 수습 기간 정보
+  probationMonths?: number;       // 수습 기간 (개월)
+  probationRate?: number;         // 수습 기간 급여 배율 (기본 0.9 = 90%)
+  
   // 4대보험 (백업: 라인 9590-9594)
   insurance?: ContractInsurance;
   

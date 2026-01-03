@@ -38,6 +38,8 @@ export interface Store {
   // 매장 운영시간 (백업 라인 998-1024)
   openTime?: string; // HH:mm
   closeTime?: string; // HH:mm
+  closingTime?: string; // HH:mm (alias for closeTime)
+  cleanupBufferMinutes?: number; // 마감 완충 시간 (기본값 30분)
   // 출퇴근 허용시간 (백업 라인 1026-1046)
   earlyClockInThreshold?: number; // 분
   earlyClockOutThreshold?: number; // 분

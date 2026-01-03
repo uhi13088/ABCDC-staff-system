@@ -26,7 +26,10 @@
        ├─ schedule:updated         → Notification
        ├─ schedule:deleted         → Open Shift 제안
        ├─ employee:resigned        → Schedule 정리 + Open Shift
-       └─ attendance:completed     → Salary 계산
+       ├─ attendance:completed     → Salary 계산
+       ├─ holiday:synced           → Schedule isHoliday 플래그 업데이트
+       ├─ attendance:overtime      → Notification (승인 대기)
+       └─ probation:ending         → Notification (관리자)
 ```
 
 ---
@@ -394,6 +397,196 @@ const handlePublish = async () => {
 
 ---
 
+### Chain 5: Holiday → Salary Multiplier (공휴일 자동화)
+
+**트리거:** 공휴일 동기화 (`holiday:synced`)
+
+**자동화 흐름:**
+```
+매년 1월 1일 자동 실행 또는 수동 호출
+         ↓
+HolidayService.syncHolidaysToSchedules()
+         ↓
+     ┌──────┴──────┐
+     ↓             ↓
+Schedule 조회    공휴일 플래그 업데이트
+     ↓             ↓
+해당 연도의      isHoliday: true 설정
+모든 스케줄      (공휴일 날짜만)
+     ↓             ↓
+     └──────┬──────┘
+            ↓
+   AttendanceService.calculateDailyWage()
+            ↓
+       공휴일 근무 시
+       holidayMultiplier: 1.5배 적용
+            ↓
+       급여에 자동 반영
+```
+
+**코드 예시:**
+```typescript
+// 1. 공휴일 동기화 (관리자 또는 자동 스케줄러)
+await HolidayService.syncHolidaysToSchedules(companyId, 2025);
+
+// 2. 퇴근 시 자동 계산
+// AttendanceService가 공휴일 여부 확인
+const isHoliday = isPublicHoliday(date); // 2025-01-01 → true
+const holidayMultiplier = isHoliday ? 1.5 : 1.0;
+
+// 3. 급여에 자동 반영
+const holidayPay = calculatePay(hourlyWage, workMinutes, 0.5); // 추가 0.5배
+
+// ✅ 관리자 개입 0
+```
+
+**자동 생성되는 데이터:**
+- `schedules` 컬렉션: isHoliday: true 플래그
+- `attendance` 컬렉션: isHoliday, holidayMultiplier, holidayPay 필드
+- 급여 계산: 공휴일 근무 시 1.5배 자동 적용
+
+---
+
+### Chain 6: Store Closing → Elastic Overtime (매장 마감 완충 시간)
+
+**트리거:** 퇴근 시 매장 마감 시간 체크
+
+**자동화 흐름:**
+```
+직원: 퇴근 버튼 클릭
+         ↓
+AttendanceService.clockOut()
+         ↓
+매장 마감 시간 확인
+         ↓
+     ┌──────┴──────┐
+     ↓             ↓
+  완충 시간 내   완충 시간 초과
+  (30분 이내)    (30분 초과)
+     ↓             ↓
+  정상 처리     pending_approval
+  급여 자동 계산   상태로 저장
+     ↓             ↓
+  status:        status:
+  'present'      'pending_approval'
+     ↓             ↓
+     └──────┬──────┘
+            ↓
+       관리자 알림
+     "초과 근무 승인 필요"
+```
+
+**코드 예시:**
+```typescript
+// 1. Store 설정
+const store = {
+  closingTime: '22:00',
+  cleanupBufferMinutes: 30, // 마감 완충 시간
+};
+
+// 2. 퇴근 시 자동 체크
+const isWithinBuffer = isWithinBuffer(clockOutTime, '22:00', 30);
+const overBufferMinutes = getOverBufferMinutes(clockOutTime, '22:00', 30);
+
+// 3. 분기 처리
+if (isWithinBuffer) {
+  // Case A: 정상 처리
+  status = 'present';
+  calculateWage(); // 급여 자동 계산
+} else {
+  // Case B: 승인 대기
+  status = 'pending_approval';
+  requiresApproval = true;
+  
+  // 관리자 알림 발송
+  await NotificationService.notifyOvertimePending(
+    adminUserId,
+    companyId,
+    attendanceId,
+    employeeName,
+    date,
+    overBufferMinutes
+  );
+}
+
+// ✅ 유연한 마감 시간 관리
+```
+
+**자동 생성되는 데이터:**
+- `attendance` 컬렉션: requiresApproval: true, status: 'pending_approval'
+- `notifications` 컬렉션: 관리자에게 초과 근무 승인 요청 알림
+- 급여: 승인 전까지 예산 수당으로 표기
+
+---
+
+### Chain 7: Probation → Salary Normalization (수습 기간 자동화)
+
+**트리거:** 퇴근 시 급여 계산
+
+**자동화 흐름:**
+```
+직원: 퇴근 버튼 클릭
+         ↓
+AttendanceService.calculateDailyWage()
+         ↓
+수습 기간 확인
+         ↓
+     ┌──────┴──────┐
+     ↓             ↓
+  수습 기간 중    수습 기간 종료
+  (3개월 이내)    (3개월 경과)
+     ↓             ↓
+  급여 90%      급여 100%
+  probationMultiplier  정상 급여
+  = 0.9         = 1.0
+     ↓             ↓
+     └──────┬──────┘
+            ↓
+   급여에 자동 반영
+            ↓
+   (수습 종료 시)
+   관리자 알림 발송
+   "○○○님 수습 기간 종료"
+```
+
+**코드 예시:**
+```typescript
+// 1. Contract 설정
+const contract = {
+  probationMonths: 3,      // 수습 기간 (개월)
+  probationRate: 0.9,      // 수습 기간 급여 배율 (90%)
+};
+
+// 2. 퇴근 시 자동 체크
+const isProbation = isProbationPeriod(employee.joinedAt, 3, date);
+const probationMultiplier = isProbation ? 0.9 : 1.0;
+
+// 3. 급여 계산에 반영
+const finalHourlyWage = hourlyWage * probationMultiplier;
+const basePay = calculatePay(finalHourlyWage, workMinutes);
+
+// 4. 수습 종료 예정 알림 (D-7)
+const probationEndDate = getProbationEndDate(employee.joinedAt, 3);
+if (daysUntil(probationEndDate) === 7) {
+  await NotificationService.notifyProbationEnding(
+    adminUserId,
+    companyId,
+    employeeId,
+    employeeName,
+    probationEndDate.toISOString().split('T')[0]
+  );
+}
+
+// ✅ 수습 기간 자동 관리
+```
+
+**자동 생성되는 데이터:**
+- `attendance` 컬렉션: isProbation: true/false, probationMultiplier: 0.9/1.0
+- 급여 계산: 수습 기간 중 90%, 종료 후 100% 자동 적용
+- `notifications` 컬렉션: 수습 종료 예정 알림 (관리자)
+
+---
+
 ## 📝 테스트 시나리오
 
 ### 시나리오 1: 계약 서명 → 스케줄 생성
@@ -422,6 +615,32 @@ const handlePublish = async () => {
 3. ✅ 각 스케줄이 open_shifts로 이관 확인
 4. ✅ 관리자에게 결원 알림 확인
 
+### 시나리오 5: 공휴일 동기화 → 급여 할증
+1. 관리자가 공휴일 동기화 실행 (또는 자동 실행)
+2. ✅ 2025년 공휴일 15개 감지 확인
+3. ✅ schedules의 isHoliday 플래그 업데이트 확인
+4. 직원 E가 공휴일(1월 1일)에 출퇴근
+5. ✅ holidayMultiplier: 1.5배 적용 확인
+6. ✅ 급여에 공휴일 수당 자동 반영 확인
+
+### 시나리오 6: 매장 마감 완충 시간 → 승인 대기
+1. 매장 마감 시간: 22:00, 완충 시간: 30분
+2. 직원 F가 22:20에 퇴근 (완충 시간 내)
+3. ✅ status: 'present', 급여 자동 계산 확인
+4. 직원 G가 22:50에 퇴근 (완충 시간 20분 초과)
+5. ✅ status: 'pending_approval' 확인
+6. ✅ 관리자에게 초과 근무 승인 알림 확인
+
+### 시나리오 7: 수습 기간 → 급여 자동 조정
+1. 직원 H 입사 (수습 기간 3개월, 급여 90%)
+2. 입사 후 2개월째 퇴근
+3. ✅ probationMultiplier: 0.9 적용 확인
+4. ✅ 급여 90% 계산 확인
+5. 입사 후 3개월 경과
+6. ✅ probationMultiplier: 1.0 적용 확인
+7. ✅ 급여 100% 계산 확인
+8. ✅ 관리자에게 수습 종료 알림 확인 (D-7)
+
 ---
 
 ## 🎉 요약
@@ -433,5 +652,16 @@ const handlePublish = async () => {
 3. **Atomic Operations**: 트랜잭션으로 데이터 무결성 보장
 4. **Auto Notification**: 모든 변경사항 자동 알림
 5. **Open Shift Automation**: 결원 발생 시 자동 대타 모집
+6. **Holiday Multiplier**: 공휴일 근무 시 급여 1.5배 자동 적용
+7. **Elastic Overtime**: 매장 마감 완충 시간으로 유연한 초과 근무 관리
+8. **Probation Auto**: 수습 기간 자동 관리 및 급여 정상화
+
+**새로 추가된 자동화 (5~7):**
+
+- **5. 공휴일 자동화**: 연도별 공휴일 자동 동기화 → Schedule isHoliday 플래그 → 급여 1.5배 할증
+- **6. 매장 마감 완충**: 마감 시간 + 완충 버퍼(30분) → 완충 내 정상 처리, 초과 시 승인 대기
+- **7. 수습 기간 자동**: 입사일 + 수습 개월 체크 → 기간 중 90% 급여, 경과 시 100% 정상화
 
 이제 시스템은 하나의 유기체처럼 스스로 작동합니다! 🌱
+
+**전체 자동화 체인: 1~7번 완성! 🎊**

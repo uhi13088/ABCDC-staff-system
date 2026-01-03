@@ -24,6 +24,7 @@ export interface Employee extends BaseUser {
   
   // 근무 정보
   hireDate?: DateTimeType;
+  joinedAt?: DateTimeType;       // 입사일 (표준 필드)
   resignDate?: DateTimeType;
   employmentStatus?: 'active' | 'resigned' | 'leave';
   

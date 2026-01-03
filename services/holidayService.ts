@@ -1,10 +1,12 @@
 /**
- * Holiday Service
- * Firebase Firestore 공휴일 관리 CRUD 로직
+ * ========================================
+ * HolidayService - 공휴일 자동화
+ * ========================================
  * 
- * @description
- * 2025년 이후 공휴일을 DB에서 관리하여 매년 하드코딩 없이 자동화합니다.
- * 현재는 2025년 공휴일만 초기 데이터로 제공하며, 관리자가 추가/수정/삭제할 수 있습니다.
+ * 역할:
+ * 1. 공휴일 데이터 fetch
+ * 2. Schedule 컬렉션에 isHoliday 플래그 자동 업데이트
+ * 3. 매년 1월 1일 자동 동기화
  */
 
 import {
@@ -12,217 +14,159 @@ import {
   query,
   where,
   getDocs,
-  doc,
-  addDoc,
   updateDoc,
-  deleteDoc,
-  serverTimestamp,
-  QueryConstraint,
+  doc,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/constants';
-import type { TimestampInput } from '@/lib/utils/timestamp';
+import { getHolidaysInYear, isPublicHoliday } from '@/lib/shared/businessLogic';
+import { EventBus, createEvent } from '@/lib/eventSystem';
+
+// ========================================
+// 공휴일 동기화 (Schedule 업데이트)
+// ========================================
 
 /**
- * 공공 API 응답 아이템 타입
+ * 특정 연도의 Schedule에 공휴일 플래그 업데이트
  */
-interface HolidayAPIItem {
-  locdate: number | string;  // YYYYMMDD 형식 숫자 또는 문자열
-  dateName: string;          // 공휴일 이름
-  isHoliday?: string;        // 휴일 여부 (Y/N)
-  seq?: number;              // 순번
-}
-
-export interface Holiday {
-  id?: string;
-  date: string;        // "YYYY-MM-DD" 형식
-  name: string;        // 공휴일 이름 (예: "설날", "추석")
-  year: number;        // 연도 (쿼리 최적화용)
-  companyId?: string;  // 회사별 공휴일 (선택사항, 없으면 전국 공통)
-  createdAt?: TimestampInput;
-  updatedAt?: TimestampInput;
-}
-
-/**
- * 공휴일 목록 조회
- * @param year - 연도 (예: 2025)
- * @param companyId - 회사 ID (선택사항)
- */
-export async function getHolidays(
-  year: number,
-  companyId?: string
-): Promise<Holiday[]> {
-  const constraints: QueryConstraint[] = [
-    where('year', '==', year),
-  ];
-
-  // 회사별 공휴일 필터
-  if (companyId) {
-    constraints.push(where('companyId', '==', companyId));
-  }
-
-  const q = query(collection(db, COLLECTIONS.HOLIDAYS), ...constraints);
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  } as Holiday));
-}
-
-/**
- * 공휴일 추가
- */
-export async function createHoliday(holiday: Omit<Holiday, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTIONS.HOLIDAYS), {
-    ...holiday,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return docRef.id;
-}
-
-/**
- * 공휴일 수정
- */
-export async function updateHoliday(
-  id: string,
-  updates: Partial<Holiday>
-): Promise<void> {
-  const docRef = doc(db, COLLECTIONS.HOLIDAYS, id);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-/**
- * 공휴일 삭제
- */
-export async function deleteHoliday(id: string): Promise<void> {
-  const docRef = doc(db, COLLECTIONS.HOLIDAYS, id);
-  await deleteDoc(docRef);
-}
-
-/**
- * 특정 날짜가 공휴일인지 확인
- * @param dateStr - "YYYY-MM-DD" 형식
- * @param holidays - 공휴일 목록
- */
-export function isHoliday(dateStr: string, holidays: Holiday[]): boolean {
-  return holidays.some(h => h.date === dateStr);
-}
-
-/**
- * 행정안전부 공공 API에서 공휴일 정보 가져오기
- * @param year - 연도 (예: 2025)
- * @param apiKey - 공공데이터포털 인증키 (환경변수: NEXT_PUBLIC_HOLIDAY_API_KEY)
- */
-export async function fetchHolidaysFromAPI(
-  year: number,
-  apiKey?: string
-): Promise<Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[]> {
-  // API 키가 없으면 빈 배열 반환
-  const key = apiKey || process.env.NEXT_PUBLIC_HOLIDAY_API_KEY;
-  if (!key) {
-    console.warn('⚠️ 공휴일 API 키가 설정되지 않았습니다. 환경변수 NEXT_PUBLIC_HOLIDAY_API_KEY를 설정하세요.');
-    return [];
-  }
-
+export async function syncHolidaysToSchedules(
+  companyId: string,
+  year: number
+): Promise<number> {
+  console.log('🎉 공휴일 동기화 시작:', { companyId, year });
+  
   try {
-    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&numOfRows=50&ServiceKey=${key}&_type=json`;
+    // 1. 해당 연도의 공휴일 목록 가져오기
+    const holidays = getHolidaysInYear(year);
+    console.log(`  📅 공휴일 ${holidays.length}개 발견:`, holidays);
     
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    // API 응답 구조 확인
-    const items = data?.response?.body?.items?.item;
-    if (!items) {
-      console.error('❌ 공휴일 API 응답 오류:', data);
-      return [];
+    if (holidays.length === 0) {
+      console.warn('  ⚠️ 공휴일 데이터 없음');
+      return 0;
     }
     
-    // 배열로 변환 (단일 항목인 경우 배열로 감싸기)
-    const itemsArray = Array.isArray(items) ? items : [items];
+    // 2. Schedule 컬렉션에서 해당 연도의 스케줄 조회
+    const startDate = `${year}-01-01`;
+    const endDate = `${year}-12-31`;
     
-    // Holiday 형식으로 변환
-    const holidays: Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[] = itemsArray.map((item: HolidayAPIItem) => {
-      const dateStr = String(item.locdate); // YYYYMMDD 형식
-      const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+    const scheduleQuery = query(
+      collection(db, COLLECTIONS.SCHEDULES),
+      where('companyId', '==', companyId),
+      where('date', '>=', startDate),
+      where('date', '<=', endDate)
+    );
+    
+    const scheduleDocs = await getDocs(scheduleQuery);
+    console.log(`  📋 조회된 스케줄: ${scheduleDocs.size}개`);
+    
+    if (scheduleDocs.empty) {
+      console.warn('  ⚠️ 스케줄 데이터 없음');
+      return 0;
+    }
+    
+    // 3. Batch 업데이트 준비
+    const batch = writeBatch(db);
+    let updateCount = 0;
+    
+    scheduleDocs.forEach((scheduleDoc) => {
+      const scheduleData = scheduleDoc.data();
+      const date = scheduleData.date;
       
-      return {
-        date: formattedDate,
-        name: item.dateName || '공휴일',
-        year: year,
-      };
+      // 공휴일 여부 확인
+      const shouldBeHoliday = isPublicHoliday(date);
+      const currentIsHoliday = scheduleData.isHoliday || false;
+      
+      // 변경 필요한 경우만 업데이트
+      if (shouldBeHoliday !== currentIsHoliday) {
+        const scheduleRef = doc(db, COLLECTIONS.SCHEDULES, scheduleDoc.id);
+        batch.update(scheduleRef, {
+          isHoliday: shouldBeHoliday,
+          updatedAt: new Date(),
+        });
+        updateCount++;
+        
+        console.log(`  ${shouldBeHoliday ? '🎉' : '📅'} ${date}: isHoliday = ${shouldBeHoliday}`);
+      }
     });
     
-    console.log(`✅ ${year}년 공휴일 ${holidays.length}개 불러옴 (공공 API)`);
-    return holidays;
-  } catch (error) {
-    console.error('❌ 공휴일 API 호출 실패:', error);
-    return [];
-  }
-}
-
-/**
- * 공공 API에서 공휴일을 불러와 Firestore에 저장
- * @param year - 연도
- * @param apiKey - API 인증키 (선택사항)
- */
-export async function syncHolidaysFromAPI(year: number, apiKey?: string): Promise<number> {
-  const holidays = await fetchHolidaysFromAPI(year, apiKey);
-  
-  if (holidays.length === 0) {
-    console.warn(`⚠️ ${year}년 공휴일을 불러올 수 없습니다.`);
-    return 0;
-  }
-  
-  let createdCount = 0;
-  
-  for (const holiday of holidays) {
-    try {
-      // 중복 체크 (날짜로 조회)
-      const q = query(
-        collection(db, COLLECTIONS.HOLIDAYS),
-        where('date', '==', holiday.date)
-      );
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        await createHoliday(holiday);
-        createdCount++;
-        console.log(`✅ 공휴일 추가: ${holiday.date} - ${holiday.name}`);
-      } else {
-        console.log(`⏭️ 이미 존재: ${holiday.date} - ${holiday.name}`);
-      }
-    } catch (error) {
-      console.error(`❌ 공휴일 추가 실패: ${holiday.date}`, error);
+    // 4. Batch 커밋
+    if (updateCount > 0) {
+      await batch.commit();
+      console.log(`✅ 공휴일 동기화 완료: ${updateCount}개 스케줄 업데이트`);
+    } else {
+      console.log('✅ 이미 최신 상태 (업데이트 불필요)');
     }
+    
+    // 5. 이벤트 발행
+    EventBus.publish(createEvent('holiday.synced', {
+      companyId,
+      year,
+      holidayCount: holidays.length,
+      updateCount,
+    }));
+    
+    return updateCount;
+    
+  } catch (error: any) {
+    console.error('❌ 공휴일 동기화 실패:', error);
+    throw new Error(error.message || '공휴일 동기화 중 오류가 발생했습니다.');
   }
-  
-  console.log(`✅ ${year}년 공휴일 동기화 완료: ${createdCount}개 추가`);
-  return createdCount;
 }
 
 /**
- * 2025년 공휴일 초기 데이터 (마이그레이션용)
+ * 모든 회사의 공휴일 동기화 (관리자용)
  */
-export const HOLIDAYS_2025: Omit<Holiday, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  { date: '2025-01-01', name: '신정', year: 2025 },
-  { date: '2025-01-28', name: '설날 연휴', year: 2025 },
-  { date: '2025-01-29', name: '설날', year: 2025 },
-  { date: '2025-01-30', name: '설날 연휴', year: 2025 },
-  { date: '2025-03-01', name: '삼일절', year: 2025 },
-  { date: '2025-03-05', name: '부처님오신날', year: 2025 },
-  { date: '2025-05-05', name: '어린이날', year: 2025 },
-  { date: '2025-05-06', name: '대체공휴일', year: 2025 },
-  { date: '2025-06-06', name: '현충일', year: 2025 },
-  { date: '2025-08-15', name: '광복절', year: 2025 },
-  { date: '2025-10-03', name: '개천절', year: 2025 },
-  { date: '2025-10-05', name: '추석 연휴', year: 2025 },
-  { date: '2025-10-06', name: '추석', year: 2025 },
-  { date: '2025-10-07', name: '추석 연휴', year: 2025 },
-  { date: '2025-10-09', name: '한글날', year: 2025 },
-  { date: '2025-12-25', name: '크리스마스', year: 2025 },
-];
+export async function syncHolidaysForAllCompanies(year: number): Promise<void> {
+  console.log('🌐 전체 회사 공휴일 동기화 시작:', year);
+  
+  try {
+    // 모든 회사 조회
+    const companiesQuery = query(collection(db, COLLECTIONS.COMPANIES));
+    const companiesDocs = await getDocs(companiesQuery);
+    
+    console.log(`  🏢 ${companiesDocs.size}개 회사 발견`);
+    
+    // 각 회사별로 동기화
+    for (const companyDoc of companiesDocs.docs) {
+      const companyId = companyDoc.id;
+      const companyName = companyDoc.data().name;
+      
+      console.log(`\n  🏢 ${companyName} (${companyId}) 동기화 중...`);
+      await syncHolidaysToSchedules(companyId, year);
+    }
+    
+    console.log('\n✅ 전체 회사 공휴일 동기화 완료');
+    
+  } catch (error: any) {
+    console.error('❌ 전체 동기화 실패:', error);
+    throw error;
+  }
+}
+
+/**
+ * 특정 날짜가 공휴일인지 확인하고 알림
+ */
+export function checkHolidayStatus(date: string): {
+  isHoliday: boolean;
+  message: string;
+} {
+  const isHoliday = isPublicHoliday(date);
+  
+  return {
+    isHoliday,
+    message: isHoliday 
+      ? `🎉 ${date}는 공휴일입니다. 근무 시 급여 1.5배가 적용됩니다.`
+      : `📅 ${date}는 평일입니다.`,
+  };
+}
+
+// ========================================
+// Export
+// ========================================
+
+export default {
+  syncHolidaysToSchedules,
+  syncHolidaysForAllCompanies,
+  checkHolidayStatus,
+};

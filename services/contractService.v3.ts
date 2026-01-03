@@ -36,6 +36,7 @@ import {
   type SystemEvent,
 } from '@/lib/eventSystem';
 import type { Contract } from '@/lib/types/contract';
+import NotificationService from './notificationService';
 
 // ========================================
 // 타입 정의
@@ -272,22 +273,19 @@ async function sendContractCompletionNotification(
 ): Promise<void> {
   console.log('  🔔 알림 발송 시작');
   
-  const { userId, companyId } = payload;
+  const { userId, companyId, contractId, contract } = payload;
   
   // Employee 정보 조회
   const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, userId));
   const userName = userDoc.exists() ? userDoc.data().name : '직원';
   
-  // 알림 생성
-  await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), {
-    companyId,
+  // NotificationService 사용
+  await NotificationService.notifyContractSigned(
     userId,
-    type: 'contract_completed',
-    title: '전자근로계약서 체결 완료',
-    message: `${userName}님의 근로계약서가 정상적으로 체결되었습니다. 급여 정보와 근무 스케줄이 자동으로 설정되었습니다.`,
-    read: false,
-    createdAt: serverTime(),
-  });
+    companyId,
+    contractId,
+    userName
+  );
   
   console.log('  ✅ 알림 발송 완료');
 }
