@@ -46,8 +46,9 @@ console.log('✅ Firestore 연결 성공\n');
 // 상수 정의
 // ===========================================
 
-const SUPER_ADMIN_EMAIL = 'uhi1308@naver.com';
-const SUPER_ADMIN_PASSWORD = 'Ghrnfldks12!!@';
+// 환경 변수에서 민감 정보 로드
+const SUPER_ADMIN_EMAIL = process.env.SEED_SUPER_ADMIN_EMAIL || 'admin@example.com';
+const SUPER_ADMIN_PASSWORD = process.env.SEED_SUPER_ADMIN_PASSWORD;
 const SUPER_ADMIN_NAME = '관리자';
 
 const COMPANY_NAME = 'ABC Dessert Center';
@@ -60,11 +61,26 @@ const STORE_ADDRESS = '경기도 부천시 원미구 중동로 123';
 
 const EMPLOYEE_NAME = '홍길동';
 const EMPLOYEE_EMAIL = 'test-employee@example.com';
-const EMPLOYEE_PASSWORD = 'Test1234!!';
+const EMPLOYEE_PASSWORD = process.env.SEED_EMPLOYEE_PASSWORD;
 const EMPLOYEE_BIRTH = '19900101';
 const EMPLOYEE_PHONE = '010-1234-5678';
 
 const HOURLY_WAGE = 10000;
+
+// 필수 환경 변수 검증
+if (!SUPER_ADMIN_PASSWORD) {
+  console.error('❌ 환경 변수 SEED_SUPER_ADMIN_PASSWORD가 설정되지 않았습니다.');
+  console.error('📝 .env.local 파일에 다음을 추가하세요:');
+  console.error('   SEED_SUPER_ADMIN_PASSWORD=your_strong_password\n');
+  process.exit(1);
+}
+
+if (!EMPLOYEE_PASSWORD) {
+  console.error('❌ 환경 변수 SEED_EMPLOYEE_PASSWORD가 설정되지 않았습니다.');
+  console.error('📝 .env.local 파일에 다음을 추가하세요:');
+  console.error('   SEED_EMPLOYEE_PASSWORD=your_strong_password\n');
+  process.exit(1);
+}
 
 // ===========================================
 // 날짜 유틸리티
