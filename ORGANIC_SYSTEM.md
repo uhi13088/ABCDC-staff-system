@@ -665,3 +665,203 @@ if (daysUntil(probationEndDate) === 7) {
 이제 시스템은 하나의 유기체처럼 스스로 작동합니다! 🌱
 
 **전체 자동화 체인: 1~7번 완성! 🎊**
+
+---
+
+## 🏥 심층 기능 (Deep Features 8~12)
+
+### Feature 8: 보건증 알림 (Health Cert Soft Warning)
+
+**핵심 철학:** 스케줄을 막지 않는다! (현장 마비 방지)
+
+**트리거:** 매일 자동 체크 또는 수동 호출
+
+**자동화 흐름:**
+```
+매일 00:00 자동 실행
+         ↓
+HealthCertService.updateAllHealthCertStatuses()
+         ↓
+     ┌──────┴──────┐
+     ↓             ↓
+만료 30일 전부터  만료된 경우
+알림 발송         관리자에게도 알림
+     ↓             ↓
+직원 UI에         관리자 UI에
+🟡 배지 표시      🔴 배지 표시
+     ↓             ↓
+     └──────┬──────┘
+            ↓
+   갱신 시까지 주기적 알림
+   (스케줄은 정상 작동)
+```
+
+**코드 예시:**
+```typescript
+// 1. 보건증 상태 자동 업데이트
+await HealthCertService.updateAllHealthCertStatuses(companyId);
+
+// 2. 만료 예정/만료된 직원에게 알림 발송
+await HealthCertService.sendHealthCertExpiryNotifications(companyId);
+
+// 3. UI에 배지 표시
+const badge = getHealthCertBadge(employee.healthCertStatus);
+// 🟢 정상 / 🟡 만료 임박 / 🔴 만료됨
+```
+
+**주요 특징:**
+- ✅ **Soft Warning Only**: 스케줄 차단 없음
+- ✅ **주기적 알림**: 만료 30일 전부터 갱신 시까지
+- ✅ **시각적 경고**: 직원 리스트 및 스케줄표에 배지 표시
+- ✅ **관리자 알림**: 만료된 경우 관리자에게도 통지
+
+---
+
+### Feature 11: 세무사 연동 (Tax Accountant Support)
+
+**트리거:** 관리자가 [세무사에게 전송] 버튼 클릭
+
+**자동화 흐름:**
+```
+관리자: [세무사에게 급여 대장 전송] 클릭
+         ↓
+TaxService.collectPayrollData()
+         ↓
+     ┌──────┴──────┐
+     ↓             ↓
+급여 데이터 수집  엑셀/CSV 생성
+     ↓             ↓
+직원별 급여 내역  직원명, 주민번호,
+기본급, 수당,     기본급, 수당,
+공제액, 실지급액  공제액, 실지급액
+     ↓             ↓
+     └──────┬──────┘
+            ↓
+    이메일 발송
+    (taxAccountantEmail)
+```
+
+**코드 예시:**
+```typescript
+// 1. 설정에서 세무사 이메일 등록
+await updateDoc(storeRef, {
+  taxAccountantEmail: 'tax@example.com',
+  taxAccountantName: '홍길동 세무사',
+});
+
+// 2. 급여 대장 전송
+await TaxService.sendPayrollToTaxAccountant(
+  companyId,
+  '2025-01',
+  'tax@example.com'
+);
+
+// 3. 급여 대장 엑셀 다운로드 (세무사용)
+await TaxService.downloadPayrollExcel(companyId, '2025-01');
+```
+
+**생성되는 데이터:**
+- **급여 대장 엑셀**: 직원명, 주민번호 앞자리, 기본급, 수당, 공제액, 실지급액
+- **이메일 발송**: 세무사 이메일로 자동 전송 (mailto 또는 API)
+
+---
+
+### Feature 12: 급여 이체 엑셀 (Bank Transfer Excel)
+
+**트리거:** 관리자가 [이체용 엑셀 다운로드] 버튼 클릭
+
+**자동화 흐름:**
+```
+관리자: [이체용 엑셀 다운로드] 클릭
+         ↓
+TaxService.collectPayrollData()
+         ↓
+     ┌──────┴──────┐
+     ↓             ↓
+은행 계좌 정보    실지급액 데이터
+조회              (netPay)
+     ↓             ↓
+bankName,         정확한 최종
+accountNumber,    실지급액
+accountHolder
+     ↓             ↓
+     └──────┬──────┘
+            ↓
+    CSV 생성 및 다운로드
+    (은행 업로드용)
+```
+
+**코드 예시:**
+```typescript
+// 1. 직원 계좌 정보 등록
+await updateDoc(userRef, {
+  bankName: '국민은행',
+  accountNumber: '123-456-789',
+  accountHolder: '홍길동',
+});
+
+// 2. 이체용 엑셀 다운로드
+await TaxService.downloadBankTransferExcel(companyId, '2025-01');
+
+// 생성된 CSV:
+// "은행명","계좌번호","예금주","실지급액"
+// "국민은행","123-456-789","홍길동","2500000"
+```
+
+**주요 특징:**
+- ✅ **정확한 실지급액**: SalaryService의 netPay 그대로 사용
+- ✅ **은행 업로드 가능**: 인터넷 뱅킹에 직접 업로드 가능한 형식
+- ✅ **UTF-8 BOM**: 엑셀 한글 깨짐 방지
+- ✅ **계좌 정보 검증**: 계좌 정보가 없는 직원은 제외
+
+---
+
+### Feature 9: 휴게시간 가이드 (Break Time Guide)
+
+**설명:** 근태 자동 차감 로직 삭제, UI 가이드만 제공
+
+**구현 방식:**
+- 계약서 작성 폼(`ContractFormModal`)에 경고 문구 추가
+- **"⚠️ 주의: 근로기준법상 4시간 근무 시 30분 이상의 휴게시간을 부여해야 합니다."**
+- 근태 기록에서 자동 차감 로직은 제거됨
+
+---
+
+### Feature 10: 위치 검증 삭제 (Geofencing Removed)
+
+**설명:** QR 코드 출근 방식 사용으로 GPS 위치 검증 불필요
+
+**구현 상태:**
+- GPS/Geofencing 로직 제거 완료
+- QR 코드 출근 방식만 사용
+- `location` 필드는 선택 사항으로 유지 (기록용)
+
+---
+
+## 🎉 최종 요약
+
+**The Organic System의 핵심:**
+
+1. **Event-Driven**: 모든 변경은 이벤트로 전파
+2. **Zero Manual Intervention**: 관리자 개입 0
+3. **Atomic Operations**: 트랜잭션으로 데이터 무결성 보장
+4. **Auto Notification**: 모든 변경사항 자동 알림
+5. **Open Shift Automation**: 결원 발생 시 자동 대타 모집
+6. **Holiday Multiplier**: 공휴일 근무 시 급여 1.5배 자동 적용
+7. **Elastic Overtime**: 매장 마감 완충 시간으로 유연한 초과 근무 관리
+8. **Probation Auto**: 수습 기간 자동 관리 및 급여 정상화
+9. **Health Cert Soft Warning**: 보건증 만료 알림 (스케줄 차단 없음)
+10. **Tax Accountant Support**: 세무사 연동 및 급여 대장 자동 전송
+11. **Bank Transfer Excel**: 은행 이체용 엑셀 자동 생성
+
+**새로 추가된 심층 기능 (8~12):**
+
+- **8. 보건증 알림**: 만료 30일 전부터 주기적 알림 → UI 배지 표시 → 스케줄 차단 없음
+- **9. 휴게시간 가이드**: 계약서 작성 시 법정 휴게시간 안내 (UI Only)
+- **10. 위치 검증 제거**: QR 출근 사용으로 GPS 로직 불필요
+- **11. 세무사 연동**: taxAccountantEmail 설정 → 급여 대장 엑셀 생성 → 이메일 발송
+- **12. 급여 이체 엑셀**: 은행 이체용 CSV 다운로드 (은행명, 계좌번호, 예금주, 실지급액)
+
+이제 시스템은 하나의 유기체처럼 스스로 작동합니다! 🌱
+
+**전체 자동화 체인: 1~12번 완성! 🎊🎊**
