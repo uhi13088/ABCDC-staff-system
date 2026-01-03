@@ -36,6 +36,15 @@ export interface Employee extends BaseUser {
   contractId?: string;
   contractType?: 'regular' | 'contract' | 'part_time';
   
+  // 🏥 보건증 정보
+  healthCertExpiryDate?: DateTimeType; // 보건증 만료일
+  healthCertStatus?: 'valid' | 'expiring_soon' | 'expired'; // 보건증 상태
+  
+  // 💰 은행 계좌 정보 (급여 이체용)
+  bankName?: string;          // 은행명
+  accountNumber?: string;     // 계좌번호
+  accountHolder?: string;     // 예금주 (보통 name과 동일)
+  
   // 기타
   profileImageUrl?: string;
   notes?: string;

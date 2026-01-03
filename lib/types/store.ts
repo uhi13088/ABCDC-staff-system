@@ -52,6 +52,9 @@ export interface Store {
     longitude: number;
     radius?: number;         // 허용 반경 (미터)
   };
+  // 세무사 연동 (Phase 11)
+  taxAccountantEmail?: string; // 세무사 이메일
+  taxAccountantName?: string;  // 세무사 이름
   createdAt?: Date | any;
   updatedAt?: Date | any;
 }
