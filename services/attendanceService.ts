@@ -107,15 +107,20 @@ async function calculateDailyWage(
   // 2. 시급 추출
   const salaryType = contract.salaryType || contract.wageType || '시급';
   let hourlyWage = 0;
-  
-  if (salaryType === '시급') {
-    hourlyWage = parseFloat(contract.salaryAmount || contract.wageAmount || 0);
+
+  // Parse and validate salary amount to prevent NaN propagation
+  const salaryAmount = parseFloat(contract.salaryAmount || contract.wageAmount || '0');
+  if (isNaN(salaryAmount)) {
+    console.warn('⚠️ Invalid salary amount, defaulting to 0');
+    hourlyWage = 0;
+  } else if (salaryType === '시급') {
+    hourlyWage = salaryAmount;
   } else if (salaryType === '월급') {
-    hourlyWage = monthlyToHourly(parseFloat(contract.salaryAmount || contract.wageAmount || 0));
+    hourlyWage = monthlyToHourly(salaryAmount);
   } else if (salaryType === '연봉') {
-    hourlyWage = annualToHourly(parseFloat(contract.salaryAmount || contract.wageAmount || 0));
+    hourlyWage = annualToHourly(salaryAmount);
   }
-  
+
   console.log(`  💵 시급: ${hourlyWage}원`);
   
   // 3. 🎉 공휴일 여부 확인
@@ -274,14 +279,23 @@ export async function clockIn(params: {
       
       // 지각 여부 판단
       if (scheduledStartTime) {
-        const now = new Date();
-        const currentTime = now.getHours() * 60 + now.getMinutes();
-        const [scheduledHours, scheduledMinutes] = scheduledStartTime.split(':').map(Number);
-        const scheduledTimeMinutes = scheduledHours * 60 + scheduledMinutes;
-        
-        if (currentTime > scheduledTimeMinutes + 10) {
-          isLate = true;
-          console.warn('⚠️ 지각 감지:', currentTime - scheduledTimeMinutes, '분 지각');
+        // Validate time format before splitting
+        if (!scheduledStartTime.match(/^\d{1,2}:\d{2}$/)) {
+          console.warn(`⚠️ Invalid scheduledStartTime format: "${scheduledStartTime}"`);
+        } else {
+          const now = new Date();
+          const currentTime = now.getHours() * 60 + now.getMinutes();
+          const [scheduledHours, scheduledMinutes] = scheduledStartTime.split(':').map(Number);
+
+          // Validate parsed values
+          if (!isNaN(scheduledHours) && !isNaN(scheduledMinutes)) {
+            const scheduledTimeMinutes = scheduledHours * 60 + scheduledMinutes;
+
+            if (currentTime > scheduledTimeMinutes + 10) {
+              isLate = true;
+              console.warn('⚠️ 지각 감지:', currentTime - scheduledTimeMinutes, '분 지각');
+            }
+          }
         }
       }
     }

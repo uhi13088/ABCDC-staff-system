@@ -71,9 +71,16 @@ export async function getMonthlySalary(
   
   try {
     // 1. 해당 월의 모든 출근 기록 조회
-    const [year, month] = yearMonth.split('-');
-    const startDate = `${year}-${month}-01`;
-    const endDate = `${year}-${month}-31`;
+    // Validate yearMonth format
+    if (!yearMonth || !yearMonth.match(/^\d{4}-\d{2}$/)) {
+      throw new Error('Invalid yearMonth format. Expected YYYY-MM');
+    }
+
+    const [year, month] = yearMonth.split('-').map(Number);
+    // Calculate last day of month correctly (not all months have 31 days)
+    const lastDay = new Date(year, month, 0).getDate();
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     
     const attendanceQuery = query(
       collection(db, COLLECTIONS.ATTENDANCE),
@@ -182,10 +189,17 @@ export function subscribeMonthlySalary(
   callback: (salary: MonthlySalarySummary) => void
 ): Unsubscribe {
   console.log('🔔 실시간 급여 구독:', { userId, yearMonth });
-  
-  const [year, month] = yearMonth.split('-');
-  const startDate = `${year}-${month}-01`;
-  const endDate = `${year}-${month}-31`;
+
+  // Validate yearMonth format
+  if (!yearMonth || !yearMonth.match(/^\d{4}-\d{2}$/)) {
+    throw new Error('Invalid yearMonth format. Expected YYYY-MM');
+  }
+
+  const [year, month] = yearMonth.split('-').map(Number);
+  // Calculate last day of month correctly
+  const lastDay = new Date(year, month, 0).getDate();
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   
   const attendanceQuery = query(
     collection(db, COLLECTIONS.ATTENDANCE),

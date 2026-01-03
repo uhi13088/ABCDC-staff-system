@@ -72,8 +72,21 @@ export function getDayNumber(dateStr: string): number {
  * 시간 문자열을 분으로 변환 ("09:30" → 570)
  */
 export function timeToMinutes(timeStr: string): number {
+  // Validate time format to prevent errors
+  if (!timeStr || !timeStr.match(/^\d{1,2}:\d{2}$/)) {
+    console.warn(`⚠️ Invalid time format: "${timeStr}", defaulting to 0`);
+    return 0;
+  }
+
   const [hours, minutes] = timeStr.split(':').map(Number);
-  return (hours || 0) * 60 + (minutes || 0);
+
+  // Validate parsed values
+  if (isNaN(hours) || isNaN(minutes)) {
+    console.warn(`⚠️ Invalid time values: "${timeStr}", defaulting to 0`);
+    return 0;
+  }
+
+  return hours * 60 + minutes;
 }
 
 /**

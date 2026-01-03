@@ -484,7 +484,7 @@ export async function updateSchedulesFromContract(
                 isPaid: contract.breakTime.isPaid,
                 description: contract.breakTime.description,
               }
-            : undefined,
+            : null, // Firestore does not support undefined
           workHours: calculateWorkHours(
             daySchedule.startTime,
             daySchedule.endTime,

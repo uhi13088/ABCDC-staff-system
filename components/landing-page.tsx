@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { SubscriptionPlan } from '@/lib/types';
-import { PERMISSION_LABELS, getPermissionLabel } from '@/lib/constants';
+import { PERMISSION_LABELS, getPermissionLabel, COLLECTIONS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
