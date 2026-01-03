@@ -547,12 +547,13 @@ export function useSalaryLogic() {
     }
   };
   
-  // 자동 로딩 (월/매장/근무상태 필터 변경 시)
-  useEffect(() => {
-    if (user?.uid && selectedMonth) {
-      loadSalaryList();
-    }
-  }, [selectedMonth, selectedStore, employmentStatusFilter, user]);
+  // ❌ 무한 루프 방지: 자동 로딩 제거
+  // 사용자가 명시적으로 조회 버튼을 눌러야만 데이터를 로드하도록 변경
+  // useEffect(() => {
+  //   if (user?.uid && selectedMonth) {
+  //     loadSalaryList();
+  //   }
+  // }, [selectedMonth, selectedStore, employmentStatusFilter, user]);
   
   return {
     salaries,

@@ -71,8 +71,8 @@ service cloud.firestore {
       allow get: if isAuthenticated() 
         && (isOwner(userId) || (resource != null && isManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정] 같은 회사 직원만 리스트 조회 가능
-      allow list: if isAuthenticated() && isSameCompany(resource.data.companyId);
+      // [수정] list 규칙: 쿼리에 companyId 필터 필수
+      allow list: if isAuthenticated() && isManager();
       
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
@@ -88,9 +88,8 @@ service cloud.firestore {
       allow get: if isAuthenticated()
         && ((resource != null && isOwner(resource.data.userId)) || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
-      allow list: if isAuthenticated() 
-        && ((isStoreManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
+      // [수정] list 규칙: 쿼리에 companyId 필터 필수
+      allow list: if isAuthenticated() && isStoreManager();
       
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       
@@ -106,9 +105,8 @@ service cloud.firestore {
       allow get: if isAuthenticated()
         && ((resource != null && isOwner(resource.data.userId)) || (resource != null && isStoreManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
-      allow list: if isAuthenticated() 
-        && ((isStoreManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
+      // [수정] list 규칙: 쿼리에 companyId 필터 필수
+      allow list: if isAuthenticated();
       
       allow create: if isAuthenticated()
         && (isOwner(request.resource.data.userId) || (isStoreManager() && isSameCompany(request.resource.data.companyId)));
@@ -140,9 +138,8 @@ service cloud.firestore {
       allow get: if isAuthenticated() && resource != null
         && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
-      allow list: if isAuthenticated() 
-        && ((isManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
+      // [수정] list 규칙: 쿼리에 companyId 필터 필수
+      allow list: if isAuthenticated() && isManager();
       
       allow create: if isManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
@@ -156,9 +153,8 @@ service cloud.firestore {
       allow get: if isAuthenticated() && resource != null
         && (isOwner(resource.data.userId) || (isManager() && isSameCompany(resource.data.companyId)));
       
-      // [수정] 매니저는 같은 회사 것만, 직원은 본인 것만
-      allow list: if isAuthenticated() 
-        && ((isManager() && isSameCompany(resource.data.companyId)) || (resource.data.userId == request.auth.uid));
+      // [수정] list 규칙: 쿼리에 companyId 필터 필수
+      allow list: if isAuthenticated();
       
       allow create: if isAuthenticated() && isOwner(request.resource.data.userId) && isSameCompany(request.resource.data.companyId);
       allow update: if isManager() && resource != null && isSameCompany(resource.data.companyId);
@@ -218,8 +214,8 @@ service cloud.firestore {
     // ====================================
     match /simulators/{simulatorId} {
       allow get: if isAuthenticated() && resource != null && isSameCompany(resource.data.companyId);
-      // [수정] 스토어 매니저는 같은 회사 것만 리스트 조회
-      allow list: if isAuthenticated() && isStoreManager() && isSameCompany(resource.data.companyId);
+      // [수정] list 규칙: 쿼리에 companyId 필터 필수
+      allow list: if isAuthenticated() && isStoreManager();
       
       allow create: if isStoreManager() && isSameCompany(request.resource.data.companyId);
       allow update: if isStoreManager() && resource != null && isSameCompany(resource.data.companyId);
