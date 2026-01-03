@@ -318,12 +318,70 @@ export async function clockIn(
   return createAttendance(attendanceData);
 }
 
+/**
+ * 퇴근 처리 (근무시간 계산 포함)
+ * 
+ * 수정 내용:
+ * 1. clockOut 시간 저장
+ * 2. workDuration(근무시간) 자동 계산 및 저장
+ * 3. 저장 성공 확인 및 에러 처리
+ */
 export async function clockOut(
   attendanceId: string
 ): Promise<void> {
-  await updateAttendance(attendanceId, {
-    clockOut: serverTimestamp() as any,
-  });
+  console.log('🕑 clockOut 시작:', attendanceId);
+  
+  try {
+    // 1. 기존 출근 기록 조회
+    const docRef = doc(db, COLLECTIONS.ATTENDANCE, attendanceId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      throw new Error('출근 기록을 찾을 수 없습니다.');
+    }
+    
+    const attendanceData = docSnap.data() as AttendanceRecord;
+    
+    // 2. clockIn 시간 확인
+    if (!attendanceData.clockIn) {
+      throw new Error('출근 기록이 없습니다.');
+    }
+    
+    // 3. 퇴근 시간 = 현재 시간
+    const now = Timestamp.now();
+    
+    // 4. 근무 시간 계산 (분 단위)
+    const clockInTime = attendanceData.clockIn instanceof Timestamp 
+      ? attendanceData.clockIn.toDate().getTime()
+      : new Date(attendanceData.clockIn as any).getTime();
+    
+    const clockOutTime = now.toDate().getTime();
+    const workMinutes = Math.floor((clockOutTime - clockInTime) / 1000 / 60);
+    
+    console.log('📈 근무시간 계산:', {
+      clockIn: new Date(clockInTime).toISOString(),
+      clockOut: new Date(clockOutTime).toISOString(),
+      workMinutes,
+      workHours: (workMinutes / 60).toFixed(2)
+    });
+    
+    // 5. Firestore에 저장 (근무시간 포함)
+    await updateDoc(docRef, {
+      clockOut: now,
+      workMinutes: workMinutes,
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log('✅ 퇴근 처리 성공:', {
+      attendanceId,
+      workMinutes,
+      workHours: (workMinutes / 60).toFixed(2)
+    });
+    
+  } catch (error: any) {
+    console.error('❌ 퇴근 처리 실패:', error);
+    throw new Error(error.message || '퇴근 처리 중 오류가 발생했습니다.');
+  }
 }
 
 export async function deleteAttendance(attendanceId: string): Promise<void> {

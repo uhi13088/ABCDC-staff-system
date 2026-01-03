@@ -219,6 +219,81 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
   }, [loadAttendanceList]);
 
   /**
+   * 강제 퇴근 처리 (좀비 데이터 수동 처리)
+   * 
+   * 사용 케이스:
+   * - clockOut이 누락된 '근무중' 상태 데이터 강제 종료
+   * - 관리자가 퇴근 시간을 수동으로 입력하여 처리
+   */
+  const forceClockOut = useCallback(async (
+    attendanceId: string, 
+    clockOutTime: string // "HH:mm" 형식
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      console.log(`🚨 강제 퇴근 처리 시작: ${attendanceId}, ${clockOutTime}`);
+      
+      // 1. 기존 출근 기록 조회
+      const docRef = doc(db, COLLECTIONS.ATTENDANCE, attendanceId);
+      const docSnap = await getDocs(query(collection(db, COLLECTIONS.ATTENDANCE), where('__name__', '==', attendanceId), limit(1)));
+      
+      if (docSnap.empty) {
+        return { success: false, message: '❌ 출근 기록을 찾을 수 없습니다.' };
+      }
+      
+      const attendanceData = docSnap.docs[0].data() as AttendanceRecord;
+      
+      // 2. clockIn 시간 확인
+      if (!attendanceData.clockIn) {
+        return { success: false, message: '❌ 출근 기록이 없습니다.' };
+      }
+      
+      // 3. clockOutTime(HH:mm)을 오늘 날짜의 Timestamp로 변환
+      const [hours, minutes] = clockOutTime.split(':').map(Number);
+      const today = new Date();
+      today.setHours(hours, minutes, 0, 0);
+      const clockOutTimestamp = Timestamp.fromDate(today);
+      
+      // 4. 근무 시간 계산 (분 단위)
+      const clockInTime = attendanceData.clockIn instanceof Timestamp 
+        ? attendanceData.clockIn.toDate().getTime()
+        : new Date(attendanceData.clockIn as any).getTime();
+      
+      const clockOutTimeMs = clockOutTimestamp.toDate().getTime();
+      const workMinutes = Math.floor((clockOutTimeMs - clockInTime) / 1000 / 60);
+      
+      if (workMinutes < 0) {
+        return { success: false, message: '❌ 퇴근 시간이 출근 시간보다 이전입니다.' };
+      }
+      
+      console.log(`📊 근무시간 계산: ${workMinutes}분 (${(workMinutes / 60).toFixed(2)}시간)`);
+      
+      // 5. Firestore 업데이트
+      await updateDoc(docRef, {
+        clockOut: clockOutTimestamp,
+        workMinutes: workMinutes,
+        updatedAt: Timestamp.now(),
+      });
+      
+      console.log(`✅ 강제 퇴근 처리 완료: ${attendanceId}`);
+      
+      // 6. 목록 새로고침
+      await loadAttendanceList();
+      
+      return { 
+        success: true, 
+        message: `✅ 퇴근 처리 완료\n근무시간: ${(workMinutes / 60).toFixed(1)}시간` 
+      };
+      
+    } catch (err: any) {
+      console.error('❌ 강제 퇴근 처리 실패:', err);
+      return { 
+        success: false, 
+        message: err.message || '❌ 퇴근 처리 중 오류가 발생했습니다.' 
+      };
+    }
+  }, [loadAttendanceList]);
+
+  /**
    * 필터 업데이트
    */
   const updateFilters = useCallback((newFilters: Partial<AttendanceFilterOptions>) => {
@@ -245,6 +320,7 @@ export function useAttendanceLogic({ companyId }: UseAttendanceLogicProps) {
     // Actions
     loadAttendanceList,
     updateAttendance,
+    forceClockOut,  // 🆕 강제 퇴근 처리
     updateFilters,
     calculateAttendanceStatus,
   };

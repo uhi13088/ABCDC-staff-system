@@ -214,24 +214,43 @@ export default function DashboardTab({ employeeData }: DashboardTabProps) {
     }
   }
 
-  // 퇴근 처리
+  // 퇴근 처리 (강화된 에러 처리)
   const handleClockOut = async () => {
     if (!stats.currentAttendanceId) {
-      alert('출근 기록을 찾을 수 없습니다.')
+      alert('❌ 출근 기록을 찾을 수 없습니다.')
       return
     }
 
     if (!confirm('퇴근 처리하시겠습니까?')) return
 
     setIsClocking(true)
+    
     try {
-      await clockOut(stats.currentAttendanceId) // ✅ attendanceId만 전달
+      // 🔥 퇴근 처리 (근무시간 자동 계산 포함)
+      await clockOut(stats.currentAttendanceId)
 
-      alert('퇴근 처리되었습니다.')
+      // ✅ 저장 성공 후에만 UI 업데이트
       await loadDashboardStats() // 통계 새로고침
-    } catch (error) {
-      console.error('퇴근 처리 실패:', error)
-      alert(error.message || '퇴근 처리 중 오류가 발생했습니다.')
+      
+      alert('✅ 퇴근 처리되었습니다.\n수고하셨습니다!')
+      
+    } catch (error: any) {
+      console.error('❌ 퇴근 처리 실패:', error)
+      
+      // 🚨 상세 에러 메시지
+      const errorMessage = error?.message || '퇴근 처리 중 오류가 발생했습니다.'
+      
+      if (errorMessage.includes('permission') || errorMessage.includes('권한')) {
+        alert('❌ 권한 오류:\n퇴근 처리 권한이 없습니다.\n관리자에게 문의해주세요.')
+      } else if (errorMessage.includes('찾을 수 없')) {
+        alert('❌ 출근 기록을 찾을 수 없습니다.\n새로고침 후 다시 시도해주세요.')
+      } else {
+        alert(`❌ 퇴근 처리 실패:\n${errorMessage}\n\n관리자에게 문의해주세요.`)
+      }
+      
+      // 🔄 에러 발생 시 상태 재확인
+      await loadDashboardStats()
+      
     } finally {
       setIsClocking(false)
     }
