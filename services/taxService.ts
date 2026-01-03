@@ -199,15 +199,21 @@ export function generateBankTransferCSV(summary: PayrollSummary): string {
  * CSV 파일 다운로드
  */
 export function downloadCSV(content: string, filename: string): void {
+  // Check if running in browser environment
+  if (typeof document === 'undefined') {
+    console.error('downloadCSV can only be called in browser environment');
+    return;
+  }
+
   // UTF-8 BOM 추가 (엑셀 한글 깨짐 방지)
   const BOM = '\uFEFF';
   const blob = new Blob([BOM + content], { type: 'text/csv;charset=utf-8;' });
-  
+
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = filename;
   link.click();
-  
+
   // 메모리 정리
   URL.revokeObjectURL(link.href);
 }
@@ -290,11 +296,14 @@ export async function sendPayrollToTaxAccountant(
   
   // mailto 링크
   const mailtoLink = `mailto:${taxAccountantEmail}?subject=${subject}&body=${body}`;
-  
+
   // 브라우저 기본 메일 앱 열기
-  window.location.href = mailtoLink;
-  
-  console.log('✅ 메일 앱 열기 완료');
+  if (typeof window !== 'undefined') {
+    window.location.href = mailtoLink;
+    console.log('✅ 메일 앱 열기 완료');
+  } else {
+    console.error('sendPayrollToTaxAccountant can only be called in browser environment');
+  }
   
   // TODO: 실제 프로덕션에서는 백엔드 API 또는 Cloud Function 사용
   // 예: await fetch('/api/send-email', { method: 'POST', body: JSON.stringify({ ... }) });

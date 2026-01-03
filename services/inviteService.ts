@@ -225,6 +225,9 @@ export const createCompanyInvite = async (
     // 6자리 랜덤 코드 생성
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+    // Check if running in browser environment to avoid SSR errors
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://abcdc-staff-system.web.app';
+
     const inviteData = {
       code,
       companyId: options.companyId,
@@ -237,7 +240,7 @@ export const createCompanyInvite = async (
       usedCount: 0,
       usedBy: [],
       expiresAt: options.expiresAt ? Timestamp.fromDate(options.expiresAt) : null,
-      inviteUrl: `${window.location.origin}/employee-register?code=${code}`,
+      inviteUrl: `${origin}/employee-register?code=${code}`,
       createdAt: Timestamp.now(),
       createdBy: options.companyId, // TODO: 실제 생성자 UID
     };
