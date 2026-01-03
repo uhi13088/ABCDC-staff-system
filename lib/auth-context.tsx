@@ -64,7 +64,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+      // ID Token 가져오기
+      const idToken = await userCredential.user.getIdToken();
+
+      // Session Cookie 생성 API 호출
+      const response = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create session');
+      }
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '로그인에 실패했습니다.';
       console.error('Sign in error:', error);
@@ -74,6 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Session Cookie 삭제 API 호출
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      // Firebase Client SDK 로그아웃
       await firebaseSignOut(auth);
       setUser(null);
       setFirebaseUser(null);
