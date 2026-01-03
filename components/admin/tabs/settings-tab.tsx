@@ -1,8 +1,3 @@
-/**
- * Settings Tab
- * 시스템 설정 탭
- */
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -29,7 +24,7 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
   const [success, setSuccess] = useState('');
   const [autoApproveEdit, setAutoApproveEdit] = useState(false);
   
-  // [추가] 세무사 정보 State
+  // 세무사 정보
   const [taxEmail, setTaxEmail] = useState('');
   const [taxName, setTaxName] = useState('');
 
@@ -38,7 +33,7 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
     if (companyId) {
       loadPositions();
       loadAttendanceSettings();
-      loadTaxSettings(); // [추가]
+      loadTaxSettings();
     }
   }, [companyId]);
 
@@ -50,14 +45,12 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
       if (settingsSnap.exists()) {
         setPositions(settingsSnap.data().positions || []);
       } else {
-        // 기본값 설정
         const defaultPositions = ['바리스타', '베이커'];
         setPositions(defaultPositions);
         await setDoc(settingsRef, { positions: defaultPositions });
       }
     } catch (err) {
       console.error('❌ 직무 로드 실패:', err);
-      setError('직무 목록을 불러오는데 실패했습니다.');
     }
   };
 
@@ -93,12 +86,7 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
   };
 
   const removePosition = async (position: string) => {
-    setError('');
-    setSuccess('');
-
-    if (!confirm(`"${position}" 직무를 삭제하시겠습니까?\n\n⚠️ 주의: 이미 등록된 직원의 직무는 변경되지 않습니다.`)) {
-      return;
-    }
+    if (!confirm(`"${position}" 직무를 삭제하시겠습니까?`)) return;
 
     setLoading(true);
     try {
@@ -121,12 +109,25 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
     try {
       const settingsRef = doc(db, 'companies', companyId, 'settings', 'attendance');
       const settingsSnap = await getDoc(settingsRef);
-
       if (settingsSnap.exists()) {
         setAutoApproveEdit(settingsSnap.data().autoApproveEdit || false);
       }
     } catch (err) {
       console.error('❌ 출퇴근 설정 로드 실패:', err);
+    }
+  };
+
+  // 세무사 설정 로드
+  const loadTaxSettings = async () => {
+    try {
+      const settingsRef = doc(db, 'companies', companyId, 'settings', 'tax');
+      const settingsSnap = await getDoc(settingsRef);
+      if (settingsSnap.exists()) {
+        setTaxEmail(settingsSnap.data().email || '');
+        setTaxName(settingsSnap.data().name || '');
+      }
+    } catch (err) {
+      console.error('❌ 세무사 설정 로드 실패:', err);
     }
   };
 
@@ -152,44 +153,22 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
       setLoading(false);
     }
   };
-  
-  // [추가] 세무사 정보 로드
-  const loadTaxSettings = async () => {
-    try {
-      const settingsRef = doc(db, 'companies', companyId, 'settings', 'tax');
-      const settingsSnap = await getDoc(settingsRef);
-      
-      if (settingsSnap.exists()) {
-        setTaxEmail(settingsSnap.data().email || '');
-        setTaxName(settingsSnap.data().name || '');
-      }
-    } catch (err) {
-      console.error('❌ 세무사 설정 로드 실패:', err);
-    }
-  };
-  
-  // [추가] 세무사 정보 저장
+
+  // 세무사 정보 저장
   const saveTaxSettings = async () => {
     setError('');
     setSuccess('');
     setLoading(true);
     
     try {
-      const settingsRef = doc(db, 'companies', companyId, 'settings', 'tax');
-      await setDoc(settingsRef, {
+      await setDoc(doc(db, 'companies', companyId, 'settings', 'tax'), {
         email: taxEmail,
         name: taxName
       }, { merge: true });
-      
       setSuccess('✅ 세무사 정보가 저장되었습니다.');
     } catch (err) {
-      console.error('❌ 세무사 설정 저장 실패:', err);
-      setError('세무사 정보 저장에 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-      setError('설정 저장에 실패했습니다.');
+      console.error('❌ 세무사 정보 저장 실패:', err);
+      setError('저장 실패');
     } finally {
       setLoading(false);
     }
@@ -207,24 +186,12 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
           <CardDescription>직원 가입 및 관리 시 사용할 직무를 추가/삭제할 수 있습니다</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* 에러/성공 메시지 */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {success && (
-            <Alert className="border-green-500 bg-green-50">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
+          {success && <Alert className="border-green-500 bg-green-50"><CheckCircle2 className="h-4 w-4 text-green-600" /><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
 
-          {/* 직무 추가 */}
           <div className="flex gap-2">
             <Input
-              placeholder="예: 바리스타, 베이커, 홀 매니저"
+              placeholder="예: 바리스타, 베이커"
               value={newPosition}
               onChange={(e) => setNewPosition(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addPosition()}
@@ -236,46 +203,25 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
             </Button>
           </div>
 
-          {/* 직무 목록 */}
           <div>
             <h3 className="text-sm font-semibold mb-2 text-slate-700">등록된 직무 ({positions.length}개)</h3>
             <div className="flex flex-wrap gap-2">
               {positions.length === 0 ? (
-                <p className="text-sm text-slate-500">등록된 직무가 없습니다. 위에서 직무를 추가해주세요.</p>
+                <p className="text-sm text-slate-500">등록된 직무가 없습니다.</p>
               ) : (
                 positions.map((position) => (
-                  <Badge
-                    key={position}
-                    variant="outline"
-                    className="px-3 py-1.5 bg-blue-50 border-blue-200 text-blue-700 flex items-center gap-2"
-                  >
+                  <Badge key={position} variant="outline" className="px-3 py-1.5 bg-blue-50 border-blue-200 text-blue-700 flex items-center gap-2">
                     <span>{position}</span>
-                    <button
-                      onClick={() => removePosition(position)}
-                      disabled={loading}
-                      className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    <button onClick={() => removePosition(position)} disabled={loading} className="hover:bg-blue-200 rounded-full p-0.5"><X className="w-3 h-3" /></button>
                   </Badge>
                 ))
               )}
             </div>
           </div>
-
-          {/* 안내 메시지 */}
-          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-            <p className="text-sm text-slate-600">
-              💡 직원 가입 시 여기에 등록된 직무 목록이 표시됩니다.
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              ⚠️ 직무를 삭제해도 이미 등록된 직원의 직무는 변경되지 않습니다.
-            </p>
-          </div>
         </CardContent>
       </Card>
 
-      {/* [추가] 세무 대행 설정 카드 */}
+      {/* 세무 대행 설정 (신규 추가) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xl flex items-center gap-2">
@@ -285,36 +231,19 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
           <CardDescription>급여 대장을 전송할 세무사 정보를 입력하세요.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* 에러/성공 메시지 */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {success && (
-            <Alert className="border-green-500 bg-green-50">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="tax-name">세무사 이름 (담당자)</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>세무사 이름 (담당자)</Label>
               <Input 
-                id="tax-name"
                 placeholder="홍길동 세무사" 
                 value={taxName}
                 onChange={(e) => setTaxName(e.target.value)}
                 disabled={loading}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="tax-email">이메일 주소</Label>
+            <div>
+              <Label>이메일 주소</Label>
               <Input 
-                id="tax-email"
-                type="email"
                 placeholder="tax@example.com" 
                 value={taxEmail}
                 onChange={(e) => setTaxEmail(e.target.value)}
@@ -322,27 +251,10 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
               />
             </div>
           </div>
-          
           <div className="flex justify-end">
-            <Button 
-              onClick={saveTaxSettings} 
-              disabled={loading}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {loading ? '저장 중...' : '저장하기'}
+            <Button onClick={saveTaxSettings} disabled={loading}>
+              저장하기
             </Button>
-          </div>
-          
-          {/* 안내 메시지 */}
-          <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-            <p className="text-sm text-purple-900 mb-2">
-              💡 <strong>세무사 연동 기능</strong>
-            </p>
-            <ul className="text-xs text-purple-800 space-y-1">
-              <li>• 급여 관리 탭에서 [세무사에게 전송] 버튼을 클릭하면 이메일로 급여 대장이 전송됩니다.</li>
-              <li>• 급여 대장에는 직원명, 주민번호 앞 6자리, 기본급, 수당, 공제액, 실지급액이 포함됩니다.</li>
-              <li>• 이메일 주소는 세무사의 실제 이메일을 입력하세요.</li>
-            </ul>
           </div>
         </CardContent>
       </Card>
@@ -357,75 +269,12 @@ export default function SettingsTab({ companyId }: SettingsTabProps) {
           <CardDescription>직원이 출퇴근 기록을 수정할 때 적용되는 정책을 설정합니다</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* 에러/성공 메시지 */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {success && (
-            <Alert className="border-green-500 bg-green-50">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* 자동 승인 설정 */}
           <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
             <div className="space-y-1">
-              <Label htmlFor="auto-approve" className="text-base font-semibold cursor-pointer">
-                출퇴근 수정 즉시 반영
-              </Label>
-              <p className="text-sm text-gray-500">
-                {autoApproveEdit 
-                  ? '✅ 직원이 출퇴근 시간을 수정하면 즉시 반영됩니다. (관리자에게 알림만 전송)'
-                  : '⏳ 직원이 출퇴근 시간을 수정하면 관리자 승인 후 반영됩니다.'
-                }
-              </p>
+              <Label htmlFor="auto-approve" className="text-base font-semibold cursor-pointer">출퇴근 수정 즉시 반영</Label>
+              <p className="text-sm text-gray-500">{autoApproveEdit ? '✅ 즉시 반영 (관리자 알림 전송)' : '⏳ 관리자 승인 후 반영'}</p>
             </div>
-            <Switch
-              id="auto-approve"
-              checked={autoApproveEdit}
-              onCheckedChange={saveAttendanceSettings}
-              disabled={loading}
-            />
-          </div>
-
-          {/* 안내 메시지 */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
-            <p className="text-sm font-semibold text-blue-900">
-              💡 수정 정책 설명
-            </p>
-            <div className="space-y-1 text-xs text-blue-800">
-              <p>
-                <strong>• 즉시 반영 (ON):</strong> 직원이 수정하면 바로 출퇴근 기록에 반영되며, 관리자에게 알림만 전송됩니다.
-              </p>
-              <p>
-                <strong>• 승인 필요 (OFF):</strong> 직원이 수정 요청하면 관리자가 승인해야 반영됩니다. (결재 탭에서 확인)
-              </p>
-              <p className="mt-2 text-blue-700">
-                ⚠️ 두 방식 모두 직원이 수정 사유를 작성해야 하며, 관리자에게 알림이 전송됩니다.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 시스템 정보 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center gap-2">
-            <SettingsIcon className="w-5 h-5 text-slate-600" />
-            시스템 정보
-          </CardTitle>
-          <CardDescription>시스템 운영 정보</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-            <p className="text-sm text-slate-600">
-              💡 공휴일은 매년 1월 1일 00:00에 자동으로 동기화됩니다.
-            </p>
+            <Switch id="auto-approve" checked={autoApproveEdit} onCheckedChange={saveAttendanceSettings} disabled={loading} />
           </div>
         </CardContent>
       </Card>
