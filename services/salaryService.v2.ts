@@ -68,8 +68,16 @@ export async function getMonthlySalary(
   yearMonth: string
 ): Promise<MonthlySalarySummary> {
   console.log('💰 월별 급여 조회:', { userId, yearMonth });
-  
+
   try {
+    // Validate required parameters
+    if (!userId) {
+      throw new Error('userId is required');
+    }
+    if (!companyId) {
+      throw new Error('companyId is required');
+    }
+
     // 1. 해당 월의 모든 출근 기록 조회
     // Validate yearMonth format
     if (!yearMonth || !yearMonth.match(/^\d{4}-\d{2}$/)) {
@@ -81,7 +89,7 @@ export async function getMonthlySalary(
     const lastDay = new Date(year, month, 0).getDate();
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-    
+
     const attendanceQuery = query(
       collection(db, COLLECTIONS.ATTENDANCE),
       where('userId', '==', userId),
@@ -190,6 +198,14 @@ export function subscribeMonthlySalary(
 ): Unsubscribe {
   console.log('🔔 실시간 급여 구독:', { userId, yearMonth });
 
+  // Validate required parameters
+  if (!userId) {
+    throw new Error('userId is required');
+  }
+  if (!companyId) {
+    throw new Error('companyId is required');
+  }
+
   // Validate yearMonth format
   if (!yearMonth || !yearMonth.match(/^\d{4}-\d{2}$/)) {
     throw new Error('Invalid yearMonth format. Expected YYYY-MM');
@@ -200,7 +216,7 @@ export function subscribeMonthlySalary(
   const lastDay = new Date(year, month, 0).getDate();
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-  
+
   const attendanceQuery = query(
     collection(db, COLLECTIONS.ATTENDANCE),
     where('userId', '==', userId),
@@ -296,7 +312,15 @@ export async function getCompanySalaries(
   }
 ): Promise<MonthlySalarySummary[]> {
   console.log('💰 회사 전체 급여 조회:', { companyId, yearMonth });
-  
+
+  // Validate required parameters
+  if (!companyId) {
+    throw new Error('companyId is required');
+  }
+  if (!yearMonth || !yearMonth.match(/^\d{4}-\d{2}$/)) {
+    throw new Error('Invalid yearMonth format. Expected YYYY-MM');
+  }
+
   try {
     // 1. 해당 회사의 모든 직원 조회
     let usersQuery = query(
@@ -355,6 +379,11 @@ export function subscribeCompanySalaries(
 ): Unsubscribe {
   console.log('🔔 실시간 회사 급여 구독:', { companyId, yearMonth });
 
+  // Validate required parameters
+  if (!companyId) {
+    throw new Error('companyId is required');
+  }
+
   // Validate yearMonth format
   if (!yearMonth || !yearMonth.match(/^\d{4}-\d{2}$/)) {
     throw new Error('Invalid yearMonth format. Expected YYYY-MM');
@@ -365,7 +394,7 @@ export function subscribeCompanySalaries(
   const lastDay = new Date(year, month, 0).getDate();
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-  
+
   // 회사 전체 출근 기록 구독
   let attendanceQuery = query(
     collection(db, COLLECTIONS.ATTENDANCE),
