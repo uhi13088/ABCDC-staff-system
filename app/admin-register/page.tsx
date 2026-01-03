@@ -154,7 +154,7 @@ export default function AdminRegisterPage() {
       
       let msg = '가입 중 오류가 발생했습니다.';
       if (err.code === 'auth/email-already-in-use') msg = '이미 사용 중인 이메일입니다.';
-      if (err.code === 'auth/weak-password') msg = '비밀번호는 6자 이상이어야 합니다.';
+      if (err.code === 'auth/weak-password') msg = '비밀번호는 8자 이상이며, 대문자, 소문자, 숫자, 특수문자(@$!%*?&)를 포함해야 합니다.';
       setError(msg);
     } finally {
       setLoading(false);

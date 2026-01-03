@@ -258,7 +258,7 @@ function EmployeeRegisterForm() {
       } else if (err.code === 'auth/invalid-email') {
         errorMsg = '올바른 이메일 주소를 입력하세요.';
       } else if (err.code === 'auth/weak-password') {
-        errorMsg = '비밀번호가 너무 약합니다. 6자 이상 입력하세요.';
+        errorMsg = '비밀번호는 8자 이상이며, 대문자, 소문자, 숫자, 특수문자(@$!%*?&)를 포함해야 합니다.';
       } else if (err.message) {
         errorMsg = err.message;
       }
