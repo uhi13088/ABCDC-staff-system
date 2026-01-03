@@ -1,13 +1,12 @@
 /**
- * 초대 코드 검증 API Route (Priority 1-B: Admin SDK 전환)
- * 
+ * 초대 코드 검증 API Route
+ *
  * 목적: 클라이언트 SDK → Firebase Admin SDK 전환
- * 보안: 
+ * 보안:
  *   1. Firestore Rules 우회 (완전한 서버 권한)
  *   2. invitation_codes 컬렉션 열거 공격(Enumeration Attack) 차단
- *   3. Rate Limiting: 서버리스 환경에서 Map 객체는 작동하지 않음 (무한 요청 가능)
- *      → 프로덕션에서는 Cloudflare KV, Upstash Redis 등 외부 저장소 필요
- * 
+ *   3. Rate Limiting 적용 (5분에 5회)
+ *
  * POST /api/verify-invite-code
  * Request Body: { code: string }
  * Response: { success: boolean, planId?: string, planName?: string, error?: string }
@@ -16,29 +15,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { COLLECTIONS } from '@/lib/constants';
-
-/**
- * IP 주소 추출
- */
-function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
-  
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  
-  if (realIP) {
-    return realIP;
-  }
-  
-  return 'unknown';
-}
+import { authRateLimit } from '@/lib/api-middleware';
 
 /**
  * POST /api/verify-invite-code
  */
 export async function POST(request: NextRequest) {
+  // Rate Limiting 체크 (Brute Force 방지)
+  const rateLimitResponse = authRateLimit(request);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     // Request Body 파싱
     const body = await request.json();

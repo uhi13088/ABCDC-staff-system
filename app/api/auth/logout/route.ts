@@ -6,13 +6,21 @@
  * 보안:
  * - Session Cookie 삭제
  * - Firebase에서 Refresh Token 무효화 (옵션)
+ * - Rate Limiting (5분에 5회)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { cookies } from 'next/headers';
+import { authRateLimit } from '@/lib/api-middleware';
 
 export async function POST(request: NextRequest) {
+  // Rate Limiting 체크
+  const rateLimitResponse = authRateLimit(request);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('session')?.value;

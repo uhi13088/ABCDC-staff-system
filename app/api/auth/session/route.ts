@@ -7,14 +7,22 @@
  * - HTTP-only 쿠키로 XSS 공격 방지
  * - Secure 플래그로 HTTPS만 허용
  * - SameSite=Strict로 CSRF 공격 방지
+ * - Rate Limiting으로 Brute Force 방지 (5분에 5회)
  * - 5일 만료 시간
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { cookies } from 'next/headers';
+import { authRateLimit } from '@/lib/api-middleware';
 
 export async function POST(request: NextRequest) {
+  // Rate Limiting 체크
+  const rateLimitResponse = authRateLimit(request);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const { idToken } = await request.json();
 
