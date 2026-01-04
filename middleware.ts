@@ -1,5 +1,5 @@
 /**
- * Next.js Middleware - 서버 단 인증 보호
+ * Next.js Middleware - 서버 단 인증 보호 (Edge Runtime)
  *
  * 목적: 로그인하지 않은 사용자가 보호된 페이지에 접근하는 것을 서버 측에서 차단
  * 보안: 클라이언트 측 protected-route.tsx만으로는 HTML 껍데기가 노출될 수 있음
@@ -9,17 +9,21 @@
  * - /employee-dashboard (직원 페이지)
  *
  * 인증 방식:
- * - Firebase Session Cookie를 검증
- * - 쿠키 없음/유효하지 않음 → 로그인 페이지로 리다이렉트
+ * - Session Cookie 존재 여부 확인
+ * - 쿠키 없음 → 로그인 페이지로 리다이렉트
+ * - 실제 검증은 API Route 및 서버 컴포넌트에서 수행
+ *
+ * 제약사항:
+ * - Edge Runtime에서 실행되므로 firebase-admin 사용 불가
+ * - Session Cookie 존재만 확인 (검증은 서버 사이드에서)
  *
  * 보안 강화:
  * - HTTP-only 쿠키로 XSS 방지
- * - 서버 사이드 검증으로 HTML 노출 차단
+ * - 빠른 리다이렉트로 UX 개선
  */
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { adminAuth } from '@/lib/firebase-admin';
 
 // 보호할 경로 패턴
 const PROTECTED_ROUTES = [
@@ -35,7 +39,7 @@ const PUBLIC_ROUTES = [
   '/employee-login',
 ];
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // API 라우트는 미들웨어 적용 제외
@@ -50,7 +54,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Session Cookie 확인
+  // Session Cookie 존재 확인
   const sessionCookie = request.cookies.get('session')?.value;
 
   if (!sessionCookie) {
@@ -62,26 +66,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(loginUrl, request.url));
   }
 
-  // Session Cookie 검증
-  try {
-    await adminAuth.verifySessionCookie(sessionCookie, true);
-
-    // 검증 성공 → 통과
-    return NextResponse.next();
-  } catch (error) {
-    // 검증 실패 (만료/유효하지 않음) → 로그인 페이지로 리다이렉트
-    console.error('Session verification failed:', error);
-
-    const loginUrl = pathname.startsWith('/employee-dashboard')
-      ? '/employee-login'
-      : '/admin-login';
-
-    // 쿠키 삭제 후 리다이렉트
-    const response = NextResponse.redirect(new URL(loginUrl, request.url));
-    response.cookies.delete('session');
-
-    return response;
-  }
+  // Session Cookie 존재 → 통과
+  // 실제 검증은 각 페이지의 서버 컴포넌트에서 수행
+  return NextResponse.next();
 }
 
 // Middleware 적용 경로 설정
