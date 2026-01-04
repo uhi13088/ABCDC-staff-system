@@ -16,8 +16,12 @@
 
 import * as admin from 'firebase-admin';
 
-// Admin SDK 초기화 (싱글톤 패턴)
-if (!admin.apps.length) {
+// Admin SDK 초기화 함수 (Lazy Initialization)
+function initializeAdminSDK() {
+  if (admin.apps.length > 0) {
+    return; // 이미 초기화됨
+  }
+
   try {
     // 환경변수에서 Service Account 정보 읽기
     // Note: FIREBASE_ prefix는 Firebase 예약어이므로 SERVER_ 사용
@@ -45,9 +49,43 @@ if (!admin.apps.length) {
   }
 }
 
-// Firestore Admin 인스턴스 export
-export const adminDb = admin.firestore();
-export const adminAuth = admin.auth();
+// Getter 함수로 lazy initialization
+export function getAdminDb() {
+  initializeAdminSDK();
+  return admin.firestore();
+}
+
+export function getAdminAuth() {
+  initializeAdminSDK();
+  return admin.auth();
+}
+
+// 하위 호환성을 위한 deprecated exports (Proxy with proper this binding)
+export const adminDb = new Proxy({} as admin.firestore.Firestore, {
+  get(target, prop) {
+    const db = getAdminDb();
+    const value = db[prop as keyof admin.firestore.Firestore];
+
+    // 함수인 경우 this 바인딩 (메서드 체이닝 및 컨텍스트 유지)
+    if (typeof value === 'function') {
+      return value.bind(db);
+    }
+    return value;
+  }
+});
+
+export const adminAuth = new Proxy({} as admin.auth.Auth, {
+  get(target, prop) {
+    const auth = getAdminAuth();
+    const value = auth[prop as keyof admin.auth.Auth];
+
+    // 함수인 경우 this 바인딩
+    if (typeof value === 'function') {
+      return value.bind(auth);
+    }
+    return value;
+  }
+});
 
 // Timestamp 헬퍼
 export const adminTimestamp = admin.firestore.Timestamp;
