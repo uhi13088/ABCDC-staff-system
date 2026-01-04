@@ -42,9 +42,10 @@ jobs:
           # .env 생성 (Firebase 배포용 - 런타임 환경변수)
           cat > .env << EOF
           # Firebase Admin SDK (Server-side)
-          FIREBASE_ADMIN_PROJECT_ID=${PROJECT_ID}
-          FIREBASE_ADMIN_CLIENT_EMAIL=${CLIENT_EMAIL}
-          FIREBASE_ADMIN_PRIVATE_KEY="${PRIVATE_KEY}"
+          # Note: FIREBASE_ prefix는 Firebase 예약어이므로 사용 불가
+          SERVER_PROJECT_ID=${PROJECT_ID}
+          SERVER_CLIENT_EMAIL=${CLIENT_EMAIL}
+          SERVER_PRIVATE_KEY="${PRIVATE_KEY}"
 
           # Firebase Client SDK
           NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCr3Tq2T7oy5rVlK1c33m_G0TlUWv0-g3k

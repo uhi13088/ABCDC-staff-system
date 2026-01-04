@@ -20,9 +20,10 @@ import * as admin from 'firebase-admin';
 if (!admin.apps.length) {
   try {
     // 환경변수에서 Service Account 정보 읽기
-    const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+    // Note: FIREBASE_ prefix는 Firebase 예약어이므로 SERVER_ 사용
+    const projectId = process.env.SERVER_PROJECT_ID;
+    const clientEmail = process.env.SERVER_CLIENT_EMAIL;
+    const privateKey = process.env.SERVER_PRIVATE_KEY;
 
     if (!projectId || !clientEmail || !privateKey) {
       throw new Error('Missing Firebase Admin SDK environment variables');
