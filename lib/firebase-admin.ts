@@ -60,16 +60,30 @@ export function getAdminAuth() {
   return admin.auth();
 }
 
-// 하위 호환성을 위한 deprecated exports
+// 하위 호환성을 위한 deprecated exports (Proxy with proper this binding)
 export const adminDb = new Proxy({} as admin.firestore.Firestore, {
   get(target, prop) {
-    return getAdminDb()[prop as keyof admin.firestore.Firestore];
+    const db = getAdminDb();
+    const value = db[prop as keyof admin.firestore.Firestore];
+
+    // 함수인 경우 this 바인딩 (메서드 체이닝 및 컨텍스트 유지)
+    if (typeof value === 'function') {
+      return value.bind(db);
+    }
+    return value;
   }
 });
 
 export const adminAuth = new Proxy({} as admin.auth.Auth, {
   get(target, prop) {
-    return getAdminAuth()[prop as keyof admin.auth.Auth];
+    const auth = getAdminAuth();
+    const value = auth[prop as keyof admin.auth.Auth];
+
+    // 함수인 경우 this 바인딩
+    if (typeof value === 'function') {
+      return value.bind(auth);
+    }
+    return value;
   }
 });
 
