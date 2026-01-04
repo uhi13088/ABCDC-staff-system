@@ -1,10 +1,8 @@
 name: Deploy to Firebase Hosting
 
+# main 브랜치에 머지될 때만 실행 (PR에서는 실행 안 함)
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -14,8 +12,6 @@ jobs:
 
     permissions:
       contents: read
-      checks: write
-      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -63,22 +59,11 @@ jobs:
         run: npm run build
 
       - name: Deploy to Firebase Hosting
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: abcdc-staff-system
           channelId: live
-        env:
-          FIREBASE_CLI_EXPERIMENTS: webframeworks
-
-      - name: Deploy Preview (PR only)
-        if: github.event_name == 'pull_request'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
-          projectId: abcdc-staff-system
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
