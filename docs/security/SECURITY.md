@@ -56,9 +56,9 @@ import * as admin from 'firebase-admin';
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      projectId: process.env.SERVER_PROJECT_ID,
+      clientEmail: process.env.SERVER_CLIENT_EMAIL,
+      privateKey: process.env.SERVER_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     }),
   });
 }
@@ -392,22 +392,22 @@ NEXT_PUBLIC_HOLIDAY_API_KEY=your_holiday_api_key
 
 ```env
 # Firebase Admin SDK (서버에서만 접근 가능)
-FIREBASE_ADMIN_PROJECT_ID=your_project_id
-FIREBASE_ADMIN_CLIENT_EMAIL=your_client_email
-FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+SERVER_PROJECT_ID=your_project_id
+SERVER_CLIENT_EMAIL=your_client_email
+SERVER_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 ### **환경 변수 사용**
 
 ```typescript
 // ✅ 서버 사이드 (API Route, Server Component)
-const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+const adminProjectId = process.env.SERVER_PROJECT_ID;
 
 // ✅ 클라이언트 사이드 (Browser)
 const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 // ❌ 절대 금지: 서버 전용 변수를 클라이언트에서 사용
-const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY; // ❌
+const privateKey = process.env.SERVER_PRIVATE_KEY; // ❌
 ```
 
 ### **.gitignore 설정**

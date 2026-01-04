@@ -585,9 +585,9 @@ if (loading) {
 // .env.local
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=abcdc-staff-system.firebaseapp.com
-FIREBASE_ADMIN_PROJECT_ID=abcdc-staff-system
-FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk@abcdc-staff-system.iam.gserviceaccount.com
-FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+SERVER_PROJECT_ID=abcdc-staff-system
+SERVER_CLIENT_EMAIL=firebase-adminsdk@abcdc-staff-system.iam.gserviceaccount.com
+SERVER_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 
 // ❌ BAD: 하드코딩
 const apiKey = 'AIzaSy...';  // 절대 금지!

@@ -82,13 +82,13 @@ Value: 893a0ba24b1ee451911011b27725db1faca861e1780369475bd16e2799a56293
 
 #### 🔑 Secret 9-11: Firebase Admin SDK
 ```
-Name: FIREBASE_ADMIN_PROJECT_ID
+Name: SERVER_PROJECT_ID
 Value: abcdc-staff-system
 
-Name: FIREBASE_ADMIN_CLIENT_EMAIL
+Name: SERVER_CLIENT_EMAIL
 Value: firebase-adminsdk-fbsvc@abcdc-staff-system.iam.gserviceaccount.com
 
-Name: FIREBASE_ADMIN_PRIVATE_KEY
+Name: SERVER_PRIVATE_KEY
 Value: (아래 전체 내용 복사)
 -----BEGIN PRIVATE KEY-----
 MIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQDiBITGNxNTqEXi
@@ -120,7 +120,7 @@ LWnmuDA8qTVM3oid7xdY
 -----END PRIVATE KEY-----
 ```
 
-**⚠️ 중요: FIREBASE_ADMIN_PRIVATE_KEY는 따옴표 없이 그대로 붙여넣으세요!**
+**⚠️ 중요: SERVER_PRIVATE_KEY는 따옴표 없이 그대로 붙여넣으세요!**
 
 ---
 

@@ -33,15 +33,98 @@
 
 모든 작업을 시작하기 전에 **반드시 아래 순서대로** 문서를 읽으세요:
 
+#### **1단계: 프로젝트 개요 파악 (10분)**
 ```
-1. README.md (이 파일)          - 프로젝트 개요 및 작업 프로세스
-2. SYSTEM_PROMPT.md             - 기술 스택, 코딩 컨벤션, 제약사항 (🔥 AI 필수)
-3. STRUCTURE.md                 - 사용자 계층 구조 및 대시보드 구조
-4. FIRESTORE_COLLECTIONS.md     - Firestore 컬렉션 명세
-5. FIELD_NAMING_STANDARD.md     - 필드명 규칙
-6. BUSINESS_LOGIC.md            - 비즈니스 로직 알고리즘 명세서 (🔥 필수)
-7. SECURITY.md                  - 보안 가이드 및 Rules
+1. README.md (이 파일)           - 프로젝트 개요, 버전 정보, 작업 프로세스
+2. docs/CHANGELOG.md             - 변경 이력 및 버전별 주요 변경사항
 ```
+
+#### **2단계: 아키텍처 이해 (30분)** 🔥 **필수**
+```
+3. docs/architecture/SYSTEM_PROMPT.md      - 기술 스택, 코딩 컨벤션, 제약사항 (AI 필수)
+4. docs/architecture/STRUCTURE.md          - 사용자 계층 구조, 대시보드 구조
+5. docs/architecture/SSOT_ARCHITECTURE.md  - Single Source of Truth 아키텍처
+6. docs/architecture/ORGANIC_SYSTEM.md     - 유기적 시스템 설계 철학
+```
+
+#### **3단계: 데이터 구조 파악 (20분)** 🔥 **필수**
+```
+7. docs/guides/FIRESTORE_COLLECTIONS.md    - Firestore 컬렉션 명세 (필수!)
+8. docs/guides/FIELD_NAMING_STANDARD.md    - 필드명 규칙 (필수!)
+9. docs/guides/FIREBASE_SETUP_GUIDE.md     - Firebase 설정 가이드
+```
+
+#### **4단계: 비즈니스 로직 이해 (30분)** 🔥 **필수**
+```
+10. docs/development/BUSINESS_LOGIC.md      - 비즈니스 로직 알고리즘 명세서
+11. docs/development/SSOT_TESTING_GUIDE.md  - 테스트 가이드
+12. docs/development/DEVELOPMENT.md         - 개발 가이드
+```
+
+#### **5단계: 보안 및 마이그레이션 (15분)**
+```
+13. docs/security/SECURITY.md               - 보안 가이드 및 Firestore Rules
+14. docs/development/MIGRATION_STATUS.md    - 대수술 완료 상태
+15. docs/LEGACY_MIGRATION.md                - Legacy 이식 체크리스트
+```
+
+#### **6단계: 실전 작업 준비 (5분)**
+```
+16. scripts/README.md                       - 유틸리티 스크립트 사용법
+17. .github/SETUP_GITHUB_SECRETS.md         - GitHub Secrets 설정
+```
+
+---
+
+### **📁 문서 구조 (Directory Structure)**
+
+```
+📁 ABCDC-staff-system/
+├── 📄 README.md                     ← 👈 시작점 (프로젝트 개요)
+│
+├── 📁 docs/                         ← 모든 문서 통합 위치
+│   │
+│   ├── 📁 architecture/             ← 시스템 아키텍처
+│   │   ├── SYSTEM_PROMPT.md         (기술 스택, 컨벤션)
+│   │   ├── STRUCTURE.md             (사용자 계층, 대시보드)
+│   │   ├── SSOT_ARCHITECTURE.md     (Single Source of Truth)
+│   │   └── ORGANIC_SYSTEM.md        (유기적 설계 철학)
+│   │
+│   ├── 📁 guides/                   ← 설정 및 사용 가이드
+│   │   ├── FIRESTORE_COLLECTIONS.md (컬렉션 명세)
+│   │   ├── FIELD_NAMING_STANDARD.md (필드명 규칙)
+│   │   └── FIREBASE_SETUP_GUIDE.md  (Firebase 설정)
+│   │
+│   ├── 📁 development/              ← 개발 관련 문서
+│   │   ├── BUSINESS_LOGIC.md        (비즈니스 로직 명세)
+│   │   ├── SSOT_TESTING_GUIDE.md    (테스트 가이드)
+│   │   ├── DEVELOPMENT.md           (개발 가이드)
+│   │   └── MIGRATION_STATUS.md      (대수술 완료 상태)
+│   │
+│   ├── 📁 security/                 ← 보안 문서
+│   │   └── SECURITY.md              (보안 가이드, Rules)
+│   │
+│   ├── LEGACY_MIGRATION.md          (Legacy 이식 체크리스트)
+│   └── CHANGELOG.md                 (변경 이력)
+│
+├── 📁 scripts/
+│   └── README.md                    (스크립트 사용법)
+│
+└── 📁 .github/
+    └── SETUP_GITHUB_SECRETS.md      (GitHub Secrets 설정)
+```
+
+---
+
+### **🎯 문서 읽기 팁**
+
+| 역할 | 필수 문서 | 선택 문서 |
+|------|----------|----------|
+| **신규 개발자** | 1~13번 모두 | 14~17번 |
+| **AI Assistant** | 3, 7, 8, 10번 🔥 | 나머지 참고 |
+| **프론트엔드만** | 3, 4, 7, 8번 | 10번 (API 사용 시) |
+| **백엔드만** | 3, 7, 8, 10번 🔥 | 13번 (보안) |
+| **배포 담당자** | 9, 13, 17번 | 3, 10번 |
 
 ### **⚠️ 작업 프로세스 (필수 준수)**
 
@@ -51,9 +134,9 @@
 # ============================================
 
 # 1. 관련 문서 읽기
-cat STRUCTURE.md                # 사용자 계층 확인
-cat FIRESTORE_COLLECTIONS.md    # 컬렉션 구조 확인
-cat FIELD_NAMING_STANDARD.md    # 필드명 규칙 확인
+cat docs/architecture/STRUCTURE.md     # 사용자 계층 확인
+cat docs/guides/FIRESTORE_COLLECTIONS.md    # 컬렉션 구조 확인
+cat docs/guides/FIELD_NAMING_STANDARD.md    # 필드명 규칙 확인
 
 # 2. 기존 코드 확인
 ls services/                    # Service 레이어 확인
@@ -76,11 +159,11 @@ git commit -m "feat: [작업 내용]"
 git push origin main
 
 # 6. 문서 업데이트 (필수!)
-# - 새 컬렉션 추가 시 → FIRESTORE_COLLECTIONS.md 업데이트
-# - 새 필드 추가 시 → FIELD_NAMING_STANDARD.md 업데이트
-# - 보안 규칙 변경 시 → SECURITY.md 업데이트
-# - 🔥 로직 수정/추가 시 → BUSINESS_LOGIC.md 업데이트 (필수!)
-# - 🔥 기술 스택/컨벤션 변경 시 → SYSTEM_PROMPT.md 업데이트 (필수!)
+# - 새 컬렉션 추가 시 → docs/guides/FIRESTORE_COLLECTIONS.md 업데이트
+# - 새 필드 추가 시 → docs/guides/FIELD_NAMING_STANDARD.md 업데이트
+# - 보안 규칙 변경 시 → docs/security/SECURITY.md 업데이트
+# - 🔥 로직 수정/추가 시 → docs/development/BUSINESS_LOGIC.md 업데이트 (필수!)
+# - 🔥 기술 스택/컨벤션 변경 시 → docs/architecture/SYSTEM_PROMPT.md 업데이트 (필수!)
 #   예: 새 라이브러리 추가, 파일 구조 변경, 네이밍 규칙 변경 등
 # - 주요 변경사항 → docs/CHANGELOG.md 업데이트
 
@@ -96,11 +179,12 @@ git push origin main
 
 | 변경 유형 | 업데이트할 문서 | 예시 |
 |----------|----------------|------|
-| **새 컬렉션 추가** | `FIRESTORE_COLLECTIONS.md` | `notifications` 컬렉션 추가 시 |
-| **새 필드 추가** | `FIELD_NAMING_STANDARD.md` | `employeeBirth` 필드 추가 시 |
-| **보안 규칙 변경** | `SECURITY.md` | Firestore Rules 수정 시 |
-| **🔥 로직 수정/추가** | `BUSINESS_LOGIC.md` | 급여 계산 로직 변경 시 (필수!) |
-| **🔥 기술 스택 변경** | `SYSTEM_PROMPT.md` | 새 라이브러리 추가, 프로젝트 구조 변경 등 (필수!) |
+| **새 컬렉션 추가** | `docs/guides/FIRESTORE_COLLECTIONS.md` | `notifications` 컬렉션 추가 시 |
+| **새 필드 추가** | `docs/guides/FIELD_NAMING_STANDARD.md` | `employeeBirth` 필드 추가 시 |
+| **보안 규칙 변경** | `docs/security/SECURITY.md` | Firestore Rules 수정 시 |
+| **🔥 로직 수정/추가** | `docs/development/BUSINESS_LOGIC.md` | 급여 계산 로직 변경 시 (필수!) |
+| **🔥 기술 스택 변경** | `docs/architecture/SYSTEM_PROMPT.md` | 새 라이브러리 추가, 프로젝트 구조 변경 등 (필수!) |
+| **아키텍처 변경** | `docs/architecture/STRUCTURE.md` | 사용자 계층 구조 변경 시 |
 | **주요 기능 추가** | `docs/CHANGELOG.md` | 버전 이력 기록 |
 | **배포/URL 변경** | `README.md` | 프로덕션 URL 업데이트 |
 
@@ -109,27 +193,27 @@ git push origin main
 ```bash
 # 1. 새 라이브러리 추가 시
 npm install react-pdf
-→ SYSTEM_PROMPT.md > 1. 기술 스택 > Frontend 표 업데이트
+→ docs/architecture/SYSTEM_PROMPT.md > 1. 기술 스택 > Frontend 표 업데이트
 
 # 2. 새 디렉토리 추가 시
 mkdir lib/pdf
-→ SYSTEM_PROMPT.md > 2. 프로젝트 구조 > 디렉토리 구조 업데이트
+→ docs/architecture/SYSTEM_PROMPT.md > 2. 프로젝트 구조 > 디렉토리 구조 업데이트
 
 # 3. 네이밍 규칙 변경 시
 # 예: 파일명을 camelCase로 변경하기로 결정
-→ SYSTEM_PROMPT.md > 3. 코딩 컨벤션 > 파일명 규칙 업데이트
+→ docs/architecture/SYSTEM_PROMPT.md > 3. 코딩 컨벤션 > 파일명 규칙 업데이트
 
 # 4. 새 UI 컴포넌트 라이브러리 사용 시
 # 예: Material-UI 추가 (비권장이지만 필요한 경우)
-→ SYSTEM_PROMPT.md > 5. UI/UX 규칙 업데이트
+→ docs/architecture/SYSTEM_PROMPT.md > 5. UI/UX 규칙 업데이트
 
 # 5. 금지 사항 해제 시
 # 예: 특정 이유로 Redux 사용 결정
-→ SYSTEM_PROMPT.md > 7. 금지 사항 업데이트
+→ docs/architecture/SYSTEM_PROMPT.md > 7. 금지 사항 업데이트
 
 # 6. 새 패턴 추가 시
 # 예: WebSocket 통신 패턴 추가
-→ SYSTEM_PROMPT.md > 8. 필수 패턴 섹션에 추가
+→ docs/architecture/SYSTEM_PROMPT.md > 8. 필수 패턴 섹션에 추가
 ```
 
 #### **업데이트 예시:**
@@ -138,14 +222,14 @@ mkdir lib/pdf
 # ❌ 잘못된 예: 문서 업데이트 없이 코드만 변경
 git add components/pdf/pdf-viewer.tsx
 git commit -m "feat: PDF 뷰어 추가"
-# → SYSTEM_PROMPT.md 업데이트 누락!
+# → docs/architecture/SYSTEM_PROMPT.md 업데이트 누락!
 
 # ✅ 올바른 예: 문서와 코드 함께 커밋
-git add components/pdf/pdf-viewer.tsx SYSTEM_PROMPT.md
+git add components/pdf/pdf-viewer.tsx docs/architecture/SYSTEM_PROMPT.md
 git commit -m "feat: PDF 뷰어 추가
 
 - react-pdf 라이브러리 추가
-- SYSTEM_PROMPT.md 기술 스택 업데이트"
+- docs/architecture/SYSTEM_PROMPT.md 기술 스택 업데이트"
 
 ---
 
