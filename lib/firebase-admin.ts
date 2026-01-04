@@ -29,8 +29,21 @@ function initializeAdminSDK() {
     const clientEmail = process.env.SERVER_CLIENT_EMAIL;
     const privateKey = process.env.SERVER_PRIVATE_KEY;
 
-    if (!projectId || !clientEmail || !privateKey) {
-      throw new Error('Missing Firebase Admin SDK environment variables');
+    // 누락된 환경변수 체크
+    const missingVars: string[] = [];
+    if (!projectId) missingVars.push('SERVER_PROJECT_ID');
+    if (!clientEmail) missingVars.push('SERVER_CLIENT_EMAIL');
+    if (!privateKey) missingVars.push('SERVER_PRIVATE_KEY');
+
+    if (missingVars.length > 0) {
+      const errorMessage =
+        `❌ Missing Firebase Admin SDK environment variables:\n` +
+        `   ${missingVars.join('\n   ')}\n\n` +
+        `Please check your .env file and ensure all required variables are set.\n` +
+        `See .env.example for reference.`;
+
+      console.error(errorMessage);
+      throw new Error(`Missing Firebase Admin SDK environment variables: ${missingVars.join(', ')}`);
     }
 
     admin.initializeApp({
