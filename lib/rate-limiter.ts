@@ -115,8 +115,24 @@ class RateLimiter {
   }
 }
 
-// 싱글톤 인스턴스
-const rateLimiter = new RateLimiter();
+// 싱글톤 인스턴스 (HMR 안전)
+// 개발 환경에서 HMR로 인한 메모리 누수 방지
+declare global {
+  var rateLimiterInstance: RateLimiter | undefined;
+}
+
+if (process.env.NODE_ENV === 'development') {
+  // 개발 환경: HMR 시 이전 인스턴스 정리
+  if (global.rateLimiterInstance) {
+    global.rateLimiterInstance.destroy();
+  }
+  global.rateLimiterInstance = new RateLimiter();
+} else if (!global.rateLimiterInstance) {
+  // 프로덕션: 한 번만 생성
+  global.rateLimiterInstance = new RateLimiter();
+}
+
+const rateLimiter = global.rateLimiterInstance;
 
 export default rateLimiter;
 

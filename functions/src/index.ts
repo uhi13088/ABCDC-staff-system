@@ -867,43 +867,46 @@ export const calculateMonthlySalary = functions
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }));
       
-      // 🔒 2단계: NaN/Infinity 최종 검증 (로그 출력)
-      const invalidFields: string[] = [];
-      
-      // 중첩 객체 포함 전체 필드 검증
-      const validateObject = (obj: any, path: string = '') => {
-        Object.entries(obj).forEach(([key, value]) => {
-          const fullPath = path ? `${path}.${key}` : key;
-          
-          if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
-            invalidFields.push(`${fullPath}=${value}`);
-            functions.logger.error(`❌ [NaN 감지] ${fullPath}=${value}`);
-          } else if (value === undefined) {
-            invalidFields.push(`${fullPath}=undefined`);
-            functions.logger.error(`❌ [undefined 감지] ${fullPath}=undefined`);
-          } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-            // 중첩 객체 재귀 검증 (attendanceDetails, contractInfo 등)
-            validateObject(value, fullPath);
-          } else if (Array.isArray(value)) {
-            // 배열 내부 객체 검증
-            value.forEach((item, index) => {
-              if (item && typeof item === 'object') {
-                validateObject(item, `${fullPath}[${index}]`);
-              }
-            });
-          }
-        });
-      };
-      
-      validateObject(sanitizedSalaryResult);
-      
-      // 🔒 3단계: 유효하지 않은 값 발견 시 차단
-      if (invalidFields.length > 0) {
-        functions.logger.error(`❌ [저장 차단] 유효하지 않은 필드 ${invalidFields.length}개 발견:`, invalidFields);
-        throw new functions.https.HttpsError(
-          'internal',
-          `급여 계산 결과에 유효하지 않은 값이 포함되어 있습니다. 필드: ${invalidFields.join(', ')}`
-        );
+      // 🔒 2단계: NaN/Infinity 최종 검증 (개발 환경에서만 실행)
+      // 프로덕션에서는 성능 최적화를 위해 스킵 (safeNumber()로 이미 보호됨)
+      if (process.env.FUNCTIONS_EMULATOR === 'true' || process.env.NODE_ENV === 'development') {
+        const invalidFields: string[] = [];
+
+        // 중첩 객체 포함 전체 필드 검증
+        const validateObject = (obj: any, path: string = '') => {
+          Object.entries(obj).forEach(([key, value]) => {
+            const fullPath = path ? `${path}.${key}` : key;
+
+            if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+              invalidFields.push(`${fullPath}=${value}`);
+              functions.logger.error(`❌ [NaN 감지] ${fullPath}=${value}`);
+            } else if (value === undefined) {
+              invalidFields.push(`${fullPath}=undefined`);
+              functions.logger.error(`❌ [undefined 감지] ${fullPath}=undefined`);
+            } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+              // 중첩 객체 재귀 검증 (attendanceDetails, contractInfo 등)
+              validateObject(value, fullPath);
+            } else if (Array.isArray(value)) {
+              // 배열 내부 객체 검증
+              value.forEach((item, index) => {
+                if (item && typeof item === 'object') {
+                  validateObject(item, `${fullPath}[${index}]`);
+                }
+              });
+            }
+          });
+        };
+
+        validateObject(sanitizedSalaryResult);
+
+        // 🔒 3단계: 유효하지 않은 값 발견 시 차단
+        if (invalidFields.length > 0) {
+          functions.logger.error(`❌ [저장 차단] 유효하지 않은 필드 ${invalidFields.length}개 발견:`, invalidFields);
+          throw new functions.https.HttpsError(
+            'internal',
+            `급여 계산 결과에 유효하지 않은 값이 포함되어 있습니다. 필드: ${invalidFields.join(', ')}`
+          );
+        }
       }
       
       // 🔒 4단계: 저장 전 최종 로그
@@ -1145,7 +1148,20 @@ export const syncHolidaysScheduled = functions
       const apiKey = process.env.HOLIDAY_API_KEY;
       if (!apiKey) {
         functions.logger.error('❌ HOLIDAY_API_KEY 환경변수가 설정되지 않았습니다.');
-        return;
+
+        // 관리자에게 시스템 에러 알림 생성
+        await db.collection('notifications').add({
+          type: 'system_error',
+          title: '⚠️ 공휴일 동기화 실패',
+          message: 'HOLIDAY_API_KEY 환경변수가 설정되지 않았습니다. Firebase Functions 환경변수를 확인해주세요.',
+          priority: 'high',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Missing HOLIDAY_API_KEY environment variable'
+        );
       }
 
       const currentYear = new Date().getFullYear();

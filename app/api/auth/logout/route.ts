@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         await adminAuth.revokeRefreshTokens(decodedClaims.uid);
       } catch (error) {
         // Session Cookie가 이미 만료되었거나 유효하지 않은 경우 무시
-        console.log('Session cookie invalid or expired:', error);
+        console.error('Session cookie invalid or expired:', error);
       }
     }
 

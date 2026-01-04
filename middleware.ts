@@ -66,8 +66,41 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(loginUrl, request.url));
   }
 
-  // Session Cookie 존재 → 통과
-  // 실제 검증은 각 페이지의 서버 컴포넌트에서 수행
+  // JWT 만료 시간 확인 (Edge Runtime에서 가능한 기본 검증)
+  try {
+    // JWT 파싱 (헤더.페이로드.서명)
+    const parts = sessionCookie.split('.');
+    if (parts.length === 3) {
+      // Base64 디코딩 (패딩 추가)
+      const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
+      const decodedPayload = JSON.parse(atob(paddedPayload));
+
+      // exp (만료 시간) 확인
+      if (decodedPayload.exp) {
+        const now = Math.floor(Date.now() / 1000);
+        if (decodedPayload.exp < now) {
+          // 토큰 만료됨 → 로그인 페이지로 리다이렉트
+          const loginUrl = pathname.startsWith('/employee-dashboard')
+            ? '/employee-login'
+            : '/admin-login';
+
+          return NextResponse.redirect(new URL(loginUrl, request.url));
+        }
+      }
+    }
+  } catch (error) {
+    // JWT 파싱 실패 → 로그인 페이지로 리다이렉트
+    console.error('Invalid JWT format:', error);
+    const loginUrl = pathname.startsWith('/employee-dashboard')
+      ? '/employee-login'
+      : '/admin-login';
+
+    return NextResponse.redirect(new URL(loginUrl, request.url));
+  }
+
+  // Session Cookie 존재하고 유효 → 통과
+  // 실제 서명 검증은 각 페이지의 서버 컴포넌트에서 수행
   return NextResponse.next();
 }
 

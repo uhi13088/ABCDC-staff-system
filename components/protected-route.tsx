@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { User } from '@/lib/types';
 
@@ -11,29 +11,36 @@ interface ProtectedRouteProps {
   redirectTo?: string;
 }
 
-export function ProtectedRoute({ 
-  children, 
+export function ProtectedRoute({
+  children,
   allowedRoles,
-  redirectTo = '/login' 
+  redirectTo = '/login'
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading) {
       // 로그인하지 않은 경우
       if (!user) {
-        router.push(redirectTo);
+        // 무한 리다이렉트 방지: 이미 리다이렉트 대상 페이지에 있는 경우 리다이렉트하지 않음
+        if (pathname !== redirectTo) {
+          router.push(redirectTo);
+        }
         return;
       }
 
       // 역할 기반 접근 제어
       if (allowedRoles && !allowedRoles.includes(user.role)) {
-        router.push('/unauthorized');
+        // 무한 리다이렉트 방지: 이미 unauthorized 페이지에 있는 경우 리다이렉트하지 않음
+        if (pathname !== '/unauthorized') {
+          router.push('/unauthorized');
+        }
         return;
       }
     }
-  }, [user, loading, allowedRoles, redirectTo, router]);
+  }, [user, loading, allowedRoles, redirectTo, router, pathname]);
 
   // 로딩 중
   if (loading) {

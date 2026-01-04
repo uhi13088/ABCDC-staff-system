@@ -99,3 +99,24 @@ export function apiRateLimit(request: NextRequest): NextResponse | null {
 export function sensitiveRateLimit(request: NextRequest): NextResponse | null {
   return checkRateLimit(request, RATE_LIMITS.SENSITIVE);
 }
+
+/**
+ * CORS 헤더 추가 (개발 환경용)
+ */
+export function addCorsHeaders(response: NextResponse): NextResponse {
+  if (process.env.NODE_ENV === 'development') {
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Max-Age', '86400');
+  }
+  return response;
+}
+
+/**
+ * OPTIONS 요청 처리 (CORS preflight)
+ */
+export function handleOptions(): NextResponse {
+  const response = new NextResponse(null, { status: 204 });
+  return addCorsHeaders(response);
+}

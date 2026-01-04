@@ -110,6 +110,32 @@ async function seedInitialData() {
 
   try {
     // ============================================================
+    // 중복 실행 방지 체크
+    // ============================================================
+    console.log('🔍 기존 데이터 확인 중...\n');
+
+    // 이미 시드 데이터가 있는지 확인
+    const companiesSnapshot = await db.collection('companies').limit(1).get();
+    const brandsSnapshot = await db.collection('brands').limit(1).get();
+    const storesSnapshot = await db.collection('stores').limit(1).get();
+
+    if (!companiesSnapshot.empty || !brandsSnapshot.empty || !storesSnapshot.empty) {
+      console.log('⚠️  경고: 이미 데이터가 존재합니다!\n');
+      console.log('이 스크립트를 실행하면 다음 데이터가 추가로 생성됩니다:');
+      console.log('- Company 1개');
+      console.log('- Brand 1개');
+      console.log('- Store 1개');
+      console.log('- Employee 1개');
+      console.log('- Contract 1개');
+      console.log('- Attendance 3개\n');
+      console.log('⚠️  중복 데이터 생성을 방지하려면 스크립트를 중단하세요 (Ctrl+C)\n');
+      console.log('5초 후 계속 진행됩니다...\n');
+
+      // 5초 대기
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+
+    // ============================================================
     // 1️⃣ Super Admin 계정 생성
     // ============================================================
     console.log('============================================================');
